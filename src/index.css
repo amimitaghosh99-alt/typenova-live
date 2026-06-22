@@ -1,0 +1,23 @@
+*{
+box-sizing: border-box;
+}
+
+body {
+margin: 0;
+background-color: #000000;
+color: #cbd5e1;
+font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+#root {
+width: 100%;
+min-height: 100vh;
+margin: 0;
+padding: 0;
+}
+
+@keyframes shake {
+0%, 100% { transform: translateX(0); }
+25% { transform: translateX(-4px); }
+75% { transform: translateX(4px); }
+}

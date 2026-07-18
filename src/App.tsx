@@ -1,0 +1,975 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import {
+  Keyboard, Activity, Target, RotateCcw, Skull, Ghost,
+  Focus, Brain, Volume2, VolumeX, Palette,
+  Award, FlipHorizontal, CloudFog, Magnet, Timer,
+  X, Code, Star, Trophy, Terminal, Zap, Lock, ChevronDown, Check
+} from 'lucide-react';
+
+import {
+  THEMES, THEME_KEYS, PRESET_KEYS, SOUND_KEYS, ACHIEVEMENTS,
+  SUPABASE_URL, SUPABASE_ANON_KEY, generateText
+} from '@/data/constants';
+import type { Level, Theme } from '@/data/constants';
+import { useAudioEngine } from '@/hooks/useAudioEngine';
+import { useTypingEngine } from '@/hooks/useTypingEngine';
+import { useRPGSystem } from '@/hooks/useRPGSystem';
+import { useParticles } from '@/hooks/useParticles';
+import { TypingArea } from '@/components/TypingArea';
+import { StatsPanel } from '@/components/StatsPanel';
+import { ResultsScreen } from '@/components/ResultsScreen';
+
+// ─── SUPABASE ─────────────────────────────────────────────────────────
+let supabase: ReturnType<typeof createClient> | null = null;
+try { supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch (e) { console.error(e); }
+
+export default function App() {
+  // ─── Mode State ──────────────────────────────────────────────────
+  const [zenMode, setZenMode] = useState(false);
+  const [suddenDeath, setSuddenDeath] = useState(false);
+  const [ghostPacer, setGhostPacer] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [blindMode, setBlindMode] = useState(false);
+  const [mirroredMode, setMirroredMode] = useState(false);
+  const [fogMode, setFogMode] = useState(false);
+  const [stickyKeysMode, setStickyKeysMode] = useState(false);
+  const [overclockedMode, setOverclockedMode] = useState(false);
+  const [stickyPenalty, setStickyPenalty] = useState(0);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+
+  const [level, setLevel] = useState<Level>('NOVICE');
+  const [wordCount, setWordCount] = useState(25);
+  const [customText, setCustomText] = useState('');
+  const [microDrillActive, setMicroDrillActive] = useState(false);
+
+  const [themeIndex, setThemeIndex] = useState(0);
+  const [_themePresetIndex, setThemePresetIndex] = useState(0);
+  const [soundProfile, setSoundProfileState] = useState('thocky');
+  const [muted, setMutedState] = useState(false);
+  const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
+
+  const [showTrophyRoom, setShowTrophyRoom] = useState(false);
+  const [showGodMode, setShowGodMode] = useState(false);
+  const [tetrisEffect, setTetrisEffect] = useState(false);
+  const [showExpandedGraph, setShowExpandedGraph] = useState(false);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [username, setUsername] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
+
+  // ─── Hooks ───────────────────────────────────────────────────────
+  const audio = useAudioEngine();
+  const typing = useTypingEngine();
+  const rpg = useRPGSystem();
+  const particles = useParticles();
+
+  const theme: Theme = THEMES[THEME_KEYS[themeIndex]];
+  const themeMenuRef = useRef<HTMLDivElement>(null);
+
+  // ─── Refs for Keydown Handler ────────────────────────────────────
+  // We use a single ref object to avoid stale closures in the keydown listener
+  const stateRef = useRef({
+    phase: typing.phase,
+    input: typing.input,
+    targetText: typing.targetText,
+    combo: typing.combo,
+    maxCombo: typing.maxCombo,
+    suddenDeath,
+    stickyKeysMode,
+    stickyPenalty,
+    timePenalty: typing.timePenalty,
+    showTrophyRoom,
+    showGodMode,
+    showExpandedGraph,
+    showThemeMenu,
+    theme,
+    tetrisEffect,
+    mirroredMode,
+    level,
+    wordCount,
+    customText,
+    microDrillActive,
+    startTime: typing.startTime,
+    zenMode,
+  });
+
+  // Keep stateRef in sync on every render
+  useEffect(() => {
+    stateRef.current = {
+      phase: typing.phase,
+      input: typing.input,
+      targetText: typing.targetText,
+      combo: typing.combo,
+      maxCombo: typing.maxCombo,
+      suddenDeath,
+      stickyKeysMode,
+      stickyPenalty,
+      timePenalty: typing.timePenalty,
+      showTrophyRoom,
+      showGodMode,
+      showExpandedGraph,
+      showThemeMenu,
+      theme,
+      tetrisEffect,
+      mirroredMode,
+      level,
+      wordCount,
+      customText,
+      microDrillActive,
+      startTime: typing.startTime,
+      zenMode,
+    };
+  });
+
+  // Keep audio engine in sync
+  useEffect(() => { audio.setMuted(muted); }, [muted, audio]);
+  useEffect(() => { audio.setSoundProfile(soundProfile); }, [soundProfile, audio]);
+  useEffect(() => {
+    audio.setComboRef(typing.combo);
+    typing.syncComboRef(typing.combo);
+  }, [typing.combo, audio, typing]);
+
+  // Click outside listener for Theme Dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target as Node)) {
+        setShowThemeMenu(false);
+      }
+    };
+    if (showThemeMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showThemeMenu]);
+
+  // ─── Initialization ──────────────────────────────────────────────
+  useEffect(() => {
+    typing.setTargetText(generateText('NOVICE', 25, '', false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Leaderboard ─────────────────────────────────────────────────
+  const fetchLeaderboard = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.from('leaderboard').select('username, wpm, accuracy').order('wpm', { ascending: false }).limit(5);
+    if (!error && data) setLeaderboard(data);
+  }, []);
+
+  useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
+
+  // ─── Helpers ─────────────────────────────────────────────────────
+  const handleReset = useCallback((overrides: { level?: Level; wordCount?: number; mirrored?: boolean } = {}) => {
+    const nextLevel = overrides.level ?? stateRef.current.level;
+    const nextCount = overrides.wordCount ?? stateRef.current.wordCount;
+    const nextMirror = overrides.mirrored ?? stateRef.current.mirroredMode;
+    const nextCustom = stateRef.current.customText;
+
+    typing.resetEngine();
+    typing.setTargetText(generateText(nextLevel, nextCount, nextCustom, nextMirror));
+    setZenMode(false);
+    setSaveStatus('');
+    setUsername('');
+    rpg.resetRPGFlags();
+    particles.clearAll();
+  }, [typing, rpg, particles]);
+
+  const changeLevel = (newLevel: Level) => {
+    setLevel(newLevel);
+    handleReset({ level: newLevel });
+  };
+
+  const changeWordCount = (count: number) => {
+    setWordCount(count);
+    handleReset({ wordCount: count });
+  };
+
+  const toggleMirror = () => {
+    setMirroredMode(prev => {
+      const next = !prev;
+      handleReset({ mirrored: next });
+      return next;
+    });
+  };
+
+  // ─── Save Score ──────────────────────────────────────────────────
+  const saveScore = async () => {
+    if (!username.trim() || !supabase) return;
+    setSaveStatus('Saving...');
+    const { error } = await supabase.from('leaderboard').insert([{ username, wpm: typing.wpm, accuracy: typing.accuracy } as never]);
+    if (error) setSaveStatus('Error!');
+    else { setSaveStatus('SCORE SAVED!'); fetchLeaderboard(); }
+  };
+
+  // ─── Micro Drill ─────────────────────────────────────────────────
+  const startMicroDrill = (keyChar: string) => {
+    const target = (keyChar === 'SPACE') ? ' ' : (keyChar === 'ENTER' ? '\n' : keyChar.toLowerCase());
+    const words: string[] = [];
+    const allSentences = 'The quick brown fox jumps over the lazy dog.A gentle breeze rustled the leaves in the quiet forest.She opened the door and stepped out into the warm sunlight.I like to drink coffee in the morning while reading the news.They walked along the beach as the sun began to set.He smiled and waved at his friends across the busy street.The cat slept peacefully on the soft cushion by the window.We are planning a trip to the mountains next weekend.Music has a way of bringing people together in harmony.It was a beautiful day for a picnic in the local park.The smell of fresh bread filled the small bakery.She watched the rain fall softly against the window glass.A good book can transport you to another world entirely.He learned to play the guitar when he was just a kid.The stars shone brightly in the clear night sky.Building a scalable application requires a solid understanding of distributed systems.The compiler optimized the recursive function significantly reducing execution time.Object-oriented programming encapsulates data and behavior into reusable structures.Asynchronous operations prevent the main thread from blocking during network requests.Responsive web design ensures that interfaces adapt gracefully to any screen size.The database schema was normalized to eliminate redundant data anomalies.Cryptographic algorithms rely on complex mathematical problems to secure information.Virtual memory allows an operating system to compensate for physical RAM shortages.Machine learning models improve their accuracy by analyzing massive datasets over time.A continuous integration pipeline automates the testing and deployment of modern software.The server crashed due to a sudden spike in concurrent user connections.State management is the beating heart of any complex reactive application.Version control systems track changes and allow developers to collaborate efficiently.Type safety prevents many common runtime errors by checking variables during compilation.Clean code is not just about logic it is about creating readable architecture.';
+    const pool = allSentences.split('.').flatMap((s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
+
+    while (words.length < 10) {
+      const base = pool[Math.floor(Math.random() * pool.length)];
+      if (base.includes(target) && target !== ' ' && target !== '\n') words.push(base);
+      else if (target === ' ' || target === '\n') words.push(base);
+      else {
+        const insertAt = Math.floor(base.length / 2);
+        words.push(base.slice(0, insertAt) + target + base.slice(insertAt));
+      }
+    }
+
+    setMicroDrillActive(true);
+    typing.setTargetText(target === '\n' ? words.join('\n') : words.join(' '));
+    typing.setInput('');
+    typing.setStartTime(null);
+    typing.setEndTime(null);
+    typing.setPhase('READY');
+    typing.keystrokeLog.current = [];
+  };
+
+  const exitMicroDrill = () => {
+    setMicroDrillActive(false);
+    typing.setTargetText(generateText(stateRef.current.level, stateRef.current.wordCount, stateRef.current.customText, stateRef.current.mirroredMode));
+    typing.setPhase('FINISHED');
+    typing.keystrokeLog.current = [];
+  };
+
+  // ─── Theme / Sound Cycles ────────────────────────────────────────
+  const selectTheme = (index: number) => {
+    setThemeIndex(index);
+    setSeenThemes(prev => new Set([...prev, index]));
+    const presetIdx = PRESET_KEYS.indexOf(THEME_KEYS[index]);
+    if (presetIdx !== -1) setThemePresetIndex(presetIdx);
+    setShowThemeMenu(false);
+  };
+
+  const cycleSoundProfile = () => {
+    const currentIdx = (SOUND_KEYS.indexOf(soundProfile) + 1) % SOUND_KEYS.length;
+    setSoundProfileState(SOUND_KEYS[currentIdx]);
+  };
+
+  // ─── Weak Keys ───────────────────────────────────────────────────
+  const getWeakKeys = useMemo(() => {
+    const errors = typing.keystrokeLog.current.filter(k => k.isError);
+    if (errors.length === 0) return null;
+    const count = errors.reduce((acc: Record<string, number>, curr) => {
+      const char = curr.expected === ' ' ? 'SPACE' : curr.expected.toUpperCase();
+      if (char === '\n') return acc;
+      acc[char] = (acc[char] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(count).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 3) as [string, number][];
+  }, [typing.phase, typing.input]);
+
+  // ─── Finish Test Wrapper ─────────────────────────────────────────
+  // ─── KEYBOARD HANDLER (THE CORE) ─────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const s = stateRef.current;
+
+      // Modal escape handling
+      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu) {
+        if (e.key === 'Escape') {
+          setShowTrophyRoom(false);
+          setShowGodMode(false);
+          setShowExpandedGraph(false);
+          setShowThemeMenu(false);
+        }
+        return;
+      }
+
+      // Caps lock detection
+      if (e.getModifierState && e.getModifierState('CapsLock')) typing.setCapsLock(true);
+      else typing.setCapsLock(false);
+
+      // ─── CONFIGURING ───
+      if (s.phase === 'CONFIGURING') {
+        if (!e.ctrlKey && !e.metaKey && e.key.length === 1 && e.key !== ' ') {
+          const nextInput = (s.input + e.key).toLowerCase();
+
+          if ('iamnova'.startsWith(nextInput)) {
+            typing.setInput(nextInput);
+            if (nextInput === 'iamnova') {
+              rpg.unlockAllAchievements();
+              typing.setInput('');
+            }
+            return;
+          } else if ('godmode'.startsWith(nextInput)) {
+            typing.setInput(nextInput);
+            if (nextInput === 'godmode') {
+              setShowGodMode(true);
+              typing.setInput('');
+            }
+            return;
+          } else {
+            typing.setInput('');
+          }
+        }
+
+        if (e.key === ' ') {
+          e.preventDefault();
+          typing.setPhase('READY');
+          typing.setInput('');
+          return;
+        }
+        return;
+      }
+
+      // ─── READY ───
+      if (s.phase === 'READY') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          setZenMode(e.shiftKey);
+          typing.setPhase('COUNTDOWN');
+          typing.setCountdownTimer(5);
+        } else if (e.key === 'Escape') {
+          typing.setPhase('CONFIGURING');
+        }
+        return;
+      }
+
+      // ─── COUNTDOWN / TYPING / FINISHED ───
+      if (s.phase === 'COUNTDOWN' || s.phase === 'TYPING' || s.phase === 'FINISHED') {
+        if (e.key === 'Escape') {
+          if (microDrillActive) { exitMicroDrill(); }
+          else { handleReset(); }
+          return;
+        }
+      }
+
+      // ─── TYPING ONLY ───
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || s.phase !== 'TYPING') return;
+      if (e.ctrlKey || e.metaKey || e.altKey || (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace')) return;
+      if (e.key === 'Shift') return;
+
+      // Backspace
+      if (e.key === 'Backspace' && s.input.length > 0) {
+        if (s.stickyKeysMode && s.stickyPenalty > 0) {
+          setStickyPenalty(p => Math.max(0, p - 1));
+          audio.playSound('error');
+          return;
+        }
+        typing.setInput(prev => prev.slice(0, -1));
+        audio.playSound('click');
+        typing.setCombo(0);
+        typing.comboRef.current = 0;
+        return;
+      }
+
+      if (e.key === ' ' || e.key === 'Enter') e.preventDefault();
+
+      if (s.input.length < s.targetText.length) {
+        const now = Date.now();
+        let typedChar = e.key;
+        if (typedChar === 'Enter') typedChar = '\n';
+
+        const expectedChar = s.targetText[s.input.length];
+        const isError = typedChar !== expectedChar;
+        const nextInput = s.input + typedChar;
+
+        typing.setInput(nextInput);
+        typing.keystrokeLog.current.push({ key: typedChar, expected: expectedChar, time: now, isError });
+
+        if (isError) {
+          audio.playSound('error');
+          typing.setCombo(0);
+          typing.comboRef.current = 0;
+          typing.setShake(true);
+          setTimeout(() => typing.setShake(false), 200);
+          if (s.stickyKeysMode) setStickyPenalty(3);
+          if (s.suddenDeath) {
+            typing.finishTest(now, nextInput);
+            return;
+          }
+        } else {
+          const nextCombo = s.combo + 1;
+          typing.comboRef.current = nextCombo;
+          typing.setCombo(nextCombo);
+          if (nextCombo > s.maxCombo) typing.setMaxCombo(nextCombo);
+          audio.playSound('key');
+
+          // Tetris particles at 50+ combo or when tetrisEffect is forced on
+          if (s.tetrisEffect || nextCombo >= 50) {
+            particles.spawnParticles(
+              s.input.length,
+              expectedChar,
+              s.theme.text,
+              Math.floor(Math.random() * 3) + 2
+            );
+          }
+        }
+
+        // Completion check
+        if (nextInput.length === s.targetText.length) {
+          typing.finishTest(now, nextInput);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []); // ← Empty deps: everything accessed via stateRef
+
+  // ─── RPG Processing on Test Finish ───────────────────────────────
+  useEffect(() => {
+    if (typing.phase !== 'FINISHED' || !typing.endTime || !typing.startTime) return;
+    const statsInput = typing.input;
+    const timeMs = typing.endTime - typing.startTime;
+    const stats = typing.calculateStats(statsInput, timeMs, typing.timePenalty);
+
+    const result = rpg.processRPG(
+      stats.currentWpm, stats.currentAcc, typing.maxCombo,
+      wordCount, typing.targetText.length,
+      microDrillActive, typing.keystrokeLog.current,
+      () => audio.playSound('levelup')
+    );
+
+    rpg.checkAchievements(
+      stats.currentWpm, stats.currentAcc, typing.maxCombo,
+      result.newXp, wordCount,
+      suddenDeath, blindMode, fogMode, overclockedMode,
+      result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typing.phase, typing.endTime]);
+
+  // ─── Overclocked Penalty ─────────────────────────────────────────
+  useEffect(() => {
+    if (overclockedMode && typing.accuracy < 95 && typing.input.length > 5 && typing.phase === 'TYPING') {
+      const interval = setInterval(() => {
+        typing.setTimePenalty(p => p + 1000);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [overclockedMode, typing.accuracy, typing.input.length, typing.phase, typing]);
+
+  // ─── UI Derived State ────────────────────────────────────────────
+  const isTypingOrCountdown = typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN';
+  const shouldHideClutter = zenMode || isTypingOrCountdown;
+  const progressPercent = typing.targetText.length > 0 ? (typing.input.length / typing.targetText.length) * 100 : 0;
+
+  // IMPORTANT FIX: Removed hardcoded overflow-hidden and added it conditionally, and added z-[200]
+  const topHudClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] origin-top flex flex-col md:flex-row justify-between items-center gap-6 relative z-[200] ${
+    shouldHideClutter ? 'opacity-0 blur-2xl -translate-y-12 max-h-0 pointer-events-none !mb-0 overflow-hidden' : 'opacity-100 blur-none translate-y-0 max-h-[200px] mb-8 overflow-visible'
+  }`;
+
+  const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${
+    shouldHideClutter ? 'w-0 opacity-0 blur-2xl translate-x-32 pointer-events-none p-0 border-transparent m-0' : 'w-full xl:w-[400px] p-8 opacity-100 blur-none translate-x-0'
+  }`;
+
+  // ─── Render ──────────────────────────────────────────────────────
+  return (
+    <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
+
+      {/* CSS Styles */}
+      <style>{`
+        :root { --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1); --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes tetris-spark { 0% { transform: translate(0, 0) scale(1.5) rotate(0deg); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(var(--rot)); opacity: 0; } }
+        @keyframes lucid-fade-up { 0% { opacity: 0; transform: translateY(24px) scale(0.96); filter: blur(8px); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); } }
+        @keyframes lucid-scale-in { 0% { opacity: 0; transform: scale(0.92) translateY(10px); filter: blur(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); } }
+        @keyframes lucid-slide-right { 0% { opacity: 0; transform: translateX(-30px); filter: blur(4px); } 100% { opacity: 1; transform: translateX(0); filter: blur(0px); } }
+        @keyframes caret-blink { 0%, 100% { opacity: 1; transform: scaleY(1); } 50% { opacity: 0.4; transform: scaleY(0.7); } }
+        @keyframes stat-stagger { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        .lucid-enter { animation: lucid-fade-up 0.6s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
+        .lucid-scale { animation: lucid-scale-in 0.5s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
+        .lucid-slide { animation: lucid-slide-right 0.5s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
+        .stat-card { animation: stat-stagger 0.5s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
+        .caret-lucid { animation: caret-blink 1.2s ease-in-out infinite; transform-origin: center bottom; }
+        .theme-transition { transition: background-color 0.7s var(--ease-smooth), color 0.5s var(--ease-smooth), border-color 0.5s var(--ease-smooth), box-shadow 0.7s var(--ease-smooth); }
+        
+        /* Premium Glassmorphism Upgrades */
+        .glass-panel { background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%); backdrop-filter: blur(40px) saturate(1.5); -webkit-backdrop-filter: blur(40px) saturate(1.5); border: 1px solid rgba(255, 255, 255, 0.05); border-top: 1px solid rgba(255, 255, 255, 0.15); border-left: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0,0,0,0.2); }
+        .glass-panel:hover { background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%); border-top: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0,0,0,0.3); }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+      `}</style>
+
+      {/* Subtle Noise Texture Overlay for realism */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.15] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+
+      {/* ═══ ANIMATED DUAL-COLOR CONTRAST ORBS ═══ */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 mix-blend-screen opacity-80">
+        {/* PRIMARY vivid orb — top-left, large */}
+        <div
+          className="absolute rounded-full blur-[100px] orb-drift-1"
+          style={{
+            width: '50vw', height: '50vw', top: '-20%', left: '-15%',
+            background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.55) 0%, rgba(${theme.glowPrimary},0.15) 50%, transparent 70%)`,
+          }}
+        />
+        {/* SECONDARY contrast orb — right side, large */}
+        <div
+          className="absolute rounded-full blur-[120px] orb-drift-2"
+          style={{
+            width: '55vw', height: '55vw', top: '20%', right: '-20%',
+            background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.50) 0%, rgba(${theme.glowSecondary},0.12) 50%, transparent 70%)`,
+          }}
+        />
+        {/* PRIMARY accent — bottom, medium */}
+        <div
+          className="absolute rounded-full blur-[90px] orb-drift-3"
+          style={{
+            width: '40vw', height: '40vw', bottom: '-15%', left: '25%',
+            background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.40) 0%, rgba(${theme.glowPrimary},0.08) 50%, transparent 70%)`,
+          }}
+        />
+        {/* SECONDARY small vivid — center area */}
+        <div
+          className="absolute rounded-full blur-[70px] orb-drift-4"
+          style={{
+            width: '30vw', height: '30vw', top: '45%', left: '35%',
+            background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.45) 0%, rgba(${theme.glowSecondary},0.10) 50%, transparent 70%)`,
+          }}
+        />
+        {/* Mixed glow — top-right sweep */}
+        <div
+          className="absolute rounded-full blur-[140px] orb-drift-5"
+          style={{
+            width: '50vw', height: '50vw', top: '-25%', right: '5%',
+            background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.35) 0%, rgba(${theme.glowSecondary},0.20) 40%, transparent 65%)`,
+          }}
+        />
+      </div>
+      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+
+      {/* Progress Bar */}
+      <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
+        <div className={`h-full ${theme.solid} transition-all duration-200 ease-out ${theme.glow}`} style={{ width: `${progressPercent}%` }} />
+      </div>
+
+      {/* Zen Mode Ambient */}
+      {zenMode && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none opacity-20 z-0 animate-in fade-in zoom-in duration-1000 ease-out">
+          <div className={`w-[80vw] h-[80vw] ${theme.solid} rounded-full blur-[250px] animate-pulse`} style={{ animationDuration: '6s' }} />
+        </div>
+      )}
+
+      {/* ═══ OVERLAY MODALS ═══ */}
+
+      {/* Spacebar Prompt */}
+      {typing.phase === 'CONFIGURING' && (
+        <div className="fixed bottom-12 left-0 right-0 z-[100] flex justify-center animate-bounce pointer-events-none">
+          <button
+            onClick={() => { typing.setPhase('READY'); typing.setInput(''); }}
+            className={`px-8 py-4 bg-zinc-950/90 backdrop-blur-xl border ${theme.border} rounded-full shadow-2xl flex items-center gap-4 text-white cursor-pointer hover:bg-zinc-900/90 transition-all duration-300 hover:scale-105 active:scale-95 group pointer-events-auto`}
+          >
+            <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">PRESS</span>
+            <div className={`px-4 py-1 rounded bg-zinc-800 font-black ${theme.text} ${theme.glow} group-hover:scale-110 transition-transform`}>SPACE</div>
+            <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">TO READY UP</span>
+          </button>
+        </div>
+      )}
+
+      {/* Ready Modal */}
+      {typing.phase === 'READY' && (
+        <div key={`ready-${Date.now()}`} className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl flex flex-col gap-6 w-full max-w-md lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
+            <div className="flex justify-center mb-2"><Keyboard className={theme.text} size={48} /></div>
+            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
+              <span className="text-white font-black tracking-widest text-sm">NORMAL MODE</span>
+              <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
+            </div>
+            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { setZenMode(true); typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
+              <span className="text-white font-black tracking-widest text-sm">ZEN MODE</span>
+              <div className="flex gap-2">
+                <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">SHIFT</span>
+                <span className="text-zinc-600 font-black text-xs self-center">+</span>
+                <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
+              </div>
+            </div>
+            <p className="text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Press ESC to configure</p>
+          </div>
+        </div>
+      )}
+
+      {/* Countdown */}
+      {typing.phase === 'COUNTDOWN' && (
+        <div key={`countdown-${Date.now()}`} className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
+          <span className={`text-[12rem] font-black ${theme.text} caret-lucid drop-shadow-2xl`}>{typing.countdownTimer}</span>
+        </div>
+      )}
+
+      {/* Achievement Toast */}
+      {rpg.achievementQueue.length > 0 && (
+        <div className="fixed top-6 right-6 z-[600] animate-in slide-in-from-top fade-in duration-300">
+          <div className={`bg-zinc-950/90 backdrop-blur-md border ${theme.borderHalf} rounded-2xl p-4 ${theme.toastGlow} flex items-center gap-4 min-w-[300px] lucid-slide`} style={{ '--delay': '0ms' } as React.CSSProperties}>
+            <div className="text-3xl">{rpg.achievementQueue[0].icon}</div>
+            <div>
+              <div className={`text-[10px] font-black uppercase tracking-widest ${theme.text}`}>Achievement Unlocked</div>
+              <div className="text-white font-bold text-lg">{rpg.achievementQueue[0].title}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* God Mode Modal */}
+      {showGodMode && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={() => setShowGodMode(false)}>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-6">
+              <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Terminal className="mr-4 text-emerald-400" size={32} /> God Mode</h2>
+              <button onClick={() => setShowGodMode(false)} className="p-3 bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-zinc-400 transition-all duration-200 border border-zinc-700 hover:border-red-500/50"><X size={24} /></button>
+            </div>
+            <div className="flex flex-col gap-6">
+              <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 shadow-inner">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-2xl ${tetrisEffect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                    <Zap size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold tracking-widest uppercase mb-1">Tetris Effect Particles</h4>
+                    <p className="text-xs text-zinc-500 font-bold">Auto-unlocks at 50 combo. Toggle here to test early.</p>
+                  </div>
+                </div>
+                <button onClick={() => setTetrisEffect(!tetrisEffect)} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 ${tetrisEffect ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+                  {tetrisEffect ? 'ON ✓' : 'OFF'}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <button onClick={() => { rpg.unlockAllAchievements(); setShowGodMode(false); }} className="p-6 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all flex flex-col items-center text-center text-xs">
+                  <Trophy size={24} className="mb-2" /> Unlock All Achievements
+                </button>
+                <button onClick={() => { rpg.setXp(250000); setShowGodMode(false); }} className="p-6 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(14,165,233,0.1)] transition-all flex flex-col items-center text-center text-xs">
+                  <Star size={24} className="mb-2" /> Set Level to Max (50+)
+                </button>
+              </div>
+              <div className="mt-4 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
+                <h4 className="text-red-400 font-bold tracking-widest uppercase mb-3 text-xs flex items-center gap-2">
+                  <RotateCcw size={16} /> DANGER ZONE
+                </h4>
+                <button onClick={() => { rpg.resetAllProgress(); setShowGodMode(false); }} className="w-full p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 text-xs hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                  <RotateCcw size={18} /> Reset All Progress (Level, XP, Achievements, Themes)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trophy Room Modal */}
+      {showTrophyRoom && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setShowTrophyRoom(false)}>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10">
+              <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Trophy className="mr-4 text-amber-400" size={32} /> Hall of Legends</h2>
+              <button onClick={() => setShowTrophyRoom(false)} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
+            </div>
+            <div className="flex flex-col gap-12">
+              {(['SKILL', 'HARDCORE', 'GRIND', 'SUPER'] as const).map(category => {
+                const categoryAchievements = ACHIEVEMENTS.filter(a => a.category === category);
+                return (
+                  <div key={category}>
+                    <h3 className={`text-sm font-black uppercase tracking-widest mb-6 ${category === 'SUPER' ? theme.text : 'text-zinc-500'}`}>{category} BADGES</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {categoryAchievements.map(ach => {
+                        const isUnlocked = rpg.unlockedAchievements.includes(ach.id);
+                        return (
+                          <div key={ach.id} className={`p-5 rounded-3xl border transition-all flex flex-col items-center text-center ${isUnlocked ? `bg-zinc-900 ${theme.borderHalf} ${theme.auraLow} hover:-translate-y-1` : 'bg-zinc-950 border-zinc-800/50 opacity-60 grayscale'}`}>
+                            <div className="text-4xl mb-4 relative">
+                              {ach.icon}
+                              {!isUnlocked && <div className="absolute -bottom-2 -right-2 bg-zinc-800 rounded-full p-1"><Lock size={12} className="text-zinc-400" /></div>}
+                            </div>
+                            <h4 className={`font-bold mb-2 ${isUnlocked ? 'text-white' : 'text-zinc-500'}`}>{ach.title}</h4>
+                            <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">{ach.desc}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ MAIN CONTENT ═══ */}
+      <div className={`relative w-full px-2 md:px-4 py-4 flex flex-col z-10 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}>
+
+        {/* Header */}
+        <header className={topHudClass}>
+          <div className="flex items-center space-x-6">
+            <div className={`flex items-center space-x-3 ${theme.text}`}>
+              <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
+              <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
+            </div>
+            <div className="flex items-center glass-panel p-1.5 rounded-2xl">
+              <div className="flex items-center px-3 py-1">
+                <Star size={14} className={`${theme.text} mr-2`} />
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white">LVL {rpg.userLevel}</span>
+                  <div className="w-24 h-1.5 bg-zinc-800 rounded-full mt-1 overflow-hidden border border-zinc-800/50">
+                    <div className={`h-full ${theme.solid} transition-all duration-500`} style={{ width: `${(rpg.currentLevelProgress / rpg.xpNeeded) * 100}%` }} />
+                  </div>
+                </div>
+                <span className="text-[8px] font-mono text-zinc-500 ml-3 w-12 text-right">{rpg.xp} XP</span>
+              </div>
+              <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
+              <button onClick={() => setShowTrophyRoom(true)} className={`p-2 rounded-xl bg-black/20 border transition-all ${rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.text} ${theme.glow} ${theme.bgHover}` : 'border-white/10 text-zinc-500 hover:text-white'}`} title="View Trophies">
+                <Trophy size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 text-zinc-400 items-center">
+            {/* Mode Toggles */}
+            <div className="grid grid-cols-4 lg:grid-cols-8 gap-1 glass-panel rounded-2xl p-1">
+              <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${suddenDeath ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="1HP: One mistake ends it"><Skull size={18} /></button>
+              <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Ghost"><Ghost size={18} /></button>
+              <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Focus"><Focus size={18} /></button>
+              <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Blind"><Brain size={18} /></button>
+              <button onClick={toggleMirror} className={`p-2 rounded-xl transition-all flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Mirror"><FlipHorizontal size={18} /></button>
+              <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Fog"><CloudFog size={18} /></button>
+              <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Sticky Keys"><Magnet size={18} /></button>
+              <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${overclockedMode ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="Overclocked"><Timer size={18} /></button>
+            </div>
+
+            {/* Theme & Sound Components */}
+            <div className="flex glass-panel rounded-2xl p-1 items-center relative z-50">
+              {/* Animated Theme Dropdown */}
+              <div className="relative" ref={themeMenuRef}>
+                <button 
+                  onClick={() => setShowThemeMenu(!showThemeMenu)} 
+                  className={`p-2 px-4 rounded-xl hover:bg-white/5 ${theme.text} flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all`} 
+                  title="Select Theme"
+                >
+                  <Palette size={16} /> <span className="text-zinc-300">{theme.name.toUpperCase()}</span>
+                  <ChevronDown size={14} className={`text-zinc-500 transition-transform duration-300 ${showThemeMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {/* Dropdown Menu Overlay - FIXED to open on the right and avoid being cut off */}
+                <div 
+                  className={`absolute top-full mt-2 right-0 w-56 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+                >
+                  <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
+                    {THEME_KEYS.map((key, idx) => {
+                       const t = THEMES[key];
+                       const isActive = idx === themeIndex;
+                       return (
+                         <button
+                           key={key}
+                           onClick={() => selectTheme(idx)}
+                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${t.text}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                         >
+                           <div className="flex items-center gap-3">
+                             <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${t.solid}`} />
+                             {t.name}
+                           </div>
+                           {isActive && <Check size={14} className={t.text} />}
+                         </button>
+                       );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-px h-4 bg-white/10 mx-1"></div>
+              
+              <button onClick={cycleSoundProfile} className="p-2 px-3 rounded-xl hover:bg-white/5 text-zinc-300 text-[10px] font-black uppercase tracking-widest flex items-center">
+                <Volume2 size={12} className="mr-2" /> {soundProfile.toUpperCase()}
+              </button>
+              
+              <button onClick={() => setMutedState(!muted)} className="p-2 px-4 rounded-xl hover:bg-white/5 text-zinc-300">
+                {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className={`flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
+          <div className="flex-1 w-full flex flex-col gap-6">
+
+            {/* Difficulty & Word Count */}
+            <div className={`flex flex-col md:flex-row gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
+              <div className="flex flex-col gap-2">
+                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
+                <div className="flex glass-panel p-1.5 rounded-full">
+                  {(['NOVICE', 'ADEPT', 'MASTER', 'CODE', 'CUSTOM'] as Level[]).map(l => (
+                    <button key={l} onClick={() => changeLevel(l)} className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`flex flex-col gap-2 transition-opacity ${level === 'CODE' || level === 'CUSTOM' ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Activity size={10} className="mr-1.5" /> WORDS</span>
+                <div className="flex glass-panel p-1.5 rounded-full">
+                  {[10, 25, 50, 100].map(count => (
+                    <button
+                      key={count}
+                      onClick={() => changeWordCount(count)}
+                      disabled={level === 'CODE' || level === 'CUSTOM'}
+                      className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${wordCount === count ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} ${level === 'CODE' || level === 'CUSTOM' ? 'cursor-not-allowed' : ''}`}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {level === 'CUSTOM' && (
+                <div className="flex flex-col gap-2 flex-1 max-w-xl animate-in fade-in slide-in-from-left-4 duration-300">
+                  <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                    <Code size={10} className="mr-1.5" /> YOUR TEXT
+                  </span>
+                  <textarea
+                    value={customText}
+                    onChange={(e) => {
+                      const newText = e.target.value;
+                      setCustomText(newText);
+                      if (level === 'CUSTOM') {
+                        const final = mirroredMode
+                          ? newText.trim().split(' ').reverse().join(' ')
+                          : newText.trim();
+                        typing.setTargetText(final || 'Type your custom text above...');
+                      }
+                    }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    placeholder="Paste your custom text here to practice..."
+                    className="w-full h-24 bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-zinc-300 text-sm font-mono focus:outline-none focus:border-white/30 focus:bg-white/[0.06] resize-none transition-all"
+                    spellCheck={false}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Stats HUD — hidden in zen mode */}
+            {typing.phase !== 'FINISHED' && !zenMode && (
+              <StatsPanel
+                wpm={typing.wpm}
+                accuracy={typing.accuracy}
+                consistency={typing.consistency}
+                combo={typing.combo}
+                themeText={theme.text}
+                
+                timelinePoints={typing.timelinePoints}
+                keystrokeLogLength={typing.keystrokeLog.current.length}
+              />
+            )}
+
+            {/* Typing Area or Results */}
+            {typing.phase !== 'FINISHED' ? (
+              <TypingArea
+                targetText={typing.targetText}
+                input={typing.input}
+                phase={typing.phase}
+                theme={theme}
+                blindMode={blindMode}
+                focusMode={focusMode}
+                fogMode={fogMode}
+                startTime={typing.startTime}
+                shake={typing.shake}
+                capsLock={typing.capsLock}
+                stickyPenalty={stickyPenalty}
+                particles={particles.particles}
+                ghostPacer={ghostPacer}
+                combo={typing.combo}
+                zenMode={zenMode}
+              />
+            ) : (
+              <ResultsScreen
+                wpm={typing.wpm}
+                rawWpm={typing.rawWpm}
+                accuracy={typing.accuracy}
+                consistency={typing.consistency}
+                flawlessStreak={typing.flawlessStreak}
+                leveledUp={rpg.leveledUp}
+                xpGainedLast={rpg.xpGainedLast}
+                theme={theme}
+                heatmapData={rpg.heatmapData}
+                getWeakKeys={getWeakKeys}
+                username={username}
+                setUsername={setUsername}
+                saveStatus={saveStatus}
+                onSave={saveScore}
+                onReset={() => handleReset()}
+                onStartMicroDrill={startMicroDrill}
+              />
+            )}
+
+            {/* Abort Button (only during active test, NOT on finished) */}
+            {(typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
+              <div className="mt-4 flex justify-center w-full z-10 relative">
+                <button onClick={() => handleReset()} className="flex items-center space-x-3 px-8 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md">
+                  <RotateCcw size={16} /> <span>ABORT & CONFIGURE (ESC)</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Leaderboard Sidebar */}
+          <aside className={leaderboardClass}>
+            <div className="flex items-center text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
+              <Award size={24} className={`mr-4 ${theme.text}`} />
+              <span className="whitespace-nowrap">GLOBAL TOP 5</span>
+            </div>
+            {leaderboard.length === 0 ? (
+              <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">No scores yet. Be the first!</p>
+            ) : (
+              <div className="space-y-6 w-full">
+                {leaderboard.map((entry, idx) => (
+                  <div key={idx} className="flex justify-between items-center group p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 w-full border border-transparent hover:border-white/5 hover:translate-x-1">
+                    <div className="flex items-center space-x-6">
+                      <span className={`font-black text-xl ${idx === 0 ? theme.text : 'text-zinc-500'}`}>#{idx + 1}</span>
+                      <span className="font-black text-white tracking-widest uppercase text-lg whitespace-nowrap">{entry.username}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className={`font-black text-3xl ${theme.text}`}>{entry.wpm}</span>
+                      <span className="text-[10px] text-zinc-400 font-bold tracking-widest whitespace-nowrap">{entry.accuracy}% ACC</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </aside>
+        </main>
+      </div>
+
+      {/* Expanded Graph Overlay */}
+      {showExpandedGraph && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setShowExpandedGraph(false)}>
+          <div className="bg-zinc-900/95 p-8 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={`text-2xl font-black ${theme.text}`}>PACING TIMELINE</h3>
+              <button onClick={() => setShowExpandedGraph(false)} className="text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
+            </div>
+            <svg viewBox="0 0 800 240" className="w-full h-64 bg-zinc-950/50 rounded-2xl p-4 border border-zinc-800">
+              {[0, 20, 40, 60, 80, 100].map((x) => (
+                <line key={`grid-v-${x}`} x1={x * 8} y1="0" x2={x * 8} y2="200" stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
+              ))}
+              {[0, 50, 100, 150, 200].map((y) => (
+                <line key={`grid-h-${y}`} x1="0" y1={y} x2="800" y2={y} stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
+              ))}
+              {(() => {
+                const pts = typing.timelinePoints.length ? typing.timelinePoints : [];
+                if (pts.length === 0) return null;
+                const maxW = Math.max(...pts.map(p => p.wpm).concat([typing.wpm || 1, 10]));
+                const poly = pts.map((p, i) => {
+                  const x = ((i + 1) / pts.length) * 760 + 20;
+                  const y = 200 - Math.min(200, (p.wpm / Math.max(maxW, 10)) * 160);
+                  return `${x},${y}`;
+                }).join(' ');
+                return <polyline fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />;
+              })()}
+            </svg>
+            <div className="grid grid-cols-5 gap-2 mt-6">
+              {typing.timelinePoints.map((p, i) => (
+                <div key={i} className="bg-zinc-800/50 p-3 rounded-lg text-center border border-zinc-700">
+                  <div className={`font-black text-lg ${theme.text}`}>{p.wpm} wpm</div>
+                  <div className="text-[10px] text-zinc-500 font-black">+{Math.round((p.t) / 1000)}s</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 text-center text-sm text-zinc-500 font-black">Click outside to close</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

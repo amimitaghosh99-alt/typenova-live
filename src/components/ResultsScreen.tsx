@@ -1,5 +1,7 @@
-import { Activity, TrendingUp, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import { Activity, TrendingUp, RotateCcw, Play, Brain, Share2 } from 'lucide-react';
 import type { Theme } from '@/data/constants';
+import { shareResultCard } from '@/utils/shareCard';
 
 interface ResultsScreenProps {
   wpm: number;
@@ -18,14 +20,19 @@ interface ResultsScreenProps {
   onSave: () => void;
   onReset: () => void;
   onStartMicroDrill: (key: string) => void;
+  onWatchReplay: () => void;
+  /** null when there isn't enough heatmap data for a smart drill yet */
+  onStartSmartDrill: (() => void) | null;
 }
 
 export const ResultsScreen = ({
   wpm, rawWpm, accuracy, consistency, flawlessStreak,
   leveledUp, xpGainedLast, theme,
   heatmapData, getWeakKeys, username, setUsername,
-  saveStatus, onSave, onReset, onStartMicroDrill
+  saveStatus, onSave, onReset, onStartMicroDrill,
+  onWatchReplay, onStartSmartDrill
 }: ResultsScreenProps) => {
+  const [shareStatus, setShareStatus] = useState('');
 
   const grade = (() => {
     if (wpm > 100 && accuracy > 98) return "S";
@@ -34,6 +41,22 @@ export const ResultsScreen = ({
     if (wpm > 30) return "C";
     return "D";
   })();
+
+  const handleShare = async () => {
+    setShareStatus('RENDERING...');
+    try {
+      const result = await shareResultCard({
+        wpm, rawWpm, accuracy, consistency, grade,
+        themeName: theme.name,
+        glowPrimary: theme.glowPrimary,
+        glowSecondary: theme.glowSecondary,
+      });
+      setShareStatus(result === 'copied' ? 'COPIED TO CLIPBOARD!' : 'PNG DOWNLOADED!');
+    } catch {
+      setShareStatus('SHARE FAILED');
+    }
+    setTimeout(() => setShareStatus(''), 3000);
+  };
 
   return (
     <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in duration-500 z-10">
@@ -155,11 +178,33 @@ export const ResultsScreen = ({
       </div>
       {saveStatus && <p className={`mt-4 text-sm font-black tracking-widest ${saveStatus.includes('Error') ? 'text-red-400' : theme.text}`}>{saveStatus}</p>}
 
-      {/* Play Again */}
-      <div className="mt-6 flex justify-center w-full z-10 relative">
+      {/* Actions: replay / smart drill / share / play again */}
+      <div className="mt-6 flex flex-wrap justify-center gap-3 w-full z-10 relative">
+        <button
+          onClick={onWatchReplay}
+          className="flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md"
+        >
+          <Play size={16} /> <span>WATCH REPLAY</span>
+        </button>
+        {onStartSmartDrill && (
+          <button
+            onClick={onStartSmartDrill}
+            className="flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md"
+            title="A 20-word lesson targeting your lifetime weakest keys"
+          >
+            <Brain size={16} /> <span>SMART DRILL</span>
+          </button>
+        )}
+        <button
+          onClick={handleShare}
+          disabled={!!shareStatus}
+          className={`flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md ${shareStatus ? theme.text : 'text-zinc-300 hover:text-white'}`}
+        >
+          <Share2 size={16} /> <span>{shareStatus || 'SHARE CARD'}</span>
+        </button>
         <button
           onClick={onReset}
-          className="flex items-center space-x-3 px-8 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md"
+          className="flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md"
         >
           <RotateCcw size={16} /> <span>PLAY AGAIN (ESC)</span>
         </button>

@@ -4,25 +4,139 @@ import {
   Keyboard, Activity, Target, RotateCcw, Skull, Ghost,
   Focus, Brain, Volume2, VolumeX, Palette,
   Award, FlipHorizontal, CloudFog, Magnet, Timer,
-  X, Code, Star, Trophy, Terminal, Zap, Lock, ChevronDown, Check
+  X, Code, Star, Trophy, Terminal, Zap, Lock, ChevronDown, Check,
+  Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
+  Swords, Sword, Sparkles, Orbit, Unlock,
+  Hash, Clock, BarChart2, CalendarCheck, Hourglass
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import {
   THEMES, THEME_KEYS, PRESET_KEYS, SOUND_KEYS, ACHIEVEMENTS,
+  NOVICE_SENTENCES, ADEPT_SENTENCES,
   SUPABASE_URL, SUPABASE_ANON_KEY, generateText
 } from '@/data/constants';
 import type { Level, Theme } from '@/data/constants';
 import { useAudioEngine } from '@/hooks/useAudioEngine';
 import { useTypingEngine } from '@/hooks/useTypingEngine';
+import type { Keystroke } from '@/hooks/useTypingEngine';
 import { useRPGSystem } from '@/hooks/useRPGSystem';
 import { useParticles } from '@/hooks/useParticles';
+import { useGlassPointer } from '@/hooks/useGlassPointer';
 import { TypingArea } from '@/components/TypingArea';
+import type { PaceSample } from '@/components/TypingArea';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ResultsScreen } from '@/components/ResultsScreen';
+import { StatsDashboard, appendHistory } from '@/components/StatsDashboard';
+import { ReplayModal } from '@/components/ReplayModal';
+import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────
 let supabase: ReturnType<typeof createClient> | null = null;
 try { supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch (e) { console.error(e); }
+
+// ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
+// Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
+// stay import-free — tailwind.config.js loads it via jiti) to lucide
+// components, so badges render in the app's icon language with theme
+// tint + glow instead of OS-dependent emoji.
+const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
+  'zap': Zap,
+  'rocket': Rocket,
+  'crosshair': Crosshair,
+  'shield': Shield,
+  'skull': Skull,
+  'eye-off': EyeOff,
+  'gauge': Gauge,
+  'flame': Flame,
+  'star': Star,
+  'crown': Crown,
+  'palette': Palette,
+  'swords': Swords,
+  'sword': Sword,
+  'sparkles': Sparkles,
+  'orbit': Orbit,
+  'unlock': Unlock,
+  'rotate-ccw': RotateCcw,
+  'calendar-check': CalendarCheck,
+  'hourglass': Hourglass,
+};
+
+// ─── DRILL WORD POOL ──────────────────────────────────────────────────
+// Shared by single-key micro-drills and heatmap-driven smart drills.
+const DRILL_POOL = [...NOVICE_SENTENCES, ...ADEPT_SENTENCES]
+  .join(' ').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+
+const buildDrillWords = (targets: string[], count: number): string[] => {
+  const words: string[] = [];
+  let i = 0;
+  while (words.length < count) {
+    const raw = targets[i % targets.length];
+    i++;
+    const target = raw === 'SPACE' ? ' ' : raw === 'ENTER' ? '\n' : raw.toLowerCase();
+    if (target === ' ' || target === '\n') {
+      words.push(DRILL_POOL[Math.floor(Math.random() * DRILL_POOL.length)]);
+      continue;
+    }
+    const candidates = DRILL_POOL.filter(w => w.includes(target));
+    if (candidates.length > 0 && Math.random() < 0.8) {
+      words.push(candidates[Math.floor(Math.random() * candidates.length)]);
+    } else {
+      const base = DRILL_POOL[Math.floor(Math.random() * DRILL_POOL.length)];
+      const at = Math.floor(base.length / 2);
+      words.push(base.slice(0, at) + target + base.slice(at));
+    }
+  }
+  return words;
+};
+
+// ─── PB PACE RECONSTRUCTION ───────────────────────────────────────────
+// Input-length-over-time from the keystroke log (backspaces included), so
+// the ghost pacer can replay a personal best exactly.
+const buildPaceSamples = (log: Keystroke[]): PaceSample[] => {
+  if (log.length === 0) return [];
+  const t0 = log[0].time;
+  let len = 0;
+  const samples: PaceSample[] = [{ t: 0, chars: 0 }];
+  for (const k of log) {
+    len = k.isBackspace ? Math.max(0, len - 1) : len + 1;
+    samples.push({ t: k.time - t0, chars: len });
+  }
+  return samples;
+};
+
+// ─── DAILY STREAK ─────────────────────────────────────────────────────
+const loadDailyStreak = (): number => {
+  try {
+    const d = JSON.parse(localStorage.getItem('typezen_daily') || 'null');
+    if (!d?.lastDay) return 0;
+    // streak is alive if the last completion was today or yesterday
+    return (d.lastDay === todayKey() || isYesterday(d.lastDay)) ? d.streak : 0;
+  } catch { return 0; }
+};
+
+// ─── TIMED-MODE HUD ───────────────────────────────────────────────────
+// Self-ticking so the 200ms clock doesn't re-render the whole App.
+function TimedHud({ startTime, duration, theme }: { startTime: number; duration: number; theme: Theme }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(iv);
+  }, []);
+  const elapsed = Math.max(0, now - startTime);
+  const remaining = Math.max(0, Math.ceil((duration * 1000 - elapsed) / 1000));
+  const pct = Math.min(100, (elapsed / (duration * 1000)) * 100);
+  return (
+    <>
+      <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
+        <div className={`h-full ${theme.solid} ${theme.glow}`} style={{ width: `${pct}%`, transition: 'width 200ms linear' }} />
+      </div>
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] px-5 py-1.5 rounded-full bg-zinc-950/80 backdrop-blur-md border border-white/10 pointer-events-none">
+        <span className={`font-black text-lg tabular-nums ${remaining <= 5 ? 'text-red-400' : theme.text}`}>{remaining}s</span>
+      </div>
+    </>
+  );
+}
 
 export default function App() {
   // ─── Mode State ──────────────────────────────────────────────────
@@ -40,6 +154,12 @@ export default function App() {
 
   const [level, setLevel] = useState<Level>('NOVICE');
   const [wordCount, setWordCount] = useState(25);
+  const [testMode, setTestMode] = useState<'words' | 'time'>('words');
+  const [duration, setDuration] = useState(30);
+  const [withNumbers, setWithNumbers] = useState(false);
+  const [withPunctuation, setWithPunctuation] = useState(false);
+  const [dailyActive, setDailyActive] = useState(false);
+  const [dailyStreak, setDailyStreak] = useState(loadDailyStreak);
   const [customText, setCustomText] = useState('');
   const [microDrillActive, setMicroDrillActive] = useState(false);
 
@@ -53,9 +173,14 @@ export default function App() {
   const [showGodMode, setShowGodMode] = useState(false);
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [showExpandedGraph, setShowExpandedGraph] = useState(false);
+  const [showStatsDashboard, setShowStatsDashboard] = useState(false);
+  const [showReplay, setShowReplay] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [dailyBoard, setDailyBoard] = useState<any[]>([]);
+  const [boardTab, setBoardTab] = useState<'alltime' | 'today'>('alltime');
   const [username, setUsername] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
 
@@ -64,13 +189,16 @@ export default function App() {
   const typing = useTypingEngine();
   const rpg = useRPGSystem();
   const particles = useParticles();
+  useGlassPointer();
 
   const theme: Theme = THEMES[THEME_KEYS[themeIndex]];
   const themeMenuRef = useRef<HTMLDivElement>(null);
 
   // ─── Refs for Keydown Handler ────────────────────────────────────
-  // We use a single ref object to avoid stale closures in the keydown listener
-  const stateRef = useRef({
+  // A single snapshot object avoids stale closures in the keydown listener.
+  // Built ONCE per render and shared by the ref initializer and the sync
+  // effect, so the two can never drift apart.
+  const snapshot = {
     phase: typing.phase,
     input: typing.input,
     targetText: typing.targetText,
@@ -84,43 +212,28 @@ export default function App() {
     showGodMode,
     showExpandedGraph,
     showThemeMenu,
+    showStatsDashboard,
+    showReplay,
     theme,
     tetrisEffect,
     mirroredMode,
     level,
     wordCount,
+    testMode,
+    duration,
+    withNumbers,
+    withPunctuation,
+    dailyActive,
     customText,
     microDrillActive,
     startTime: typing.startTime,
     zenMode,
-  });
+  };
+  const stateRef = useRef(snapshot);
 
   // Keep stateRef in sync on every render
   useEffect(() => {
-    stateRef.current = {
-      phase: typing.phase,
-      input: typing.input,
-      targetText: typing.targetText,
-      combo: typing.combo,
-      maxCombo: typing.maxCombo,
-      suddenDeath,
-      stickyKeysMode,
-      stickyPenalty,
-      timePenalty: typing.timePenalty,
-      showTrophyRoom,
-      showGodMode,
-      showExpandedGraph,
-      showThemeMenu,
-      theme,
-      tetrisEffect,
-      mirroredMode,
-      level,
-      wordCount,
-      customText,
-      microDrillActive,
-      startTime: typing.startTime,
-      zenMode,
-    };
+    stateRef.current = snapshot;
   });
 
   // Keep audio engine in sync
@@ -157,17 +270,42 @@ export default function App() {
     if (!error && data) setLeaderboard(data);
   }, []);
 
-  useEffect(() => { fetchLeaderboard(); }, [fetchLeaderboard]);
+  // Best-effort: the daily_scores table may not exist yet (see README/setup);
+  // errors just leave the daily board empty.
+  const fetchDailyBoard = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase.from('daily_scores').select('username, wpm, accuracy').eq('day', todayKey()).order('wpm', { ascending: false }).limit(5);
+    if (!error && data) setDailyBoard(data);
+  }, []);
+
+  useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);
 
   // ─── Helpers ─────────────────────────────────────────────────────
-  const handleReset = useCallback((overrides: { level?: Level; wordCount?: number; mirrored?: boolean } = {}) => {
-    const nextLevel = overrides.level ?? stateRef.current.level;
-    const nextCount = overrides.wordCount ?? stateRef.current.wordCount;
-    const nextMirror = overrides.mirrored ?? stateRef.current.mirroredMode;
-    const nextCustom = stateRef.current.customText;
+  const handleReset = useCallback((overrides: {
+    level?: Level; wordCount?: number; mirrored?: boolean;
+    testMode?: 'words' | 'time'; duration?: number;
+    numbers?: boolean; punctuation?: boolean; daily?: boolean;
+  } = {}) => {
+    const s = stateRef.current;
+    const nextLevel = overrides.level ?? s.level;
+    const nextCount = overrides.wordCount ?? s.wordCount;
+    const nextMirror = overrides.mirrored ?? s.mirroredMode;
+    const nextMode = overrides.testMode ?? s.testMode;
+    const nextDuration = overrides.duration ?? s.duration;
+    const nextNumbers = overrides.numbers ?? s.withNumbers;
+    const nextPunct = overrides.punctuation ?? s.withPunctuation;
+    const nextDaily = overrides.daily ?? s.dailyActive;
+    const nextCustom = s.customText;
+
+    // Timed tests need a deep word buffer (240 words for 60s ≈ 240 WPM ceiling)
+    const length = nextMode === 'time' ? nextDuration * 4 : nextCount;
 
     typing.resetEngine();
-    typing.setTargetText(generateText(nextLevel, nextCount, nextCustom, nextMirror));
+    typing.setTargetText(generateText(nextLevel, length, nextCustom, nextMirror, {
+      numbers: nextNumbers,
+      punctuation: nextPunct,
+      rng: nextDaily ? mulberry32(daySeed()) : undefined,
+    }));
     setZenMode(false);
     setSaveStatus('');
     setUsername('');
@@ -177,18 +315,71 @@ export default function App() {
 
   const changeLevel = (newLevel: Level) => {
     setLevel(newLevel);
-    handleReset({ level: newLevel });
+    setDailyActive(false);
+    // Fixed-text levels have no meaningful word/time budget
+    const locked = newLevel === 'CODE' || newLevel === 'CUSTOM' || newLevel === 'QUOTES';
+    if (locked && testMode === 'time') {
+      setTestMode('words');
+      handleReset({ level: newLevel, testMode: 'words', daily: false });
+    } else {
+      handleReset({ level: newLevel, daily: false });
+    }
   };
 
   const changeWordCount = (count: number) => {
     setWordCount(count);
-    handleReset({ wordCount: count });
+    setDailyActive(false);
+    handleReset({ wordCount: count, daily: false });
+  };
+
+  const changeTestMode = (mode: 'words' | 'time') => {
+    setTestMode(mode);
+    setDailyActive(false);
+    handleReset({ testMode: mode, daily: false });
+  };
+
+  const changeDuration = (secs: number) => {
+    setDuration(secs);
+    setDailyActive(false);
+    handleReset({ duration: secs, daily: false });
+  };
+
+  const toggleNumbers = () => {
+    const next = !withNumbers;
+    setWithNumbers(next);
+    setDailyActive(false);
+    handleReset({ numbers: next, daily: false });
+  };
+
+  const togglePunctuation = () => {
+    const next = !withPunctuation;
+    setWithPunctuation(next);
+    setDailyActive(false);
+    handleReset({ punctuation: next, daily: false });
+  };
+
+  const toggleDaily = () => {
+    const next = !dailyActive;
+    setDailyActive(next);
+    if (next) {
+      // Daily runs a fixed, comparable config with today's seeded text
+      setLevel('ADEPT');
+      setWordCount(50);
+      setTestMode('words');
+      setMirroredMode(false);
+      setWithNumbers(false);
+      setWithPunctuation(false);
+      handleReset({ daily: true, level: 'ADEPT', wordCount: 50, testMode: 'words', mirrored: false, numbers: false, punctuation: false });
+    } else {
+      handleReset({ daily: false });
+    }
   };
 
   const toggleMirror = () => {
     setMirroredMode(prev => {
       const next = !prev;
-      handleReset({ mirrored: next });
+      setDailyActive(false);
+      handleReset({ mirrored: next, daily: false });
       return next;
     });
   };
@@ -198,29 +389,19 @@ export default function App() {
     if (!username.trim() || !supabase) return;
     setSaveStatus('Saving...');
     const { error } = await supabase.from('leaderboard').insert([{ username, wpm: typing.wpm, accuracy: typing.accuracy } as never]);
+    if (dailyActive) {
+      // Best-effort daily submission — table may not exist yet
+      const { error: dailyErr } = await supabase.from('daily_scores').insert([{ day: todayKey(), username, wpm: typing.wpm, accuracy: typing.accuracy } as never]);
+      if (!dailyErr) fetchDailyBoard();
+    }
     if (error) setSaveStatus('Error!');
     else { setSaveStatus('SCORE SAVED!'); fetchLeaderboard(); }
   };
 
-  // ─── Micro Drill ─────────────────────────────────────────────────
-  const startMicroDrill = (keyChar: string) => {
-    const target = (keyChar === 'SPACE') ? ' ' : (keyChar === 'ENTER' ? '\n' : keyChar.toLowerCase());
-    const words: string[] = [];
-    const allSentences = 'The quick brown fox jumps over the lazy dog.A gentle breeze rustled the leaves in the quiet forest.She opened the door and stepped out into the warm sunlight.I like to drink coffee in the morning while reading the news.They walked along the beach as the sun began to set.He smiled and waved at his friends across the busy street.The cat slept peacefully on the soft cushion by the window.We are planning a trip to the mountains next weekend.Music has a way of bringing people together in harmony.It was a beautiful day for a picnic in the local park.The smell of fresh bread filled the small bakery.She watched the rain fall softly against the window glass.A good book can transport you to another world entirely.He learned to play the guitar when he was just a kid.The stars shone brightly in the clear night sky.Building a scalable application requires a solid understanding of distributed systems.The compiler optimized the recursive function significantly reducing execution time.Object-oriented programming encapsulates data and behavior into reusable structures.Asynchronous operations prevent the main thread from blocking during network requests.Responsive web design ensures that interfaces adapt gracefully to any screen size.The database schema was normalized to eliminate redundant data anomalies.Cryptographic algorithms rely on complex mathematical problems to secure information.Virtual memory allows an operating system to compensate for physical RAM shortages.Machine learning models improve their accuracy by analyzing massive datasets over time.A continuous integration pipeline automates the testing and deployment of modern software.The server crashed due to a sudden spike in concurrent user connections.State management is the beating heart of any complex reactive application.Version control systems track changes and allow developers to collaborate efficiently.Type safety prevents many common runtime errors by checking variables during compilation.Clean code is not just about logic it is about creating readable architecture.';
-    const pool = allSentences.split('.').flatMap((s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
-
-    while (words.length < 10) {
-      const base = pool[Math.floor(Math.random() * pool.length)];
-      if (base.includes(target) && target !== ' ' && target !== '\n') words.push(base);
-      else if (target === ' ' || target === '\n') words.push(base);
-      else {
-        const insertAt = Math.floor(base.length / 2);
-        words.push(base.slice(0, insertAt) + target + base.slice(insertAt));
-      }
-    }
-
+  // ─── Drills (single-key micro + heatmap smart) ───────────────────
+  const launchDrill = (text: string) => {
     setMicroDrillActive(true);
-    typing.setTargetText(target === '\n' ? words.join('\n') : words.join(' '));
+    typing.setTargetText(text);
     typing.setInput('');
     typing.setStartTime(null);
     typing.setEndTime(null);
@@ -228,12 +409,48 @@ export default function App() {
     typing.keystrokeLog.current = [];
   };
 
+  const startMicroDrill = (keyChar: string) => {
+    const words = buildDrillWords([keyChar], 10);
+    launchDrill(keyChar === 'ENTER' ? words.join('\n') : words.join(' '));
+  };
+
+  // Lifetime-weakest keys (min 10 hits each, letters/digits only)
+  const smartDrillKeys = useMemo(() => {
+    return Object.entries(rpg.heatmapData)
+      .filter(([k, v]) => v.total >= 10 && k !== 'SPACE' && k !== 'ENTER')
+      .map(([k, v]) => [k, v.errors / v.total] as [string, number])
+      .filter(([, rate]) => rate > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([k]) => k);
+  }, [rpg.heatmapData]);
+
+  const startSmartDrill = () => {
+    if (smartDrillKeys.length === 0) return;
+    launchDrill(buildDrillWords(smartDrillKeys, 20).join(' '));
+  };
+
   const exitMicroDrill = () => {
+    const s = stateRef.current;
     setMicroDrillActive(false);
-    typing.setTargetText(generateText(stateRef.current.level, stateRef.current.wordCount, stateRef.current.customText, stateRef.current.mirroredMode));
+    const length = s.testMode === 'time' ? s.duration * 4 : s.wordCount;
+    typing.setTargetText(generateText(s.level, length, s.customText, s.mirroredMode, {
+      numbers: s.withNumbers,
+      punctuation: s.withPunctuation,
+      rng: s.dailyActive ? mulberry32(daySeed()) : undefined,
+    }));
     typing.setPhase('FINISHED');
     typing.keystrokeLog.current = [];
   };
+
+  // ─── Personal Best (ghost pacer data) ────────────────────────────
+  const pbStorageKey = `typezen_pb:${level}:${testMode === 'time' ? 't' + duration : 'w' + wordCount}`;
+  const pbGhost = useMemo((): { wpm: number; samples: PaceSample[] } | null => {
+    if (level === 'CUSTOM' || mirroredMode || dailyActive) return null;
+    try { return JSON.parse(localStorage.getItem(pbStorageKey) || 'null'); } catch { return null; }
+    // typing.phase is a deliberate extra dep: reload the PB after each finish
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pbStorageKey, level, mirroredMode, dailyActive, typing.phase]);
 
   // ─── Theme / Sound Cycles ────────────────────────────────────────
   const selectTheme = (index: number) => {
@@ -269,12 +486,14 @@ export default function App() {
       const s = stateRef.current;
 
       // Modal escape handling
-      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu) {
+      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showStatsDashboard || s.showReplay) {
         if (e.key === 'Escape') {
           setShowTrophyRoom(false);
           setShowGodMode(false);
           setShowExpandedGraph(false);
           setShowThemeMenu(false);
+          setShowStatsDashboard(false);
+          setShowReplay(false);
         }
         return;
       }
@@ -351,6 +570,9 @@ export default function App() {
           return;
         }
         typing.setInput(prev => prev.slice(0, -1));
+        // Log the (real) backspace so replay / PB ghost can reconstruct
+        // input-over-time. Excluded from all stats via isBackspace.
+        typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
         audio.playSound('click');
         typing.setCombo(0);
         typing.comboRef.current = 0;
@@ -418,21 +640,76 @@ export default function App() {
     const timeMs = typing.endTime - typing.startTime;
     const stats = typing.calculateStats(statsInput, timeMs, typing.timePenalty);
 
+    // Timed tests are rewarded/judged by what was actually typed, not the
+    // oversized text buffer they run against.
+    const isTimed = testMode === 'time';
+    const typedWords = statsInput.trim() ? statsInput.trim().split(/\s+/).length : 0;
+    const effWordCount = isTimed ? typedWords : wordCount;
+    const effLength = isTimed ? statsInput.length : typing.targetText.length;
+
     const result = rpg.processRPG(
       stats.currentWpm, stats.currentAcc, typing.maxCombo,
-      wordCount, typing.targetText.length,
+      effWordCount, effLength,
       microDrillActive, typing.keystrokeLog.current,
       () => audio.playSound('levelup')
     );
 
+    // Daily Challenge streak
+    let streakNow = dailyStreak;
+    if (dailyActive && !microDrillActive) {
+      const today = todayKey();
+      let prevDaily: { lastDay: string; streak: number } | null = null;
+      try { prevDaily = JSON.parse(localStorage.getItem('typezen_daily') || 'null'); } catch { /* corrupt — treat as fresh */ }
+      if (prevDaily?.lastDay === today) streakNow = prevDaily.streak;
+      else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
+      else streakNow = 1;
+      localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
+      setDailyStreak(streakNow);
+    }
+
+    // Result history for the stats dashboard (drills excluded)
+    if (!microDrillActive) {
+      appendHistory({
+        d: new Date().toISOString(),
+        wpm: stats.currentWpm, acc: stats.currentAcc, cons: stats.consistency,
+        level, mode: isTimed ? 'time' : 'words',
+        size: isTimed ? duration : wordCount,
+      });
+    }
+
+    // Personal-best pace recording for the ghost pacer
+    if (!microDrillActive && level !== 'CUSTOM' && !mirroredMode && !dailyActive && stats.currentWpm > 0) {
+      try {
+        const existing = JSON.parse(localStorage.getItem(pbStorageKey) || 'null');
+        if (!existing || stats.currentWpm > existing.wpm) {
+          localStorage.setItem(pbStorageKey, JSON.stringify({
+            wpm: stats.currentWpm,
+            samples: buildPaceSamples(typing.keystrokeLog.current),
+          }));
+        }
+      } catch { /* storage quota / corrupt entry — non-fatal */ }
+    }
+
     rpg.checkAchievements(
       stats.currentWpm, stats.currentAcc, typing.maxCombo,
-      result.newXp, wordCount,
+      result.newXp, effWordCount,
       suddenDeath, blindMode, fogMode, overclockedMode,
-      result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length
+      result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length,
+      isTimed, streakNow
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase, typing.endTime]);
+
+  // ─── Timed Mode Countdown ────────────────────────────────────────
+  useEffect(() => {
+    if (typing.phase !== 'TYPING' || testMode !== 'time' || !typing.startTime) return;
+    const interval = setInterval(() => {
+      if (Date.now() - typing.startTime! >= duration * 1000) {
+        typing.finishTest(Date.now());
+      }
+    }, 250);
+    return () => clearInterval(interval);
+  }, [typing.phase, typing.startTime, testMode, duration, typing]);
 
   // ─── Overclocked Penalty ─────────────────────────────────────────
   useEffect(() => {
@@ -448,13 +725,17 @@ export default function App() {
   const isTypingOrCountdown = typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN';
   const shouldHideClutter = zenMode || isTypingOrCountdown;
   const progressPercent = typing.targetText.length > 0 ? (typing.input.length / typing.targetText.length) * 100 : 0;
+  // Fixed-text levels have no meaningful word/time budget
+  const lengthLocked = level === 'CODE' || level === 'CUSTOM' || level === 'QUOTES';
+  // Number/punctuation mixing only applies to the plain word pools
+  const mutatable = level === 'NOVICE' || level === 'ADEPT';
 
   // IMPORTANT FIX: Removed hardcoded overflow-hidden and added it conditionally, and added z-[200]
   const topHudClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] origin-top flex flex-col md:flex-row justify-between items-center gap-6 relative z-[200] ${
     shouldHideClutter ? 'opacity-0 blur-2xl -translate-y-12 max-h-0 pointer-events-none !mb-0 overflow-hidden' : 'opacity-100 blur-none translate-y-0 max-h-[200px] mb-8 overflow-visible'
   }`;
 
-  const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${
+  const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel glass-refract rounded-[2rem] overflow-hidden ${
     shouldHideClutter ? 'w-0 opacity-0 blur-2xl translate-x-32 pointer-events-none p-0 border-transparent m-0' : 'w-full xl:w-[400px] p-8 opacity-100 blur-none translate-x-0'
   }`;
 
@@ -462,32 +743,24 @@ export default function App() {
   return (
     <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
 
-      {/* CSS Styles */}
-      <style>{`
-        :root { --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1); --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1); }
-        @keyframes tetris-spark { 0% { transform: translate(0, 0) scale(1.5) rotate(0deg); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(var(--rot)); opacity: 0; } }
-        @keyframes lucid-fade-up { 0% { opacity: 0; transform: translateY(24px) scale(0.96); filter: blur(8px); } 100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); } }
-        @keyframes lucid-scale-in { 0% { opacity: 0; transform: scale(0.92) translateY(10px); filter: blur(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); } }
-        @keyframes lucid-slide-right { 0% { opacity: 0; transform: translateX(-30px); filter: blur(4px); } 100% { opacity: 1; transform: translateX(0); filter: blur(0px); } }
-        @keyframes caret-blink { 0%, 100% { opacity: 1; transform: scaleY(1); } 50% { opacity: 0.4; transform: scaleY(0.7); } }
-        @keyframes stat-stagger { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-        .lucid-enter { animation: lucid-fade-up 0.6s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
-        .lucid-scale { animation: lucid-scale-in 0.5s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
-        .lucid-slide { animation: lucid-slide-right 0.5s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
-        .stat-card { animation: stat-stagger 0.5s var(--ease-out-expo) forwards; animation-delay: var(--delay, 0ms); opacity: 0; }
-        .caret-lucid { animation: caret-blink 1.2s ease-in-out infinite; transform-origin: center bottom; }
-        .theme-transition { transition: background-color 0.7s var(--ease-smooth), color 0.5s var(--ease-smooth), border-color 0.5s var(--ease-smooth), box-shadow 0.7s var(--ease-smooth); }
-        
-        /* Premium Glassmorphism Upgrades */
-        .glass-panel { background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%); backdrop-filter: blur(40px) saturate(1.5); -webkit-backdrop-filter: blur(40px) saturate(1.5); border: 1px solid rgba(255, 255, 255, 0.05); border-top: 1px solid rgba(255, 255, 255, 0.15); border-left: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0,0,0,0.2); }
-        .glass-panel:hover { background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%); border-top: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0,0,0,0.3); }
-        
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-      `}</style>
+      {/* Global Liquid-Glass SVG filter — rendered once, referenced by every
+          .glass-refract panel via backdrop-filter: url(#glass-distortion)
+          (Chromium only, gated by :root.svg-backdrop — see useGlassPointer).
+          The whole frosted-glass chain lives INSIDE the filter: blur the
+          backdrop first, THEN displace it, so the refraction ripples stay
+          crisp instead of being smeared by a post-blur. Static (no animated
+          attributes): a fixed lens texture, not a moving liquid. */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true" focusable="false">
+        <defs>
+          <filter id="glass-distortion" x="-30%" y="-30%" width="160%" height="160%" primitiveUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves={2} seed={7} stitchTiles="stitch" result="noise" />
+            <feGaussianBlur in="noise" stdDeviation="2" result="map" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="frost" />
+            <feDisplacementMap in="frost" in2="map" scale="46" xChannelSelector="R" yChannelSelector="G" result="refracted" />
+            <feColorMatrix in="refracted" type="saturate" values="1.6" />
+          </filter>
+        </defs>
+      </svg>
 
       {/* Subtle Noise Texture Overlay for realism */}
       <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.15] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
@@ -537,10 +810,14 @@ export default function App() {
       </div>
       <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
-      {/* Progress Bar */}
-      <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
-        <div className={`h-full ${theme.solid} transition-all duration-200 ease-out ${theme.glow}`} style={{ width: `${progressPercent}%` }} />
-      </div>
+      {/* Progress Bar — char-based for word tests, clock-based for timed */}
+      {typing.phase === 'TYPING' && testMode === 'time' && typing.startTime ? (
+        <TimedHud startTime={typing.startTime} duration={duration} theme={theme} />
+      ) : (
+        <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
+          <div className={`h-full ${theme.solid} transition-all duration-200 ease-out ${theme.glow}`} style={{ width: `${progressPercent}%` }} />
+        </div>
+      )}
 
       {/* Zen Mode Ambient */}
       {zenMode && (
@@ -595,17 +872,24 @@ export default function App() {
       )}
 
       {/* Achievement Toast */}
-      {rpg.achievementQueue.length > 0 && (
-        <div className="fixed top-6 right-6 z-[600] animate-in slide-in-from-top fade-in duration-300">
-          <div className={`bg-zinc-950/90 backdrop-blur-md border ${theme.borderHalf} rounded-2xl p-4 ${theme.toastGlow} flex items-center gap-4 min-w-[300px] lucid-slide`} style={{ '--delay': '0ms' } as React.CSSProperties}>
-            <div className="text-3xl">{rpg.achievementQueue[0].icon}</div>
-            <div>
-              <div className={`text-[10px] font-black uppercase tracking-widest ${theme.text}`}>Achievement Unlocked</div>
-              <div className="text-white font-bold text-lg">{rpg.achievementQueue[0].title}</div>
+      {rpg.achievementQueue.length > 0 && (() => {
+        const ToastIcon = ACHIEVEMENT_ICONS[rpg.achievementQueue[0].icon] ?? Trophy;
+        return (
+          <div className="fixed top-6 right-6 z-[600] animate-in slide-in-from-top fade-in duration-300">
+            <div className={`bg-zinc-950/90 backdrop-blur-md border ${theme.borderHalf} rounded-2xl p-4 ${theme.toastGlow} flex items-center gap-4 min-w-[300px] lucid-slide`} style={{ '--delay': '0ms' } as React.CSSProperties}>
+              {/* color via glowPrimary, not theme.text — galaxy's gradient-clip
+                  text class would render an SVG stroke transparent */}
+              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10" style={{ color: `rgb(${theme.glowPrimary})` }}>
+                <ToastIcon size={26} className={theme.drop} />
+              </div>
+              <div>
+                <div className={`text-[10px] font-black uppercase tracking-widest ${theme.text}`}>Achievement Unlocked</div>
+                <div className="text-white font-bold text-lg">{rpg.achievementQueue[0].title}</div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* God Mode Modal */}
       {showGodMode && (
@@ -668,10 +952,17 @@ export default function App() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {categoryAchievements.map(ach => {
                         const isUnlocked = rpg.unlockedAchievements.includes(ach.id);
+                        const AchIcon = ACHIEVEMENT_ICONS[ach.icon] ?? Trophy;
                         return (
                           <div key={ach.id} className={`p-5 rounded-3xl border transition-all flex flex-col items-center text-center ${isUnlocked ? `bg-zinc-900 ${theme.borderHalf} ${theme.auraLow} hover:-translate-y-1` : 'bg-zinc-950 border-zinc-800/50 opacity-60 grayscale'}`}>
-                            <div className="text-4xl mb-4 relative">
-                              {ach.icon}
+                            <div className="relative mb-4">
+                              {/* color via glowPrimary, not theme.text — galaxy's
+                                  gradient-clip class would make SVG strokes transparent */}
+                              <AchIcon
+                                size={34}
+                                className={isUnlocked ? theme.drop : 'text-zinc-600'}
+                                style={isUnlocked ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+                              />
                               {!isUnlocked && <div className="absolute -bottom-2 -right-2 bg-zinc-800 rounded-full p-1"><Lock size={12} className="text-zinc-400" /></div>}
                             </div>
                             <h4 className={`font-bold mb-2 ${isUnlocked ? 'text-white' : 'text-zinc-500'}`}>{ach.title}</h4>
@@ -713,6 +1004,18 @@ export default function App() {
               <button onClick={() => setShowTrophyRoom(true)} className={`p-2 rounded-xl bg-black/20 border transition-all ${rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.text} ${theme.glow} ${theme.bgHover}` : 'border-white/10 text-zinc-500 hover:text-white'}`} title="View Trophies">
                 <Trophy size={16} />
               </button>
+              <button onClick={() => setShowStatsDashboard(true)} className="p-2 rounded-xl bg-black/20 border border-white/10 text-zinc-500 hover:text-white transition-all ml-1" title="Your Stats">
+                <BarChart2 size={16} />
+              </button>
+              {dailyStreak > 0 && (
+                <>
+                  <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
+                  <div className="flex items-center pr-2" title={`Daily Challenge streak: ${dailyStreak} day${dailyStreak === 1 ? '' : 's'}`}>
+                    <Flame size={15} className="text-orange-400 mr-1" />
+                    <span className="text-xs font-black text-white">{dailyStreak}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -720,7 +1023,7 @@ export default function App() {
             {/* Mode Toggles */}
             <div className="grid grid-cols-4 lg:grid-cols-8 gap-1 glass-panel rounded-2xl p-1">
               <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${suddenDeath ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="1HP: One mistake ends it"><Skull size={18} /></button>
-              <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Ghost"><Ghost size={18} /></button>
+              <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={18} /></button>
               <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Focus"><Focus size={18} /></button>
               <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Blind"><Brain size={18} /></button>
               <button onClick={toggleMirror} className={`p-2 rounded-xl transition-all flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Mirror"><FlipHorizontal size={18} /></button>
@@ -784,32 +1087,80 @@ export default function App() {
         <main className={`flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
           <div className="flex-1 w-full flex flex-col gap-6">
 
-            {/* Difficulty & Word Count */}
+            {/* Difficulty & Length/Time & Daily */}
             <div className={`flex flex-col md:flex-row gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
-              <div className="flex flex-col gap-2">
+              <div className={`flex flex-col gap-2 transition-opacity ${dailyActive ? 'opacity-30' : 'opacity-100'}`}>
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
                 <div className="flex glass-panel p-1.5 rounded-full">
-                  {(['NOVICE', 'ADEPT', 'MASTER', 'CODE', 'CUSTOM'] as Level[]).map(l => (
-                    <button key={l} onClick={() => changeLevel(l)} className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center`}>
+                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE', 'CUSTOM'] as Level[]).map(l => (
+                    <button key={l} onClick={() => changeLevel(l)} className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center`}>
                       {l}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className={`flex flex-col gap-2 transition-opacity ${level === 'CODE' || level === 'CUSTOM' ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
-                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Activity size={10} className="mr-1.5" /> WORDS</span>
+              <div className={`flex flex-col gap-2 transition-opacity ${lengthLocked || dailyActive ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                  {testMode === 'time' ? <Clock size={10} className="mr-1.5" /> : <Activity size={10} className="mr-1.5" />}
+                  {testMode === 'time' ? 'SECONDS' : 'WORDS'}
+                </span>
+                <div className="flex glass-panel p-1.5 rounded-full items-center">
+                  {/* words / time segment */}
+                  <button
+                    onClick={() => changeTestMode('words')}
+                    disabled={lengthLocked}
+                    className={`p-2.5 rounded-full transition-all ${testMode === 'words' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                    title="Word-count mode"
+                  ><Hash size={13} /></button>
+                  <button
+                    onClick={() => changeTestMode('time')}
+                    disabled={lengthLocked}
+                    className={`p-2.5 rounded-full transition-all ${testMode === 'time' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                    title="Timed mode"
+                  ><Clock size={13} /></button>
+                  <div className="w-px h-4 bg-white/10 mx-1.5"></div>
+                  {(testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => {
+                    const active = testMode === 'time' ? duration === v : wordCount === v;
+                    return (
+                      <button
+                        key={v}
+                        onClick={() => (testMode === 'time' ? changeDuration(v) : changeWordCount(v))}
+                        disabled={lengthLocked}
+                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${active ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} ${lengthLocked ? 'cursor-not-allowed' : ''}`}
+                      >
+                        {v}
+                      </button>
+                    );
+                  })}
+                  {mutatable && (
+                    <>
+                      <div className="w-px h-4 bg-white/10 mx-1.5"></div>
+                      <button
+                        onClick={toggleNumbers}
+                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${withNumbers ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                        title="Mix in numbers"
+                      >123</button>
+                      <button
+                        onClick={togglePunctuation}
+                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${withPunctuation ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                        title="Mix in punctuation"
+                      >!?</button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><CalendarCheck size={10} className="mr-1.5" /> CHALLENGE</span>
                 <div className="flex glass-panel p-1.5 rounded-full">
-                  {[10, 25, 50, 100].map(count => (
-                    <button
-                      key={count}
-                      onClick={() => changeWordCount(count)}
-                      disabled={level === 'CODE' || level === 'CUSTOM'}
-                      className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${wordCount === count ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} ${level === 'CODE' || level === 'CUSTOM' ? 'cursor-not-allowed' : ''}`}
-                    >
-                      {count}
-                    </button>
-                  ))}
+                  <button
+                    onClick={toggleDaily}
+                    className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all flex items-center gap-2 ${dailyActive ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'}`}
+                    title="Same seeded 50-word ADEPT text for everyone, every day"
+                  >
+                    <CalendarCheck size={12} /> DAILY
+                  </button>
                 </div>
               </div>
 
@@ -871,6 +1222,7 @@ export default function App() {
                 ghostPacer={ghostPacer}
                 combo={typing.combo}
                 zenMode={zenMode}
+                pbGhost={pbGhost}
               />
             ) : (
               <ResultsScreen
@@ -890,6 +1242,8 @@ export default function App() {
                 onSave={saveScore}
                 onReset={() => handleReset()}
                 onStartMicroDrill={startMicroDrill}
+                onWatchReplay={() => setShowReplay(true)}
+                onStartSmartDrill={smartDrillKeys.length > 0 ? startSmartDrill : null}
               />
             )}
 
@@ -905,15 +1259,23 @@ export default function App() {
 
           {/* Leaderboard Sidebar */}
           <aside className={leaderboardClass}>
-            <div className="flex items-center text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
-              <Award size={24} className={`mr-4 ${theme.text}`} />
-              <span className="whitespace-nowrap">GLOBAL TOP 5</span>
+            <div className="flex items-center justify-between text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
+              <div className="flex items-center">
+                <Award size={24} className={`mr-4 ${theme.text}`} />
+                <span className="whitespace-nowrap">{boardTab === 'today' ? 'DAILY TOP 5' : 'GLOBAL TOP 5'}</span>
+              </div>
+              <div className="flex gap-1 bg-black/20 rounded-full p-1 border border-white/10">
+                <button onClick={() => setBoardTab('alltime')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'alltime' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>ALL</button>
+                <button onClick={() => { setBoardTab('today'); fetchDailyBoard(); }} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'today' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>TODAY</button>
+              </div>
             </div>
-            {leaderboard.length === 0 ? (
-              <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">No scores yet. Be the first!</p>
+            {(boardTab === 'today' ? dailyBoard : leaderboard).length === 0 ? (
+              <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">
+                {boardTab === 'today' ? 'No daily scores yet. Run the DAILY challenge!' : 'No scores yet. Be the first!'}
+              </p>
             ) : (
               <div className="space-y-6 w-full">
-                {leaderboard.map((entry, idx) => (
+                {(boardTab === 'today' ? dailyBoard : leaderboard).map((entry, idx) => (
                   <div key={idx} className="flex justify-between items-center group p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 w-full border border-transparent hover:border-white/5 hover:translate-x-1">
                     <div className="flex items-center space-x-6">
                       <span className={`font-black text-xl ${idx === 0 ? theme.text : 'text-zinc-500'}`}>#{idx + 1}</span>
@@ -969,6 +1331,25 @@ export default function App() {
             <div className="mt-6 text-center text-sm text-zinc-500 font-black">Click outside to close</div>
           </div>
         </div>
+      )}
+
+      {/* Stats Dashboard */}
+      {showStatsDashboard && (
+        <StatsDashboard
+          theme={theme}
+          testsCompleted={rpg.testsCompleted}
+          onClose={() => setShowStatsDashboard(false)}
+        />
+      )}
+
+      {/* Test Replay */}
+      {showReplay && typing.phase === 'FINISHED' && (
+        <ReplayModal
+          targetText={typing.targetText}
+          log={typing.keystrokeLog.current}
+          theme={theme}
+          onClose={() => setShowReplay(false)}
+        />
       )}
     </div>
   );

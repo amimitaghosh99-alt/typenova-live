@@ -1,7 +1,26 @@
+// Theme classes in src/data/constants.ts are built with template literals
+// (e.g. `border-${accent}-500/30`), which Tailwind's static scanner cannot
+// see. Generate the safelist from the actual THEMES data so new themes can
+// never silently lose their styles.
+// NOTE: the config is evaluated once per build/dev-server start — after
+// adding or editing a theme, restart `npm run dev` to refresh the safelist.
+const jiti = require('jiti')(__dirname);
+const { THEMES } = jiti('./src/data/constants.ts');
+const themeSafelist = [...new Set(
+  Object.values(THEMES)
+    .flatMap(theme => Object.values(theme))
+    .filter(v => typeof v === 'string')
+    .flatMap(v => v.split(/\s+/))
+    // keep only class-like tokens; drops theme names ('amoled') and raw RGB
+    // triplets ('34,' '211,' '238') from glowPrimary/glowSecondary
+    .filter(token => token.includes('-') || token.includes('['))
+)];
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  safelist: themeSafelist,
   theme: {
     extend: {
       colors: {

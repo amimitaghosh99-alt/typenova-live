@@ -6,6 +6,10 @@ export interface Keystroke {
   expected: string;
   time: number;
   isError: boolean;
+  /** True for backspaces that actually shrank the input. Logged so replay and
+      the PB ghost can reconstruct input-over-time exactly; excluded from all
+      WPM/accuracy/heatmap statistics. */
+  isBackspace?: boolean;
 }
 
 export interface TimelinePoint {
@@ -59,7 +63,7 @@ export const useTypingEngine = () => {
     const totalTimeMs = timeMs + currentPenalty;
     const minutes = totalTimeMs / 60000;
 
-    const errors = entries.filter(k => k.isError).length;
+    const errors = entries.filter(k => k.isError && !k.isBackspace).length;
     const rawCalc = Math.round((currentInput.length / 5) / minutes);
     const netCalc = Math.round(((currentInput.length - errors) / 5) / minutes);
     const currentAcc = currentInput.length > 0 ? Math.round(((currentInput.length - errors) / currentInput.length) * 100) : 100;
@@ -69,7 +73,7 @@ export const useTypingEngine = () => {
     const timeline: TimelinePoint[] = [];
     for (let i = 1; i <= intervals; i++) {
       const threshold = startTs + step * i;
-      const chars = entries.filter(k => k.time <= threshold && !k.isError).length;
+      const chars = entries.filter(k => k.time <= threshold && !k.isError && !k.isBackspace).length;
       const calcWpm = Math.round((chars / 5) / ((step * i) / 60000));
       timeline.push({ t: step * i, wpm: isNaN(calcWpm) ? 0 : calcWpm });
     }
@@ -85,6 +89,7 @@ export const useTypingEngine = () => {
 
     let localMaxStreak = 0, cur = 0;
     for (const k of entries) {
+      if (k.isBackspace) continue;
       if (!k.isError) cur++;
       else { localMaxStreak = Math.max(localMaxStreak, cur); cur = 0; }
     }
@@ -100,7 +105,7 @@ export const useTypingEngine = () => {
     };
   }, []);
 
-  const finishTest = useCallback((finalTimestamp: number, finalInput: string | null = null) => {
+  const finishTestImpl = useCallback((finalTimestamp: number, finalInput: string | null = null) => {
     if (isFinishingRef.current) return; // GUARD: prevent double-submission
     if (!startTime) { setPhase('FINISHED'); setEndTime(finalTimestamp); return; }
 
@@ -116,6 +121,16 @@ export const useTypingEngine = () => {
     setFlawlessStreak(finalStats.flawless);
     setTimelinePoints(finalStats.timeline);
   }, [calculateStats, input, startTime, timePenalty]);
+
+  // STABLE wrapper: App's keydown listener is registered once (empty deps) and
+  // would otherwise capture the FIRST render's finishTest — whose closure has
+  // startTime === null, silently skipping the final stats write. Routing every
+  // call through a ref guarantees the latest implementation always runs.
+  const finishTestRef = useRef(finishTestImpl);
+  useEffect(() => { finishTestRef.current = finishTestImpl; });
+  const finishTest = useCallback((finalTimestamp: number, finalInput: string | null = null) => {
+    finishTestRef.current(finalTimestamp, finalInput);
+  }, []);
 
   // Countdown timer effect
   useEffect(() => {

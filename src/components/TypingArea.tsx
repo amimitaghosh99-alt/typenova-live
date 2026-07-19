@@ -3,67 +3,57 @@ import type { Particle } from '@/hooks/useParticles';
 import type { Theme } from '@/data/constants';
 import type { Phase } from '@/data/constants';
 
-interface CharacterProps {
+// Stable empty array so particle-less chars keep the same prop identity
+// across renders — otherwise `|| []` would defeat Char's memoization.
+// Exported (with Char) for reuse by the replay modal.
+export const EMPTY_PARTICLES: Particle[] = [];
+
+interface CharProps {
   char: string;
   index: number;
-  inputLength: number;
-  inputChar: string | undefined;
+  colorClass: string;
   isActive: boolean;
-  blindMode: boolean;
-  focusMode: boolean;
-  fogMode: boolean;
-  theme: Theme;
-  particlesAtIndex: Particle[];
+  caretClass: string;
+  particles: Particle[];
 }
 
-const Character = memo(({ char, index, inputLength, isActive, inputChar, blindMode, focusMode, fogMode, theme, particlesAtIndex }: CharacterProps) => {
-  let colorClass = "text-zinc-500";
-
-  if (inputChar !== undefined) {
-    const isCorrect = inputChar === char;
-    if (isCorrect) colorClass = blindMode ? "opacity-0" : "text-zinc-100";
-    else colorClass = "text-red-400 bg-red-500/20 rounded-md shadow-[0_0_8px_rgba(248,113,113,0.5)]";
-  }
-
-  if (focusMode && !fogMode) {
-    const dist = Math.abs(index - inputLength);
-    if (dist < 15) colorClass += " blur-none filter-none opacity-100 transition-all";
-    else colorClass += " blur-sm opacity-20";
-  }
-
-  if (fogMode) {
-    // Approximate word index for this character
-    // This is passed from parent via a pre-computed array to avoid re-splitting
-  }
-
-  return (
-    <span className="relative inline" id={isActive ? 'active-caret' : undefined}>
-      {particlesAtIndex.map(p => (
-        <span
-          key={p.id}
-          className={`absolute top-0 left-1/2 font-bold ${p.color} pointer-events-none z-50`}
-          style={{
-            animation: 'tetris-spark 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards',
-            ['--tx' as string]: p.tx,
-            ['--ty' as string]: p.ty,
-            ['--rot' as string]: p.rot,
-            textShadow: '0 0 8px currentColor'
-          }}
-        >
-          {p.char}
-        </span>
-      ))}
-      {isActive && (
-        <span className={`absolute left-0 -bottom-2 w-full h-[4px] bg-white rounded-full caret-lucid ${theme.drop}`} />
-      )}
-      <span className={`${colorClass} transition-colors duration-150`}>
-        {char === '\n' ? <span className="opacity-30">↵{'\n'}</span> : char}
+// Memoized leaf: all props are primitives or stable references, so the
+// default shallow compare skips re-rendering every span whose class/caret/
+// particles didn't change on this keystroke (~99% of them).
+export const Char = memo(({ char, index, colorClass, isActive, caretClass, particles }: CharProps) => (
+  <span className="relative inline" id={isActive ? 'active-caret' : undefined} data-char-index={index}>
+    {particles.map(p => (
+      <span
+        key={p.id}
+        className={`absolute top-0 left-1/2 font-bold ${p.color} pointer-events-none z-50`}
+        style={{
+          animation: 'tetris-spark 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards',
+          ['--tx' as string]: p.tx,
+          ['--ty' as string]: p.ty,
+          ['--rot' as string]: p.rot,
+          textShadow: '0 0 8px currentColor'
+        }}
+      >
+        {p.char}
       </span>
+    ))}
+    {isActive && (
+      <span className={`absolute left-0 -bottom-2 w-full h-[4px] bg-white rounded-full caret-lucid ${caretClass}`} />
+    )}
+    <span className={`${colorClass} transition-colors duration-150`}>
+      {char === '\n' ? <span className="opacity-30">↵{'\n'}</span> : char}
     </span>
-  );
-});
+  </span>
+));
 
-Character.displayName = 'Character';
+Char.displayName = 'Char';
+
+export interface PaceSample {
+  /** ms since test start */
+  t: number;
+  /** input length at that moment */
+  chars: number;
+}
 
 interface TypingAreaProps {
   targetText: string;
@@ -81,12 +71,15 @@ interface TypingAreaProps {
   ghostPacer: boolean;
   combo: number;
   zenMode?: boolean;
+  /** Personal-best pace for the current config — when present the ghost
+      races YOUR best run instead of the fixed 60 WPM pace. */
+  pbGhost?: { wpm: number; samples: PaceSample[] } | null;
 }
 
 export const TypingArea = ({
   targetText, input, phase, theme, blindMode, focusMode,
   fogMode, startTime, shake, capsLock, stickyPenalty,
-  particles, ghostPacer, combo, zenMode = false
+  particles, ghostPacer, combo, zenMode = false, pbGhost = null
 }: TypingAreaProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -138,9 +131,15 @@ export const TypingArea = ({
         className={
           zenMode
             ? 'relative w-full max-w-4xl z-10 px-4'
-            : `relative w-full rounded-[2rem] glass-panel theme-transition z-10 p-3 md:p-6 ${combo > 60 ? `${theme.auraHigh} ${theme.border}` : combo > 40 ? `${theme.auraMed} ${theme.border}` : combo > 20 ? theme.auraLow : ''}`
+            : 'relative w-full rounded-[2rem] glass-panel glass-refract theme-transition z-10 p-3 md:p-6'
         }
-        style={{ animation: shake && !zenMode ? 'shake 0.2s ease-in-out' : 'none' }}
+        style={{
+          '--combo-glow': combo > 60 ? `0 0 120px rgba(${theme.glowPrimary},0.6)`
+            : combo > 40 ? `0 0 60px rgba(${theme.glowPrimary},0.3)`
+            : combo > 20 ? `0 0 20px rgba(${theme.glowPrimary},0.1)`
+            : '0 0 0 transparent',
+          animation: shake && !zenMode ? 'shake 0.2s ease-in-out' : 'none',
+        } as React.CSSProperties}
       >
         {!zenMode && capsLock && (
           <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-lg animate-bounce z-50">
@@ -190,32 +189,16 @@ export const TypingArea = ({
               else if (charWordIndex === currentWordIndex + 1) finalColorClass += " opacity-20 blur-[2px] transition-opacity duration-300";
             }
 
-            const charParticles = particlesByIndex.get(index) || [];
-
             return (
-              <span key={index} className="relative inline" id={isActive ? 'active-caret' : undefined} data-char-index={index}>
-                {charParticles.map(p => (
-                  <span
-                    key={p.id}
-                    className={`absolute top-0 left-1/2 font-bold ${p.color} pointer-events-none z-50`}
-                    style={{
-                      animation: 'tetris-spark 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards',
-                      ['--tx' as string]: p.tx,
-                      ['--ty' as string]: p.ty,
-                      ['--rot' as string]: p.rot,
-                      textShadow: '0 0 8px currentColor'
-                    }}
-                  >
-                    {p.char}
-                  </span>
-                ))}
-                {isActive && (
-                  <span className={`absolute left-0 -bottom-2 w-full h-[4px] bg-white rounded-full caret-lucid ${theme.drop}`} />
-                )}
-                <span className={`${finalColorClass} transition-colors duration-150`}>
-                  {char === '\n' ? <span className="opacity-30">↵{'\n'}</span> : char}
-                </span>
-              </span>
+              <Char
+                key={index}
+                char={char}
+                index={index}
+                colorClass={finalColorClass}
+                isActive={isActive}
+                caretClass={theme.drop}
+                particles={particlesByIndex.get(index) ?? EMPTY_PARTICLES}
+              />
             );
           })}
 
@@ -224,6 +207,7 @@ export const TypingArea = ({
             <GhostPacerCursor
               startTime={startTime}
               targetTextLength={targetText.length}
+              pbSamples={pbGhost?.samples}
             />
           )}
         </div>
@@ -233,24 +217,45 @@ export const TypingArea = ({
 };
 
 // ─── Ghost Pacer Cursor ─────────────────────────────────────────────
-// Shows a subtle highlight on the character the user "should" be typing
-// at a reference speed of 60 WPM (5 chars per word = 300 chars/min = 5 chars/sec)
+// Shows a subtle highlight on the character the user "should" be typing.
+// With a personal-best recording (pbSamples) it replays YOUR fastest run's
+// exact pace; otherwise it falls back to a fixed 60 WPM reference
+// (5 chars per word = 300 chars/min = 5 chars/sec).
 const CHARS_PER_MINUTE_AT_PACE = 300; // 60 WPM * 5 chars
 
-function GhostPacerCursor({ startTime, targetTextLength }: {
+/** Input length at elapsed ms `t`, linearly interpolated between samples. */
+function charsAtTime(samples: PaceSample[], t: number): number {
+  if (t <= samples[0].t) return samples[0].chars;
+  const last = samples[samples.length - 1];
+  if (t >= last.t) return last.chars;
+  // samples are time-ordered; binary search the bracketing pair
+  let lo = 0, hi = samples.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid].t <= t) lo = mid; else hi = mid;
+  }
+  const a = samples[lo], b = samples[hi];
+  const frac = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+  return Math.floor(a.chars + (b.chars - a.chars) * frac);
+}
+
+function GhostPacerCursor({ startTime, targetTextLength, pbSamples }: {
   startTime: number;
   targetTextLength: number;
+  pbSamples?: PaceSample[];
 }) {
   const [ghostIndex, setGhostIndex] = useState(-1);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const elapsedMs = Date.now() - startTime;
-      const chars = Math.floor((elapsedMs / 60000) * CHARS_PER_MINUTE_AT_PACE);
+      const chars = pbSamples && pbSamples.length > 1
+        ? charsAtTime(pbSamples, elapsedMs)
+        : Math.floor((elapsedMs / 60000) * CHARS_PER_MINUTE_AT_PACE);
       setGhostIndex(Math.min(chars, targetTextLength - 1));
     }, 100);
     return () => clearInterval(interval);
-  }, [startTime, targetTextLength]);
+  }, [startTime, targetTextLength, pbSamples]);
 
   if (ghostIndex < 0) return null;
 

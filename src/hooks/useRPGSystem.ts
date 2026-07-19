@@ -62,16 +62,17 @@ export const useRPGSystem = () => {
     _wordCount: number,
     targetTextLength: number,
     microDrillActive: boolean,
-    keystrokeLog: Array<{ expected: string; isError: boolean }>,
+    keystrokeLog: Array<{ expected: string; isError: boolean; isBackspace?: boolean }>,
     onLevelUp: () => void
   ) => {
     const newTestsCompleted = testsCompleted + 1;
     setTestsCompleted(newTestsCompleted);
 
-    // Update heatmap
+    // Update heatmap (backspace events carry no expected char — skip them)
     setHeatmapData(prev => {
       const next = { ...prev };
       keystrokeLog.forEach(k => {
+        if (k.isBackspace) return;
         const char = k.expected === ' ' ? 'SPACE' : k.expected === '\n' ? 'ENTER' : k.expected.toUpperCase();
         if (!next[char]) next[char] = { total: 0, errors: 0 };
         next[char] = { total: next[char].total + 1, errors: next[char].errors + (k.isError ? 1 : 0) };
@@ -111,7 +112,9 @@ export const useRPGSystem = () => {
     overclockedMode: boolean,
     testsCount: number,
     seenThemesCount: number,
-    totalThemes: number
+    totalThemes: number,
+    isTimed: boolean = false,
+    dailyStreak: number = 0
   ) => {
     const newlyUnlocked: string[] = [];
     const check = (id: string) => !unlockedAchievements.includes(id);
@@ -123,6 +126,7 @@ export const useRPGSystem = () => {
     if (check('hyperspace') && finalWpm >= 140) unlock('hyperspace');
     if (check('sniper') && wordCount >= 50 && finalAcc === 100) unlock('sniper');
     if (check('unbreakable') && currentMaxCombo >= 200) unlock('unbreakable');
+    if (check('time_lord') && isTimed && finalWpm >= 100) unlock('time_lord');
     if (check('daredevil') && suddenDeath) unlock('daredevil');
     if (check('jedi_senses') && blindMode && fogMode) unlock('jedi_senses');
     if (check('under_pressure') && overclockedMode && finalAcc > 95) unlock('under_pressure');
@@ -133,6 +137,7 @@ export const useRPGSystem = () => {
     if (check('grandmaster') && newLevel >= 20) unlock('grandmaster');
     if (check('fashionista') && seenThemesCount >= totalThemes) unlock('fashionista');
     if (check('keyboard_warrior') && testsCount >= 100) unlock('keyboard_warrior');
+    if (check('daily_devotee') && dailyStreak >= 7) unlock('daily_devotee');
 
     const totalSet = new Set([...unlockedAchievements, ...newlyUnlocked]);
     if (check('cyber_ninja') && totalSet.has('speed_demon') && totalSet.has('jedi_senses')) unlock('cyber_ninja');
@@ -155,14 +160,14 @@ export const useRPGSystem = () => {
 
   const unlockAllAchievements = useCallback(() => {
     setUnlockedAchievements(ACHIEVEMENTS.map(a => a.id));
-    setAchievementQueue(prev => [...prev, { id: 'cheat', title: 'GOD MODE: All Unlocked!', desc: '', icon: '🔓', category: 'SUPER' }]);
+    setAchievementQueue(prev => [...prev, { id: 'cheat', title: 'GOD MODE: All Unlocked!', desc: '', icon: 'unlock', category: 'SUPER' }]);
   }, []);
 
   const resetAllProgress = useCallback(() => {
     setUnlockedAchievements([]);
     setXp(0);
     setTestsCompleted(0);
-    setAchievementQueue(prev => [...prev, { id: 'reset', title: 'All Progress Reset', desc: '', icon: '🔄', category: 'SUPER' }]);
+    setAchievementQueue(prev => [...prev, { id: 'reset', title: 'All Progress Reset', desc: '', icon: 'rotate-ccw', category: 'SUPER' }]);
   }, []);
 
   return {

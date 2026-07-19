@@ -56,7 +56,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 w-full">
       
       {/* 1. NET WPM */}
-      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 hover:bg-white/[0.06]" style={{ '--delay': '0ms' } as React.CSSProperties}>
+      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300" style={{ '--delay': '0ms' } as React.CSSProperties}>
         <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
           <Activity size={14} className="mr-2" /> Net WPM
         </span>
@@ -66,7 +66,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
       </div>
 
       {/* 2. PACING (Graph) */}
-      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex-col items-center justify-end hidden md:flex col-span-1 relative overflow-hidden transition-all duration-300 hover:bg-white/[0.06]" style={{ '--delay': '80ms' } as React.CSSProperties}>
+      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex-col items-center justify-end hidden md:flex col-span-1 relative overflow-hidden transition-all duration-300" style={{ '--delay': '80ms' } as React.CSSProperties}>
         <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
           <Activity size={14} className="mr-2" /> Pacing
         </span>
@@ -76,7 +76,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
       </div>
 
       {/* 3. ACCURACY */}
-      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 hover:bg-white/[0.06]" style={{ '--delay': '160ms' } as React.CSSProperties}>
+      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300" style={{ '--delay': '160ms' } as React.CSSProperties}>
         <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
           <Target size={14} className="mr-2" /> Accuracy
         </span>
@@ -86,7 +86,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
       </div>
 
       {/* 4. CONSISTENCY */}
-      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center hidden sm:flex relative overflow-hidden transition-all duration-300 hover:bg-white/[0.06]" style={{ '--delay': '240ms' } as React.CSSProperties}>
+      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center hidden sm:flex relative overflow-hidden transition-all duration-300" style={{ '--delay': '240ms' } as React.CSSProperties}>
         <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
           <BarChart2 size={14} className="mr-2" /> Consistency
         </span>
@@ -96,7 +96,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
       </div>
 
       {/* 5. COMBO */}
-      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 hover:bg-white/[0.06]" style={{ '--delay': '320ms' } as React.CSSProperties}>
+      <div className="stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300" style={{ '--delay': '320ms' } as React.CSSProperties}>
         <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
           <Flame size={14} className="mr-2" /> Combo
         </span>

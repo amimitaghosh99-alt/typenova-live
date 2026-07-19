@@ -1,3 +1,6 @@
+/* @import must be first in the stylesheet or browsers silently drop it */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -72,4 +75,231 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TypeNova custom styles — single source of truth for all hand-written
+   CSS (previously split across a dead src/App.css and a duplicate
+   inline <style> tag in App.tsx; both are gone now).
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-transition {
+  transition: background-color 0.7s var(--ease-smooth),
+              color 0.5s var(--ease-smooth),
+              border-color 0.5s var(--ease-smooth),
+              box-shadow 0.7s var(--ease-smooth);
+}
+
+/* ─── LIQUID GLASS: .glass-panel ─────────────────────────────────────
+   Base layer is unconditional and always visible, even with zero
+   backdrop-filter/SVG-filter support anywhere — this can never go
+   invisible. backdrop-filter blur/saturate and the SVG refraction
+   filter are progressive enhancements layered on top via @supports,
+   and the specular highlight is a further enhancement gated to
+   desktop-class pointers. Each tier only adds on top of a fully
+   working previous tier.
+   ────────────────────────────────────────────────────────────────── */
+.glass-panel {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0.08) 100%),
+    rgba(18, 18, 22, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 -16px 28px -18px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.28),
+    0 24px 48px -16px rgba(0, 0, 0, 0.55),
+    var(--combo-glow, 0 0 0 transparent);
+  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 -16px 28px -18px rgba(0, 0, 0, 0.55),
+    0 6px 16px rgba(0, 0, 0, 0.32),
+    0 32px 64px -18px rgba(0, 0, 0, 0.6),
+    var(--combo-glow, 0 0 0 transparent);
+}
+
+/* Tier 2: real frosted blur, once the browser proves it supports it */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass-panel {
+    -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.05);
+    backdrop-filter: blur(18px) saturate(180%) brightness(1.05);
+  }
+}
+
+/* Tier 3: SVG refraction — only on hero panels (.glass-refract), only on
+   engines that actually RENDER url()-referenced filters through
+   backdrop-filter (currently Chromium). @supports cannot detect this — it
+   only checks that the value parses, and engines that parse-but-don't-render
+   would silently lose ALL frost — so the tier is gated by the .svg-backdrop
+   class that useGlassPointer puts on <html> after real detection. The whole
+   frost+refraction chain lives inside the SVG filter (see App.tsx), so no
+   extra filter functions here. */
+:root.svg-backdrop .glass-panel.glass-refract {
+  -webkit-backdrop-filter: url(#glass-distortion);
+  backdrop-filter: url(#glass-distortion);
+}
+
+/* Hero panels run a lighter overlay so the (distorted) backdrop actually
+   shows through — at the base 0.78 alpha the refraction is barely visible.
+   background-color only: the `background` shorthand would clobber the
+   Tier-4 background-image (this selector out-specifies the media query). */
+:root.svg-backdrop .glass-panel.glass-refract {
+  background-color: rgba(16, 16, 20, 0.55);
+}
+
+/* Specular rim — the bright top-left edge highlight that reads as light
+   reflecting off curved glass. Sits above panel content but is inset-only
+   and click-transparent. */
+.glass-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 0.6),
+    inset -1px -1px 1px -1px rgba(255, 255, 255, 0.25),
+    inset 0 0 18px -8px rgba(255, 255, 255, 0.12);
+}
+
+/* Tier 4: pointer-tracked specular highlight, desktop-class pointers
+   only (see src/hooks/useGlassPointer.ts). --mx/--my are set per
+   element, relative to that element's own bounding box, so the
+   highlight tracks the cursor correctly even on panels with an active
+   transform (e.g. TypingArea's error-shake animation). */
+@media (hover: hover) and (pointer: fine) {
+  .glass-panel {
+    background-image:
+      radial-gradient(240px circle at var(--mx, 50%) var(--my, 40%), rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.10) 35%, transparent 65%),
+      linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0.08) 100%);
+  }
+}
+
+/* ─── Animations ──────────────────────────────────────────────────── */
+@keyframes tetris-spark {
+  0% { transform: translate(0, 0) scale(1.5) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(var(--rot)); opacity: 0; }
+}
+
+@keyframes lucid-fade-up {
+  0% { opacity: 0; transform: translateY(24px) scale(0.96); filter: blur(8px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+}
+
+@keyframes lucid-scale-in {
+  0% { opacity: 0; transform: scale(0.92) translateY(10px); filter: blur(12px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+}
+
+@keyframes lucid-slide-right {
+  0% { opacity: 0; transform: translateX(-30px); filter: blur(4px); }
+  100% { opacity: 1; transform: translateX(0); filter: blur(0px); }
+}
+
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0.4; transform: scaleY(0.7); }
+}
+
+@keyframes stat-stagger {
+  0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.lucid-enter {
+  animation: lucid-fade-up 0.6s var(--ease-out-expo) forwards;
+  animation-delay: var(--delay, 0ms);
+  opacity: 0;
+}
+
+.lucid-scale {
+  animation: lucid-scale-in 0.5s var(--ease-out-expo) forwards;
+  animation-delay: var(--delay, 0ms);
+  opacity: 0;
+}
+
+.lucid-slide {
+  animation: lucid-slide-right 0.5s var(--ease-out-expo) forwards;
+  animation-delay: var(--delay, 0ms);
+  opacity: 0;
+}
+
+.stat-card {
+  animation: stat-stagger 0.5s var(--ease-out-expo) forwards;
+  animation-delay: var(--delay, 0ms);
+  opacity: 0;
+}
+
+.caret-lucid {
+  animation: caret-blink 1.2s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+/* ─── Scrollbar styling ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ─── Animated background orbs ────────────────────────────────────── */
+.orb-drift-1 { animation: drift-1 28s ease-in-out infinite alternate; }
+@keyframes drift-1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(15vw, 10vh) scale(1.15); }
+  66%  { transform: translate(25vw, 5vh) scale(0.9); }
+  100% { transform: translate(10vw, 20vh) scale(1.05); }
+}
+
+.orb-drift-2 { animation: drift-2 35s ease-in-out infinite alternate; }
+@keyframes drift-2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(-20vw, 15vh) scale(1.1); }
+  50%  { transform: translate(-35vw, 5vh) scale(0.85); }
+  75%  { transform: translate(-15vw, 25vh) scale(1.2); }
+  100% { transform: translate(-30vw, 30vh) scale(1); }
+}
+
+.orb-drift-3 { animation: drift-3 32s ease-in-out infinite alternate; }
+@keyframes drift-3 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.06; }
+  40%  { transform: translate(20vw, -20vh) scale(1.3); opacity: 0.09; }
+  70%  { transform: translate(-10vw, -35vh) scale(0.8); opacity: 0.05; }
+  100% { transform: translate(30vw, -15vh) scale(1.1); opacity: 0.07; }
+}
+
+.orb-drift-4 { animation: drift-4 25s ease-in-out infinite; }
+@keyframes drift-4 {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(10vw, -8vh) scale(1.2); }
+  50%  { transform: translate(5vw, -15vh) scale(0.9); }
+  75%  { transform: translate(-8vw, -5vh) scale(1.15); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.orb-drift-5 { animation: drift-5 40s ease-in-out infinite alternate; }
+@keyframes drift-5 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.05; }
+  30%  { transform: translate(-25vw, 20vh) scale(1.25); opacity: 0.04; }
+  60%  { transform: translate(-10vw, 40vh) scale(0.9); opacity: 0.06; }
+  100% { transform: translate(-40vw, 25vh) scale(1.1); opacity: 0.035; }
 }

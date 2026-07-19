@@ -68,19 +68,56 @@ export const CODE_SNIPPETS = [
   `impl Person {\n    fn new(name: String, age: u32) -> Person {\n        Person { name, age }\n    }\n    fn greet(&self) {\n        println!("Hi, I'm {}!", self.name);\n    }\n}`
 ];
 
-export type Level = 'NOVICE' | 'ADEPT' | 'MASTER' | 'CODE' | 'CUSTOM';
+export const QUOTES = [
+  `"The only way to do great work is to love what you do." — Steve Jobs`,
+  `"In the middle of difficulty lies opportunity." — Albert Einstein`,
+  `"It always seems impossible until it is done." — Nelson Mandela`,
+  `"The best way to predict the future is to invent it." — Alan Kay`,
+  `"Simplicity is the ultimate sophistication." — Leonardo da Vinci`,
+  `"Whether you think you can or you think you can't, you're right." — Henry Ford`,
+  `"Talk is cheap. Show me the code." — Linus Torvalds`,
+  `"Stay hungry, stay foolish." — Stewart Brand`,
+  `"The journey of a thousand miles begins with a single step." — Lao Tzu`,
+  `"Do what you can, with what you have, where you are." — Theodore Roosevelt`,
+  `"Programs must be written for people to read, and only incidentally for machines to execute." — Harold Abelson`,
+  `"Success is not final, failure is not fatal: it is the courage to continue that counts." — Winston Churchill`,
+  `"First, solve the problem. Then, write the code." — John Johnson`,
+  `"Everything should be made as simple as possible, but not simpler." — Albert Einstein`,
+  `"The only limit to our realization of tomorrow is our doubts of today." — Franklin D. Roosevelt`,
+  `"Code is like humor. When you have to explain it, it's bad." — Cory House`,
+  `"Imagination is more important than knowledge." — Albert Einstein`,
+  `"If you're going through hell, keep going." — Winston Churchill`,
+  `"Make it work, make it right, make it fast." — Kent Beck`,
+  `"What we know is a drop, what we don't know is an ocean." — Isaac Newton`
+];
 
-export const generateText = (level: Level, length: number, customText: string = '', isMirrored = false): string => {
+export type Level = 'NOVICE' | 'ADEPT' | 'MASTER' | 'QUOTES' | 'CODE' | 'CUSTOM';
+
+export interface GenerateOptions {
+  /** Mix random 2-4 digit numbers into ~10% of words (NOVICE/ADEPT only). */
+  numbers?: boolean;
+  /** Sprinkle punctuation onto ~15% of words (NOVICE/ADEPT only). */
+  punctuation?: boolean;
+  /** Deterministic RNG (e.g. seeded for the Daily Challenge). Defaults to Math.random. */
+  rng?: () => number;
+}
+
+const PUNCT_ENDINGS = [',', '.', '!', '?', ';'];
+
+export const generateText = (level: Level, length: number, customText: string = '', isMirrored = false, opts: GenerateOptions = {}): string => {
+  const rng = opts.rng ?? Math.random;
   let final = "";
   if (level === 'CODE') {
-    final = CODE_SNIPPETS[Math.floor(Math.random() * CODE_SNIPPETS.length)];
+    final = CODE_SNIPPETS[Math.floor(rng() * CODE_SNIPPETS.length)];
+  } else if (level === 'QUOTES') {
+    final = QUOTES[Math.floor(rng() * QUOTES.length)];
   } else if (level === 'CUSTOM') {
     final = customText.trim() || "Type your custom text above...";
   } else if (level === 'MASTER') {
     const snippetCount = Math.max(1, Math.ceil(length / 10));
     const words: string[] = [];
     for (let i = 0; i < snippetCount; i++) {
-      words.push(MASTER_SNIPPETS[Math.floor(Math.random() * MASTER_SNIPPETS.length)]);
+      words.push(MASTER_SNIPPETS[Math.floor(rng() * MASTER_SNIPPETS.length)]);
     }
     final = words.join(' ').split(' ').slice(0, length).join(' ');
   } else {
@@ -88,11 +125,27 @@ export const generateText = (level: Level, length: number, customText: string = 
     const picked: string[] = [];
     let words = 0;
     while (words < length) {
-      const s = pool[Math.floor(Math.random() * pool.length)];
+      const s = pool[Math.floor(rng() * pool.length)];
       picked.push(s);
       words += s.split(' ').length;
     }
     final = picked.join(' ');
+
+    // Optional word-level mutations (plain word modes only)
+    if (opts.numbers || opts.punctuation) {
+      const mutated = final.split(' ').map(word => {
+        if (opts.numbers && rng() < 0.10) {
+          const digits = 2 + Math.floor(rng() * 3);
+          return String(Math.floor(rng() * Math.pow(10, digits))).padStart(digits, '1');
+        }
+        if (opts.punctuation && rng() < 0.15) {
+          const bare = word.replace(/[.,!?;]$/, '');
+          return rng() < 0.15 ? `"${bare}"` : bare + PUNCT_ENDINGS[Math.floor(rng() * PUNCT_ENDINGS.length)];
+        }
+        return word;
+      });
+      final = mutated.join(' ');
+    }
   }
   return isMirrored ? final.split(' ').reverse().join(' ') : final;
 };
@@ -262,26 +315,31 @@ export interface Achievement {
   id: string;
   title: string;
   desc: string;
+  /** Lucide icon key — resolved to a component via ACHIEVEMENT_ICONS in App.tsx.
+      Kept as a plain string so this file stays import-free (tailwind.config.js
+      loads it via jiti for the safelist). */
   icon: string;
   category: 'SKILL' | 'HARDCORE' | 'GRIND' | 'SUPER';
 }
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'speed_demon', title: 'Speed Demon', desc: 'Break 100 WPM on any test.', icon: '⚡', category: 'SKILL' },
-  { id: 'hyperspace', title: 'Hyperspace', desc: 'Break 140 WPM on any test.', icon: '🚀', category: 'SKILL' },
-  { id: 'sniper', title: 'Sniper', desc: 'Finish a test of 50+ words with 100% Accuracy.', icon: '🎯', category: 'SKILL' },
-  { id: 'unbreakable', title: 'Unbreakable', desc: 'Reach a flawless streak (Combo) of 200+.', icon: '🛡️', category: 'SKILL' },
-  { id: 'daredevil', title: 'Daredevil', desc: 'Complete a test with Sudden Death activated.', icon: '💀', category: 'HARDCORE' },
-  { id: 'jedi_senses', title: 'Jedi Senses', desc: 'Complete a test with Blind Mode and Fog of War.', icon: '🧠', category: 'HARDCORE' },
-  { id: 'under_pressure', title: 'Under Pressure', desc: 'Complete a test with Overclocked (Accuracy > 95%).', icon: '⏱️', category: 'HARDCORE' },
-  { id: 'masochist', title: 'Masochist', desc: 'Win with Sudden Death, Overclocked, Blind, and Fog active.', icon: '🔥', category: 'HARDCORE' },
-  { id: 'apprentice', title: 'Apprentice', desc: 'Reach Level 5.', icon: '⭐', category: 'GRIND' },
-  { id: 'grandmaster', title: 'Grandmaster', desc: 'Reach Level 20.', icon: '👑', category: 'GRIND' },
-  { id: 'fashionista', title: 'Fashionista', desc: 'Cycle through every single theme.', icon: '👗', category: 'GRIND' },
-  { id: 'keyboard_warrior', title: 'Keyboard Warrior', desc: 'Play 100 total tests.', icon: '⚔️', category: 'GRIND' },
-  { id: 'cyber_ninja', title: 'The Cyber Ninja', desc: 'Unlock Speed Demon + Jedi Senses.', icon: '🥷', category: 'SUPER' },
-  { id: 'perfectionist', title: 'The Perfectionist', desc: 'Unlock Sniper + Unbreakable.', icon: '✨', category: 'SUPER' },
-  { id: 'type_nova', title: 'TYPE NOVA', desc: 'Unlock every single badge in the game.', icon: '🌌', category: 'SUPER' }
+  { id: 'speed_demon', title: 'Speed Demon', desc: 'Break 100 WPM on any test.', icon: 'zap', category: 'SKILL' },
+  { id: 'hyperspace', title: 'Hyperspace', desc: 'Break 140 WPM on any test.', icon: 'rocket', category: 'SKILL' },
+  { id: 'sniper', title: 'Sniper', desc: 'Finish a test of 50+ words with 100% Accuracy.', icon: 'crosshair', category: 'SKILL' },
+  { id: 'unbreakable', title: 'Unbreakable', desc: 'Reach a flawless streak (Combo) of 200+.', icon: 'shield', category: 'SKILL' },
+  { id: 'daredevil', title: 'Daredevil', desc: 'Complete a test with Sudden Death activated.', icon: 'skull', category: 'HARDCORE' },
+  { id: 'jedi_senses', title: 'Jedi Senses', desc: 'Complete a test with Blind Mode and Fog of War.', icon: 'eye-off', category: 'HARDCORE' },
+  { id: 'under_pressure', title: 'Under Pressure', desc: 'Complete a test with Overclocked (Accuracy > 95%).', icon: 'gauge', category: 'HARDCORE' },
+  { id: 'masochist', title: 'Masochist', desc: 'Win with Sudden Death, Overclocked, Blind, and Fog active.', icon: 'flame', category: 'HARDCORE' },
+  { id: 'time_lord', title: 'Time Lord', desc: 'Hit 100+ WPM in a timed test.', icon: 'hourglass', category: 'SKILL' },
+  { id: 'apprentice', title: 'Apprentice', desc: 'Reach Level 5.', icon: 'star', category: 'GRIND' },
+  { id: 'daily_devotee', title: 'Daily Devotee', desc: 'Complete a 7-day Daily Challenge streak.', icon: 'calendar-check', category: 'GRIND' },
+  { id: 'grandmaster', title: 'Grandmaster', desc: 'Reach Level 20.', icon: 'crown', category: 'GRIND' },
+  { id: 'fashionista', title: 'Fashionista', desc: 'Cycle through every single theme.', icon: 'palette', category: 'GRIND' },
+  { id: 'keyboard_warrior', title: 'Keyboard Warrior', desc: 'Play 100 total tests.', icon: 'swords', category: 'GRIND' },
+  { id: 'cyber_ninja', title: 'The Cyber Ninja', desc: 'Unlock Speed Demon + Jedi Senses.', icon: 'sword', category: 'SUPER' },
+  { id: 'perfectionist', title: 'The Perfectionist', desc: 'Unlock Sniper + Unbreakable.', icon: 'sparkles', category: 'SUPER' },
+  { id: 'type_nova', title: 'TYPE NOVA', desc: 'Unlock every single badge in the game.', icon: 'orbit', category: 'SUPER' }
 ];
 
 export type Phase = 'CONFIGURING' | 'READY' | 'COUNTDOWN' | 'TYPING' | 'FINISHED';

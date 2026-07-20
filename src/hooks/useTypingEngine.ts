@@ -144,13 +144,19 @@ export const useTypingEngine = () => {
     }
   }, [phase, countdownTimer]);
 
-  // Live stats update during typing
+  // Live stats update during typing.
+  // `input`/`timePenalty` are read through a ref so the interval survives
+  // keystrokes — with them in the deps array the interval was torn down and
+  // recreated on every keypress, meaning the 500ms tick almost never fired
+  // while actually typing (live WPM only updated during pauses).
+  const liveRef = useRef({ input, timePenalty });
+  useEffect(() => { liveRef.current = { input, timePenalty }; });
+
   useEffect(() => {
     if (phase !== 'TYPING' || !startTime || endTime) return;
     const interval = setInterval(() => {
-      let activePenalty = timePenalty;
-      // Overclocked penalty is handled by the caller via accuracy state
-      const stats = calculateStats(input, Date.now() - startTime, activePenalty);
+      const { input: liveInput, timePenalty: livePenalty } = liveRef.current;
+      const stats = calculateStats(liveInput, Date.now() - startTime, livePenalty);
       setWpm(stats.currentWpm);
       setRawWpm(stats.rawWpm);
       setAccuracy(stats.currentAcc);
@@ -159,7 +165,7 @@ export const useTypingEngine = () => {
       setTimelinePoints(stats.timeline);
     }, 500);
     return () => clearInterval(interval);
-  }, [phase, startTime, endTime, input, timePenalty, calculateStats]);
+  }, [phase, startTime, endTime, calculateStats]);
 
   const resetEngine = useCallback(() => {
     isFinishingRef.current = false;

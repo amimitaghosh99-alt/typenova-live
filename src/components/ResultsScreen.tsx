@@ -3,6 +3,20 @@ import { Activity, TrendingUp, RotateCcw, Play, Brain, Share2 } from 'lucide-rea
 import type { Theme } from '@/data/constants';
 import { shareResultCard } from '@/utils/shareCard';
 
+/** WPM at time t, linearly interpolated along the timeline curve. */
+function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): number {
+  if (points.length === 0) return 0;
+  if (t <= points[0].t) return points[0].wpm;
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].t >= t) {
+      const a = points[i - 1], b = points[i];
+      const frac = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+      return a.wpm + (b.wpm - a.wpm) * frac;
+    }
+  }
+  return points[points.length - 1].wpm;
+}
+
 interface ResultsScreenProps {
   wpm: number;
   rawWpm: number;
@@ -23,6 +37,11 @@ interface ResultsScreenProps {
   onWatchReplay: () => void;
   /** null when there isn't enough heatmap data for a smart drill yet */
   onStartSmartDrill: (() => void) | null;
+  /** WPM curve of the finished run (from useTypingEngine) */
+  timelinePoints: Array<{ t: number; wpm: number }>;
+  /** ms offsets (from test start) of each mistyped character */
+  errorTimes: number[];
+  durationMs: number;
 }
 
 export const ResultsScreen = ({
@@ -30,7 +49,8 @@ export const ResultsScreen = ({
   leveledUp, xpGainedLast, theme,
   heatmapData, getWeakKeys, username, setUsername,
   saveStatus, onSave, onReset, onStartMicroDrill,
-  onWatchReplay, onStartSmartDrill
+  onWatchReplay, onStartSmartDrill,
+  timelinePoints, errorTimes, durationMs
 }: ResultsScreenProps) => {
   const [shareStatus, setShareStatus] = useState('');
 
@@ -100,6 +120,43 @@ export const ResultsScreen = ({
           <span className={`text-4xl md:text-5xl font-black ${flawlessStreak > 50 ? theme.text : 'text-white'}`}>{flawlessStreak}</span>
         </div>
       </div>
+
+      {/* Pacing graph — WPM curve with error markers */}
+      {timelinePoints.length > 1 && durationMs > 0 && (
+        <div className="w-full max-w-2xl mb-3 scale-[0.85] md:scale-90 origin-top z-10 relative">
+          <div className="p-6 glass-panel rounded-3xl w-full lucid-enter" style={{ '--delay': '100ms' } as React.CSSProperties}>
+            <div className="flex w-full justify-between items-center mb-3">
+              <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center">
+                <TrendingUp size={12} className="mr-2" /> PACING
+              </span>
+              {errorTimes.length > 0 && (
+                <span className="text-[9px] font-black tracking-widest text-red-400/80">✕ {errorTimes.length} ERROR{errorTimes.length === 1 ? '' : 'S'}</span>
+              )}
+            </div>
+            {(() => {
+              const maxW = Math.max(...timelinePoints.map(p => p.wpm), 10);
+              const px = (t: number) => (t / durationMs) * 760 + 20;
+              const py = (w: number) => 150 - (w / maxW) * 130;
+              const poly = timelinePoints.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
+              return (
+                <svg viewBox="0 0 800 170" className="w-full">
+                  {[0.25, 0.5, 0.75].map(f => (
+                    <line key={f} x1="20" y1={150 - 130 * f} x2="780" y2={150 - 130 * f} stroke="rgba(113,113,122,0.15)" strokeWidth="1" />
+                  ))}
+                  <polyline fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />
+                  {/* error ticks along the baseline */}
+                  {errorTimes.map((t, i) => (
+                    <g key={i}>
+                      <line x1={px(t)} y1="156" x2={px(t)} y2="164" stroke="rgb(248,113,113)" strokeWidth="2" strokeLinecap="round" />
+                      <circle cx={px(t)} cy={py(interpolateWpm(timelinePoints, t))} r="3.5" fill="rgb(248,113,113)" opacity="0.85" />
+                    </g>
+                  ))}
+                </svg>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Heatmap */}
       <div className="w-full max-w-2xl mb-3 scale-[0.85] md:scale-90 origin-top z-10 relative">

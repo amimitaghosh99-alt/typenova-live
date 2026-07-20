@@ -1,4 +1,5 @@
-import React, { useRef, useState, useEffect, memo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, memo } from 'react';
+import { Ghost } from 'lucide-react';
 import type { Particle } from '@/hooks/useParticles';
 import type { Theme } from '@/data/constants';
 import type { Phase } from '@/data/constants';
@@ -15,12 +16,15 @@ interface CharProps {
   isActive: boolean;
   caretClass: string;
   particles: Particle[];
+  /** Render the per-char caret bar (used by ReplayModal). TypingArea passes
+      false and draws the smooth GlidingBar overlay instead. */
+  caretBar?: boolean;
 }
 
 // Memoized leaf: all props are primitives or stable references, so the
 // default shallow compare skips re-rendering every span whose class/caret/
 // particles didn't change on this keystroke (~99% of them).
-export const Char = memo(({ char, index, colorClass, isActive, caretClass, particles }: CharProps) => (
+export const Char = memo(({ char, index, colorClass, isActive, caretClass, particles, caretBar = true }: CharProps) => (
   <span className="relative inline" id={isActive ? 'active-caret' : undefined} data-char-index={index}>
     {particles.map(p => (
       <span
@@ -37,7 +41,7 @@ export const Char = memo(({ char, index, colorClass, isActive, caretClass, parti
         {p.char}
       </span>
     ))}
-    {isActive && (
+    {isActive && caretBar && (
       <span className={`absolute left-0 -bottom-2 w-full h-[4px] bg-white rounded-full caret-lucid ${caretClass}`} />
     )}
     <span className={`${colorClass} transition-colors duration-150`}>
@@ -82,6 +86,11 @@ export const TypingArea = ({
   particles, ghostPacer, combo, zenMode = false, pbGhost = null
 }: TypingAreaProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const ghost = useGhostRace(
+    !zenMode && ghostPacer && phase === 'TYPING',
+    startTime, targetText.length, input.length, pbGhost?.samples
+  );
 
   // Pre-compute word indices for fog mode
   const wordIndices = React.useMemo(() => {
@@ -148,6 +157,19 @@ export const TypingArea = ({
           </div>
         )}
 
+        {/* Ghost race chip — live ahead/behind delta vs your best (or 60 WPM) */}
+        {ghost && (
+          <div className="absolute -top-4 right-6 z-50 px-3 py-1.5 rounded-full bg-zinc-950/85 backdrop-blur-md border border-white/10 flex items-center gap-2 pointer-events-none shadow-lg">
+            <Ghost size={12} className="text-zinc-400" />
+            <span className={`text-[10px] font-black tabular-nums tracking-widest ${ghost.deltaS >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {ghost.deltaS >= 0 ? '▲' : '▼'} {Math.abs(ghost.deltaS).toFixed(1)}s {ghost.deltaS >= 0 ? 'AHEAD' : 'BEHIND'}
+            </span>
+            <span className="text-[9px] font-bold text-zinc-500 tracking-widest">
+              {pbGhost ? `BEST ${pbGhost.wpm}` : '60 WPM'}
+            </span>
+          </div>
+        )}
+
         {!zenMode && stickyPenalty > 0 && (
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-[10px] md:text-xs px-6 py-2 rounded-full font-black flex items-center shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-pulse z-50 uppercase tracking-widest border border-red-400">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -198,16 +220,33 @@ export const TypingArea = ({
                 isActive={isActive}
                 caretClass={theme.drop}
                 particles={particlesByIndex.get(index) ?? EMPTY_PARTICLES}
+                caretBar={false}
               />
             );
           })}
 
-          {/* Ghost Pacer indicator — rendered as a subtle highlight on the target character */}
-          {!zenMode && ghostPacer && startTime && phase === 'TYPING' && (
-            <GhostPacerCursor
-              startTime={startTime}
-              targetTextLength={targetText.length}
-              pbSamples={pbGhost?.samples}
+          {/* Smooth-glide caret — one bar that slides between characters */}
+          {phase === 'TYPING' && input.length < targetText.length && (
+            <GlidingBar
+              index={input.length}
+              containerRef={containerRef}
+              targetText={targetText}
+              barClass={`bg-white caret-lucid ${theme.drop}`}
+            />
+          )}
+
+          {/* Ghost caret — a translucent themed bar racing your best pace */}
+          {ghost && (
+            <GlidingBar
+              index={ghost.index}
+              containerRef={containerRef}
+              targetText={targetText}
+              barClass=""
+              barStyle={{
+                background: `rgb(${theme.glowPrimary})`,
+                opacity: 0.45,
+                transition: 'transform 100ms linear, width 100ms ease-out',
+              }}
             />
           )}
         </div>
@@ -239,78 +278,123 @@ function charsAtTime(samples: PaceSample[], t: number): number {
   return Math.floor(a.chars + (b.chars - a.chars) * frac);
 }
 
-function GhostPacerCursor({ startTime, targetTextLength, pbSamples }: {
-  startTime: number;
-  targetTextLength: number;
-  pbSamples?: PaceSample[];
+/** Elapsed ms at which the pace recording reached `chars` (inverse of
+    charsAtTime), linearly interpolated. Used for the ahead/behind delta. */
+function timeAtChars(samples: PaceSample[], chars: number): number {
+  if (chars <= samples[0].chars) return samples[0].t;
+  const last = samples[samples.length - 1];
+  if (chars >= last.chars) return last.t;
+  // chars is monotonically non-decreasing; binary search the bracketing pair
+  let lo = 0, hi = samples.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid].chars <= chars) lo = mid; else hi = mid;
+  }
+  const a = samples[lo], b = samples[hi];
+  const frac = b.chars === a.chars ? 0 : (chars - a.chars) / (b.chars - a.chars);
+  return a.t + (b.t - a.t) * frac;
+}
+
+// ─── Gliding Bar ────────────────────────────────────────────────────
+// A single underline bar positioned by measuring the char span at `index`
+// and translated there with a CSS transition — the caret GLIDES between
+// characters instead of teleporting. Rendered inside the scroll container
+// (which is position:relative), so it scrolls with the text.
+function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
+  index: number;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  targetText: string; // re-measure when the text (and thus layout) changes
+  barClass: string;
+  barStyle?: React.CSSProperties;
 }) {
-  const [ghostIndex, setGhostIndex] = useState(-1);
+  const [pos, setPos] = useState<{ x: number; y: number; w: number } | null>(null);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const elapsedMs = Date.now() - startTime;
-      const chars = pbSamples && pbSamples.length > 1
-        ? charsAtTime(pbSamples, elapsedMs)
-        : Math.floor((elapsedMs / 60000) * CHARS_PER_MINUTE_AT_PACE);
-      setGhostIndex(Math.min(chars, targetTextLength - 1));
-    }, 100);
-    return () => clearInterval(interval);
-  }, [startTime, targetTextLength, pbSamples]);
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) { setPos(null); return; }
 
-  if (ghostIndex < 0) return null;
+    const measure = () => {
+      const el = container.querySelector<HTMLElement>(`[data-char-index="${index}"]`);
+      if (!el) { setPos(null); return; }
+      
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      
+      setPos({ 
+        x: elRect.left - containerRect.left + container.scrollLeft, 
+        y: elRect.top - containerRect.top + container.scrollTop + elRect.height - 4, 
+        w: Math.max(6, elRect.width) 
+      });
+    };
+
+    measure();
+    const rafId = window.requestAnimationFrame(measure);
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(container);
+
+    const cleanup = () => {
+      window.cancelAnimationFrame(rafId);
+      resizeObserver.disconnect();
+    };
+
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      cleanup();
+    };
+  }, [index, targetText, containerRef]);
+
+  if (!pos) return null;
+
+  const { background, opacity, transition, ...restStyle } = barStyle || {};
 
   return (
     <span
-      className="absolute pointer-events-none z-40"
+      className="absolute left-0 top-0 pointer-events-none z-40"
       style={{
-        left: 0,
-        top: 0,
-        transform: 'translate(0, 0)',
+        width: pos.w,
+        transform: `translate(${pos.x}px, ${pos.y}px)`,
+        transition: transition || 'transform 90ms cubic-bezier(0.25, 1, 0.5, 1), width 90ms ease-out',
+        opacity,
+        ...restStyle,
       }}
     >
-      <style>{`
-        #ghost-char-${ghostIndex} {
-          position: relative;
-        }
-        #ghost-char-${ghostIndex}::after {
-          content: '';
-          position: absolute;
-          bottom: -2px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: rgba(255, 255, 255, 0.25);
-          border-radius: 1px;
-          animation: ghost-pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes ghost-pulse {
-          0%, 100% { opacity: 0.15; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
-      {/* We use a DOM query to find the ghost target and mark it */}
-      <GhostPacerMarker targetIndex={ghostIndex} />
+      <span 
+        className={`block w-full h-[4px] rounded-full ${barClass}`}
+        style={{ background }}
+      />
     </span>
   );
 }
 
-// Invisible component that marks the target character via DOM manipulation
-function GhostPacerMarker({ targetIndex }: { targetIndex: number }) {
-  useEffect(() => {
-    // Find the character span at the ghost index
-    const container = document.getElementById('typing-text-container');
-    if (!container) return;
-    const spans = container.querySelectorAll('[data-char-index]');
-    spans.forEach((span) => {
-      span.removeAttribute('id');
-      span.classList.remove('ghost-pacer-active');
-    });
-    const target = container.querySelector(`[data-char-index="${targetIndex}"]`);
-    if (target) {
-      target.id = `ghost-char-${targetIndex}`;
-      target.classList.add('ghost-pacer-active');
-    }
-  }, [targetIndex]);
+// ─── Ghost race state ───────────────────────────────────────────────
+// 100ms tick computing where the ghost is and how far ahead/behind the
+// player is versus the pace recording (or the 60 WPM fallback).
+function useGhostRace(active: boolean, startTime: number | null, targetTextLength: number, inputLength: number, pbSamples?: PaceSample[]) {
+  const [ghost, setGhost] = useState<{ index: number; deltaS: number } | null>(null);
+  const inputLenRef = useRef(inputLength);
+  useEffect(() => { inputLenRef.current = inputLength; });
 
-  return null;
+  useEffect(() => {
+    if (!active || !startTime) { setGhost(null); return; }
+    const hasPb = !!pbSamples && pbSamples.length > 1;
+    const interval = setInterval(() => {
+      const elapsedMs = Date.now() - startTime;
+      const chars = hasPb
+        ? charsAtTime(pbSamples!, elapsedMs)
+        : Math.floor((elapsedMs / 60000) * CHARS_PER_MINUTE_AT_PACE);
+      // + delta means the player reached their current char SOONER than the
+      // ghost did → ahead of the pace by that many seconds.
+      const tGhost = hasPb
+        ? timeAtChars(pbSamples!, inputLenRef.current)
+        : (inputLenRef.current / (CHARS_PER_MINUTE_AT_PACE / 60)) * 1000;
+      setGhost({
+        index: Math.min(chars, targetTextLength - 1),
+        deltaS: (tGhost - elapsedMs) / 1000,
+      });
+    }, 100);
+    return () => clearInterval(interval);
+  }, [active, startTime, targetTextLength, pbSamples]);
+
+  return ghost;
 }

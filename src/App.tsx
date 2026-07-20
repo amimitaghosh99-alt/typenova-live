@@ -9,6 +9,7 @@ import {
   Swords, Sword, Sparkles, Orbit, Unlock,
   Hash, Clock, BarChart2, CalendarCheck, Hourglass
 } from 'lucide-react';
+// Note: Swords is used both for the ACHIEVEMENT_ICONS map and the race button.
 import type { LucideIcon } from 'lucide-react';
 
 import {
@@ -29,6 +30,8 @@ import { StatsPanel } from '@/components/StatsPanel';
 import { ResultsScreen } from '@/components/ResultsScreen';
 import { StatsDashboard, appendHistory } from '@/components/StatsDashboard';
 import { ReplayModal } from '@/components/ReplayModal';
+import { RaceModal, RaceProgressOverlay } from '@/components/RaceModal';
+import { useRace } from '@/hooks/useRace';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
 
 // ─── SUPABASE ─────────────────────────────────────────────────────────
@@ -175,6 +178,8 @@ export default function App() {
   const [showExpandedGraph, setShowExpandedGraph] = useState(false);
   const [showStatsDashboard, setShowStatsDashboard] = useState(false);
   const [showReplay, setShowReplay] = useState(false);
+  const [showRace, setShowRace] = useState(false);
+  const [raceActive, setRaceActive] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -190,6 +195,27 @@ export default function App() {
   const rpg = useRPGSystem();
   const particles = useParticles();
   useGlassPointer();
+
+  // Multiplayer race: when a race starts, every client (host + guests) drops
+  // into a synced countdown on the same text. We reuse the whole typing
+  // engine — the race just supplies the text and a shared start moment.
+  const race = useRace({
+    supabase,
+    onStart: (text, startAt) => {
+      setShowRace(false);
+      setRaceActive(true);
+      // Reset engine but keep raceActive; disable modifier modes for fairness
+      typing.resetEngine();
+      typing.setTargetText(text);
+      setZenMode(false); setMirroredMode(false); setDailyActive(false);
+      setSuddenDeath(false); setBlindMode(false); setFogMode(false);
+      setStickyKeysMode(false); setOverclockedMode(false);
+      // Sync the countdown to the host's clock so everyone starts together
+      const secsLeft = Math.max(1, Math.ceil((startAt - Date.now()) / 1000));
+      typing.setPhase('COUNTDOWN');
+      typing.setCountdownTimer(secsLeft);
+    },
+  });
 
   const theme: Theme = THEMES[THEME_KEYS[themeIndex]];
   const themeMenuRef = useRef<HTMLDivElement>(null);
@@ -214,6 +240,8 @@ export default function App() {
     showThemeMenu,
     showStatsDashboard,
     showReplay,
+    showRace,
+    raceActive,
     theme,
     tetrisEffect,
     mirroredMode,
@@ -309,6 +337,7 @@ export default function App() {
     setZenMode(false);
     setSaveStatus('');
     setUsername('');
+    setRaceActive(false); // any manual reset drops out of race mode
     rpg.resetRPGFlags();
     particles.clearAll();
   }, [typing, rpg, particles]);
@@ -385,16 +414,28 @@ export default function App() {
   };
 
   // ─── Save Score ──────────────────────────────────────────────────
+  // Client-side sanity gate. Real enforcement lives in DB CHECK constraints
+  // (see the anti-cheat SQL in the setup notes) — the public anon key can
+  // POST anything, so the server must be the source of truth; this just
+  // avoids obviously-bogus submissions and gives clean UX feedback.
+  const MAX_PLAUSIBLE_WPM = 250;
   const saveScore = async () => {
-    if (!username.trim() || !supabase) return;
+    const name = username.trim();
+    if (!name || !supabase) return;
+    const wpm = Math.round(typing.wpm);
+    const accuracy = Math.round(typing.accuracy);
+    if (wpm <= 0 || wpm > MAX_PLAUSIBLE_WPM || accuracy < 0 || accuracy > 100) {
+      setSaveStatus('INVALID SCORE');
+      return;
+    }
     setSaveStatus('Saving...');
-    const { error } = await supabase.from('leaderboard').insert([{ username, wpm: typing.wpm, accuracy: typing.accuracy } as never]);
+    const { error } = await supabase.from('leaderboard').insert([{ username: name, wpm, accuracy } as never]);
     if (dailyActive) {
       // Best-effort daily submission — table may not exist yet
-      const { error: dailyErr } = await supabase.from('daily_scores').insert([{ day: todayKey(), username, wpm: typing.wpm, accuracy: typing.accuracy } as never]);
+      const { error: dailyErr } = await supabase.from('daily_scores').insert([{ day: todayKey(), username: name, wpm, accuracy } as never]);
       if (!dailyErr) fetchDailyBoard();
     }
-    if (error) setSaveStatus('Error!');
+    if (error) setSaveStatus(/duplicate|unique/i.test(error.message) ? 'ALREADY SUBMITTED TODAY' : 'Error!');
     else { setSaveStatus('SCORE SAVED!'); fetchLeaderboard(); }
   };
 
@@ -479,6 +520,16 @@ export default function App() {
     return Object.entries(count).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 3) as [string, number][];
   }, [typing.phase, typing.input]);
 
+  // Error timestamps (ms from test start) for the results pacing graph
+  const errorTimes = useMemo(() => {
+    const log = typing.keystrokeLog.current;
+    if (log.length === 0 || !typing.startTime) return [];
+    const t0 = log[0].time;
+    return log.filter(k => k.isError && !k.isBackspace).map(k => k.time - t0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typing.phase, typing.endTime]);
+  const finishDurationMs = typing.startTime && typing.endTime ? typing.endTime - typing.startTime : 0;
+
   // ─── Finish Test Wrapper ─────────────────────────────────────────
   // ─── KEYBOARD HANDLER (THE CORE) ─────────────────────────────────
   useEffect(() => {
@@ -486,7 +537,7 @@ export default function App() {
       const s = stateRef.current;
 
       // Modal escape handling
-      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showStatsDashboard || s.showReplay) {
+      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showStatsDashboard || s.showReplay || s.showRace) {
         if (e.key === 'Escape') {
           setShowTrophyRoom(false);
           setShowGodMode(false);
@@ -494,9 +545,14 @@ export default function App() {
           setShowThemeMenu(false);
           setShowStatsDashboard(false);
           setShowReplay(false);
+          setShowRace(false);
         }
         return;
       }
+
+      // During an active multiplayer race, swallow ESC so a mid-race abort
+      // can't desync the room; typing still flows through below.
+      if (s.raceActive && e.key === 'Escape') { e.preventDefault(); return; }
 
       // Caps lock detection
       if (e.getModifierState && e.getModifierState('CapsLock')) typing.setCapsLock(true);
@@ -697,8 +753,21 @@ export default function App() {
       result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length,
       isTimed, streakNow
     );
+
+    // Multiplayer: broadcast the final result and pop the ranking modal
+    if (raceActive) {
+      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs);
+      setShowRace(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase, typing.endTime]);
+
+  // ─── Multiplayer: broadcast live progress while racing ───────────
+  useEffect(() => {
+    if (!raceActive || typing.phase !== 'TYPING') return;
+    const pct = typing.targetText.length > 0 ? (typing.input.length / typing.targetText.length) * 100 : 0;
+    race.sendProgress(pct, typing.wpm);
+  }, [raceActive, typing.phase, typing.input.length, typing.targetText.length, typing.wpm, race]);
 
   // ─── Timed Mode Countdown ────────────────────────────────────────
   useEffect(() => {
@@ -1007,6 +1076,9 @@ export default function App() {
               <button onClick={() => setShowStatsDashboard(true)} className="p-2 rounded-xl bg-black/20 border border-white/10 text-zinc-500 hover:text-white transition-all ml-1" title="Your Stats">
                 <BarChart2 size={16} />
               </button>
+              <button onClick={() => setShowRace(true)} className="p-2 rounded-xl bg-black/20 border border-white/10 text-zinc-500 hover:text-white transition-all ml-1" title="Race a friend">
+                <Swords size={16} />
+              </button>
               {dailyStreak > 0 && (
                 <>
                   <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
@@ -1244,6 +1316,9 @@ export default function App() {
                 onStartMicroDrill={startMicroDrill}
                 onWatchReplay={() => setShowReplay(true)}
                 onStartSmartDrill={smartDrillKeys.length > 0 ? startSmartDrill : null}
+                timelinePoints={typing.timelinePoints}
+                errorTimes={errorTimes}
+                durationMs={finishDurationMs}
               />
             )}
 
@@ -1350,6 +1425,29 @@ export default function App() {
           theme={theme}
           onClose={() => setShowReplay(false)}
         />
+      )}
+
+      {/* Multiplayer Race */}
+      {showRace && (
+        <RaceModal
+          status={race.status}
+          code={race.code}
+          isHost={race.isHost}
+          players={race.players}
+          error={race.error}
+          selfId={race.selfId}
+          theme={theme}
+          onCreate={(name) => race.createRoom(name, generateText('ADEPT', 40))}
+          onJoin={(code, name) => race.joinRoom(code, name)}
+          onStart={race.startRace}
+          onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); }}
+          onClose={() => setShowRace(false)}
+        />
+      )}
+
+      {/* In-race live opponent bars */}
+      {raceActive && (typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
+        <RaceProgressOverlay players={race.players} selfId={race.selfId} theme={theme} />
       )}
     </div>
   );

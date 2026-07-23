@@ -218,7 +218,7 @@ export const TypingArea = ({
           animation: shake && !zenMode ? 'shake 0.2s ease-in-out' : 'none',
         } as React.CSSProperties}
       >
-        {!zenMode && capsLock && (
+        {capsLock && (
           <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-lg animate-bounce z-50">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             CAPS LOCK ON
@@ -238,7 +238,7 @@ export const TypingArea = ({
           </div>
         )}
 
-        {!zenMode && stickyPenalty > 0 && (
+        {stickyPenalty > 0 && (
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-[10px] md:text-xs px-6 py-2 rounded-full font-black flex items-center shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-pulse z-50 uppercase tracking-widest border border-red-400">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             KEY STUCK! MASH BACKSPACE {stickyPenalty}x

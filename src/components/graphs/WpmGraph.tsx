@@ -27,7 +27,7 @@ function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): n
 }
 
 export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId, errorTimes, durationMs, theme }: WpmGraphProps) => {
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [hoveredTimeMs, setHoveredTimeMs] = useState<number | null>(null);
   const [hoveredOvertakeIdx, setHoveredOvertakeIdx] = useState<number | null>(null);
 
   const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes } = useMemo(() => {
@@ -52,13 +52,7 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
     if (competitorTimelines) {
       Object.entries(competitorTimelines).forEach(([id, pts]) => {
         if (pts.length < 2) return;
-        const extendedPts = [...pts];
-        const lastPt = extendedPts[extendedPts.length - 1];
-        // Extend the competitor's timeline to the end of the graph if they finished early
-        if (lastPt.t < durationMs) {
-          extendedPts.push({ t: durationMs, wpm: lastPt.wpm });
-        }
-        compPolys[id] = extendedPts.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
+        compPolys[id] = pts.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
       });
     }
 
@@ -144,8 +138,15 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
 
       <svg
         viewBox="0 0 800 250"
-        className="w-full"
-        onMouseLeave={() => setHoveredIdx(null)}
+        className="w-full relative"
+        onMouseLeave={() => { setHoveredTimeMs(null); setHoveredOvertakeIdx(null); }}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const svgX = ((e.clientX - rect.left) / rect.width) * 800;
+          const t = ((svgX - 60) / 700) * durationMs;
+          if (t >= 0 && t <= durationMs) setHoveredTimeMs(t);
+          else setHoveredTimeMs(null);
+        }}
       >
         <defs>
           <linearGradient id="wpmGradient" x1="0" y1="0" x2="0" y2="1">
@@ -185,42 +186,21 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
         <polyline fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />
 
         {/* Error dots on curve */}
-        {errorTimes.map((t, i) => (
-          <g key={`err-${i}`}>
-            <line x1={px(t)} y1="216" x2={px(t)} y2="222" stroke="rgb(248,113,113)" strokeWidth="2" strokeLinecap="round" />
-            <circle cx={px(t)} cy={py(interpolateWpm(timelinePoints, t))} r="3" fill="rgb(248,113,113)" opacity="0.85" />
-          </g>
-        ))}
+        {errorTimes.map((t, i) => {
+          const pyVal = py(interpolateWpm(timelinePoints, t));
+          const dotY = Math.min(pyVal, 206);
+          return (
+            <g key={`err-${i}`}>
+              <line x1={px(t)} y1={dotY + 3} x2={px(t)} y2={dotY + 8} stroke="rgb(248,113,113)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx={px(t)} cy={dotY} r="3" fill="rgb(248,113,113)" opacity="0.85" />
+            </g>
+          );
+        })}
 
-        {/* Data points */}
-        {timelinePoints.map((p, i) => (
-          <g key={i}>
-            <circle
-              cx={px(p.t)}
-              cy={py(p.wpm)}
-              r={hoveredIdx === i ? 6 : 3}
-              fill={hoveredIdx === i ? 'white' : 'currentColor'}
-              className={hoveredIdx === i ? '' : theme.text}
-              stroke={hoveredIdx === i ? 'currentColor' : 'none'}
-              strokeWidth={hoveredIdx === i ? 2 : 0}
-              style={{ transition: 'r 0.15s, fill 0.15s' }}
-            />
-            {/* Invisible hover target */}
-            <rect
-              x={px(p.t) - 20}
-              y="10"
-              width="40"
-              height="220"
-              fill="transparent"
-              onMouseEnter={() => setHoveredIdx(i)}
-            />
-          </g>
-        ))}
-
-        {/* Tooltip */}
-        {hoveredIdx !== null && timelinePoints[hoveredIdx] && (() => {
-          const p = timelinePoints[hoveredIdx];
-          const tx = Math.min(Math.max(px(p.t), 80), 720);
+        {/* Tooltip & Hover Markers */}
+        {hoveredTimeMs !== null && (() => {
+          const t = hoveredTimeMs;
+          const tx = Math.min(Math.max(px(t), 80), 720);
           
           // Determine tooltip rows (WPMs for each player)
           const rows: { name: string; wpm: number; color: string; isRaw?: boolean }[] = [];
@@ -230,30 +210,57 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
             players.forEach((player, idx) => {
               const color = medalStrokeColors[idx] || medalStrokeColors[3];
               if (player.id === selfId) {
-                rows.push({ name: 'YOU', wpm: Math.round(p.wpm), color });
+                if (t <= (timelinePoints[timelinePoints.length - 1]?.t ?? durationMs)) {
+                  rows.push({ name: 'YOU', wpm: Math.round(interpolateWpm(timelinePoints, t)), color });
+                } else {
+                  rows.push({ name: 'YOU 🏁', wpm: Math.round(timelinePoints[timelinePoints.length - 1]?.wpm ?? 0), color });
+                }
               } else if (competitorTimelines?.[player.id]) {
-                const compWpm = interpolateWpm(competitorTimelines[player.id], p.t);
-                rows.push({ name: player.name.substring(0, 8), wpm: Math.round(compWpm), color });
+                const pts = competitorTimelines[player.id];
+                if (pts.length > 0) {
+                  if (t <= pts[pts.length - 1].t) {
+                    rows.push({ name: player.name.substring(0, 8), wpm: Math.round(interpolateWpm(pts, t)), color });
+                  } else {
+                    rows.push({ name: player.name.substring(0, 8) + ' 🏁', wpm: Math.round(pts[pts.length - 1].wpm), color });
+                  }
+                }
               }
             });
           } else {
-            rows.push({ name: 'WPM', wpm: Math.round(p.wpm), color: 'white' });
-            rows.push({ name: 'RAW', wpm: Math.round(p.rawWpm), color: 'rgba(255,255,255,0.5)', isRaw: true });
+            const wpm = interpolateWpm(timelinePoints, t);
+            rows.push({ name: 'WPM', wpm: Math.round(wpm), color: 'white' });
           }
 
           const h = rows.length * 16 + 12;
-          const yStart = py(p.wpm) - h - 10;
-          const ty = yStart < 20 ? py(p.wpm) + 20 : yStart;
+          rows.sort((a, b) => b.wpm - a.wpm);
+          const topWpm = rows[0]?.wpm ?? 0;
+          const yStart = py(topWpm) - h - 10;
+          const ty = yStart < 20 ? py(topWpm) + 20 : yStart;
 
           return (
             <g>
-              <line x1={px(p.t)} y1="30" x2={px(p.t)} y2="210" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1={px(t)} y1="30" x2={px(t)} y2="210" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="3 3" />
               <rect x={tx - 45} y={ty} width="90" height={h} rx="8" fill="rgba(0,0,0,0.85)" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
               
               {rows.map((row, i) => (
                 <text key={i} x={tx} y={ty + 16 + i * 16} textAnchor="middle" fill={row.color} fontSize={row.isRaw ? "9" : "10"} fontWeight={row.isRaw ? "600" : "800"}>
                   {row.wpm} {row.name}
                 </text>
+              ))}
+
+              {/* Draw hover dots for each row */}
+              {rows.map((row, i) => (
+                !row.name.includes('🏁') && (
+                  <circle
+                    key={`dot-${i}`}
+                    cx={px(t)}
+                    cy={py(row.wpm)}
+                    r="4"
+                    fill="black"
+                    stroke={row.color}
+                    strokeWidth="2"
+                  />
+                )
               ))}
             </g>
           );

@@ -34,6 +34,10 @@ export function RaceResultsScreen({
   const winner = ranking[0];
   const iWon = allFinished && winner?.id === selfId;
 
+  const maxRaceDurationMs = useMemo(() => {
+    return Math.max(...players.map(p => p.finishMs ?? 0), resultsProps.durationMs);
+  }, [players, resultsProps.durationMs]);
+
   // ── AWARDS LOGIC ──
   const awards = useMemo(() => {
     if (!allFinished) return {} as Record<string, string>;
@@ -181,7 +185,7 @@ export function RaceResultsScreen({
             players={ranking}
             selfId={selfId}
             errorTimes={resultsProps.errorTimes}
-            durationMs={resultsProps.durationMs}
+            durationMs={maxRaceDurationMs}
             theme={theme}
           />
         </div>
@@ -202,9 +206,14 @@ export function RaceResultsScreen({
                 key={player.id}
                 onClick={() => setSelectedPlayerId(player.id)}
                 className={`relative overflow-hidden group text-left px-6 py-4 rounded-3xl transition-all duration-300 glass-panel ${
-                  isSelected ? 'shadow-2xl' : 'hover:opacity-100 hover:scale-105'
-                } ${isWinner ? 'scale-105 saturate-150' : isLoser && !isSelected ? 'opacity-60 grayscale-[0.2]' : 'opacity-90'} `}
-                style={isSelected ? { boxShadow: `0 0 20px ${strokeColor}40, inset 0 0 10px ${strokeColor}20`, borderColor: strokeColor } : isWinner ? { boxShadow: `0 0 30px ${medalStrokeColors[0]}40` } : {}}
+                  isWinner ? 'scale-105 saturate-150 shadow-2xl z-20' :
+                  isSelected ? 'scale-100 shadow-xl opacity-100 z-10' :
+                  'scale-95 opacity-50 hover:opacity-80 grayscale-[0.5] z-0'
+                }`}
+                style={
+                  isWinner ? { boxShadow: `0 0 30px ${medalStrokeColors[0]}60`, borderColor: medalStrokeColors[0] } :
+                  isSelected ? { boxShadow: `0 0 15px ${strokeColor}40`, borderColor: strokeColor } : {}
+                }
               >
                 {isSelected && (
                   <div className="absolute inset-0 opacity-10" style={{ backgroundColor: strokeColor }}></div>

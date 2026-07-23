@@ -542,8 +542,10 @@ function MainApp() {
       punctuation: s.withPunctuation,
       rng: s.dailyActive ? mulberry32(daySeed()) : undefined,
     }));
-    typing.setPhase('FINISHED');
     typing.keystrokeLog.current = [];
+    // Go back to CONFIGURING instead of FINISHED to avoid triggering RPG
+    // processing with an empty keystroke log.
+    typing.setPhase('CONFIGURING');
   };
 
   // ─── Personal Best (ghost pacer data) ────────────────────────────
@@ -591,7 +593,7 @@ function MainApp() {
     if (autoSave && supabase && auth.session && cloud.username) {
       const wpmVal = Math.round(typing.wpm);
       const accVal = Math.round(typing.accuracy);
-      if (wpmVal > 0 && wpmVal <= 250 && accVal >= 0 && accVal <= 100) {
+      if (wpmVal > 0 && wpmVal <= 300 && accVal >= 0 && accVal <= 100) {
         setSaveStatus('Auto-saving...');
         supabase.rpc('submit_score', {
           p_wpm: wpmVal,
@@ -842,10 +844,10 @@ function MainApp() {
       isTimed, streakNow
     );
 
-    // Multiplayer: broadcast the final result and pop the ranking modal
+    // Multiplayer: broadcast the final result. The RaceResultsScreen is
+    // rendered automatically when raceActive + phase === FINISHED.
     if (raceActive) {
       race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs);
-      setShowRace(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase, typing.endTime]);
@@ -930,6 +932,7 @@ function MainApp() {
             players={race.players}
             selfId={race.selfId}
             roomSize={race.roomSize}
+            timelines={race.timelines}
             onLeaveRace={() => { race.leave(); setRaceActive(false); handleReset(); }}
           />
           {showReplay && (
@@ -1063,7 +1066,7 @@ function MainApp() {
 
       {/* Ready Modal */}
       {typing.phase === 'READY' && (
-        <div key={`ready-${Date.now()}`} className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
+        <div key="ready-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl flex flex-col gap-6 w-full max-w-md lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
             <div className="flex justify-center mb-2"><Keyboard className={theme.text} size={48} /></div>
             <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
@@ -1085,7 +1088,7 @@ function MainApp() {
 
       {/* Countdown */}
       {typing.phase === 'COUNTDOWN' && (
-        <div key={`countdown-${Date.now()}`} className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
+        <div key="countdown-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
           <span className={`text-[12rem] font-black ${theme.text} caret-lucid drop-shadow-2xl`}>{typing.countdownTimer}</span>
         </div>
       )}

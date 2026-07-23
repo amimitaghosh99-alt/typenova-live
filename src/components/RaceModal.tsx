@@ -52,7 +52,7 @@ export const RaceModal = ({
 
   const ranking = [...players]
     .filter(p => p.finished)
-    .sort((a, b) => (a.finishMs ?? Infinity) - (b.finishMs ?? Infinity) || (b.finishWpm ?? 0) - (a.finishWpm ?? 0));
+    .sort((a, b) => (b.finishWpm ?? 0) - (a.finishWpm ?? 0) || (a.finishMs ?? Infinity) - (b.finishMs ?? Infinity));
   const unfinished = players.filter(p => !p.finished);
 
   return (

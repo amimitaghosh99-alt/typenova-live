@@ -40,7 +40,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const [roomSize, setRoomSize] = useState(2);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const selfIdRef = useRef(Math.random().toString(36).slice(2, 10));
+  const selfIdRef = useRef(crypto.randomUUID());
   const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
   const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number }>>({});
   const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});

@@ -1650,7 +1650,7 @@ function MainApp() {
                         <button 
                           onClick={(e) => { 
                             e.stopPropagation(); 
-                            race.createRoom(cloud.username || 'Player', typing.targetText, 2);
+                            race.createRoom(cloud.username || 'Player', 2);
                             setRaceActive(true);
                             setShowRace(true);
                           }}

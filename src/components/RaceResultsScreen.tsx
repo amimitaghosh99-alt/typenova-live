@@ -19,15 +19,16 @@ export function RaceResultsScreen({
     [...players]
       .filter(p => p.finished)
       .sort((a, b) =>
-        (a.finishMs ?? Infinity) - (b.finishMs ?? Infinity) ||
-        (b.finishWpm ?? 0) - (a.finishWpm ?? 0)
+        (b.finishWpm ?? 0) - (a.finishWpm ?? 0) ||
+        (a.finishMs ?? Infinity) - (b.finishMs ?? Infinity)
       ),
     [players]
   );
 
   const myRank = ranking.findIndex(p => p.id === selfId);
+  const allFinished = players.length > 0 && players.every(p => p.finished);
   const winner = ranking[0];
-  const iWon = winner?.id === selfId;
+  const iWon = allFinished && winner?.id === selfId;
   const maxWpm = Math.max(...ranking.map(p => p.finishWpm ?? 0), 1);
   const maxAcc = 100;
 
@@ -76,13 +77,13 @@ export function RaceResultsScreen({
               ? 'text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,0.5)]'
               : 'text-white'
           }`}>
-            {winner ? `${winner.name} WINS!` : 'RACE OVER'}
+            {!allFinished ? 'WAITING FOR OTHERS...' : winner ? `${winner.name} WINS!` : 'RACE OVER'}
           </h1>
           {myRank >= 0 && (
             <p className={`text-xl font-black tracking-[0.3em] uppercase ${
-              myRank === 0 ? 'text-amber-400' : myRank === 1 ? 'text-zinc-300' : myRank === 2 ? 'text-orange-400' : 'text-zinc-500'
+              !allFinished ? 'text-zinc-500' : myRank === 0 ? 'text-amber-400' : myRank === 1 ? 'text-zinc-300' : myRank === 2 ? 'text-orange-400' : 'text-zinc-500'
             }`}>
-              {iWon ? '🏆 YOU WIN!' : `${placementText(myRank)}`}
+              {!allFinished ? 'RESULTS PENDING' : iWon ? '🏆 YOU WIN!' : `${placementText(myRank)}`}
             </p>
           )}
         </div>

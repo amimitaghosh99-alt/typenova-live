@@ -23,7 +23,7 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
 };
 
 export const AccountMenu = ({
-  theme, loggedIn, displayName, avatarUrl, status, onSignIn, onSignOut,
+  theme, loggedIn, displayName, avatarUrl, status, onSignIn: _onSignIn, onSignOut,
 }: AccountMenuProps) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

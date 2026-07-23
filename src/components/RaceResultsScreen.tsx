@@ -187,12 +187,6 @@ export function RaceResultsScreen({
         </div>
 
         {/* VS badge for 1v1 */}
-        {ranking.length === 2 && (
-          <div className="hidden md:flex justify-center -mt-[calc(50%+1.5rem)] mb-8 pointer-events-none" style={{ position: 'relative', zIndex: 30 }}>
-            {/* Intentionally no absolute VS overlay to avoid layout complexity — 
-                the side-by-side cards with medal colors already clearly show who won */}
-          </div>
-        )}
 
         {/* ── YOUR DETAILED STATS ─────────────────────────── */}
         <div className="border-t border-zinc-800 pt-10">

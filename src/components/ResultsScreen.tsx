@@ -100,7 +100,9 @@ export function ResultsScreen({
     <div className={compact ? '' : 'relative z-10 max-w-6xl mx-auto px-6 py-12'}>
         {/* Header */}
         <div className="flex flex-col items-center mb-12">
-          <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 animate-in fade-in zoom-in duration-500">TEST COMPLETE</h1>
+          {!compact && (
+            <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 animate-in fade-in zoom-in duration-500">TEST COMPLETE</h1>
+          )}
 
           {leveledUp && (
             <div className="mb-4 bg-amber-500/20 text-amber-400 border border-amber-500/50 px-8 py-3 rounded-full font-black tracking-widest flex items-center animate-bounce shadow-[0_0_30px_rgba(245,158,11,0.5)] text-sm">

@@ -12,7 +12,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 import {
-  THEMES, THEME_KEYS, PRESET_KEYS, SOUND_KEYS, ACHIEVEMENTS,
+  THEMES, THEME_KEYS, SOUND_KEYS, ACHIEVEMENTS,
   NOVICE_SENTENCES, ADEPT_SENTENCES,
   CODE_LANGUAGES, type CodeLanguage,
   generateText
@@ -175,7 +175,6 @@ function MainApp() {
   const [microDrillActive, setMicroDrillActive] = useState(false);
 
   const [themeIndex, setThemeIndex] = useState(0);
-  const [themePresetIndex] = useState(0);
   const [soundProfile, setSoundProfileState] = useState('thocky');
   const [muted, setMutedState] = useState(false);
   const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
@@ -198,7 +197,6 @@ function MainApp() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [friendsBoard, setFriendsBoard] = useState<any[]>([]);
   const [boardTab, setBoardTab] = useState<'alltime' | 'today' | 'friends'>('alltime');
-  const [friendInput, setFriendInput] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [autoSave] = useState(() => {
     try { return localStorage.getItem('typezen_autosave') !== 'false'; } catch { return true; }
@@ -585,8 +583,6 @@ function MainApp() {
   const selectTheme = (index: number) => {
     setThemeIndex(index);
     setSeenThemes(prev => new Set([...prev, index]));
-    const presetIdx = PRESET_KEYS.indexOf(THEME_KEYS[index]);
-    if (presetIdx !== -1) setThemePresetIndex(presetIdx);
     setShowThemeMenu(false);
   };
 

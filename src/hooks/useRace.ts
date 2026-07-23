@@ -41,6 +41,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [selfId] = useState(() => crypto.randomUUID());
+  const selfIdRef = useRef(selfId);
   const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
   const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number }>>({});
   const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});

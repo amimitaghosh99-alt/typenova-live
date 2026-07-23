@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { X, Users, UserPlus, Inbox, Search, Check } from 'lucide-react';
 import type { Theme } from '@/data/constants';
-import type { ReturnType } from 'ts-toolbelt/out/Function/ReturnType';
 import type { useFriends } from '@/hooks/useFriends';
 
 interface SocialModalProps {
@@ -88,7 +87,7 @@ export const SocialModal = ({ theme, onClose, friendsState }: SocialModalProps) 
                 </div>
               ) : (
                 <div className="flex flex-col gap-2 max-h-[150px] overflow-y-auto pr-2">
-                  {friendsState.outgoingRequests.map(u => (
+                  {friendsState.outgoingRequests.map((u: string) => (
                     <div key={u} className="flex justify-between items-center bg-zinc-900/50 border border-zinc-800/50 p-3 rounded-2xl">
                       <span className="text-sm font-bold text-zinc-300 ml-2">{u}</span>
                       <button 
@@ -112,7 +111,7 @@ export const SocialModal = ({ theme, onClose, friendsState }: SocialModalProps) 
                 YOUR INBOX IS EMPTY
               </div>
             ) : (
-              friendsState.incomingRequests.map(u => (
+              friendsState.incomingRequests.map((u: string) => (
                 <div key={u} className="flex justify-between items-center bg-zinc-900 border border-zinc-800 p-4 rounded-2xl">
                   <span className="text-sm font-bold text-white ml-2">{u}</span>
                   <div className="flex gap-2">

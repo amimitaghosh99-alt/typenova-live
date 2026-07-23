@@ -1388,13 +1388,14 @@ function MainApp() {
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
                 <div className="flex glass-panel p-1.5 rounded-full">
                   {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE', 'CUSTOM'] as Level[]).map(l => {
-                    const isLocked = !isLoggedIn && l === 'CODE';
+                    const isLocked = !isLoggedIn && (l === 'CODE' || l === 'CUSTOM');
                     return (
                       <button 
                         key={l} 
                         onClick={() => {
                           if (isLocked) {
-                            toast.error("Sign in to unlock Code Mode!", { icon: <Lock size={14} /> });
+                            const modeName = l === 'CODE' ? 'Code' : 'Custom';
+                            toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
                             return;
                           }
                           changeLevel(l);

@@ -41,13 +41,28 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
         // For incoming requests, the other person's UUID is `user_id`, but we don't have their username here!
         // Actually, let's change the query to join profiles so we can get their username if it's incoming.
         
-        // Let's do a more robust fetch using two queries to ensure we get usernames for incoming requests.
+        // Let's do a more robust fetch using two queries to avoid foreign key schema cache issues
         const { data: incomingData, error: incErr } = await supabase
           .from('user_friends')
-          .select('user_id, status, profiles!user_friends_user_id_fkey(username)')
+          .select('user_id, status')
           .eq('friend_username', username);
 
         if (incErr) throw incErr;
+
+        let incomingProfiles: Record<string, string> = {};
+        if (incomingData && incomingData.length > 0) {
+          const userIds = incomingData.map(r => r.user_id);
+          const { data: profiles, error: profErr } = await supabase
+            .from('profiles')
+            .select('id, username')
+            .in('id', userIds);
+          
+          if (!profErr && profiles) {
+            profiles.forEach(p => {
+              incomingProfiles[p.id] = p.username;
+            });
+          }
+        }
 
         const { data: outgoingData, error: outErr } = await supabase
           .from('user_friends')
@@ -65,8 +80,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
 
         if (incomingData) {
           incomingData.forEach(row => {
-            // @ts-ignore - Postgrest types can be tricky with joins
-            const senderUsername = row.profiles?.username;
+            const senderUsername = incomingProfiles[row.user_id];
             if (!senderUsername) return;
             
             if (row.status === 'accepted') {

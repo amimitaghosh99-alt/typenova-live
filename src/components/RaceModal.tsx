@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Users, Copy, Check, Play, Crown, Flag, LogOut, Swords } from 'lucide-react';
+import { X, Users, Copy, Check, Play, Crown, Flag, LogOut, Swords, Link } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { RacerState, RaceStatus } from '@/hooks/useRace';
 
@@ -11,20 +11,24 @@ interface RaceModalProps {
   error: string;
   selfId: string;
   theme: Theme;
-  onCreate: (name: string) => void;
+  roomSize: number;
+  onCreate: (name: string, size: number) => void;
   onJoin: (code: string, name: string) => void;
   onStart: () => void;
   onLeave: () => void;
   onClose: () => void;
+  initialCode?: string;
 }
 
 export const RaceModal = ({
-  status, code, isHost, players, error, selfId, theme,
-  onCreate, onJoin, onStart, onLeave, onClose,
+  status, code, isHost, players, error, selfId, theme, roomSize,
+  onCreate, onJoin, onStart, onLeave, onClose, initialCode
 }: RaceModalProps) => {
   const [name, setName] = useState('');
-  const [joinCode, setJoinCode] = useState('');
+  const [joinCode, setJoinCode] = useState(initialCode || '');
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [selectedSize, setSelectedSize] = useState(2);
 
   const accent = { color: `rgb(${theme.glowPrimary})` };
   const canAct = name.trim().length > 0;
@@ -35,6 +39,15 @@ export const RaceModal = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch { /* clipboard unavailable — code is visible anyway */ }
+  };
+
+  const copyLink = async () => {
+    try {
+      const url = `${window.location.origin}/?race=${code}`;
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1500);
+    } catch { /* ignore */ }
   };
 
   const ranking = [...players]
@@ -70,8 +83,32 @@ export const RaceModal = ({
               maxLength={12}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-bold uppercase tracking-widest focus:outline-none focus:border-zinc-600 placeholder:text-zinc-600"
             />
+
+            {/* Room Size Selector */}
+            <div className="flex flex-col gap-2">
+              <span className="text-zinc-500 text-[10px] font-black tracking-widest text-center">ROOM SIZE</span>
+              <div className="flex gap-2 justify-center">
+                {([2, 3, 4] as const).map(size => {
+                  const labels: Record<number, string> = { 2: '1v1', 3: '1v1v1', 4: '1v1v1v1' };
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`px-5 py-3 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all ${
+                        selectedSize === size
+                          ? `bg-white/10 ${theme.borderHalf} text-white`
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+                      }`}
+                    >
+                      {labels[size]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <button
-              onClick={() => canAct && onCreate(name.trim())}
+              onClick={() => canAct && onCreate(name.trim(), selectedSize)}
               disabled={!canAct || status === 'joining'}
               className={`w-full p-4 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all flex items-center justify-center gap-3 ${canAct ? `bg-white/10 ${theme.borderHalf} text-white hover:bg-white/15` : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'}`}
             >
@@ -110,8 +147,12 @@ export const RaceModal = ({
               <button onClick={copyCode} className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-all" title="Copy room code">
                 {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
               </button>
+              <button onClick={copyLink} className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-all flex items-center gap-2" title="Copy invite link">
+                {copiedLink ? <Check size={16} className="text-emerald-400" /> : <Link size={16} />}
+                <span className="text-[10px] font-black tracking-widest hidden sm:inline">LINK</span>
+              </button>
             </div>
-            <p className="text-center text-zinc-500 text-[10px] font-black tracking-widest -mt-2">SHARE THIS CODE WITH FRIENDS</p>
+            <p className="text-center text-zinc-500 text-[10px] font-black tracking-widest -mt-2">PLAYERS {players.length} / {roomSize}</p>
 
             <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
               {players.map(p => (
@@ -119,14 +160,29 @@ export const RaceModal = ({
                   <span className="font-black text-white tracking-widest uppercase text-sm flex items-center gap-2">
                     {p.isHost && <Crown size={14} className="text-amber-400" />} {p.name} {p.id === selfId && <span className="text-zinc-500 text-[9px]">(YOU)</span>}
                   </span>
-                  <span className="text-[9px] font-black tracking-widest text-zinc-500">READY</span>
+                  <span className="text-[9px] font-black tracking-widest text-emerald-400">READY</span>
+                </div>
+              ))}
+              {/* Empty placeholder slots */}
+              {Array.from({ length: Math.max(0, roomSize - players.length) }).map((_, i) => (
+                <div key={`empty-${i}`} className="flex items-center justify-between px-5 py-3 rounded-2xl border border-dashed border-zinc-800">
+                  <span className="font-black text-zinc-700 tracking-widest uppercase text-sm animate-pulse">WAITING...</span>
+                  <span className="text-[9px] font-black tracking-widest text-zinc-700">EMPTY</span>
                 </div>
               ))}
             </div>
 
             {isHost ? (
-              <button onClick={onStart} className={`w-full p-4 rounded-2xl font-black uppercase tracking-widest text-sm bg-white/10 border ${theme.borderHalf} text-white hover:bg-white/15 transition-all flex items-center justify-center gap-3 ${theme.glow}`}>
-                <Play size={18} style={accent} /> START RACE
+              <button
+                onClick={onStart}
+                disabled={players.length < 2}
+                className={`w-full p-4 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all flex items-center justify-center gap-3 ${
+                  players.length >= 2
+                    ? `bg-white/10 ${theme.borderHalf} text-white hover:bg-white/15 ${theme.glow}`
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'
+                }`}
+              >
+                <Play size={18} style={players.length >= 2 ? accent : undefined} /> {players.length >= 2 ? 'START RACE' : 'NEED 2+ PLAYERS'}
               </button>
             ) : (
               <p className="text-center text-zinc-500 text-xs font-black tracking-widest animate-pulse py-3">WAITING FOR HOST TO START...</p>

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useLayoutEffect, memo } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, memo, useMemo } from 'react';
 import { Ghost } from 'lucide-react';
 import type { Particle } from '@/hooks/useParticles';
 import type { Theme } from '@/data/constants';
@@ -8,6 +8,70 @@ import type { Phase } from '@/data/constants';
 // across renders — otherwise `|| []` would defeat Char's memoization.
 // Exported (with Char) for reuse by the replay modal.
 export const EMPTY_PARTICLES: Particle[] = [];
+
+// ─── SYNTAX HIGHLIGHTER ─────────────────────────────────────────────
+const useSyntaxHighlighter = (text: string, isActive: boolean) => {
+  return useMemo(() => {
+    const colors = new Array(text.length).fill('');
+    if (!isActive) return colors;
+    
+    // Keywords
+    const keywords = /\b(import|export|from|const|let|var|function|return|if|else|for|while|class|try|catch|async|await|def|impl|fn|mut|pub|WITH|SELECT|FROM|WHERE|JOIN|ON|OVER|ORDER|BY|func|chan|range|type|interface|throw|new|yield|break|continue)\b/g;
+    let match;
+    while ((match = keywords.exec(text)) !== null) {
+      for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-purple-400';
+    }
+
+    // Strings (single, double, backticks)
+    const strings = /(['"\`])(?:(?=(\\?))\2.)*?\1/g;
+    while ((match = strings.exec(text)) !== null) {
+      for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-emerald-400';
+    }
+
+    // Numbers
+    const numbers = /\b\d+(\.\d+)?\b/g;
+    while ((match = numbers.exec(text)) !== null) {
+      for (let i = match.index; i < match.index + match[0].length; i++) {
+        if (!colors[i]) colors[i] = 'text-orange-400';
+      }
+    }
+
+    // Functions/Methods
+    const funcs = /\b([a-zA-Z_]\w*)(?=\s*\()/g;
+    while ((match = funcs.exec(text)) !== null) {
+      const isKeyword = ['if', 'for', 'while', 'catch'].includes(match[1]);
+      if (!isKeyword) {
+        for (let i = match.index; i < match.index + match[1].length; i++) {
+          if (!colors[i]) colors[i] = 'text-blue-400';
+        }
+      }
+    }
+
+    // Comments
+    const comments = /(\/\/.*|\/\*[\s\S]*?\*\/)/g;
+    while ((match = comments.exec(text)) !== null) {
+      for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-zinc-600 font-normal italic';
+    }
+
+    // HTML Tags
+    const htmlTags = /<\/?[\w\s="/.':;#-\/\?]+>/g;
+    while ((match = htmlTags.exec(text)) !== null) {
+      for (let i = match.index; i < match.index + match[0].length; i++) {
+        if (!colors[i]) colors[i] = 'text-pink-400';
+      }
+    }
+
+    // CSS Properties (basic heuristic: word followed by colon in CSS-like blocks)
+    const cssProps = /\b([a-zA-Z-]+)(?=\s*:)/g;
+    while ((match = cssProps.exec(text)) !== null) {
+      for (let i = match.index; i < match.index + match[1].length; i++) {
+        if (!colors[i]) colors[i] = 'text-cyan-400';
+      }
+    }
+
+    return colors;
+  }, [text, isActive]);
+};
 
 interface CharProps {
   char: string;
@@ -78,12 +142,14 @@ interface TypingAreaProps {
   /** Personal-best pace for the current config — when present the ghost
       races YOUR best run instead of the fixed 60 WPM pace. */
   pbGhost?: { wpm: number; samples: PaceSample[] } | null;
+  isCodeMode?: boolean;
 }
 
 export const TypingArea = ({
   targetText, input, phase, theme, blindMode, focusMode,
   fogMode, startTime, shake, capsLock, stickyPenalty,
-  particles, ghostPacer, combo, zenMode = false, pbGhost = null
+  particles, ghostPacer, combo, zenMode = false, pbGhost = null,
+  isCodeMode = false
 }: TypingAreaProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +199,8 @@ export const TypingArea = ({
   const baseFontClass = zenMode
     ? 'text-2xl md:text-3xl lg:text-4xl leading-[2]'
     : 'text-xl md:text-2xl lg:text-3xl leading-[1.8]';
+
+  const syntaxColors = useSyntaxHighlighter(targetText, isCodeMode);
 
   return (
     <div className={`relative w-full flex justify-center ${zenMode ? 'items-center min-h-[60vh]' : ''}`}>
@@ -192,11 +260,13 @@ export const TypingArea = ({
             const inputChar = index < input.length ? input[index] : undefined;
             const isActive = index === input.length && phase === 'TYPING';
 
+            const syntaxColor = syntaxColors[index] || untypedColor;
+
             let finalColorClass = inputChar !== undefined
               ? (inputChar === char
-                ? (blindMode ? "opacity-0" : "text-zinc-100")
+                ? (blindMode ? "opacity-0" : "text-zinc-100 drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]")
                 : "text-red-400 bg-red-500/20 rounded-md shadow-[0_0_8px_rgba(248,113,113,0.5)]")
-              : untypedColor;
+              : syntaxColor;
 
             if (focusMode && !fogMode) {
               const dist = Math.abs(index - input.length);

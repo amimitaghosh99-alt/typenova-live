@@ -50,23 +50,8 @@ export const MASTER_SNIPPETS = [
   `The juxtaposition of ultra-modern capitalist realism against the rising demand for post-scarcity economic models suggests that the current global-trade (and fiscal) paradigm is rapidly reaching a point of structural obsolescence.`
 ];
 
-export const CODE_SNIPPETS = [
-  `const { id, name } = user;`,
-  `import { useState } from 'react';`,
-  `SELECT * FROM posts WHERE id = 101;`,
-  `display: flex; justify-content: center;`,
-  `let x = (a + b) * c / d;`,
-  `const isActive = user.status === 'online';`,
-  `print("Hello, World!")`,
-  `const filtered = items.filter(i => i.price > 100).map(i => i.name);`,
-  `function UserProfile({ name, age }) {\n    return <div className="card">{name} is {age}</div>;\n  }`,
-  `try {\n    const data = await response.json();\n    console.log(data);\n  } catch (err) {\n    handleError(err);\n  }`,
-  `class Post extends Model {\n    static get tableName() { return 'posts'; }\n  }`,
-  `import React, { useMemo } from 'react';\n\nconst ExpensiveComponent = ({ list }) => {\n  const result = useMemo(() => {\n    return list.reduce((acc, cur) => acc + cur.value, 0);\n  }, [list]);\n\n  return <div className="total">{result}</div>;\n};`,
-  `def process_data(payload):\n    processed = []\n    for item in payload:\n        if item.is_valid():\n            cleaned = item.clean()\n            processed.append(cleaned)\n    return sorted(processed, key=lambda x: x.timestamp)`,
-  `CREATE TABLE orders (\n    id SERIAL PRIMARY KEY,\n    user_id INT REFERENCES users(id),\n    total DECIMAL(10, 2),\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    status VARCHAR(20) DEFAULT 'pending'\n  );`,
-  `impl Person {\n    fn new(name: String, age: u32) -> Person {\n        Person { name, age }\n    }\n    fn greet(&self) {\n        println!("Hi, I'm {}!", self.name);\n    }\n}`
-];
+import { CODE_LANGUAGES, type CodeLanguage, CODE_LIBRARY } from './codeSnippets';
+export { CODE_LANGUAGES, type CodeLanguage, CODE_LIBRARY };
 
 export const QUOTES = [
   `"The only way to do great work is to love what you do." — Steve Jobs`,
@@ -94,10 +79,9 @@ export const QUOTES = [
 export type Level = 'NOVICE' | 'ADEPT' | 'MASTER' | 'QUOTES' | 'CODE' | 'CUSTOM';
 
 export interface GenerateOptions {
-  /** Mix random 2-4 digit numbers into ~10% of words (NOVICE/ADEPT only). */
   numbers?: boolean;
-  /** Sprinkle punctuation onto ~15% of words (NOVICE/ADEPT only). */
   punctuation?: boolean;
+  codeLanguage?: CodeLanguage;
   /** Deterministic RNG (e.g. seeded for the Daily Challenge). Defaults to Math.random. */
   rng?: () => number;
 }
@@ -108,7 +92,9 @@ export const generateText = (level: Level, length: number, customText: string = 
   const rng = opts.rng ?? Math.random;
   let final = "";
   if (level === 'CODE') {
-    final = CODE_SNIPPETS[Math.floor(rng() * CODE_SNIPPETS.length)];
+    const lang = opts.codeLanguage || 'JavaScript/TypeScript';
+    const snippets = CODE_LIBRARY[lang];
+    final = snippets[Math.floor(rng() * snippets.length)];
   } else if (level === 'QUOTES') {
     final = QUOTES[Math.floor(rng() * QUOTES.length)];
   } else if (level === 'CUSTOM') {

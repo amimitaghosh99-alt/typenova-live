@@ -158,6 +158,22 @@ export const useRPGSystem = () => {
     setLeveledUp(false);
   }, []);
 
+  // Replace in-memory progress with a merged snapshot (used by cloud sync on
+  // login). localStorage is written separately by the progress layer; this
+  // just refreshes the React state that the UI reads. Heatmap is set directly
+  // (the persist effect above only covers xp/tests/achievements).
+  const hydrate = useCallback((snapshot: {
+    xp: number;
+    tests: number;
+    achievements: string[];
+    heatmap: Record<string, { total: number; errors: number }>;
+  }) => {
+    setXp(snapshot.xp);
+    setTestsCompleted(snapshot.tests);
+    setUnlockedAchievements(snapshot.achievements);
+    setHeatmapData(snapshot.heatmap);
+  }, []);
+
   const unlockAllAchievements = useCallback(() => {
     setUnlockedAchievements(ACHIEVEMENTS.map(a => a.id));
     setAchievementQueue(prev => [...prev, { id: 'cheat', title: 'GOD MODE: All Unlocked!', desc: '', icon: 'unlock', category: 'SUPER' }]);
@@ -187,5 +203,6 @@ export const useRPGSystem = () => {
     resetRPGFlags,
     unlockAllAchievements,
     resetAllProgress,
+    hydrate,
   };
 };

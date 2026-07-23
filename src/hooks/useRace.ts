@@ -37,6 +37,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const [isHost, setIsHost] = useState(false);
   const [players, setPlayers] = useState<RacerState[]>([]);
   const [error, setError] = useState('');
+  const [roomSize, setRoomSize] = useState(2);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const selfIdRef = useRef(Math.random().toString(36).slice(2, 10));
@@ -44,6 +45,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number }>>({});
   const textRef = useRef('');
   const statusRef = useRef<RaceStatus>('idle');
+  const roomSizeRef = useRef(2);
   const lastProgressSendRef = useRef(0);
   const finishSentRef = useRef(false);
   const onStartRef = useRef(onStart);
@@ -57,6 +59,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     finishRef.current = {};
     textRef.current = '';
     finishSentRef.current = false;
+    roomSizeRef.current = 2;
   }, [supabase]);
 
   const leave = useCallback(() => {
@@ -66,18 +69,20 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     setCode('');
     setIsHost(false);
     setError('');
+    setRoomSize(2);
   }, [teardown]);
 
   // Rebuild the player list from presence + latest progress/finish payloads.
   const rebuildPlayers = useCallback(() => {
     const ch = channelRef.current;
     if (!ch) return;
-    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string }>>;
+    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number }>>;
     const next: RacerState[] = [];
     for (const [key, metas] of Object.entries(state)) {
       const meta = metas[0];
       if (!meta?.name) continue;
       if (meta.text) textRef.current = meta.text;
+      if (meta.roomSize) { roomSizeRef.current = meta.roomSize; setRoomSize(meta.roomSize); }
       const prog = progressRef.current[key];
       const fin = finishRef.current[key];
       next.push({
@@ -102,7 +107,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     }
   }, []);
 
-  const join = useCallback((roomCode: string, name: string, asHost: boolean, text?: string) => {
+  const join = useCallback((roomCode: string, name: string, asHost: boolean, text?: string, size?: number) => {
     if (!supabase) { setError('No connection to Supabase'); return; }
     teardown();
     setError('');
@@ -110,6 +115,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     setCode(roomCode);
     setIsHost(asHost);
     if (asHost && text) textRef.current = text;
+    if (asHost && size) { roomSizeRef.current = size; setRoomSize(size); }
 
     const ch = supabase.channel(`race-${roomCode}`, {
       config: { presence: { key: selfIdRef.current }, broadcast: { self: true } },
@@ -137,7 +143,22 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
 
     ch.subscribe(async (s) => {
       if (s === 'SUBSCRIBED') {
-        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined });
+        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined });
+        // Player cap check for non-hosts
+        if (!asHost) {
+          setTimeout(() => {
+            if (channelRef.current !== ch) return;
+            const pState = ch.presenceState();
+            const count = Object.keys(pState).length;
+            // Read roomSize from host's presence
+            const cap = roomSizeRef.current;
+            if (count > cap) {
+              setError(`Room is full (${cap}/${cap})`);
+              leave();
+              return;
+            }
+          }, 800);
+        }
         setStatus('lobby');
         if (!asHost) {
           // If no host shows up in presence shortly, the room doesn't exist.
@@ -158,8 +179,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
   }, [supabase, teardown, rebuildPlayers, leave]);
 
-  const createRoom = useCallback((name: string, text: string) => {
-    join(makeRoomCode(), name, true, text);
+  const createRoom = useCallback((name: string, text: string, size: number = 2) => {
+    join(makeRoomCode(), name, true, text, size);
   }, [join]);
 
   const joinRoom = useCallback((roomCode: string, name: string) => {
@@ -201,7 +222,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   useEffect(() => teardown, [teardown]);
 
   return {
-    status, code, isHost, players, error,
+    status, code, isHost, players, error, roomSize,
     selfId: selfIdRef.current,
     createRoom, joinRoom, startRace, sendProgress, sendFinish, leave,
   };

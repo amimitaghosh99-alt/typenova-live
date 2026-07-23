@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import {
   Keyboard, Activity, Target, RotateCcw, Skull, Ghost,
   Focus, Brain, Volume2, VolumeX, Palette,
@@ -15,7 +14,8 @@ import type { LucideIcon } from 'lucide-react';
 import {
   THEMES, THEME_KEYS, PRESET_KEYS, SOUND_KEYS, ACHIEVEMENTS,
   NOVICE_SENTENCES, ADEPT_SENTENCES,
-  SUPABASE_URL, SUPABASE_ANON_KEY, generateText
+  CODE_LANGUAGES, type CodeLanguage,
+  generateText
 } from '@/data/constants';
 import type { Level, Theme } from '@/data/constants';
 import { useAudioEngine } from '@/hooks/useAudioEngine';
@@ -23,20 +23,24 @@ import { useTypingEngine } from '@/hooks/useTypingEngine';
 import type { Keystroke } from '@/hooks/useTypingEngine';
 import { useRPGSystem } from '@/hooks/useRPGSystem';
 import { useParticles } from '@/hooks/useParticles';
-import { useGlassPointer } from '@/hooks/useGlassPointer';
+
 import { TypingArea } from '@/components/TypingArea';
 import type { PaceSample } from '@/components/TypingArea';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ResultsScreen } from '@/components/ResultsScreen';
+import { RaceResultsScreen } from '@/components/RaceResultsScreen';
 import { StatsDashboard, appendHistory } from '@/components/StatsDashboard';
 import { ReplayModal } from '@/components/ReplayModal';
 import { RaceModal, RaceProgressOverlay } from '@/components/RaceModal';
 import { useRace } from '@/hooks/useRace';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
-
-// ─── SUPABASE ─────────────────────────────────────────────────────────
-let supabase: ReturnType<typeof createClient> | null = null;
-try { supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch (e) { console.error(e); }
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { useCloudSync } from '@/hooks/useCloudSync';
+import { useFriends } from '@/hooks/useFriends';
+import { AccountMenu } from '@/components/AccountMenu';
+import { Routes, Route } from 'react-router';
+import { Login } from '@/pages/Login';
 
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
@@ -141,7 +145,7 @@ function TimedHud({ startTime, duration, theme }: { startTime: number; duration:
   );
 }
 
-export default function App() {
+function MainApp() {
   // ─── Mode State ──────────────────────────────────────────────────
   const [zenMode, setZenMode] = useState(false);
   const [suddenDeath, setSuddenDeath] = useState(false);
@@ -149,6 +153,7 @@ export default function App() {
   const [focusMode, setFocusMode] = useState(false);
   const [blindMode, setBlindMode] = useState(false);
   const [mirroredMode, setMirroredMode] = useState(false);
+  const [codeLanguage, setCodeLanguage] = useState<CodeLanguage>('JavaScript/TypeScript');
   const [fogMode, setFogMode] = useState(false);
   const [stickyKeysMode, setStickyKeysMode] = useState(false);
   const [overclockedMode, setOverclockedMode] = useState(false);
@@ -180,21 +185,54 @@ export default function App() {
   const [showReplay, setShowReplay] = useState(false);
   const [showRace, setShowRace] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
+  const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [dailyBoard, setDailyBoard] = useState<any[]>([]);
-  const [boardTab, setBoardTab] = useState<'alltime' | 'today'>('alltime');
-  const [username, setUsername] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [friendsBoard, setFriendsBoard] = useState<any[]>([]);
+  const [boardTab, setBoardTab] = useState<'alltime' | 'today' | 'friends'>('alltime');
+  const [friendInput, setFriendInput] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
+  const [autoSave, _setAutoSave] = useState(() => {
+    try { return localStorage.getItem('typezen_autosave') !== 'false'; } catch { return true; }
+  });
+
+  // First-login "choose a display name" modal
+  const [nameInput, setNameInput] = useState('');
+  const [nameErr, setNameErr] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   // ─── Hooks ───────────────────────────────────────────────────────
   const audio = useAudioEngine();
   const typing = useTypingEngine();
   const rpg = useRPGSystem();
   const particles = useParticles();
-  useGlassPointer();
+
+  // Account + cloud progress sync. On login, cloud progress is merged into
+  // this browser's localStorage and pushed back into the RPG state; after
+  // that, each finished test debounces a push back to the cloud.
+  const auth = useAuth();
+  const cloud = useCloudSync({
+    session: auth.session,
+    hydrateRPG: rpg.hydrate,
+    onHydrated: () => setDailyStreak(loadDailyStreak()),
+  });
+  const friendsState = useFriends({ supabase, session: auth.session });
+
+  // Handle URL share links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('race');
+    if (room && room.length === 5) {
+      setInitialRaceCode(room.toUpperCase());
+      setShowRace(true);
+      // Clean up URL so it doesn't linger
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Multiplayer race: when a race starts, every client (host + guests) drops
   // into a synced countdown on the same text. We reuse the whole typing
@@ -251,6 +289,7 @@ export default function App() {
     duration,
     withNumbers,
     withPunctuation,
+    codeLanguage,
     dailyActive,
     customText,
     microDrillActive,
@@ -306,13 +345,40 @@ export default function App() {
     if (!error && data) setDailyBoard(data);
   }, []);
 
+  const fetchFriendsBoard = useCallback(async () => {
+    if (!supabase || !cloud.username) return;
+    const usernames = [cloud.username, ...friendsState.friends];
+    const { data, error } = await supabase.from('leaderboard').select('username, wpm, accuracy').in('username', usernames).order('wpm', { ascending: false }).limit(10);
+    if (!error && data) setFriendsBoard(data);
+  }, [friendsState.friends, cloud.username]);
+
   useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);
+  useEffect(() => { if (boardTab === 'friends') fetchFriendsBoard(); }, [boardTab, fetchFriendsBoard]);
+
+  // ─── Cloud Sync push ─────────────────────────────────────────────
+  // Once synced, mirror progress back to the cloud whenever it changes
+  // (debounced in the hook). A finished test always bumps testsCompleted, so
+  // this also captures history/PB/daily writes that don't have React deps.
+  useEffect(() => {
+    if (cloud.status === 'synced') cloud.pushProgress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rpg.xp, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status]);
+
+  // Prefill the first-login "choose a name" prompt from the Google profile.
+  useEffect(() => {
+    if (cloud.status !== 'needs-username') return;
+    const meta = auth.user?.user_metadata as { full_name?: string; name?: string } | undefined;
+    const suggested = (meta?.full_name || meta?.name || auth.user?.email?.split('@')[0] || '')
+      .replace(/[^a-zA-Z0-9_]/g, '').slice(0, 12);
+    setNameInput(prev => prev || suggested);
+    setNameErr('');
+  }, [cloud.status, auth.user]);
 
   // ─── Helpers ─────────────────────────────────────────────────────
   const handleReset = useCallback((overrides: {
     level?: Level; wordCount?: number; mirrored?: boolean;
     testMode?: 'words' | 'time'; duration?: number;
-    numbers?: boolean; punctuation?: boolean; daily?: boolean;
+    numbers?: boolean; punctuation?: boolean; codeLanguage?: CodeLanguage; daily?: boolean;
   } = {}) => {
     const s = stateRef.current;
     const nextLevel = overrides.level ?? s.level;
@@ -322,6 +388,7 @@ export default function App() {
     const nextDuration = overrides.duration ?? s.duration;
     const nextNumbers = overrides.numbers ?? s.withNumbers;
     const nextPunct = overrides.punctuation ?? s.withPunctuation;
+    const nextCodeLanguage = overrides.codeLanguage ?? s.codeLanguage;
     const nextDaily = overrides.daily ?? s.dailyActive;
     const nextCustom = s.customText;
 
@@ -332,11 +399,11 @@ export default function App() {
     typing.setTargetText(generateText(nextLevel, length, nextCustom, nextMirror, {
       numbers: nextNumbers,
       punctuation: nextPunct,
+      codeLanguage: nextCodeLanguage,
       rng: nextDaily ? mulberry32(daySeed()) : undefined,
     }));
     setZenMode(false);
     setSaveStatus('');
-    setUsername('');
     setRaceActive(false); // any manual reset drops out of race mode
     rpg.resetRPGFlags();
     particles.clearAll();
@@ -359,6 +426,12 @@ export default function App() {
     setWordCount(count);
     setDailyActive(false);
     handleReset({ wordCount: count, daily: false });
+  };
+
+  const changeCodeLanguage = (lang: CodeLanguage) => {
+    setCodeLanguage(lang);
+    setDailyActive(false);
+    handleReset({ codeLanguage: lang, daily: false });
   };
 
   const changeTestMode = (mode: 'words' | 'time') => {
@@ -414,29 +487,15 @@ export default function App() {
   };
 
   // ─── Save Score ──────────────────────────────────────────────────
-  // Client-side sanity gate. Real enforcement lives in DB CHECK constraints
-  // (see the anti-cheat SQL in the setup notes) — the public anon key can
-  // POST anything, so the server must be the source of truth; this just
-  // avoids obviously-bogus submissions and gives clean UX feedback.
-  const MAX_PLAUSIBLE_WPM = 250;
-  const saveScore = async () => {
-    const name = username.trim();
-    if (!name || !supabase) return;
-    const wpm = Math.round(typing.wpm);
-    const accuracy = Math.round(typing.accuracy);
-    if (wpm <= 0 || wpm > MAX_PLAUSIBLE_WPM || accuracy < 0 || accuracy > 100) {
-      setSaveStatus('INVALID SCORE');
-      return;
-    }
-    setSaveStatus('Saving...');
-    const { error } = await supabase.from('leaderboard').insert([{ username: name, wpm, accuracy } as never]);
-    if (dailyActive) {
-      // Best-effort daily submission — table may not exist yet
-      const { error: dailyErr } = await supabase.from('daily_scores').insert([{ day: todayKey(), username: name, wpm, accuracy } as never]);
-      if (!dailyErr) fetchDailyBoard();
-    }
-    if (error) setSaveStatus(/duplicate|unique/i.test(error.message) ? 'ALREADY SUBMITTED TODAY' : 'Error!');
-    else { setSaveStatus('SCORE SAVED!'); fetchLeaderboard(); }
+  // First-login: claim a display name (creates the profile row).
+  const submitUsername = async () => {
+    const name = nameInput.trim();
+    if (name.length < 2) { setNameErr('At least 2 characters'); return; }
+    setSavingName(true);
+    setNameErr('');
+    const res = await cloud.saveUsername(name);
+    setSavingName(false);
+    if (!res.ok) setNameErr(res.error || 'Failed');
   };
 
   // ─── Drills (single-key micro + heatmap smart) ───────────────────
@@ -507,18 +566,7 @@ export default function App() {
     setSoundProfileState(SOUND_KEYS[currentIdx]);
   };
 
-  // ─── Weak Keys ───────────────────────────────────────────────────
-  const getWeakKeys = useMemo(() => {
-    const errors = typing.keystrokeLog.current.filter(k => k.isError);
-    if (errors.length === 0) return null;
-    const count = errors.reduce((acc: Record<string, number>, curr) => {
-      const char = curr.expected === ' ' ? 'SPACE' : curr.expected.toUpperCase();
-      if (char === '\n') return acc;
-      acc[char] = (acc[char] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(count).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 3) as [string, number][];
-  }, [typing.phase, typing.input]);
+
 
   // Error timestamps (ms from test start) for the results pacing graph
   const errorTimes = useMemo(() => {
@@ -529,6 +577,43 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase, typing.endTime]);
   const finishDurationMs = typing.startTime && typing.endTime ? typing.endTime - typing.startTime : 0;
+
+  // ─── Auto-Save ──────────────
+  const hasAutoSavedRef = useRef(false);
+  useEffect(() => {
+    if (typing.phase !== 'FINISHED' || hasAutoSavedRef.current || microDrillActive) return;
+    hasAutoSavedRef.current = true;
+
+    // Auto-save if logged in
+    if (autoSave && supabase && auth.session && cloud.username) {
+      const wpmVal = Math.round(typing.wpm);
+      const accVal = Math.round(typing.accuracy);
+      if (wpmVal > 0 && wpmVal <= 250 && accVal >= 0 && accVal <= 100) {
+        setSaveStatus('Auto-saving...');
+        supabase.rpc('submit_score', {
+          p_wpm: wpmVal,
+          p_accuracy: accVal,
+          p_daily: dailyActive,
+          p_day: todayKey(),
+        }).then(({ error }) => {
+          if (error) setSaveStatus('Auto-save failed');
+          else {
+            setSaveStatus('SCORE SAVED!');
+            fetchLeaderboard();
+            if (dailyActive) fetchDailyBoard();
+          }
+        });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typing.phase]);
+
+  // Reset the auto-save guard when a new test starts
+  useEffect(() => {
+    if (typing.phase === 'READY' || typing.phase === 'CONFIGURING') {
+      hasAutoSavedRef.current = false;
+    }
+  }, [typing.phase]);
 
   // ─── Finish Test Wrapper ─────────────────────────────────────────
   // ─── KEYBOARD HANDLER (THE CORE) ─────────────────────────────────
@@ -809,6 +894,68 @@ export default function App() {
   }`;
 
   // ─── Render ──────────────────────────────────────────────────────
+  if (typing.phase === 'FINISHED') {
+    const resultsProps = {
+      wpm: typing.wpm,
+      rawWpm: typing.rawWpm,
+      accuracy: typing.accuracy,
+      consistency: typing.consistency,
+      flawlessStreak: typing.flawlessStreak,
+      leveledUp: rpg.leveledUp,
+      xpGainedLast: rpg.xpGainedLast,
+      theme,
+      heatmapData: rpg.heatmapData,
+      isLoggedIn: !!cloud.username,
+      displayName: cloud.username,
+      saveStatus,
+      timelinePoints: typing.timelinePoints,
+      errorTimes,
+      durationMs: finishDurationMs,
+      keystrokeLog: typing.keystrokeLog.current,
+      testStartTime: typing.startTime ?? Date.now(),
+      onReset: () => handleReset(),
+      onWatchReplay: () => setShowReplay(true),
+      onStartMicroDrill: startMicroDrill,
+      onStartSmartDrill: smartDrillKeys.length > 0 ? startSmartDrill : null,
+    };
+
+    if (raceActive) {
+      return (
+        <>
+          <RaceResultsScreen
+            {...resultsProps}
+            players={race.players}
+            selfId={race.selfId}
+            roomSize={race.roomSize}
+            onLeaveRace={() => { race.leave(); setRaceActive(false); handleReset(); }}
+          />
+          {showReplay && (
+            <ReplayModal
+              targetText={typing.targetText}
+              log={typing.keystrokeLog.current}
+              theme={theme}
+              onClose={() => setShowReplay(false)}
+            />
+          )}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <ResultsScreen {...resultsProps} />
+        {showReplay && (
+          <ReplayModal
+            targetText={typing.targetText}
+            log={typing.keystrokeLog.current}
+            theme={theme}
+            onClose={() => setShowReplay(false)}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
 
@@ -1048,6 +1195,41 @@ export default function App() {
         </div>
       )}
 
+      {/* First-login: choose a leaderboard display name */}
+      {cloud.status === 'needs-username' && (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-10 w-full max-w-md shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
+            <div className="flex justify-center mb-4"><Trophy className={theme.text} size={40} /></div>
+            <h2 className="text-2xl font-black text-white text-center tracking-widest uppercase mb-2">Choose your name</h2>
+            <p className="text-center text-zinc-500 text-xs font-bold mb-6">This is how you'll appear on the leaderboard. Progress on this device will sync to your account.</p>
+            <input
+              type="text"
+              value={nameInput}
+              onChange={e => { setNameInput(e.target.value); setNameErr(''); }}
+              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' && !savingName) submitUsername(); }}
+              placeholder="ENTER NAME..."
+              maxLength={12}
+              autoFocus
+              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-6 py-4 text-white font-black text-xl uppercase text-center focus:outline-none focus:border-white/30 placeholder:text-zinc-600"
+            />
+            {nameErr && <p className="text-red-400 text-xs font-black tracking-widest text-center mt-3 uppercase">{nameErr}</p>}
+            <button
+              onClick={submitUsername}
+              disabled={savingName}
+              className={`w-full mt-5 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-black tracking-widest rounded-2xl transition-all disabled:opacity-50 ${theme.text}`}
+            >
+              {savingName ? 'SAVING…' : 'CONTINUE'}
+            </button>
+            <button
+              onClick={() => { void auth.signOut(); }}
+              className="w-full mt-2 px-4 py-2 text-zinc-500 hover:text-zinc-300 text-[10px] font-black tracking-widest uppercase transition-colors"
+            >
+              Cancel & sign out
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ═══ MAIN CONTENT ═══ */}
       <div className={`relative w-full px-2 md:px-4 py-4 flex flex-col z-10 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}>
 
@@ -1153,6 +1335,18 @@ export default function App() {
                 {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </button>
             </div>
+
+            {/* Account: Google login + cloud-sync status */}
+            <AccountMenu
+              theme={theme}
+              loggedIn={!!cloud.username}
+              displayName={cloud.username}
+              avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
+                ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
+              status={cloud.status}
+              onSignIn={() => { void auth.signInWithGoogle(); }}
+              onSignOut={() => { void auth.signOut(); }}
+            />
           </div>
         </header>
 
@@ -1160,7 +1354,7 @@ export default function App() {
           <div className="flex-1 w-full flex flex-col gap-6">
 
             {/* Difficulty & Length/Time & Daily */}
-            <div className={`flex flex-col md:flex-row gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
+            <div className={`flex flex-col md:flex-row flex-wrap gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
               <div className={`flex flex-col gap-2 transition-opacity ${dailyActive ? 'opacity-30' : 'opacity-100'}`}>
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
                 <div className="flex glass-panel p-1.5 rounded-full">
@@ -1236,8 +1430,28 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Language Selector for Code Mode */}
+              {level === 'CODE' && (
+                <div className="flex flex-col gap-2 w-full animate-in fade-in slide-in-from-top-2 duration-300">
+                  <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                    <Code size={10} className="mr-1.5" /> LANGUAGE
+                  </span>
+                  <div className="flex glass-panel p-1.5 rounded-full flex-wrap gap-1 w-max max-w-full">
+                    {CODE_LANGUAGES.map(lang => (
+                      <button 
+                        key={lang} 
+                        onClick={() => changeCodeLanguage(lang)} 
+                        className={`px-3 md:px-5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${codeLanguage === lang ? `bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]` : 'text-zinc-500 hover:text-white border border-transparent'} flex justify-center items-center`}
+                      >
+                        {lang.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {level === 'CUSTOM' && (
-                <div className="flex flex-col gap-2 flex-1 max-w-xl animate-in fade-in slide-in-from-left-4 duration-300">
+                <div className="flex flex-col gap-2 flex-1 min-w-[300px] max-w-xl animate-in fade-in slide-in-from-left-4 duration-300">
                   <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
                     <Code size={10} className="mr-1.5" /> YOUR TEXT
                   </span>
@@ -1263,7 +1477,7 @@ export default function App() {
             </div>
 
             {/* Stats HUD — hidden in zen mode */}
-            {typing.phase !== 'FINISHED' && !zenMode && (
+            {!zenMode && (
               <StatsPanel
                 wpm={typing.wpm}
                 accuracy={typing.accuracy}
@@ -1276,51 +1490,26 @@ export default function App() {
               />
             )}
 
-            {/* Typing Area or Results */}
-            {typing.phase !== 'FINISHED' ? (
-              <TypingArea
-                targetText={typing.targetText}
-                input={typing.input}
-                phase={typing.phase}
-                theme={theme}
-                blindMode={blindMode}
-                focusMode={focusMode}
-                fogMode={fogMode}
-                startTime={typing.startTime}
-                shake={typing.shake}
-                capsLock={typing.capsLock}
-                stickyPenalty={stickyPenalty}
-                particles={particles.particles}
-                ghostPacer={ghostPacer}
-                combo={typing.combo}
-                zenMode={zenMode}
-                pbGhost={pbGhost}
-              />
-            ) : (
-              <ResultsScreen
-                wpm={typing.wpm}
-                rawWpm={typing.rawWpm}
-                accuracy={typing.accuracy}
-                consistency={typing.consistency}
-                flawlessStreak={typing.flawlessStreak}
-                leveledUp={rpg.leveledUp}
-                xpGainedLast={rpg.xpGainedLast}
-                theme={theme}
-                heatmapData={rpg.heatmapData}
-                getWeakKeys={getWeakKeys}
-                username={username}
-                setUsername={setUsername}
-                saveStatus={saveStatus}
-                onSave={saveScore}
-                onReset={() => handleReset()}
-                onStartMicroDrill={startMicroDrill}
-                onWatchReplay={() => setShowReplay(true)}
-                onStartSmartDrill={smartDrillKeys.length > 0 ? startSmartDrill : null}
-                timelinePoints={typing.timelinePoints}
-                errorTimes={errorTimes}
-                durationMs={finishDurationMs}
-              />
-            )}
+            {/* Typing Area */}
+            <TypingArea
+              targetText={typing.targetText}
+              input={typing.input}
+              phase={typing.phase}
+              theme={theme}
+              blindMode={blindMode}
+              focusMode={focusMode}
+              fogMode={fogMode}
+              startTime={typing.startTime}
+              shake={typing.shake}
+              capsLock={typing.capsLock}
+              stickyPenalty={stickyPenalty}
+              particles={particles.particles}
+              ghostPacer={ghostPacer}
+              combo={typing.combo}
+              zenMode={zenMode}
+              pbGhost={pbGhost}
+              isCodeMode={level === 'CODE'}
+            />
 
             {/* Abort Button (only during active test, NOT on finished) */}
             {(typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
@@ -1337,29 +1526,60 @@ export default function App() {
             <div className="flex items-center justify-between text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
               <div className="flex items-center">
                 <Award size={24} className={`mr-4 ${theme.text}`} />
-                <span className="whitespace-nowrap">{boardTab === 'today' ? 'DAILY TOP 5' : 'GLOBAL TOP 5'}</span>
+                <span className="whitespace-nowrap">{boardTab === 'today' ? 'DAILY TOP 5' : boardTab === 'friends' ? 'FRIENDS' : 'GLOBAL TOP 5'}</span>
               </div>
               <div className="flex gap-1 bg-black/20 rounded-full p-1 border border-white/10">
                 <button onClick={() => setBoardTab('alltime')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'alltime' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>ALL</button>
                 <button onClick={() => { setBoardTab('today'); fetchDailyBoard(); }} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'today' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>TODAY</button>
+                <button onClick={() => setBoardTab('friends')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'friends' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>FRIENDS</button>
               </div>
             </div>
-            {(boardTab === 'today' ? dailyBoard : leaderboard).length === 0 ? (
+
+            {boardTab === 'friends' && cloud.username && (
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (friendInput.trim()) {
+                  await friendsState.addFriend(friendInput.trim());
+                  setFriendInput('');
+                }
+              }} className="flex gap-2 mb-6 w-full">
+                <input 
+                  type="text" 
+                  value={friendInput}
+                  onChange={e => setFriendInput(e.target.value)}
+                  placeholder="FOLLOW USER..."
+                  className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold text-xs uppercase tracking-widest focus:outline-none focus:border-zinc-600"
+                />
+                <button type="submit" disabled={!friendInput.trim() || friendsState.loading} className="bg-white/10 hover:bg-white/15 border border-white/5 rounded-xl px-4 py-3 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                  ADD
+                </button>
+              </form>
+            )}
+            {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).length === 0 ? (
               <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">
-                {boardTab === 'today' ? 'No daily scores yet. Run the DAILY challenge!' : 'No scores yet. Be the first!'}
+                {boardTab === 'friends' ? (cloud.username ? 'No friends yet. Follow someone!' : 'Log in to use friends.') : boardTab === 'today' ? 'No daily scores yet. Run the DAILY challenge!' : 'No scores yet. Be the first!'}
               </p>
             ) : (
               <div className="space-y-6 w-full">
-                {(boardTab === 'today' ? dailyBoard : leaderboard).map((entry, idx) => (
-                  <div key={idx} className="flex justify-between items-center group p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 w-full border border-transparent hover:border-white/5 hover:translate-x-1">
+                {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).map((entry, idx) => (
+                  <div key={idx} className="flex justify-between items-center group p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 w-full border border-transparent hover:border-white/5 hover:translate-x-1 relative">
                     <div className="flex items-center space-x-6">
                       <span className={`font-black text-xl ${idx === 0 ? theme.text : 'text-zinc-500'}`}>#{idx + 1}</span>
                       <span className="font-black text-white tracking-widest uppercase text-lg whitespace-nowrap">{entry.username}</span>
                     </div>
-                    <div className="flex flex-col items-end">
+                    <div className="flex flex-col items-end mr-4 group-hover:mr-10 transition-all">
                       <span className={`font-black text-3xl ${theme.text}`}>{entry.wpm}</span>
                       <span className="text-[10px] text-zinc-400 font-bold tracking-widest whitespace-nowrap">{entry.accuracy}% ACC</span>
                     </div>
+                    {boardTab === 'friends' && entry.username !== cloud.username && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); friendsState.removeFriend(entry.username); }}
+                        className="absolute right-3 opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-400 transition-all bg-black/40 rounded-full"
+                        title="Unfollow"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1417,27 +1637,20 @@ export default function App() {
         />
       )}
 
-      {/* Test Replay */}
-      {showReplay && typing.phase === 'FINISHED' && (
-        <ReplayModal
-          targetText={typing.targetText}
-          log={typing.keystrokeLog.current}
-          theme={theme}
-          onClose={() => setShowReplay(false)}
-        />
-      )}
 
       {/* Multiplayer Race */}
       {showRace && (
         <RaceModal
           status={race.status}
           code={race.code}
+          initialCode={initialRaceCode}
           isHost={race.isHost}
           players={race.players}
           error={race.error}
           selfId={race.selfId}
           theme={theme}
-          onCreate={(name) => race.createRoom(name, generateText('ADEPT', 40))}
+          roomSize={race.roomSize}
+          onCreate={(name, size) => race.createRoom(name, generateText('ADEPT', 40), size)}
           onJoin={(code, name) => race.joinRoom(code, name)}
           onStart={race.startRace}
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); }}
@@ -1450,5 +1663,14 @@ export default function App() {
         <RaceProgressOverlay players={race.players} selfId={race.selfId} theme={theme} />
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainApp />} />
+      <Route path="/login" element={<Login />} />
+    </Routes>
   );
 }

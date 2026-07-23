@@ -1,23 +1,13 @@
-import { useState } from 'react';
-import { Activity, TrendingUp, RotateCcw, Play, Brain, Share2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import {
+  Activity, TrendingUp, RotateCcw, Brain, Share2, Play
+} from 'lucide-react';
 import type { Theme } from '@/data/constants';
+import type { Keystroke } from '@/hooks/useTypingEngine';
 import { shareResultCard } from '@/utils/shareCard';
+import { WpmGraph } from '@/components/graphs/WpmGraph';
 
-/** WPM at time t, linearly interpolated along the timeline curve. */
-function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): number {
-  if (points.length === 0) return 0;
-  if (t <= points[0].t) return points[0].wpm;
-  for (let i = 1; i < points.length; i++) {
-    if (points[i].t >= t) {
-      const a = points[i - 1], b = points[i];
-      const frac = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
-      return a.wpm + (b.wpm - a.wpm) * frac;
-    }
-  }
-  return points[points.length - 1].wpm;
-}
-
-interface ResultsScreenProps {
+export interface ResultsScreenProps {
   wpm: number;
   rawWpm: number;
   accuracy: number;
@@ -27,31 +17,30 @@ interface ResultsScreenProps {
   xpGainedLast: number;
   theme: Theme;
   heatmapData: Record<string, { total: number; errors: number }>;
-  getWeakKeys: [string, number][] | null;
-  username: string;
-  setUsername: (val: string) => void;
+  isLoggedIn: boolean;
+  displayName: string | null;
   saveStatus: string;
-  onSave: () => void;
-  onReset: () => void;
-  onStartMicroDrill: (key: string) => void;
-  onWatchReplay: () => void;
-  /** null when there isn't enough heatmap data for a smart drill yet */
-  onStartSmartDrill: (() => void) | null;
-  /** WPM curve of the finished run (from useTypingEngine) */
-  timelinePoints: Array<{ t: number; wpm: number }>;
-  /** ms offsets (from test start) of each mistyped character */
+  timelinePoints: Array<{ t: number; wpm: number; rawWpm: number }>;
   errorTimes: number[];
   durationMs: number;
+  keystrokeLog: Keystroke[];
+  testStartTime: number;
+  onReset: () => void;
+  onWatchReplay: () => void;
+  onStartMicroDrill: (keyChar: string) => void;
+  onStartSmartDrill: (() => void) | null;
+  compact?: boolean;
 }
 
-export const ResultsScreen = ({
+export function ResultsScreen({
   wpm, rawWpm, accuracy, consistency, flawlessStreak,
   leveledUp, xpGainedLast, theme,
-  heatmapData, getWeakKeys, username, setUsername,
-  saveStatus, onSave, onReset, onStartMicroDrill,
-  onWatchReplay, onStartSmartDrill,
-  timelinePoints, errorTimes, durationMs
-}: ResultsScreenProps) => {
+  saveStatus,
+  timelinePoints, errorTimes, durationMs,
+  keystrokeLog,
+  onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill,
+  compact = false
+}: ResultsScreenProps) {
   const [shareStatus, setShareStatus] = useState('');
 
   const grade = (() => {
@@ -60,6 +49,16 @@ export const ResultsScreen = ({
     if (wpm > 50 && accuracy > 90) return "B";
     if (wpm > 30) return "C";
     return "D";
+  })();
+
+  const gradeColor = (() => {
+    switch (grade) {
+      case 'S': return 'text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]';
+      case 'A': return 'text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.6)]';
+      case 'B': return 'text-blue-400 drop-shadow-[0_0_20px_rgba(96,165,250,0.6)]';
+      case 'C': return 'text-orange-400 drop-shadow-[0_0_20px_rgba(251,146,60,0.6)]';
+      default: return 'text-zinc-400';
+    }
   })();
 
   const handleShare = async () => {
@@ -78,194 +77,185 @@ export const ResultsScreen = ({
     setTimeout(() => setShareStatus(''), 3000);
   };
 
-  return (
-    <div className="flex flex-col items-center justify-center w-full animate-in fade-in zoom-in duration-500 z-10">
-      <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4">TEST COMPLETE</h2>
+  // Build heatmap rows
+  const heatmapRows = [
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+    ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+  ];
 
-      {leveledUp && (
-        <div className="mb-4 bg-amber-500/20 text-amber-400 border border-amber-500/50 px-6 py-2 rounded-full font-black tracking-widest flex items-center animate-bounce shadow-[0_0_20px_rgba(245,158,11,0.5)]">
-          <TrendingUp size={18} className="mr-2" /> LEVEL UP!
-        </div>
-      )}
-      {xpGainedLast > 0 && !leveledUp ? (
-        <div className="mb-8 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-zinc-300 font-black tracking-widest text-xs shadow-xl backdrop-blur-md">
-          +{xpGainedLast} XP
-        </div>
-      ) : <div className="h-8 mb-2"></div>}
+  const testHeatmapData = useMemo(() => {
+    const data: Record<string, { total: number; errors: number }> = {};
+    for (const k of keystrokeLog) {
+      if (k.isBackspace) continue;
+      const char = k.expected.toUpperCase();
+      if (!data[char]) data[char] = { total: 0, errors: 0 };
+      data[char].total++;
+      if (k.isError) data[char].errors++;
+    }
+    return data;
+  }, [keystrokeLog]);
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4 w-full max-w-6xl mb-4 px-4">
-        <div className="stat-card glass-panel p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <span className="text-zinc-400 text-[9px] md:text-[10px] font-black tracking-widest mb-2 md:mb-3 uppercase">Grade</span>
-          <span className={`text-5xl md:text-6xl font-black ${theme.text} ${theme.drop}`}>{grade}</span>
-        </div>
-        <div className="stat-card glass-panel p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <span className="text-zinc-400 text-[9px] md:text-[10px] font-black tracking-widest mb-2 md:mb-3 uppercase">Net WPM</span>
-          <span className="text-4xl md:text-5xl font-black text-white">{wpm}</span>
-        </div>
-        <div className="stat-card glass-panel p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <span className="text-zinc-400 text-[9px] md:text-[10px] font-black tracking-widest mb-2 md:mb-3 uppercase">Raw WPM</span>
-          <span className="text-4xl md:text-5xl font-black text-white">{rawWpm}</span>
-        </div>
-        <div className="stat-card glass-panel p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <span className="text-zinc-400 text-[9px] md:text-[10px] font-black tracking-widest mb-2 md:mb-3 uppercase">Accuracy</span>
-          <span className="text-4xl md:text-5xl font-black text-white">{accuracy}<span className="text-xl md:text-2xl text-zinc-500">%</span></span>
-        </div>
-        <div className="stat-card glass-panel p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <span className="text-zinc-400 text-[9px] md:text-[10px] font-black tracking-widest mb-2 md:mb-3 uppercase">Consistency</span>
-          <span className="text-4xl md:text-5xl font-black text-white">{consistency}<span className="text-xl md:text-2xl text-zinc-500">%</span></span>
-        </div>
-        <div className="stat-card glass-panel p-4 md:p-6 rounded-3xl flex flex-col items-center justify-center" style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <span className="text-zinc-400 text-[9px] md:text-[10px] font-black tracking-widest mb-2 md:mb-3 uppercase">Flawless</span>
-          <span className={`text-4xl md:text-5xl font-black ${flawlessStreak > 50 ? theme.text : 'text-white'}`}>{flawlessStreak}</span>
-        </div>
-      </div>
+  const content = (
+    <div className={compact ? '' : 'relative z-10 max-w-6xl mx-auto px-6 py-12'}>
+        {/* Header */}
+        <div className="flex flex-col items-center mb-12">
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 animate-in fade-in zoom-in duration-500">TEST COMPLETE</h1>
 
-      {/* Pacing graph — WPM curve with error markers */}
-      {timelinePoints.length > 1 && durationMs > 0 && (
-        <div className="w-full max-w-2xl mb-3 scale-[0.85] md:scale-90 origin-top z-10 relative">
-          <div className="p-6 glass-panel rounded-3xl w-full lucid-enter" style={{ '--delay': '100ms' } as React.CSSProperties}>
-            <div className="flex w-full justify-between items-center mb-3">
-              <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center">
-                <TrendingUp size={12} className="mr-2" /> PACING
-              </span>
-              {errorTimes.length > 0 && (
-                <span className="text-[9px] font-black tracking-widest text-red-400/80">✕ {errorTimes.length} ERROR{errorTimes.length === 1 ? '' : 'S'}</span>
-              )}
+          {leveledUp && (
+            <div className="mb-4 bg-amber-500/20 text-amber-400 border border-amber-500/50 px-8 py-3 rounded-full font-black tracking-widest flex items-center animate-bounce shadow-[0_0_30px_rgba(245,158,11,0.5)] text-sm">
+              <TrendingUp size={18} className="mr-3" /> LEVEL UP!
             </div>
-            {(() => {
-              const maxW = Math.max(...timelinePoints.map(p => p.wpm), 10);
-              const px = (t: number) => (t / durationMs) * 760 + 20;
-              const py = (w: number) => 150 - (w / maxW) * 130;
-              const poly = timelinePoints.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
-              return (
-                <svg viewBox="0 0 800 170" className="w-full">
-                  {[0.25, 0.5, 0.75].map(f => (
-                    <line key={f} x1="20" y1={150 - 130 * f} x2="780" y2={150 - 130 * f} stroke="rgba(113,113,122,0.15)" strokeWidth="1" />
-                  ))}
-                  <polyline fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />
-                  {/* error ticks along the baseline */}
-                  {errorTimes.map((t, i) => (
-                    <g key={i}>
-                      <line x1={px(t)} y1="156" x2={px(t)} y2="164" stroke="rgb(248,113,113)" strokeWidth="2" strokeLinecap="round" />
-                      <circle cx={px(t)} cy={py(interpolateWpm(timelinePoints, t))} r="3.5" fill="rgb(248,113,113)" opacity="0.85" />
-                    </g>
-                  ))}
-                </svg>
-              );
-            })()}
+          )}
+          {xpGainedLast > 0 && !leveledUp && (
+            <div className="mb-4 px-6 py-2 rounded-full bg-white/5 border border-white/10 text-zinc-300 font-black tracking-widest text-sm shadow-xl backdrop-blur-md">
+              +{xpGainedLast} XP
+            </div>
+          )}
+
+          {/* Auto-save status */}
+          {saveStatus && (
+            <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs ${saveStatus.includes('Error') || saveStatus.includes('INVALID') ? 'bg-red-500/20 text-red-400 border border-red-500/30' : `bg-white/5 border border-white/10 ${theme.text}`}`}>
+              {saveStatus}
+            </div>
+          )}
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Grade</span>
+            <span className={`text-6xl font-black ${gradeColor}`}>{grade}</span>
+          </div>
+          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Net WPM</span>
+            <span className="text-5xl font-black text-white">{wpm}</span>
+          </div>
+          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Raw WPM</span>
+            <span className="text-5xl font-black text-white">{rawWpm}</span>
+          </div>
+          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Accuracy</span>
+            <span className="text-5xl font-black text-white">{accuracy}<span className="text-2xl text-zinc-500">%</span></span>
+          </div>
+          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Consistency</span>
+            <span className="text-5xl font-black text-white">{consistency}<span className="text-2xl text-zinc-500">%</span></span>
+          </div>
+          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Flawless</span>
+            <span className={`text-5xl font-black ${flawlessStreak > 50 ? theme.text : 'text-white'}`}>{flawlessStreak}</span>
           </div>
         </div>
-      )}
 
-      {/* Heatmap */}
-      <div className="w-full max-w-2xl mb-3 scale-[0.85] md:scale-90 origin-top z-10 relative">
-        <div className="flex flex-col items-center gap-1.5 p-6 glass-panel rounded-3xl w-full mt-2 lucid-enter" style={{ '--delay': '200ms' } as React.CSSProperties}>
-          <div className="flex w-full justify-between items-end mb-3">
+        {/* Graphs Section - Single unified graph */}
+        <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '100ms' }}>
+          <WpmGraph
+            timelinePoints={timelinePoints}
+            errorTimes={errorTimes}
+            durationMs={durationMs}
+            theme={theme}
+          />
+        </div>
+
+        {/* Keyboard Heatmap */}
+        <div className="glass-panel rounded-3xl p-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '400ms' }}>
+          <div className="flex w-full justify-between items-end mb-4">
             <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center">
               <Activity size={12} className="mr-2" /> KEYBOARD HEATMAP
             </span>
-            <div className="flex space-x-2">
-              {getWeakKeys?.map(([key]) => (
-                <button
-                  key={key}
-                  onClick={() => onStartMicroDrill(key)}
-                  className="flex flex-col items-center cursor-pointer transition-transform hover:scale-110"
-                  title={`Drill: ${key}`}
-                >
-                  <span className="bg-red-500/20 text-red-400 border border-red-500/30 w-6 h-6 flex items-center justify-center rounded font-mono font-bold uppercase hover:bg-red-500/40 transition-all text-[10px]">{key}</span>
-                </button>
-              ))}
-            </div>
+            <span className="text-[9px] font-black tracking-widest text-zinc-500 uppercase">
+              Click any red key to practice
+            </span>
           </div>
 
-          {[
-            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-            ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
-          ].map((row, i) => (
-            <div key={i} className="flex gap-1.5 md:gap-2 justify-center" style={{ marginLeft: i * 20 }}>
-              {row.map(char => {
-                const stat = heatmapData[char];
-                let bgColor = "bg-black/20 text-zinc-500 border-white/5";
-                let errorRate = 0;
+          <div className="flex flex-col items-center gap-2">
+            {heatmapRows.map((row, i) => (
+              <div key={i} className="flex gap-2 justify-center" style={{ marginLeft: i * 20 }}>
+                {row.map(char => {
+                  const stat = testHeatmapData[char];
+                  let bgColor = "bg-black/20 text-zinc-500 border-white/5";
+                  let errorRate = 0;
+                  let canDrill = false;
 
-                if (stat && stat.total > 0) {
-                  errorRate = stat.errors / stat.total;
-                  if (errorRate === 0) bgColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-                  else if (errorRate < 0.05) bgColor = "bg-amber-500/10 text-amber-400 border-amber-500/30";
-                  else bgColor = "bg-red-500/20 text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)] cursor-pointer hover:scale-110";
-                }
+                  if (stat && stat.total > 0) {
+                    errorRate = stat.errors / stat.total;
+                    if (errorRate === 0) {
+                      bgColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                    } else if (errorRate < 0.05) {
+                      bgColor = "bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-pointer hover:bg-amber-500/20";
+                      canDrill = true;
+                    } else {
+                      bgColor = "bg-red-500/20 text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)] cursor-pointer hover:bg-red-500/30 hover:scale-105 z-10";
+                      canDrill = true;
+                    }
+                  }
 
-                return (
-                  <button
-                    key={char}
-                    onClick={() => errorRate >= 0.05 && onStartMicroDrill(char)}
-                    className={`w-8 h-10 md:w-10 md:h-12 flex flex-col items-center justify-center rounded-lg border transition-all ${bgColor} ${errorRate < 0.05 ? 'cursor-default pointer-events-none' : ''}`}
-                    title={stat && stat.total > 0 ? `${stat.errors} errors in ${stat.total} hits` : 'Not typed yet'}
-                  >
-                    <span className="font-mono font-bold text-sm">{char}</span>
-                    <span className="text-[8px] opacity-50">{stat && stat.total > 0 ? `${Math.round(errorRate * 100)}%` : '-'}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-          <div className="text-[9px] text-zinc-500 mt-4 font-black uppercase tracking-widest text-center">Click red keys to start a custom Micro-Drill</div>
+                  return (
+                    <div
+                      key={char}
+                      onClick={() => { if (canDrill) onStartMicroDrill(char); }}
+                      className={`w-10 h-12 md:w-12 md:h-14 flex flex-col items-center justify-center rounded-xl border transition-all ${bgColor}`}
+                      title={stat && stat.total > 0 ? `${stat.errors} errors in ${stat.total} hits` : 'Not typed yet'}
+                    >
+                      <span className="font-mono font-bold text-sm">{char}</span>
+                      <span className="text-[8px] opacity-50">{stat && stat.total > 0 ? `${Math.round(errorRate * 100)}%` : '-'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Save Score */}
-      <div className="flex w-full max-w-lg space-x-3 glass-panel p-2 rounded-2xl -mt-2 z-10 lucid-enter" style={{ '--delay': '400ms' } as React.CSSProperties}>
-        <input
-          type="text"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          placeholder="ENTER NAME..."
-          maxLength={12}
-          className="flex-1 bg-transparent text-white px-6 py-4 font-bold text-xl focus:outline-none placeholder:text-zinc-600 uppercase"
-          onKeyDown={(e) => { if (e.key === 'Enter') onSave(); e.stopPropagation(); }}
-        />
-        <button
-          onClick={onSave}
-          className={`px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-black tracking-widest rounded-xl transition-all ${theme.text}`}
-        >
-          SAVE
-        </button>
-      </div>
-      {saveStatus && <p className={`mt-4 text-sm font-black tracking-widest ${saveStatus.includes('Error') ? 'text-red-400' : theme.text}`}>{saveStatus}</p>}
-
-      {/* Actions: replay / smart drill / share / play again */}
-      <div className="mt-6 flex flex-wrap justify-center gap-3 w-full z-10 relative">
-        <button
-          onClick={onWatchReplay}
-          className="flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md"
-        >
-          <Play size={16} /> <span>WATCH REPLAY</span>
-        </button>
-        {onStartSmartDrill && (
+        {/* Action Buttons */}
+        <div className="flex flex-wrap justify-center gap-4 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '500ms' }}>
+          
           <button
-            onClick={onStartSmartDrill}
-            className="flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md"
-            title="A 20-word lesson targeting your lifetime weakest keys"
+            onClick={onWatchReplay}
+            className="flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl text-zinc-300 font-black tracking-widest text-sm hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
           >
-            <Brain size={16} /> <span>SMART DRILL</span>
+            <Play size={16} /> WATCH REPLAY
           </button>
-        )}
-        <button
-          onClick={handleShare}
-          disabled={!!shareStatus}
-          className={`flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md ${shareStatus ? theme.text : 'text-zinc-300 hover:text-white'}`}
-        >
-          <Share2 size={16} /> <span>{shareStatus || 'SHARE CARD'}</span>
-        </button>
-        <button
-          onClick={onReset}
-          className="flex items-center space-x-3 px-6 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md"
-        >
-          <RotateCcw size={16} /> <span>PLAY AGAIN (ESC)</span>
-        </button>
-      </div>
+
+          {onStartSmartDrill && (
+            <button
+              onClick={onStartSmartDrill}
+              className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl ${theme.text} font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-transparent hover:border-white/10`}
+            >
+              <Brain size={16} /> SMART DRILL
+            </button>
+          )}
+
+          <button
+            onClick={handleShare}
+            disabled={!!shareStatus}
+            className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl transition-all text-sm font-black tracking-widest ${shareStatus ? theme.text : 'text-zinc-300 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'}`}
+          >
+            <Share2 size={16} /> {shareStatus || 'SHARE CARD'}
+          </button>
+
+          <button
+            onClick={onReset}
+            className={`flex items-center gap-3 px-8 py-4 glass-panel rounded-2xl text-white font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]`}
+          >
+            <RotateCcw size={16} /> PLAY AGAIN
+          </button>
+        </div>
     </div>
   );
-};
+
+  if (compact) return content;
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
+      {/* Ambient glow effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className={`absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[200px] opacity-[0.04]`} style={{ background: theme.glowPrimary }} />
+        <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[200px] opacity-[0.03]`} style={{ background: theme.glowSecondary }} />
+      </div>
+      {content}
+    </div>
+  );
+}

@@ -15,6 +15,7 @@ export interface Keystroke {
 export interface TimelinePoint {
   t: number;
   wpm: number;
+  rawWpm: number;
 }
 
 export interface TypingStats {
@@ -74,8 +75,14 @@ export const useTypingEngine = () => {
     for (let i = 1; i <= intervals; i++) {
       const threshold = startTs + step * i;
       const chars = entries.filter(k => k.time <= threshold && !k.isError && !k.isBackspace).length;
+      const rawChars = entries.filter(k => k.time <= threshold && !k.isBackspace).length;
       const calcWpm = Math.round((chars / 5) / ((step * i) / 60000));
-      timeline.push({ t: step * i, wpm: isNaN(calcWpm) ? 0 : calcWpm });
+      const calcRaw = Math.round((rawChars / 5) / ((step * i) / 60000));
+      timeline.push({ 
+        t: step * i, 
+        wpm: isNaN(calcWpm) ? 0 : calcWpm,
+        rawWpm: isNaN(calcRaw) ? 0 : calcRaw
+      });
     }
 
     const wpmVals = timeline.map(p => p.wpm).filter(v => !isNaN(v));

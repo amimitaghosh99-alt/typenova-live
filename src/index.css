@@ -183,8 +183,13 @@
    transform (e.g. TypingArea's error-shake animation). */
 @media (hover: hover) and (pointer: fine) {
   .glass-panel {
+    /* Fallback center is parked OFF-panel (-100% -100%) so the specular
+       highlight is invisible until useGlassPointer actually writes --mx/--my.
+       Routes without the pointer hook (e.g. /results, which never mounts
+       MainApp/useGlassPointer) would otherwise show a permanent round glow
+       stuck at the panel centre. */
     background-image:
-      radial-gradient(240px circle at var(--mx, 50%) var(--my, 40%), rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.10) 35%, transparent 65%),
+      radial-gradient(240px circle at var(--mx, -100%) var(--my, -100%), rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.10) 35%, transparent 65%),
       linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0.08) 100%);
   }
 }

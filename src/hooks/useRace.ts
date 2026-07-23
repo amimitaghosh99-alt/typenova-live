@@ -208,7 +208,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
   }, [supabase, teardown, rebuildPlayers, leave, selfId]);
 
-  const createRoom = useCallback((name: string, text: string, size: number = 2) => {
+  const createRoom = useCallback((name: string, size: number = 2, text?: string) => {
     join(makeRoomCode(), name, true, text, size);
   }, [join]);
 

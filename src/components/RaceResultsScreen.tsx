@@ -196,7 +196,6 @@ export function RaceResultsScreen({
             const isSelf = player.id === selfId;
             const isSelected = player.id === selectedPlayerId;
             const isWinner = idx === 0 && allFinished;
-            const isLoser = idx > 0 && allFinished;
             const colorClass = medalColors[idx] || medalColors[3];
             const strokeColor = medalStrokeColors[idx] || medalStrokeColors[3];
             const award = awards[player.id];

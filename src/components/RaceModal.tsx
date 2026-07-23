@@ -154,7 +154,6 @@ export const RaceModal = ({
                 {copiedLink ? <Check size={16} className="text-emerald-400" /> : <Link size={16} />}
                 <span className="text-[10px] font-black tracking-widest hidden sm:inline">LINK</span>
               </button>
-              </button>
             </div>
             
             {/* ── LOBBY CONFIGURATION ── */}

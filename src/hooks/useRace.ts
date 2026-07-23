@@ -84,7 +84,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       if (meta.text) textRef.current = meta.text;
       if (meta.roomSize) { roomSizeRef.current = meta.roomSize; setRoomSize(meta.roomSize); }
       const prog = progressRef.current[key];
-      const fin = finishRef.current[key];
+      const fin = finishRef.current[key] || (meta.finished ? { wpm: meta.finishWpm, acc: meta.finishAcc, ms: meta.finishMs } : undefined);
       next.push({
         id: key,
         name: meta.name,
@@ -208,7 +208,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
   }, []);
 
-  const sendFinish = useCallback((wpm: number, acc: number, ms: number) => {
+  const sendFinish = useCallback(async (wpm: number, acc: number, ms: number) => {
     if (finishSentRef.current) return;
     finishSentRef.current = true;
     channelRef.current?.send({
@@ -216,6 +216,18 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       event: 'finish',
       payload: { id: selfIdRef.current, wpm, acc, ms },
     });
+    
+    // Fallback: also store finish state in presence in case broadcast is dropped
+    try {
+      const state = channelRef.current?.presenceState() || {};
+      const metas = state[selfIdRef.current] || [];
+      const currentMeta = metas[0];
+      if (currentMeta) {
+        await channelRef.current?.track({ ...currentMeta, finished: true, finishWpm: wpm, finishAcc: acc, finishMs: ms });
+      }
+    } catch (e) {
+      // ignore track errors
+    }
   }, []);
 
   // Clean up the channel on unmount

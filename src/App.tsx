@@ -1595,9 +1595,15 @@ function MainApp() {
               <div className="w-full">
                 <form onSubmit={async (e) => {
                   e.preventDefault();
-                  if (friendInput.trim()) {
-                    await friendsState.addFriend(friendInput.trim());
-                    setFriendInput('');
+                  const target = friendInput.trim();
+                  if (target) {
+                    if (cloud.username && target.toLowerCase() === cloud.username.toLowerCase()) {
+                      friendsState.setError("YOU CAN'T FOLLOW YOURSELF.");
+                      setTimeout(() => friendsState.setError(null), 3000);
+                    } else {
+                      await friendsState.addFriend(target);
+                      setFriendInput('');
+                    }
                   }
                 }} className="flex gap-2 mb-2 w-full">
                   <input 

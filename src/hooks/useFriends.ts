@@ -39,11 +39,16 @@ export const useFriends = ({ supabase, session }: UseFriendsOptions) => {
   const addFriend = useCallback(async (username: string) => {
     if (!supabase || !session?.user.id) return false;
     
+    // Check if already friend locally
+    if (friends.some(f => f.toLowerCase() === username.toLowerCase())) {
+      setError('ALREADY FOLLOWING THIS USER.');
+      setTimeout(() => setError(null), 3000);
+      return false;
+    }
+
     // Optimistic update
     const current = [...friends];
-    if (!current.includes(username)) {
-      setFriends([...current, username]);
-    }
+    setFriends([...current, username]);
 
     try {
       const { error: err } = await supabase
@@ -51,11 +56,19 @@ export const useFriends = ({ supabase, session }: UseFriendsOptions) => {
         .insert({ user_id: session.user.id, friend_username: username });
       
       if (err) throw err;
+      setError(null);
       return true;
     } catch (err: any) {
       // Revert on error
       setFriends(current);
-      setError(err.message || 'Failed to add friend');
+      let msg = err.message || 'FAILED TO ADD FRIEND';
+      if (msg.toLowerCase().includes('duplicate key') || msg.toLowerCase().includes('unique constraint')) {
+        msg = 'ALREADY FOLLOWING THIS USER.';
+      } else if (msg.toLowerCase().includes('foreign key constraint')) {
+        msg = 'USER DOES NOT EXIST.';
+      }
+      setError(msg.toUpperCase());
+      setTimeout(() => setError(null), 3000);
       return false;
     }
   }, [supabase, session, friends]);
@@ -93,6 +106,7 @@ export const useFriends = ({ supabase, session }: UseFriendsOptions) => {
     friends,
     loading,
     error,
+    setError,
     addFriend,
     removeFriend,
     refreshFriends: fetchFriends

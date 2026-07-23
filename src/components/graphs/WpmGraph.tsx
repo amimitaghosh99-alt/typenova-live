@@ -48,7 +48,14 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, errorTimes, dura
     const compPolys: Record<string, string> = {};
     if (competitorTimelines) {
       Object.entries(competitorTimelines).forEach(([id, pts]) => {
-        compPolys[id] = pts.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
+        if (pts.length < 2) return;
+        const extendedPts = [...pts];
+        const lastPt = extendedPts[extendedPts.length - 1];
+        // Extend the competitor's timeline to the end of the graph if they finished early
+        if (lastPt.t < durationMs) {
+          extendedPts.push({ t: durationMs, wpm: lastPt.wpm });
+        }
+        compPolys[id] = extendedPts.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
       });
     }
 

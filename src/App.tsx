@@ -1592,24 +1592,27 @@ function MainApp() {
             )}
 
             {boardTab === 'friends' && isLoggedIn && cloud.username && (
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                if (friendInput.trim()) {
-                  await friendsState.addFriend(friendInput.trim());
-                  setFriendInput('');
-                }
-              }} className="flex gap-2 mb-6 w-full">
-                <input 
-                  type="text" 
-                  value={friendInput}
-                  onChange={e => setFriendInput(e.target.value)}
-                  placeholder="FOLLOW USER..."
-                  className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold text-xs uppercase tracking-widest focus:outline-none focus:border-zinc-600"
-                />
-                <button type="submit" disabled={!friendInput.trim() || friendsState.loading} className="bg-white/10 hover:bg-white/15 border border-white/5 rounded-xl px-4 py-3 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
-                  ADD
-                </button>
-              </form>
+              <div className="w-full">
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (friendInput.trim()) {
+                    await friendsState.addFriend(friendInput.trim());
+                    setFriendInput('');
+                  }
+                }} className="flex gap-2 mb-2 w-full">
+                  <input 
+                    type="text" 
+                    value={friendInput}
+                    onChange={e => setFriendInput(e.target.value)}
+                    placeholder="FOLLOW USER..."
+                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold text-xs uppercase tracking-widest focus:outline-none focus:border-zinc-600"
+                  />
+                  <button type="submit" disabled={!friendInput.trim() || friendsState.loading} className="bg-white/10 hover:bg-white/15 border border-white/5 rounded-xl px-4 py-3 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                    ADD
+                  </button>
+                </form>
+                {friendsState.error && <p className="text-red-400 text-[10px] font-bold uppercase tracking-widest mb-4 px-1">{friendsState.error}</p>}
+              </div>
             )}
             {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).length === 0 ? (
               <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">
@@ -1628,13 +1631,28 @@ function MainApp() {
                       <span className="text-[10px] text-zinc-400 font-bold tracking-widest whitespace-nowrap">{entry.accuracy}% ACC</span>
                     </div>
                     {boardTab === 'friends' && entry.username !== cloud.username && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); friendsState.removeFriend(entry.username); }}
-                        className="absolute right-3 opacity-0 group-hover:opacity-100 p-2 text-zinc-500 hover:text-red-400 transition-all bg-black/40 rounded-full"
-                        title="Unfollow"
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="absolute right-3 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all bg-black/40 rounded-full p-1 border border-white/5">
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            race.createRoom(cloud.username || 'Player', typing.targetText, 2);
+                            setRaceActive(true);
+                            setShowRace(true);
+                          }}
+                          className="p-2 text-zinc-400 hover:text-amber-400 transition-all rounded-full"
+                          title="Challenge to Race"
+                        >
+                          <Swords size={14} />
+                        </button>
+                        <div className="w-px h-4 bg-white/10"></div>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); friendsState.removeFriend(entry.username); }}
+                          className="p-2 text-zinc-400 hover:text-red-400 transition-all rounded-full"
+                          title="Unfollow"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}

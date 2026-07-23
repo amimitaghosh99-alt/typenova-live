@@ -4,6 +4,7 @@ import type { Theme } from '@/data/constants';
 
 interface WpmGraphProps {
   timelinePoints: Array<{ t: number; wpm: number; rawWpm: number }>;
+  competitorTimelines?: Record<string, Array<{ t: number; wpm: number }>>;
   errorTimes: number[];
   durationMs: number;
   theme: Theme;
@@ -26,8 +27,14 @@ function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): n
 export const WpmGraph = ({ timelinePoints, errorTimes, durationMs, theme }: WpmGraphProps) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels } = useMemo(() => {
-    const maxW = Math.max(...timelinePoints.map(p => Math.max(p.wpm, p.rawWpm)), 10);
+  const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys } = useMemo(() => {
+    let maxW = Math.max(...timelinePoints.map(p => Math.max(p.wpm, p.rawWpm)), 10);
+    if (competitorTimelines) {
+      Object.values(competitorTimelines).forEach(pts => {
+        maxW = Math.max(maxW, ...pts.map(p => p.wpm));
+      });
+    }
+
     const avgWpm = timelinePoints.length
       ? Math.round(timelinePoints.reduce((s, p) => s + p.wpm, 0) / timelinePoints.length)
       : 0;
@@ -37,6 +44,14 @@ export const WpmGraph = ({ timelinePoints, errorTimes, durationMs, theme }: WpmG
 
     const poly = timelinePoints.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
     const rawPoly = timelinePoints.map(p => `${px(p.t)},${py(p.rawWpm)}`).join(' ');
+    
+    const compPolys: Record<string, string> = {};
+    if (competitorTimelines) {
+      Object.entries(competitorTimelines).forEach(([id, pts]) => {
+        compPolys[id] = pts.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
+      });
+    }
+
     // Gradient fill area (close the polygon at the bottom)
     const gradientPoly = poly + ` ${px(timelinePoints[timelinePoints.length - 1]?.t ?? durationMs)},210 ${px(timelinePoints[0]?.t ?? 0)},210`;
 
@@ -56,8 +71,8 @@ export const WpmGraph = ({ timelinePoints, errorTimes, durationMs, theme }: WpmG
       xLabels.push({ sec: s, x: px(s * 1000) });
     }
 
-    return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels };
-  }, [timelinePoints, durationMs]);
+    return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys };
+  }, [timelinePoints, competitorTimelines, durationMs]);
 
   if (timelinePoints.length < 2 || durationMs <= 0) return null;
 
@@ -111,6 +126,11 @@ export const WpmGraph = ({ timelinePoints, errorTimes, durationMs, theme }: WpmG
 
         {/* Raw WPM curve */}
         <polyline fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" strokeLinejoin="round" points={rawPoly} className="text-zinc-600" opacity="0.6" />
+
+        {/* Competitor curves */}
+        {Object.entries(compPolys).map(([id, p]) => (
+          <polyline key={`comp-${id}`} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="6 4" strokeLinecap="round" strokeLinejoin="round" points={p} className="text-amber-500/50" />
+        ))}
 
         {/* Net WPM curve */}
         <polyline fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />

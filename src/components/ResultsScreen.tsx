@@ -21,6 +21,7 @@ export interface ResultsScreenProps {
   displayName: string | null;
   saveStatus: string;
   timelinePoints: Array<{ t: number; wpm: number; rawWpm: number }>;
+  competitorTimelines?: Record<string, Array<{ t: number; wpm: number }>>;
   errorTimes: number[];
   durationMs: number;
   keystrokeLog: Keystroke[];
@@ -155,6 +156,7 @@ export function ResultsScreen({
         <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '100ms' }}>
           <WpmGraph
             timelinePoints={timelinePoints}
+            competitorTimelines={competitorTimelines}
             errorTimes={errorTimes}
             durationMs={durationMs}
             theme={theme}

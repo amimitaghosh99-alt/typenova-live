@@ -43,6 +43,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const selfIdRef = useRef(Math.random().toString(36).slice(2, 10));
   const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
   const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number }>>({});
+  const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});
+  const startAtRef = useRef<number | null>(null);
   const textRef = useRef('');
   const statusRef = useRef<RaceStatus>('idle');
   const roomSizeRef = useRef(2);
@@ -57,6 +59,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     channelRef.current = null;
     progressRef.current = {};
     finishRef.current = {};
+    timelinesRef.current = {};
+    startAtRef.current = null;
     textRef.current = '';
     finishSentRef.current = false;
     roomSizeRef.current = 2;
@@ -126,6 +130,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     ch.on('broadcast', { event: 'start' }, ({ payload }) => {
       if (!payload?.text || statusRef.current === 'racing') return;
       setStatus('racing');
+      startAtRef.current = payload.startAt as number;
       onStartRef.current(payload.text as string, payload.startAt as number);
     });
     ch.on('broadcast', { event: 'progress' }, ({ payload }) => {
@@ -133,6 +138,10 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
         // still record self so our own bar matches what others see
       }
       progressRef.current[payload.id] = { progress: payload.progress, wpm: payload.wpm };
+      if (startAtRef.current) {
+        if (!timelinesRef.current[payload.id]) timelinesRef.current[payload.id] = [];
+        timelinesRef.current[payload.id].push({ t: Math.max(0, Date.now() - startAtRef.current), wpm: payload.wpm });
+      }
       rebuildPlayers();
     });
     ch.on('broadcast', { event: 'finish' }, ({ payload }) => {
@@ -236,6 +245,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   return {
     status, code, isHost, players, error, roomSize,
     selfId: selfIdRef.current,
+    timelines: timelinesRef.current,
     createRoom, joinRoom, startRace, sendProgress, sendFinish, leave,
   };
 };

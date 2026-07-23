@@ -8,11 +8,12 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   players: RacerState[];
   selfId: string;
   roomSize: number;
+  timelines?: Record<string, Array<{ t: number; wpm: number }>>;
   onLeaveRace: () => void;
 }
 
 export function RaceResultsScreen({
-  players, selfId, roomSize, onLeaveRace, theme,
+  players, selfId, roomSize, timelines, onLeaveRace, theme,
   ...resultsProps
 }: RaceResultsScreenProps) {
   const ranking = useMemo(() =>
@@ -194,7 +195,7 @@ export function RaceResultsScreen({
           <h2 className="text-center text-zinc-400 text-[11px] font-black tracking-[0.4em] uppercase mb-8">
             YOUR DETAILED STATS
           </h2>
-          <ResultsScreen {...resultsProps} theme={theme} compact />
+          <ResultsScreen {...resultsProps} theme={theme} competitorTimelines={timelines} compact />
         </div>
 
         {/* ── RACE ACTIONS ────────────────────────────────── */}

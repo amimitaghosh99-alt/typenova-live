@@ -3,6 +3,7 @@ import { Ghost } from 'lucide-react';
 import type { Particle } from '@/hooks/useParticles';
 import type { Theme } from '@/data/constants';
 import type { Phase } from '@/data/constants';
+import type { RacerState } from '@/hooks/useRace';
 
 // Stable empty array so particle-less chars keep the same prop identity
 // across renders — otherwise `|| []` would defeat Char's memoization.
@@ -143,13 +144,14 @@ interface TypingAreaProps {
       races YOUR best run instead of the fixed 60 WPM pace. */
   pbGhost?: { wpm: number; samples: PaceSample[] } | null;
   isCodeMode?: boolean;
+  racePlayers?: RacerState[];
 }
 
 export const TypingArea = ({
   targetText, input, phase, theme, blindMode, focusMode,
   fogMode, startTime, shake, capsLock, stickyPenalty,
   particles, ghostPacer, combo, zenMode = false, pbGhost = null,
-  isCodeMode = false
+  isCodeMode = false, racePlayers
 }: TypingAreaProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -319,6 +321,29 @@ export const TypingArea = ({
               }}
             />
           )}
+
+          {/* Multiplayer opponents (inline glow) */}
+          {racePlayers && racePlayers.map(player => {
+            const playerIndex = Math.min(Math.floor((player.progress / 100) * targetText.length), targetText.length - 1);
+            // We use different colors based on rank/random? For now, orange glow for opponents.
+            return (
+              <GlidingBar
+                key={player.id}
+                index={playerIndex}
+                containerRef={containerRef}
+                targetText={targetText}
+                barClass=""
+                barStyle={{
+                  background: 'rgb(245, 158, 11)', // amber-500
+                  opacity: 0.6,
+                  height: '100%',
+                  top: 0,
+                  mixBlendMode: 'screen',
+                  transition: 'transform 200ms linear, width 100ms ease-out',
+                }}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

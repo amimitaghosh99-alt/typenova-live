@@ -60,7 +60,7 @@ export const useTypingEngine = () => {
       return { currentWpm: 0, rawWpm: 0, currentAcc: 100, timeline: [], consistency: 100, flawless: 0 };
     }
     const entries = keystrokeLog.current;
-    const startTs = entries.length ? entries[0].time : (Date.now() - timeMs);
+    const startTs = Date.now() - timeMs;
     const totalTimeMs = timeMs + currentPenalty;
     const minutes = totalTimeMs / 60000;
 

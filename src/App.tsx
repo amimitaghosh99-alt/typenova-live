@@ -31,7 +31,7 @@ import { ResultsScreen } from '@/components/ResultsScreen';
 import { RaceResultsScreen } from '@/components/RaceResultsScreen';
 import { StatsDashboard, appendHistory } from '@/components/StatsDashboard';
 import { ReplayModal } from '@/components/ReplayModal';
-import { RaceModal, RaceProgressOverlay } from '@/components/RaceModal';
+import { RaceModal } from '@/components/RaceModal';
 import { useRace } from '@/hooks/useRace';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
 import { supabase } from '@/lib/supabase';
@@ -223,7 +223,7 @@ function MainApp() {
     onHydrated: () => setDailyStreak(loadDailyStreak()),
   });
   const isLoggedIn = !!auth.session;
-  const friendsState = useFriends({ supabase, session: auth.session });
+  const friendsState = useFriends({ supabase, session: auth.session, username: cloud.username });
 
   // Handle URL share links
   useEffect(() => {
@@ -354,7 +354,15 @@ function MainApp() {
     const { data, error } = await supabase.from('leaderboard').select('username, wpm, accuracy').in('username', usernames);
     
     if (!error && data) {
-      const existing = new Map(data.map(d => [d.username.toLowerCase(), d]));
+      const sortedData = [...data].sort((a, b) => b.wpm - a.wpm);
+      const existing = new Map();
+      for (const row of sortedData) {
+        const lower = row.username.toLowerCase();
+        if (!existing.has(lower)) {
+          existing.set(lower, row);
+        }
+      }
+      
       const seen = new Set<string>();
       const combined = [];
       for (const uname of usernames) {
@@ -1570,6 +1578,7 @@ function MainApp() {
               zenMode={zenMode}
               pbGhost={pbGhost}
               isCodeMode={level === 'CODE'}
+              racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
             />
 
             {/* Abort Button (only during active test, NOT on finished) */}
@@ -1606,17 +1615,40 @@ function MainApp() {
             )}
 
             {boardTab === 'friends' && isLoggedIn && cloud.username && (
-              <div className="w-full">
+              <div className="w-full mb-6">
+                {/* Incoming Requests */}
+                {friendsState.incomingRequests.length > 0 && (
+                  <div className="mb-6 p-4 rounded-2xl bg-zinc-900/50 border border-emerald-500/20">
+                    <h4 className="text-[10px] font-black tracking-widest text-emerald-400 mb-3 uppercase">Friend Requests ({friendsState.incomingRequests.length})</h4>
+                    <div className="flex flex-col gap-2">
+                      {friendsState.incomingRequests.map(req => (
+                        <div key={req} className="flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5">
+                          <span className="font-bold text-white uppercase text-sm ml-2 tracking-widest">{req}</span>
+                          <div className="flex gap-2">
+                            <button onClick={() => friendsState.acceptRequest(req)} disabled={friendsState.loading} className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-[9px] font-black tracking-widest transition-colors">
+                              ACCEPT
+                            </button>
+                            <button onClick={() => friendsState.removeFriend(req, true)} disabled={friendsState.loading} className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 text-[9px] font-black tracking-widest transition-colors">
+                              REJECT
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Add Friend Form */}
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   const target = friendInput.trim();
                   if (target) {
                     if (cloud.username && target.toLowerCase() === cloud.username.toLowerCase()) {
-                      friendsState.setError("YOU CAN'T FOLLOW YOURSELF.");
+                      friendsState.setError("YOU CAN'T ADD YOURSELF.");
                       setTimeout(() => friendsState.setError(null), 3000);
                     } else {
-                      await friendsState.addFriend(target);
-                      setFriendInput('');
+                      const success = await friendsState.addFriend(target);
+                      if (success) setFriendInput('');
                     }
                   }
                 }} className="flex gap-2 mb-2 w-full">
@@ -1624,14 +1656,19 @@ function MainApp() {
                     type="text" 
                     value={friendInput}
                     onChange={e => setFriendInput(e.target.value)}
-                    placeholder="FOLLOW USER..."
+                    placeholder="ADD FRIEND BY USERNAME..."
                     className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold text-xs uppercase tracking-widest focus:outline-none focus:border-zinc-600"
                   />
-                  <button type="submit" disabled={!friendInput.trim() || friendsState.loading} className="bg-white/10 hover:bg-white/15 border border-white/5 rounded-xl px-4 py-3 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                  <button type="submit" disabled={!friendInput.trim() || friendsState.loading} className="bg-white/10 hover:bg-white/15 border border-white/5 rounded-xl px-4 py-3 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-colors">
                     ADD
                   </button>
                 </form>
-                {friendsState.error && <p className="text-red-400 text-[10px] font-bold uppercase tracking-widest mb-4 px-1">{friendsState.error}</p>}
+                {friendsState.error && <p className="text-red-400 text-[10px] font-bold uppercase tracking-widest px-1">{friendsState.error}</p>}
+                {friendsState.outgoingRequests.length > 0 && !friendsState.error && (
+                  <p className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest px-1 mt-2">
+                    Pending requests: {friendsState.outgoingRequests.join(', ')}
+                  </p>
+                )}
               </div>
             )}
             {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).length === 0 ? (
@@ -1750,11 +1787,6 @@ function MainApp() {
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); }}
           onClose={() => setShowRace(false)}
         />
-      )}
-
-      {/* In-race live opponent bars */}
-      {raceActive && (typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
-        <RaceProgressOverlay players={race.players} selfId={race.selfId} theme={theme} />
       )}
     </div>
   );

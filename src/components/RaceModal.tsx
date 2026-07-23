@@ -230,38 +230,3 @@ export const RaceModal = ({
   );
 };
 
-// ─── In-race opponents overlay ──────────────────────────────────────
-// Small fixed panel showing everyone's live progress while you type.
-export const RaceProgressOverlay = ({ players, selfId, theme }: {
-  players: RacerState[];
-  selfId: string;
-  theme: Theme;
-}) => {
-  if (players.length === 0) return null;
-  const sorted = [...players].sort((a, b) => b.progress - a.progress);
-  return (
-    <div className="fixed bottom-6 left-6 z-[140] glass-panel rounded-2xl p-4 w-64 pointer-events-none">
-      <div className="text-[9px] font-black tracking-widest text-zinc-400 uppercase mb-3 flex items-center gap-2">
-        <Swords size={11} style={{ color: `rgb(${theme.glowPrimary})` }} /> RACE
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {sorted.map(p => (
-          <div key={p.id}>
-            <div className="flex justify-between items-baseline mb-1">
-              <span className={`text-[10px] font-black tracking-widest uppercase ${p.id === selfId ? 'text-white' : 'text-zinc-400'}`}>
-                {p.name}{p.id === selfId ? ' (YOU)' : ''} {p.finished && '🏁'}
-              </span>
-              <span className={`text-[10px] font-black tabular-nums ${theme.text}`}>{p.wpm} wpm</span>
-            </div>
-            <div className="h-1.5 bg-zinc-800/80 rounded-full overflow-hidden">
-              <div
-                className={`h-full ${theme.solid} transition-all duration-300 ease-out`}
-                style={{ width: `${p.progress}%`, opacity: p.id === selfId ? 1 : 0.55 }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};

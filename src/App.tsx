@@ -351,8 +351,17 @@ function MainApp() {
   const fetchFriendsBoard = useCallback(async () => {
     if (!supabase || !cloud.username) return;
     const usernames = [cloud.username, ...friendsState.friends];
-    const { data, error } = await supabase.from('leaderboard').select('username, wpm, accuracy').in('username', usernames).order('wpm', { ascending: false }).limit(10);
-    if (!error && data) setFriendsBoard(data);
+    const { data, error } = await supabase.from('leaderboard').select('username, wpm, accuracy').in('username', usernames);
+    
+    if (!error && data) {
+      const existing = new Map(data.map(d => [d.username.toLowerCase(), d]));
+      const combined = usernames.map(uname => {
+        const found = existing.get(uname.toLowerCase());
+        return found || { username: uname, wpm: 0, accuracy: 0 };
+      });
+      combined.sort((a, b) => b.wpm - a.wpm);
+      setFriendsBoard(combined);
+    }
   }, [friendsState.friends, cloud.username]);
 
   useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);

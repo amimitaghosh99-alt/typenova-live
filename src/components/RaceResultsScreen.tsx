@@ -4,7 +4,8 @@ import type { RacerState } from '@/hooks/useRace';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
 import { ResultsScreen } from '@/components/ResultsScreen';
 import { WpmGraph } from './graphs/WpmGraph';
-import { calculatePlayerTitle, PlayerTitleStats, TitleIntervalRanking } from '../utils/playerTitles';
+import { calculatePlayerTitle } from '../utils/playerTitles';
+import type { PlayerTitleStats, TitleIntervalRanking } from '../utils/playerTitles';
 
 interface RaceResultsScreenProps extends ResultsScreenProps {
   players: RacerState[];

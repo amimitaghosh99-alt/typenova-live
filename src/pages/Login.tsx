@@ -80,7 +80,10 @@ export function Login() {
             </button>
             
             <button 
-              onClick={() => navigate('/')}
+              onClick={() => {
+                localStorage.setItem('guestMode', 'true');
+                navigate('/');
+              }}
               className="mt-6 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
             >
               Continue as Guest

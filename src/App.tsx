@@ -220,6 +220,7 @@ function MainApp() {
     hydrateRPG: rpg.hydrate,
     onHydrated: () => setDailyStreak(loadDailyStreak()),
   });
+  const isLoggedIn = !!auth.session;
   const friendsState = useFriends({ supabase, session: auth.session });
 
   // Handle URL share links
@@ -1252,15 +1253,41 @@ function MainApp() {
                 <span className="text-[8px] font-mono text-zinc-500 ml-3 w-12 text-right">{rpg.xp} XP</span>
               </div>
               <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
-              <button onClick={() => setShowTrophyRoom(true)} className={`p-2 rounded-xl bg-black/20 border transition-all ${rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.text} ${theme.glow} ${theme.bgHover}` : 'border-white/10 text-zinc-500 hover:text-white'}`} title="View Trophies">
-                <Trophy size={16} />
+              
+              <button 
+                onClick={() => isLoggedIn ? setShowTrophyRoom(true) : alert("Sign in to unlock Trophies!")} 
+                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
+                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
+                  : rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.text} ${theme.glow} ${theme.bgHover}` 
+                  : 'border-white/10 text-zinc-500 hover:text-white'
+                }`} 
+                title={isLoggedIn ? "View Trophies" : "Sign in to unlock Trophies"}
+              >
+                {isLoggedIn ? <Trophy size={16} /> : <Lock size={16} />}
               </button>
-              <button onClick={() => setShowStatsDashboard(true)} className="p-2 rounded-xl bg-black/20 border border-white/10 text-zinc-500 hover:text-white transition-all ml-1" title="Your Stats">
-                <BarChart2 size={16} />
+              
+              <button 
+                onClick={() => isLoggedIn ? setShowStatsDashboard(true) : alert("Sign in to unlock detailed Stats!")} 
+                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
+                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
+                  : 'border-white/10 text-zinc-500 hover:text-white'
+                }`} 
+                title={isLoggedIn ? "Your Stats" : "Sign in to unlock Stats"}
+              >
+                {isLoggedIn ? <BarChart2 size={16} /> : <Lock size={16} />}
               </button>
-              <button onClick={() => setShowRace(true)} className="p-2 rounded-xl bg-black/20 border border-white/10 text-zinc-500 hover:text-white transition-all ml-1" title="Race a friend">
-                <Swords size={16} />
+              
+              <button 
+                onClick={() => isLoggedIn ? setShowRace(true) : alert("Sign in to race with friends!")} 
+                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
+                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
+                  : 'border-white/10 text-zinc-500 hover:text-white'
+                }`} 
+                title={isLoggedIn ? "Race a friend" : "Sign in to race with friends"}
+              >
+                {isLoggedIn ? <Swords size={16} /> : <Lock size={16} />}
               </button>
+              
               {dailyStreak > 0 && (
                 <>
                   <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
@@ -1535,7 +1562,16 @@ function MainApp() {
               </div>
             </div>
 
-            {boardTab === 'friends' && cloud.username && (
+            {boardTab === 'friends' && !isLoggedIn && (
+              <div className="flex flex-col items-center justify-center py-10 text-center opacity-70">
+                <Lock size={32} className="text-zinc-600 mb-4" />
+                <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest max-w-[180px]">
+                  Sign in to connect and compete with friends.
+                </p>
+              </div>
+            )}
+
+            {boardTab === 'friends' && isLoggedIn && cloud.username && (
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (friendInput.trim()) {
@@ -1677,7 +1713,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
   
-  if (!session) {
+  const isGuest = localStorage.getItem('guestMode') === 'true';
+  
+  if (!session && !isGuest) {
     return <Navigate to="/login" replace />;
   }
   

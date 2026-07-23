@@ -355,10 +355,15 @@ function MainApp() {
     
     if (!error && data) {
       const existing = new Map(data.map(d => [d.username.toLowerCase(), d]));
-      const combined = usernames.map(uname => {
-        const found = existing.get(uname.toLowerCase());
-        return found || { username: uname, wpm: 0, accuracy: 0 };
-      });
+      const seen = new Set<string>();
+      const combined = [];
+      for (const uname of usernames) {
+        const lower = uname.toLowerCase();
+        if (seen.has(lower)) continue;
+        seen.add(lower);
+        const found = existing.get(lower);
+        combined.push(found || { username: uname, wpm: 0, accuracy: 0 });
+      }
       combined.sort((a, b) => b.wpm - a.wpm);
       setFriendsBoard(combined);
     }

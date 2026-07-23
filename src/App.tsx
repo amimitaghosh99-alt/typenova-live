@@ -41,6 +41,8 @@ import { useFriends } from '@/hooks/useFriends';
 import { AccountMenu } from '@/components/AccountMenu';
 import { Routes, Route, Navigate } from 'react-router';
 import { Login } from '@/pages/Login';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
@@ -1255,7 +1257,7 @@ function MainApp() {
               <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
               
               <button 
-                onClick={() => isLoggedIn ? setShowTrophyRoom(true) : alert("Sign in to unlock Trophies!")} 
+                onClick={() => isLoggedIn ? setShowTrophyRoom(true) : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })} 
                 className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
                   !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
                   : rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.text} ${theme.glow} ${theme.bgHover}` 
@@ -1267,7 +1269,7 @@ function MainApp() {
               </button>
               
               <button 
-                onClick={() => isLoggedIn ? setShowStatsDashboard(true) : alert("Sign in to unlock detailed Stats!")} 
+                onClick={() => isLoggedIn ? setShowStatsDashboard(true) : toast.error("Sign in to unlock detailed Stats!", { icon: <Lock size={14} /> })} 
                 className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
                   !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
                   : 'border-white/10 text-zinc-500 hover:text-white'
@@ -1278,7 +1280,7 @@ function MainApp() {
               </button>
               
               <button 
-                onClick={() => isLoggedIn ? setShowRace(true) : alert("Sign in to race with friends!")} 
+                onClick={() => isLoggedIn ? setShowRace(true) : toast.error("Sign in to race with friends!", { icon: <Lock size={14} /> })} 
                 className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
                   !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
                   : 'border-white/10 text-zinc-500 hover:text-white'
@@ -1385,11 +1387,25 @@ function MainApp() {
               <div className={`flex flex-col gap-2 transition-opacity ${dailyActive ? 'opacity-30' : 'opacity-100'}`}>
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
                 <div className="flex glass-panel p-1.5 rounded-full">
-                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE', 'CUSTOM'] as Level[]).map(l => (
-                    <button key={l} onClick={() => changeLevel(l)} className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center`}>
-                      {l}
-                    </button>
-                  ))}
+                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE', 'CUSTOM'] as Level[]).map(l => {
+                    const isLocked = !isLoggedIn && l === 'CODE';
+                    return (
+                      <button 
+                        key={l} 
+                        onClick={() => {
+                          if (isLocked) {
+                            toast.error("Sign in to unlock Code Mode!", { icon: <Lock size={14} /> });
+                            return;
+                          }
+                          changeLevel(l);
+                        }} 
+                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : isLocked ? 'text-zinc-600 hover:text-zinc-400 border border-transparent' : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center gap-2`}
+                      >
+                        {isLocked && <Lock size={10} />}
+                        {l}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1724,9 +1740,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<AuthGuard><MainApp /></AuthGuard>} />
-      <Route path="/login" element={<Login />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<AuthGuard><MainApp /></AuthGuard>} />
+        <Route path="/login" element={<Login />} />
+      </Routes>
+      <Toaster position="top-center" theme="dark" />
+    </>
   );
 }

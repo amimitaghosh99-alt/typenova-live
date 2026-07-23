@@ -112,9 +112,14 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
         .from('profiles')
         .select('id, username')
         .ilike('username', targetUsername)
-        .single();
+        .limit(1)
+        .maybeSingle();
       
-      if (profileErr || !profile) throw new Error('USER DOES NOT EXIST.');
+      if (profileErr) {
+        console.error("Profile fetch error:", profileErr);
+        throw new Error(`DB ERROR: ${profileErr.message}`);
+      }
+      if (!profile) throw new Error('USER DOES NOT EXIST.');
       if (profile.id === session.user.id) throw new Error("CANNOT ADD YOURSELF.");
 
       // Check if they already sent us a request

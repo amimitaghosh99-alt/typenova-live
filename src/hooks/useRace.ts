@@ -19,6 +19,10 @@ export interface RacerState {
   finishWpm?: number;
   finishAcc?: number;
   finishMs?: number;
+  rawWpm?: number;
+  consistency?: number;
+  heatmapData?: Record<string, { total: number; errors: number }>;
+  errorCount?: number;
 }
 
 const ROOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L
@@ -43,7 +47,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const [selfId] = useState(() => crypto.randomUUID());
   const selfIdRef = useRef(selfId);
   const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
-  const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number }>>({});
+  const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number }>>({});
   const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});
   const startAtRef = useRef<number | null>(null);
   const textRef = useRef('');
@@ -81,7 +85,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const rebuildPlayers = useCallback(() => {
     const ch = channelRef.current;
     if (!ch) return;
-    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number }>>;
+    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; }>>;
     const next: RacerState[] = [];
     for (const [key, metas] of Object.entries(state)) {
       const meta = metas[0];
@@ -89,7 +93,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       if (meta.text) textRef.current = meta.text;
       if (meta.roomSize) { roomSizeRef.current = meta.roomSize; setRoomSize(meta.roomSize); }
       const prog = progressRef.current[key];
-      const fin = finishRef.current[key] || (meta.finished ? { wpm: meta.finishWpm, acc: meta.finishAcc, ms: meta.finishMs } : undefined);
+      const fin = finishRef.current[key] || (meta.finished ? { wpm: meta.finishWpm, acc: meta.finishAcc, ms: meta.finishMs, rawWpm: meta.rawWpm, consistency: meta.consistency, heatmapData: meta.heatmapData, errorCount: meta.errorCount } : undefined);
       next.push({
         id: key,
         name: meta.name,
@@ -100,6 +104,10 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
         finishWpm: fin?.wpm,
         finishAcc: fin?.acc,
         finishMs: fin?.ms,
+        rawWpm: fin?.rawWpm,
+        consistency: fin?.consistency,
+        heatmapData: fin?.heatmapData,
+        errorCount: fin?.errorCount,
       });
     }
     // host first, then by name — stable lobby order
@@ -147,7 +155,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
     ch.on('broadcast', { event: 'finish' }, ({ payload }) => {
       if (!payload?.id) return;
-      finishRef.current[payload.id] = { wpm: payload.wpm, acc: payload.acc, ms: payload.ms };
+      finishRef.current[payload.id] = { wpm: payload.wpm, acc: payload.acc, ms: payload.ms, rawWpm: payload.rawWpm, consistency: payload.consistency, heatmapData: payload.heatmapData, errorCount: payload.errorCount };
       rebuildPlayers();
     });
 
@@ -218,22 +226,22 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
   }, [selfId]);
 
-  const sendFinish = useCallback(async (wpm: number, acc: number, ms: number) => {
+  const sendFinish = useCallback(async (wpm: number, acc: number, ms: number, rawWpm?: number, consistency?: number, heatmapData?: Record<string, { total: number; errors: number }>, errorCount?: number) => {
     if (finishSentRef.current) return;
     finishSentRef.current = true;
     channelRef.current?.send({
       type: 'broadcast',
       event: 'finish',
-      payload: { id: selfId, wpm, acc, ms },
+      payload: { id: selfIdRef.current, wpm, acc, ms, rawWpm, consistency, heatmapData, errorCount },
     });
     
     // Fallback: also store finish state in presence in case broadcast is dropped
     try {
       const state = channelRef.current?.presenceState() || {};
-      const metas = state[selfId] || [];
+      const metas = state[selfIdRef.current] || [];
       const currentMeta = metas[0];
       if (currentMeta) {
-        await channelRef.current?.track({ ...currentMeta, finished: true, finishWpm: wpm, finishAcc: acc, finishMs: ms });
+        await channelRef.current?.track({ ...currentMeta, finished: true, finishWpm: wpm, finishAcc: acc, finishMs: ms, rawWpm, consistency, heatmapData, errorCount });
       }
     } catch (e) {
       // ignore track errors

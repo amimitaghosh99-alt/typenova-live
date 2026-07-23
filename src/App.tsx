@@ -868,7 +868,8 @@ function MainApp() {
     // Multiplayer: broadcast the final result. The RaceResultsScreen is
     // rendered automatically when raceActive + phase === FINISHED.
     if (raceActive) {
-      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs);
+      const errCount = typing.keystrokeLog.current.filter(k => k.isError).length;
+      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, rpg.heatmapData, errCount);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase, typing.endTime]);

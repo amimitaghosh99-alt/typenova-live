@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Trophy, LogOut } from 'lucide-react';
 import type { RacerState } from '@/hooks/useRace';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
 import { ResultsScreen } from '@/components/ResultsScreen';
+import { WpmGraph } from '@/components/graphs/WpmGraph';
 
 interface RaceResultsScreenProps extends ResultsScreenProps {
   players: RacerState[];
@@ -26,12 +27,83 @@ export function RaceResultsScreen({
     [players]
   );
 
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>(selfId);
+
   const myRank = ranking.findIndex(p => p.id === selfId);
   const allFinished = players.length > 0 && players.every(p => p.finished);
   const winner = ranking[0];
   const iWon = allFinished && winner?.id === selfId;
-  const maxWpm = Math.max(...ranking.map(p => p.finishWpm ?? 0), 1);
-  const maxAcc = 100;
+
+  // ── AWARDS LOGIC ──
+  const awards = useMemo(() => {
+    if (!allFinished) return {} as Record<string, string>;
+    const result: Record<string, string> = {};
+
+    let sniperId = '';
+    let highestAcc = 0;
+
+    let smasherId = '';
+    let highestErrors = -1;
+    let lowestAcc = 100;
+
+    let metronomeId = '';
+    let highestConsistency = 0;
+
+    ranking.forEach(p => {
+      // Sniper
+      if ((p.finishAcc ?? 0) > highestAcc && (p.finishAcc ?? 0) >= 98) {
+        highestAcc = p.finishAcc ?? 0;
+        sniperId = p.id;
+      }
+      
+      // Smasher
+      const errs = p.errorCount ?? 0;
+      if (errs > highestErrors) {
+        highestErrors = errs;
+        smasherId = p.id;
+      } else if (errs === highestErrors && (p.finishAcc ?? 0) < lowestAcc) {
+        lowestAcc = p.finishAcc ?? 0;
+        smasherId = p.id;
+      }
+
+      // Metronome
+      if ((p.consistency ?? 0) > highestConsistency && (p.consistency ?? 0) > 80) {
+        highestConsistency = p.consistency ?? 0;
+        metronomeId = p.id;
+      }
+    });
+
+    // Comeback Kid
+    let comebackId = '';
+    if (roomSize >= 3 && resultsProps.durationMs > 0) {
+      const halfTime = resultsProps.durationMs / 2;
+      const halfwayRanking = [...ranking].map(p => {
+        let wpm = 0;
+        if (p.id === selfId) {
+          const point = resultsProps.timelinePoints.find(pt => pt.t >= halfTime);
+          wpm = point?.wpm ?? p.finishWpm ?? 0;
+        } else if (timelines?.[p.id]) {
+          const tpts = timelines[p.id];
+          const point = tpts?.find(pt => pt.t >= halfTime);
+          wpm = point?.wpm ?? p.finishWpm ?? 0;
+        }
+        return { id: p.id, halfwayWpm: wpm };
+      });
+      halfwayRanking.sort((a, b) => b.halfwayWpm - a.halfwayWpm);
+      
+      const lastPlaceAtHalfway = halfwayRanking[halfwayRanking.length - 1]?.id;
+      if (lastPlaceAtHalfway === ranking[0]?.id || lastPlaceAtHalfway === ranking[1]?.id) {
+        comebackId = lastPlaceAtHalfway;
+      }
+    }
+
+    if (sniperId) result[sniperId] = '🎯 THE SNIPER';
+    if (smasherId && !result[smasherId]) result[smasherId] = '💥 KEYBOARD SMASHER';
+    if (metronomeId && !result[metronomeId]) result[metronomeId] = '⏱️ THE METRONOME';
+    if (comebackId && !result[comebackId]) result[comebackId] = '🔥 COMEBACK KID';
+
+    return result;
+  }, [allFinished, ranking, resultsProps.durationMs, resultsProps.timelinePoints, selfId, timelines, roomSize]);
 
   const medalColors = [
     'text-amber-400 border-amber-500/50 bg-amber-500/10 shadow-[0_0_30px_rgba(245,158,11,0.3)]',   // 1st gold
@@ -40,7 +112,7 @@ export function RaceResultsScreen({
     'text-zinc-500 border-zinc-700 bg-zinc-800/50',                                                   // 4th
   ];
 
-  const medalEmoji = ['🥇', '🥈', '🥉', '4th'];
+  const medalStrokeColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
 
   const placementText = (rank: number) => {
     if (rank === 0) return '1ST PLACE';
@@ -49,12 +121,24 @@ export function RaceResultsScreen({
     return '4TH PLACE';
   };
 
-  // Grid layout based on player count
-  const gridClass = ranking.length === 2
-    ? 'grid-cols-1 md:grid-cols-2'
-    : ranking.length === 3
-    ? 'grid-cols-1 md:grid-cols-3'
-    : 'grid-cols-2';
+  // Determine which stats to show based on selectedPlayerId
+  const selectedPlayer = ranking.find(p => p.id === selectedPlayerId);
+  const isSelfSelected = selectedPlayerId === selfId;
+
+  // Derive custom props if viewing a competitor
+  const displayProps = useMemo(() => {
+    if (isSelfSelected || !selectedPlayer) return resultsProps;
+    return {
+      ...resultsProps,
+      wpm: selectedPlayer.finishWpm ?? 0,
+      accuracy: selectedPlayer.finishAcc ?? 0,
+      rawWpm: selectedPlayer.rawWpm ?? selectedPlayer.finishWpm ?? 0,
+      consistency: selectedPlayer.consistency ?? 0,
+      durationMs: selectedPlayer.finishMs ?? resultsProps.durationMs,
+      heatmapData: selectedPlayer.heatmapData ?? {},
+      errorTimes: new Array(selectedPlayer.errorCount ?? 0).fill(0), // Fake error times just for the count
+    };
+  }, [isSelfSelected, selectedPlayer, resultsProps]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
@@ -89,117 +173,86 @@ export function RaceResultsScreen({
           )}
         </div>
 
-        {/* ── HEAD-TO-HEAD COMPARISON ──────────────────────── */}
-        <div className={`grid ${gridClass} gap-4 md:gap-6 mb-12 ${ranking.length === 2 ? 'max-w-3xl mx-auto' : ''}`}>
-          {/* VS divider for 1v1 */}
-          {ranking.length === 2 && (
-            <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center justify-center z-20" style={{ top: 'auto' }}>
-              {/* VS rendered between the two cards via the relative grid */}
-            </div>
-          )}
+        {/* ── GRAPH (TOP SECTION) ──────────────────────── */}
+        <div className="mb-12 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '300ms' }}>
+          <WpmGraph
+            timelinePoints={resultsProps.timelinePoints}
+            competitorTimelines={timelines}
+            players={ranking}
+            selfId={selfId}
+            errorTimes={resultsProps.errorTimes}
+            durationMs={resultsProps.durationMs}
+            theme={theme}
+          />
+        </div>
 
+        {/* ── INTERACTIVE SUMMARY CARDS ──────────────────────── */}
+        <div className="flex flex-wrap justify-center gap-4 mb-12">
           {ranking.map((player, idx) => {
             const isSelf = player.id === selfId;
-            const wpmPercent = ((player.finishWpm ?? 0) / maxWpm) * 100;
-            const accPercent = (player.finishAcc ?? 0);
-            const timeStr = ((player.finishMs ?? 0) / 1000).toFixed(1);
+            const isSelected = player.id === selectedPlayerId;
+            const isWinner = idx === 0 && allFinished;
+            const isLoser = idx > 0 && allFinished;
+            const colorClass = medalColors[idx] || medalColors[3];
+            const strokeColor = medalStrokeColors[idx] || medalStrokeColors[3];
+            const award = awards[player.id];
 
             return (
-              <div
+              <button
                 key={player.id}
-                className={`relative rounded-3xl border p-6 transition-all duration-500 animate-in fade-in slide-in-from-bottom-4 ${medalColors[idx] || medalColors[3]} ${
-                  isSelf ? `ring-2 ring-offset-2 ring-offset-[#0a0a0f]` : ''
-                }`}
-                style={{
-                  animationDelay: `${idx * 150 + 300}ms`,
-                  ...(isSelf ? { ringColor: `rgb(${theme.glowPrimary})` } : {}),
-                }}
+                onClick={() => setSelectedPlayerId(player.id)}
+                className={`relative overflow-hidden group text-left px-6 py-4 rounded-3xl transition-all duration-300 glass-panel ${
+                  isSelected ? 'shadow-2xl' : 'hover:opacity-100 hover:scale-105'
+                } ${isWinner ? 'scale-105 saturate-150' : isLoser && !isSelected ? 'opacity-60 grayscale-[0.2]' : 'opacity-90'} `}
+                style={isSelected ? { boxShadow: `0 0 20px ${strokeColor}40, inset 0 0 10px ${strokeColor}20`, borderColor: strokeColor } : isWinner ? { boxShadow: `0 0 30px ${medalStrokeColors[0]}40` } : {}}
               >
-                {/* Rank + Name */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">{medalEmoji[idx] || '·'}</span>
-                    <div>
-                      <span className="font-black text-lg tracking-widest uppercase text-white">
-                        {player.name}
-                      </span>
-                      {isSelf && (
-                        <span className="ml-2 text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full bg-white/10 border border-white/20">YOU</span>
-                      )}
+                {isSelected && (
+                  <div className="absolute inset-0 opacity-10" style={{ backgroundColor: strokeColor }}></div>
+                )}
+                {isWinner && (
+                  <div className="absolute inset-0 animate-pulse pointer-events-none border-2 border-amber-400/30 rounded-3xl" style={{ boxShadow: 'inset 0 0 20px rgba(251,191,36,0.1)' }}></div>
+                )}
+                <div className="relative z-10 flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{isWinner ? '👑' : ['🥇', '🥈', '🥉', '4th'][idx] || '·'}</span>
+                    <span className={`font-black tracking-widest uppercase ${isSelected || isWinner ? 'text-white' : 'text-zinc-400'}`}>
+                      {player.name}
+                    </span>
+                    {isSelf && (
+                      <span className="ml-1 text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-full bg-white/10 border border-white/20">YOU</span>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-baseline mt-2">
+                    <span className={`text-2xl font-black ${isSelected ? colorClass.split(' ')[0] : 'text-white'}`}>
+                      {player.finishWpm ?? 0} <span className="text-xs text-zinc-500">WPM</span>
+                    </span>
+                  </div>
+                  {award && (
+                    <div className="mt-2 text-[8px] font-black tracking-widest px-2 py-1 rounded border border-white/10 bg-white/5 uppercase text-amber-200/80 w-fit">
+                      {award}
                     </div>
-                  </div>
-                  <span className="text-[10px] font-black tracking-widest opacity-60 uppercase">
-                    {placementText(idx)}
-                  </span>
+                  )}
                 </div>
-
-                {/* WPM */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-baseline mb-2">
-                    <span className="text-[10px] font-black tracking-widest text-zinc-400">WPM</span>
-                    <span className={`text-3xl font-black ${idx === 0 ? theme.text : 'text-white'}`}>
-                      {player.finishWpm ?? 0}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-black/30 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-1000 ease-out"
-                      style={{
-                        width: `${wpmPercent}%`,
-                        background: `linear-gradient(90deg, rgb(${theme.glowPrimary}), rgb(${theme.glowSecondary}))`,
-                        animationDelay: `${idx * 200 + 500}ms`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Accuracy */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-baseline mb-2">
-                    <span className="text-[10px] font-black tracking-widest text-zinc-400">ACCURACY</span>
-                    <span className="text-xl font-black text-white">
-                      {player.finishAcc ?? 0}<span className="text-sm text-zinc-500">%</span>
-                    </span>
-                  </div>
-                  <div className="h-2 bg-black/30 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-1000 ease-out"
-                      style={{
-                        width: `${(accPercent / maxAcc) * 100}%`,
-                        background: accPercent >= 95
-                          ? 'linear-gradient(90deg, #34d399, #10b981)'
-                          : accPercent >= 85
-                          ? 'linear-gradient(90deg, #fbbf24, #f59e0b)'
-                          : 'linear-gradient(90deg, #f87171, #ef4444)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Time */}
-                <div className="flex justify-between items-baseline">
-                  <span className="text-[10px] font-black tracking-widest text-zinc-400">TIME</span>
-                  <span className="text-xl font-black text-white">
-                    {timeStr}<span className="text-sm text-zinc-500">s</span>
-                  </span>
-                </div>
-              </div>
+              </button>
             );
           })}
         </div>
 
-        {/* VS badge for 1v1 */}
-
-        {/* ── YOUR DETAILED STATS ─────────────────────────── */}
-        <div className="border-t border-zinc-800 pt-10">
-          <h2 className="text-center text-zinc-400 text-[11px] font-black tracking-[0.4em] uppercase mb-8">
-            YOUR DETAILED STATS
+        {/* ── SELECTED PLAYER DETAILED STATS ─────────────────────────── */}
+        <div className="border-t border-zinc-800/50 pt-10 pb-8 animate-in fade-in slide-in-from-bottom-8">
+          <h2 className="text-center text-zinc-500 text-[11px] font-black tracking-[0.4em] uppercase mb-8">
+            {isSelfSelected ? 'YOUR DETAILED STATS' : `${selectedPlayer?.name}'S DETAILED STATS`}
           </h2>
-          <ResultsScreen {...resultsProps} theme={theme} competitorTimelines={timelines} compact />
+          <ResultsScreen
+            {...displayProps}
+            theme={theme}
+            competitorTimelines={undefined}
+            compact
+          />
         </div>
 
         {/* ── RACE ACTIONS ────────────────────────────────── */}
-        <div className="flex justify-center gap-4 mt-8 pb-12">
+        <div className="flex justify-center gap-4 mt-4 pb-12">
           <button
             onClick={onLeaveRace}
             className="flex items-center gap-3 px-8 py-4 glass-panel rounded-2xl text-zinc-300 font-black tracking-widest text-sm hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
@@ -211,3 +264,4 @@ export function RaceResultsScreen({
     </div>
   );
 }
+

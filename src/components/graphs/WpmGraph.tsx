@@ -5,6 +5,8 @@ import type { Theme } from '@/data/constants';
 interface WpmGraphProps {
   timelinePoints: Array<{ t: number; wpm: number; rawWpm: number }>;
   competitorTimelines?: Record<string, Array<{ t: number; wpm: number }>>;
+  players?: { id: string; name: string }[];
+  selfId?: string;
   errorTimes: number[];
   durationMs: number;
   theme: Theme;
@@ -24,10 +26,11 @@ function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): n
   return points[points.length - 1].wpm;
 }
 
-export const WpmGraph = ({ timelinePoints, competitorTimelines, errorTimes, durationMs, theme }: WpmGraphProps) => {
+export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId, errorTimes, durationMs, theme }: WpmGraphProps) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [hoveredOvertakeIdx, setHoveredOvertakeIdx] = useState<number | null>(null);
 
-  const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys } = useMemo(() => {
+  const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes } = useMemo(() => {
     let maxW = Math.max(...timelinePoints.map(p => Math.max(p.wpm, p.rawWpm)), 10);
     if (competitorTimelines) {
       Object.values(competitorTimelines).forEach(pts => {
@@ -78,8 +81,47 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, errorTimes, dura
       xLabels.push({ sec: s, x: px(s * 1000) });
     }
 
-    return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys };
-  }, [timelinePoints, competitorTimelines, durationMs]);
+    // Calculate Overtakes
+    const overtakes: Array<{ t: number; prevLeaderName: string; newLeaderName: string }> = [];
+    if (players && selfId && players.length > 1 && timelinePoints.length > 0) {
+      let currentLeaderId: string | null = null;
+      for (const p of timelinePoints) {
+        if (p.t === 0) continue;
+        let bestWpm = -1;
+        let newLeaderId: string | null = null;
+        
+        players.forEach(player => {
+          let wpm = 0;
+          if (player.id === selfId) {
+            wpm = p.wpm;
+          } else if (competitorTimelines?.[player.id]) {
+            wpm = interpolateWpm(competitorTimelines[player.id], p.t);
+          }
+          if (wpm > bestWpm) {
+            bestWpm = wpm;
+            newLeaderId = player.id;
+          }
+        });
+        
+        if (currentLeaderId === null) {
+          currentLeaderId = newLeaderId;
+        } else if (newLeaderId && newLeaderId !== currentLeaderId && bestWpm > 0) {
+          const prevPlayer = players.find(pl => pl.id === currentLeaderId);
+          const newPlayer = players.find(pl => pl.id === newLeaderId);
+          if (prevPlayer && newPlayer) {
+            overtakes.push({
+              t: p.t,
+              prevLeaderName: prevPlayer.id === selfId ? 'YOU' : prevPlayer.name.substring(0, 8),
+              newLeaderName: newPlayer.id === selfId ? 'YOU' : newPlayer.name.substring(0, 8),
+            });
+          }
+          currentLeaderId = newLeaderId;
+        }
+      }
+    }
+
+    return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes };
+  }, [timelinePoints, competitorTimelines, players, selfId, durationMs]);
 
   if (timelinePoints.length < 2 || durationMs <= 0) return null;
 
@@ -179,12 +221,79 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, errorTimes, dura
         {hoveredIdx !== null && timelinePoints[hoveredIdx] && (() => {
           const p = timelinePoints[hoveredIdx];
           const tx = Math.min(Math.max(px(p.t), 80), 720);
+          
+          // Determine tooltip rows (WPMs for each player)
+          const rows: { name: string; wpm: number; color: string; isRaw?: boolean }[] = [];
+          
+          if (players && selfId) {
+            const medalStrokeColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
+            players.forEach((player, idx) => {
+              const color = medalStrokeColors[idx] || medalStrokeColors[3];
+              if (player.id === selfId) {
+                rows.push({ name: 'YOU', wpm: Math.round(p.wpm), color });
+              } else if (competitorTimelines?.[player.id]) {
+                const compWpm = interpolateWpm(competitorTimelines[player.id], p.t);
+                rows.push({ name: player.name.substring(0, 8), wpm: Math.round(compWpm), color });
+              }
+            });
+          } else {
+            rows.push({ name: 'WPM', wpm: Math.round(p.wpm), color: 'white' });
+            rows.push({ name: 'RAW', wpm: Math.round(p.rawWpm), color: 'rgba(255,255,255,0.5)', isRaw: true });
+          }
+
+          const h = rows.length * 16 + 12;
+          const yStart = py(p.wpm) - h - 10;
+          const ty = yStart < 20 ? py(p.wpm) + 20 : yStart;
+
           return (
             <g>
               <line x1={px(p.t)} y1="30" x2={px(p.t)} y2="210" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="3 3" />
-              <rect x={tx - 40} y={py(p.wpm) - 45} width="80" height="36" rx="8" fill="rgba(0,0,0,0.8)" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-              <text x={tx} y={py(p.wpm) - 28} textAnchor="middle" fill="white" fontSize="11" fontWeight="800">{p.wpm} WPM</text>
-              <text x={tx} y={py(p.wpm) - 15} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9" fontWeight="600">{p.rawWpm} RAW</text>
+              <rect x={tx - 45} y={ty} width="90" height={h} rx="8" fill="rgba(0,0,0,0.85)" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+              
+              {rows.map((row, i) => (
+                <text key={i} x={tx} y={ty + 16 + i * 16} textAnchor="middle" fill={row.color} fontSize={row.isRaw ? "9" : "10"} fontWeight={row.isRaw ? "600" : "800"}>
+                  {row.wpm} {row.name}
+                </text>
+              ))}
+            </g>
+          );
+        })()}
+        {/* Overtakes */}
+        {overtakes.map((overtake, i) => (
+          <g key={`overtake-${i}`}>
+            <text
+              x={px(overtake.t)}
+              y="225"
+              textAnchor="middle"
+              fontSize="12"
+              className="drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] cursor-help animate-pulse"
+              onMouseEnter={() => setHoveredOvertakeIdx(i)}
+              onMouseLeave={() => setHoveredOvertakeIdx(null)}
+            >
+              ⚔️
+            </text>
+            <circle
+              cx={px(overtake.t)}
+              cy="221"
+              r="12"
+              fill="transparent"
+              className="cursor-help"
+              onMouseEnter={() => setHoveredOvertakeIdx(i)}
+              onMouseLeave={() => setHoveredOvertakeIdx(null)}
+            />
+          </g>
+        ))}
+
+        {/* Overtake Tooltip */}
+        {hoveredOvertakeIdx !== null && overtakes[hoveredOvertakeIdx] && (() => {
+          const o = overtakes[hoveredOvertakeIdx];
+          const tx = Math.min(Math.max(px(o.t), 100), 700);
+          return (
+            <g>
+              <rect x={tx - 75} y="180" width="150" height="24" rx="4" fill="rgba(0,0,0,0.9)" stroke="rgba(251,191,36,0.5)" strokeWidth="1" />
+              <text x={tx} y="196" textAnchor="middle" fill="white" fontSize="9" fontWeight="800">
+                <tspan fill="#fbbf24">{o.newLeaderName}</tspan> overtook <tspan fill="#d4d4d8">{o.prevLeaderName}</tspan>!
+              </text>
             </g>
           );
         })()}

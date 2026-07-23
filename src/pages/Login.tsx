@@ -58,7 +58,7 @@ export function Login() {
 
             <h2 className="text-2xl font-black tracking-widest uppercase mb-3">Authenticate</h2>
             <p className="text-zinc-400 text-xs font-bold leading-relaxed mb-10 max-w-[250px]">
-              Sync your stats, claim your spot on the leaderboard, and save your progress in the cloud.
+              Sign in for free to securely sync your stats, climb the leaderboards, and race friends.
             </p>
 
             <button

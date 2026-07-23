@@ -39,7 +39,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCloudSync } from '@/hooks/useCloudSync';
 import { useFriends } from '@/hooks/useFriends';
 import { AccountMenu } from '@/components/AccountMenu';
-import { Routes, Route } from 'react-router';
+import { Routes, Route, Navigate } from 'react-router';
 import { Login } from '@/pages/Login';
 
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
@@ -1525,8 +1525,8 @@ function MainApp() {
           <aside className={leaderboardClass}>
             <div className="flex items-center justify-between text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
               <div className="flex items-center">
-                <Award size={24} className={`mr-4 ${theme.text}`} />
-                <span className="whitespace-nowrap">{boardTab === 'today' ? 'DAILY TOP 5' : boardTab === 'friends' ? 'FRIENDS' : 'GLOBAL TOP 5'}</span>
+                <Award size={20} className={`mr-3 ${theme.text}`} />
+                <span className="whitespace-nowrap">{boardTab === 'today' ? 'DAILY 5' : boardTab === 'friends' ? 'FRIENDS' : 'TOP 5'}</span>
               </div>
               <div className="flex gap-1 bg-black/20 rounded-full p-1 border border-white/10">
                 <button onClick={() => setBoardTab('alltime')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'alltime' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>ALL</button>
@@ -1666,10 +1666,28 @@ function MainApp() {
   );
 }
 
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { session, authReady } = useAuth();
+  
+  if (!authReady) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-zinc-500 font-black tracking-widest text-xs">
+        LOADING...
+      </div>
+    );
+  }
+  
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<MainApp />} />
+      <Route path="/" element={<AuthGuard><MainApp /></AuthGuard>} />
       <Route path="/login" element={<Login />} />
     </Routes>
   );

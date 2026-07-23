@@ -869,7 +869,8 @@ function MainApp() {
     // rendered automatically when raceActive + phase === FINISHED.
     if (raceActive) {
       const errCount = typing.keystrokeLog.current.filter(k => k.isError).length;
-      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, rpg.heatmapData, errCount);
+      const backspaceCount = typing.keystrokeLog.current.filter(k => k.key === 'Backspace').length;
+      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, rpg.heatmapData, errCount, backspaceCount);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase, typing.endTime]);

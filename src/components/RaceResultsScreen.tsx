@@ -3,7 +3,8 @@ import { Trophy, LogOut } from 'lucide-react';
 import type { RacerState } from '@/hooks/useRace';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
 import { ResultsScreen } from '@/components/ResultsScreen';
-import { WpmGraph } from '@/components/graphs/WpmGraph';
+import { WpmGraph } from './graphs/WpmGraph';
+import { calculatePlayerTitle, PlayerTitleStats, TitleIntervalRanking } from '../utils/playerTitles';
 
 interface RaceResultsScreenProps extends ResultsScreenProps {
   players: RacerState[];
@@ -40,74 +41,60 @@ export function RaceResultsScreen({
 
   // ── AWARDS LOGIC ──
   const awards = useMemo(() => {
-    if (!allFinished) return {} as Record<string, string>;
-    const result: Record<string, string> = {};
-
-    let sniperId = '';
-    let highestAcc = 0;
-
-    let smasherId = '';
-    let highestErrors = -1;
-    let lowestAcc = 100;
-
-    let metronomeId = '';
-    let highestConsistency = 0;
-
-    ranking.forEach(p => {
-      // Sniper
-      if ((p.finishAcc ?? 0) > highestAcc && (p.finishAcc ?? 0) >= 98) {
-        highestAcc = p.finishAcc ?? 0;
-        sniperId = p.id;
-      }
-      
-      // Smasher
-      const errs = p.errorCount ?? 0;
-      if (errs > highestErrors) {
-        highestErrors = errs;
-        smasherId = p.id;
-      } else if (errs === highestErrors && (p.finishAcc ?? 0) < lowestAcc) {
-        lowestAcc = p.finishAcc ?? 0;
-        smasherId = p.id;
-      }
-
-      // Metronome
-      if ((p.consistency ?? 0) > highestConsistency && (p.consistency ?? 0) > 80) {
-        highestConsistency = p.consistency ?? 0;
-        metronomeId = p.id;
-      }
-    });
-
-    // Comeback Kid
-    let comebackId = '';
-    if (roomSize >= 3 && resultsProps.durationMs > 0) {
-      const halfTime = resultsProps.durationMs / 2;
-      const halfwayRanking = [...ranking].map(p => {
-        let wpm = 0;
-        if (p.id === selfId) {
-          const point = resultsProps.timelinePoints.find(pt => pt.t >= halfTime);
-          wpm = point?.wpm ?? p.finishWpm ?? 0;
-        } else if (timelines?.[p.id]) {
-          const tpts = timelines[p.id];
-          const point = tpts?.find(pt => pt.t >= halfTime);
-          wpm = point?.wpm ?? p.finishWpm ?? 0;
+    if (!allFinished || maxRaceDurationMs === 0) return {} as Record<string, { title: string; emoji: string }>;
+    
+    // 1. Build Interval Rankings
+    const intervals: TitleIntervalRanking[] = [];
+    const stepMs = 1000;
+    const totalSteps = Math.ceil(maxRaceDurationMs / stepMs);
+    
+    // Helper to get interpolated WPM for any player at time t
+    const getWpmAt = (pId: string, t: number) => {
+      let pts = timelines?.[pId];
+      if (pId === selfId) pts = resultsProps.timelinePoints;
+      if (!pts || pts.length === 0) return 0;
+      if (t <= pts[0].t) return pts[0].wpm;
+      for (let i = 1; i < pts.length; i++) {
+        if (pts[i].t >= t) {
+          const a = pts[i - 1], b = pts[i];
+          const frac = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+          return a.wpm + (b.wpm - a.wpm) * frac;
         }
-        return { id: p.id, halfwayWpm: wpm };
-      });
-      halfwayRanking.sort((a, b) => b.halfwayWpm - a.halfwayWpm);
-      
-      const lastPlaceAtHalfway = halfwayRanking[halfwayRanking.length - 1]?.id;
-      if (lastPlaceAtHalfway === ranking[0]?.id || lastPlaceAtHalfway === ranking[1]?.id) {
-        comebackId = lastPlaceAtHalfway;
       }
+      return pts[pts.length - 1].wpm;
+    };
+
+    for (let i = 0; i <= totalSteps; i++) {
+      const t = i * stepMs;
+      const snapshot = ranking.map(p => ({
+        id: p.id,
+        wpm: getWpmAt(p.id, t)
+      })).sort((a, b) => b.wpm - a.wpm);
+      
+      intervals.push({ t, rankings: snapshot.map(s => s.id) });
     }
 
-    if (sniperId) result[sniperId] = '🎯 THE SNIPER';
-    if (smasherId && !result[smasherId]) result[smasherId] = '💥 KEYBOARD SMASHER';
-    if (metronomeId && !result[metronomeId]) result[metronomeId] = '⏱️ THE METRONOME';
-    if (comebackId && !result[comebackId]) result[comebackId] = '🔥 COMEBACK KID';
+    // 2. Build PlayerTitleStats array
+    const allStats: PlayerTitleStats[] = ranking.map((p, idx) => ({
+      id: p.id,
+      name: p.name,
+      rank: idx + 1,
+      wpm: p.finishWpm ?? 0,
+      rawWpm: p.rawWpm ?? p.finishWpm ?? 0,
+      accuracy: p.finishAcc ?? 0,
+      consistency: p.consistency ?? 0,
+      rawErrors: p.errorCount ?? 0,
+      backspaceCount: p.backspaceCount ?? 0,
+    }));
 
+    // 3. Assign titles
+    const result: Record<string, { title: string; emoji: string }> = {};
+    for (const stats of allStats) {
+      result[stats.id] = calculatePlayerTitle(stats, allStats, intervals);
+    }
+    
     return result;
-  }, [allFinished, ranking, resultsProps.durationMs, resultsProps.timelinePoints, selfId, timelines, roomSize]);
+  }, [allFinished, ranking, resultsProps.timelinePoints, selfId, timelines, maxRaceDurationMs]);
 
   const medalColors = [
     'text-amber-400 border-amber-500/50 bg-amber-500/10 shadow-[0_0_30px_rgba(245,158,11,0.3)]',   // 1st gold
@@ -235,9 +222,10 @@ export function RaceResultsScreen({
                       {player.finishWpm ?? 0} <span className="text-xs text-zinc-500">WPM</span>
                     </span>
                   </div>
-                  {award && (
-                    <div className="mt-2 text-[8px] font-black tracking-widest px-2 py-1 rounded border border-white/10 bg-white/5 uppercase text-amber-200/80 w-fit">
-                      {award}
+                  {award && award.title && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[9px] font-black tracking-widest px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 uppercase text-amber-200/80 w-fit">
+                      <span className="text-sm">{award.emoji}</span>
+                      <span>{award.title}</span>
                     </div>
                   )}
                 </div>

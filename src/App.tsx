@@ -1739,9 +1739,11 @@ function MainApp() {
           selfId={race.selfId}
           theme={theme}
           roomSize={race.roomSize}
-          onCreate={(name, size) => race.createRoom(name, generateText('ADEPT', 40), size)}
+          lobbyConfig={race.lobbyConfig}
+          updateLobbyConfig={race.updateLobbyConfig}
+          onCreate={(name, size) => race.createRoom(name, size)}
           onJoin={(code, name) => race.joinRoom(code, name)}
-          onStart={race.startRace}
+          onStart={(text) => race.startRace(text)}
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); }}
           onClose={() => setShowRace(false)}
         />

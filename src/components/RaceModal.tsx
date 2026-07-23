@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Users, Copy, Check, Play, Crown, Flag, LogOut, Swords, Link } from 'lucide-react';
-import type { Theme } from '@/data/constants';
-import type { RacerState, RaceStatus } from '@/hooks/useRace';
+import { generateText, type Theme, type Level, type CodeLanguage } from '@/data/constants';
+import type { RacerState, RaceStatus, RaceConfig } from '@/hooks/useRace';
 
 interface RaceModalProps {
   status: RaceStatus;
@@ -12,9 +12,11 @@ interface RaceModalProps {
   selfId: string;
   theme: Theme;
   roomSize: number;
+  lobbyConfig?: RaceConfig;
+  updateLobbyConfig?: (config: Partial<RaceConfig>) => void;
   onCreate: (name: string, size: number) => void;
   onJoin: (code: string, name: string) => void;
-  onStart: () => void;
+  onStart: (text: string) => void;
   onLeave: () => void;
   onClose: () => void;
   initialCode?: string;
@@ -22,6 +24,7 @@ interface RaceModalProps {
 
 export const RaceModal = ({
   status, code, isHost, players, error, selfId, theme, roomSize,
+  lobbyConfig, updateLobbyConfig,
   onCreate, onJoin, onStart, onLeave, onClose, initialCode
 }: RaceModalProps) => {
   const [name, setName] = useState('');
@@ -151,10 +154,62 @@ export const RaceModal = ({
                 {copiedLink ? <Check size={16} className="text-emerald-400" /> : <Link size={16} />}
                 <span className="text-[10px] font-black tracking-widest hidden sm:inline">LINK</span>
               </button>
+              </button>
             </div>
-            <p className="text-center text-zinc-500 text-[10px] font-black tracking-widest -mt-2">PLAYERS {players.length} / {roomSize}</p>
+            
+            {/* ── LOBBY CONFIGURATION ── */}
+            {lobbyConfig && updateLobbyConfig && (
+              <div className={`flex flex-col gap-3 ${!isHost ? 'pointer-events-none opacity-80 grayscale-[0.3]' : ''}`}>
+                <p className="text-center text-zinc-500 text-[10px] font-black tracking-widest uppercase mt-2 mb-1">
+                  {isHost ? 'RACE CONFIGURATION' : "HOST'S CONFIGURATION"}
+                </p>
+                
+                {/* Row 1: Difficulty */}
+                <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full overflow-x-auto hide-scrollbar mx-auto w-full max-w-full">
+                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE', 'CUSTOM'] as Level[]).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => updateLobbyConfig({ mode: l })}
+                      className={`flex-shrink-0 flex-1 px-3 py-2.5 rounded-full text-[10px] font-black tracking-widest transition-all ${lobbyConfig.mode === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-500 hover:text-white border border-transparent'}`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
+                {/* Row 2: Length */}
+                <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full self-center">
+                  {([10, 25, 50, 100]).map(v => (
+                    <button
+                      key={v}
+                      onClick={() => updateLobbyConfig({ words: v })}
+                      className={`px-5 py-2.5 rounded-full text-[10px] font-black tracking-widest transition-all ${lobbyConfig.words === v ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-500 hover:text-white border border-transparent'}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Row 3: Language (Conditional) */}
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out flex justify-center ${lobbyConfig.mode === 'CODE' ? 'max-h-20 opacity-100 mt-1' : 'max-h-0 opacity-0 m-0'}`}>
+                  <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full overflow-x-auto hide-scrollbar w-full max-w-full">
+                    {(['JavaScript/TypeScript', 'Python', 'Rust', 'C++', 'CSS', 'HTML', 'SQL', 'Go'] as CodeLanguage[]).map(lang => (
+                      <button
+                        key={lang}
+                        onClick={() => updateLobbyConfig({ language: lang })}
+                        className={`flex-shrink-0 flex-1 px-3 py-2.5 rounded-full text-[10px] font-black tracking-widest transition-all ${lobbyConfig.language === lang || (!lobbyConfig.language && lang === 'JavaScript/TypeScript') ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-500 hover:text-white border border-transparent'}`}
+                      >
+                        {lang.split('/')[0].toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <p className="text-center text-zinc-500 text-[10px] font-black tracking-widest mt-2 mb-1">PLAYERS {players.length} / {roomSize}</p>
+
+            <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
               {players.map(p => (
                 <div key={p.id} className={`flex items-center justify-between px-5 py-3 rounded-2xl border ${p.id === selfId ? `bg-white/5 ${theme.borderHalf}` : 'bg-zinc-900/50 border-zinc-800'}`}>
                   <span className="font-black text-white tracking-widest uppercase text-sm flex items-center gap-2">
@@ -174,7 +229,11 @@ export const RaceModal = ({
 
             {isHost ? (
               <button
-                onClick={onStart}
+                onClick={() => {
+                  if (!lobbyConfig) return;
+                  const text = generateText(lobbyConfig.mode, lobbyConfig.words, '', false, { codeLanguage: lobbyConfig.language });
+                  onStart(text);
+                }}
                 disabled={players.length < 2}
                 className={`w-full p-4 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all flex items-center justify-center gap-3 ${
                   players.length >= 2

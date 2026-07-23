@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import type { Level, CodeLanguage } from '../data/constants';
 
 // Multiplayer race rooms over Supabase Realtime channels (broadcast +
 // presence only — no database tables involved). The host generates the text
@@ -26,6 +27,12 @@ export interface RacerState {
   backspaceCount?: number;
 }
 
+export interface RaceConfig {
+  mode: Level;
+  words: number;
+  language?: CodeLanguage;
+}
+
 const ROOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L
 const makeRoomCode = () =>
   Array.from({ length: 5 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join('');
@@ -43,6 +50,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const [players, setPlayers] = useState<RacerState[]>([]);
   const [error, setError] = useState('');
   const [roomSize, setRoomSize] = useState(2);
+  const [lobbyConfig, setLobbyConfig] = useState<RaceConfig>({ mode: 'NOVICE', words: 25 });
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [selfId] = useState(() => crypto.randomUUID());
@@ -86,11 +94,12 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const rebuildPlayers = useCallback(() => {
     const ch = channelRef.current;
     if (!ch) return;
-    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number; }>>;
+    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; lobbyConfig?: RaceConfig; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number; }>>;
     const next: RacerState[] = [];
     for (const [key, metas] of Object.entries(state)) {
       const meta = metas[0];
       if (!meta?.name) continue;
+      if (meta.isHost && meta.lobbyConfig) setLobbyConfig(meta.lobbyConfig);
       if (meta.text) textRef.current = meta.text;
       if (meta.roomSize) { roomSizeRef.current = meta.roomSize; setRoomSize(meta.roomSize); }
       const prog = progressRef.current[key];
@@ -163,7 +172,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
 
     ch.subscribe(async (s) => {
       if (s === 'SUBSCRIBED') {
-        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined });
+        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined, lobbyConfig: asHost ? lobbyConfig : undefined });
         // Player cap check for non-hosts
         if (!asHost) {
           setTimeout(() => {
@@ -209,11 +218,12 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
 
   /** Host only: synchronize the start. Everyone (incl. host, via self:true
       broadcast) receives it and begins the same countdown. */
-  const startRace = useCallback(() => {
+  const startRace = useCallback((finalText?: string) => {
+    const textToUse = finalText || textRef.current;
     channelRef.current?.send({
       type: 'broadcast',
       event: 'start',
-      payload: { text: textRef.current, startAt: Date.now() + 4000 },
+      payload: { text: textToUse, startAt: Date.now() + 4000 },
     });
   }, []);
 
@@ -250,13 +260,39 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     }
   }, []);
 
+  const updateLobbyConfig = useCallback(async (newConfig: Partial<RaceConfig>) => {
+    setLobbyConfig(prev => {
+      const next = { ...prev, ...newConfig };
+      if (channelRef.current && selfIdRef.current) {
+        const state = channelRef.current.presenceState();
+        const metas = state[selfIdRef.current] || [];
+        if (metas[0]) {
+          channelRef.current.track({ ...metas[0], lobbyConfig: next });
+        }
+      }
+      return next;
+    });
+  }, []);
+
   // Clean up the channel on unmount
   useEffect(() => teardown, [teardown]);
 
   return {
-    status, code, isHost, players, error, roomSize,
+    status,
+    code,
+    isHost,
+    players,
+    error,
     selfId,
     getTimelines: () => timelinesRef.current,
-    createRoom, joinRoom, startRace, sendProgress, sendFinish, leave,
+    roomSize,
+    lobbyConfig,
+    createRoom,
+    joinRoom,
+    startRace,
+    sendProgress,
+    sendFinish,
+    leave,
+    updateLobbyConfig,
   };
 };

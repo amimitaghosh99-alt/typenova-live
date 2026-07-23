@@ -24,7 +24,7 @@ function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): n
   return points[points.length - 1].wpm;
 }
 
-export const WpmGraph = ({ timelinePoints, errorTimes, durationMs, theme }: WpmGraphProps) => {
+export const WpmGraph = ({ timelinePoints, competitorTimelines, errorTimes, durationMs, theme }: WpmGraphProps) => {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys } = useMemo(() => {

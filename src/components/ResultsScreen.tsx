@@ -37,7 +37,7 @@ export function ResultsScreen({
   wpm, rawWpm, accuracy, consistency, flawlessStreak,
   leveledUp, xpGainedLast, theme,
   saveStatus,
-  timelinePoints, errorTimes, durationMs,
+  timelinePoints, competitorTimelines, errorTimes, durationMs,
   keystrokeLog,
   onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill,
   compact = false

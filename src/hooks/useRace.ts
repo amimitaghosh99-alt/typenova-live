@@ -80,7 +80,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const rebuildPlayers = useCallback(() => {
     const ch = channelRef.current;
     if (!ch) return;
-    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number }>>;
+    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number }>>;
     const next: RacerState[] = [];
     for (const [key, metas] of Object.entries(state)) {
       const meta = metas[0];

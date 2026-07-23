@@ -3,7 +3,7 @@ import {
   Keyboard, Activity, Target, RotateCcw, Skull, Ghost,
   Focus, Brain, Volume2, VolumeX, Palette,
   Award, FlipHorizontal, CloudFog, Magnet, Timer,
-  X, Code, Star, Trophy, Terminal, Zap, Lock, ChevronDown, Check,
+  X, Code, Star, Trophy, Terminal, Zap, Lock, ChevronDown, Check, Users,
   Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
   Swords, Sword, Sparkles, Orbit, Unlock,
   Hash, Clock, BarChart2, CalendarCheck, Hourglass
@@ -32,6 +32,7 @@ import { RaceResultsScreen } from '@/components/RaceResultsScreen';
 import { StatsDashboard, appendHistory } from '@/components/StatsDashboard';
 import { ReplayModal } from '@/components/ReplayModal';
 import { RaceModal } from '@/components/RaceModal';
+import { SocialModal } from '@/components/SocialModal';
 import { useRace } from '@/hooks/useRace';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
 import { supabase } from '@/lib/supabase';
@@ -186,6 +187,7 @@ function MainApp() {
   const [showStatsDashboard, setShowStatsDashboard] = useState(false);
   const [showReplay, setShowReplay] = useState(false);
   const [showRace, setShowRace] = useState(false);
+  const [showSocialModal, setShowSocialModal] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
 
@@ -832,6 +834,7 @@ function MainApp() {
       else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
       else streakNow = 1;
       localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDailyStreak(streakNow);
     }
 
@@ -1314,6 +1317,19 @@ function MainApp() {
               >
                 {isLoggedIn ? <Swords size={16} /> : <Lock size={16} />}
               </button>
+
+              <button 
+                onClick={() => isLoggedIn ? setShowSocialModal(true) : toast.error("Sign in to manage friends!", { icon: <Lock size={14} /> })} 
+                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
+                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
+                  : (friendsState.incomingRequests.length > 0) ? `${theme.borderHalf} text-emerald-400 ${theme.glow} ${theme.bgHover}`
+                  : 'border-white/10 text-zinc-500 hover:text-white'
+                }`} 
+                title={isLoggedIn ? "Manage Friends" : "Sign in to manage friends"}
+              >
+                {isLoggedIn ? <Users size={16} /> : <Lock size={16} />}
+              </button>
+
               
               {dailyStreak > 0 && (
                 <>
@@ -1614,63 +1630,7 @@ function MainApp() {
               </div>
             )}
 
-            {boardTab === 'friends' && isLoggedIn && cloud.username && (
-              <div className="w-full mb-6">
-                {/* Incoming Requests */}
-                {friendsState.incomingRequests.length > 0 && (
-                  <div className="mb-6 p-4 rounded-2xl bg-zinc-900/50 border border-emerald-500/20">
-                    <h4 className="text-[10px] font-black tracking-widest text-emerald-400 mb-3 uppercase">Friend Requests ({friendsState.incomingRequests.length})</h4>
-                    <div className="flex flex-col gap-2">
-                      {friendsState.incomingRequests.map(req => (
-                        <div key={req} className="flex justify-between items-center bg-black/20 p-2 rounded-xl border border-white/5">
-                          <span className="font-bold text-white uppercase text-sm ml-2 tracking-widest">{req}</span>
-                          <div className="flex gap-2">
-                            <button onClick={() => friendsState.acceptRequest(req)} disabled={friendsState.loading} className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-[9px] font-black tracking-widest transition-colors">
-                              ACCEPT
-                            </button>
-                            <button onClick={() => friendsState.removeFriend(req, true)} disabled={friendsState.loading} className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 text-[9px] font-black tracking-widest transition-colors">
-                              REJECT
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Add Friend Form */}
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  const target = friendInput.trim();
-                  if (target) {
-                    if (cloud.username && target.toLowerCase() === cloud.username.toLowerCase()) {
-                      friendsState.setError("YOU CAN'T ADD YOURSELF.");
-                      setTimeout(() => friendsState.setError(null), 3000);
-                    } else {
-                      const success = await friendsState.addFriend(target);
-                      if (success) setFriendInput('');
-                    }
-                  }
-                }} className="flex gap-2 mb-2 w-full">
-                  <input 
-                    type="text" 
-                    value={friendInput}
-                    onChange={e => setFriendInput(e.target.value)}
-                    placeholder="ADD FRIEND BY USERNAME..."
-                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white font-bold text-xs uppercase tracking-widest focus:outline-none focus:border-zinc-600"
-                  />
-                  <button type="submit" disabled={!friendInput.trim() || friendsState.loading} className="bg-white/10 hover:bg-white/15 border border-white/5 rounded-xl px-4 py-3 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-colors">
-                    ADD
-                  </button>
-                </form>
-                {friendsState.error && <p className="text-red-400 text-[10px] font-bold uppercase tracking-widest px-1">{friendsState.error}</p>}
-                {friendsState.outgoingRequests.length > 0 && !friendsState.error && (
-                  <p className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest px-1 mt-2">
-                    Pending requests: {friendsState.outgoingRequests.join(', ')}
-                  </p>
-                )}
-              </div>
-            )}
+
             {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).length === 0 ? (
               <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">
                 {boardTab === 'friends' ? (cloud.username ? 'No friends yet. Follow someone!' : 'Log in to use friends.') : boardTab === 'today' ? 'No daily scores yet. Run the DAILY challenge!' : 'No scores yet. Be the first!'}
@@ -1786,6 +1746,15 @@ function MainApp() {
           onStart={race.startRace}
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); }}
           onClose={() => setShowRace(false)}
+        />
+      )}
+
+      {/* Social Modal */}
+      {showSocialModal && (
+        <SocialModal
+          theme={theme}
+          onClose={() => setShowSocialModal(false)}
+          friendsState={friendsState}
         />
       )}
     </div>

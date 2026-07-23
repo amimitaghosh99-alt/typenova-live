@@ -72,8 +72,8 @@ interface StatsDashboardProps {
 }
 
 export const StatsDashboard = ({ theme, testsCompleted, onClose }: StatsDashboardProps) => {
-  const history = useMemo(loadHistory, []);
-  const pbs = useMemo(loadPersonalBests, []);
+  const history = useMemo(() => loadHistory(), []);
+  const pbs = useMemo(() => loadPersonalBests(), []);
 
   const recent = history.slice(-60);
   const wpmSeries = recent.map(h => h.wpm);

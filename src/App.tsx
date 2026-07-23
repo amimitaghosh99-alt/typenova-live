@@ -174,7 +174,7 @@ function MainApp() {
   const [microDrillActive, setMicroDrillActive] = useState(false);
 
   const [themeIndex, setThemeIndex] = useState(0);
-  const [_themePresetIndex, setThemePresetIndex] = useState(0);
+  const [themePresetIndex] = useState(0);
   const [soundProfile, setSoundProfileState] = useState('thocky');
   const [muted, setMutedState] = useState(false);
   const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
@@ -198,7 +198,7 @@ function MainApp() {
   const [boardTab, setBoardTab] = useState<'alltime' | 'today' | 'friends'>('alltime');
   const [friendInput, setFriendInput] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
-  const [autoSave, _setAutoSave] = useState(() => {
+  const [autoSave] = useState(() => {
     try { return localStorage.getItem('typezen_autosave') !== 'false'; } catch { return true; }
   });
 
@@ -531,7 +531,7 @@ function MainApp() {
     typing.setStartTime(null);
     typing.setEndTime(null);
     typing.setPhase('READY');
-    typing.keystrokeLog.current = [];
+    typing.resetKeystrokes();
   };
 
   const startMicroDrill = (keyChar: string) => {
@@ -564,7 +564,7 @@ function MainApp() {
       punctuation: s.withPunctuation,
       rng: s.dailyActive ? mulberry32(daySeed()) : undefined,
     }));
-    typing.keystrokeLog.current = [];
+    typing.resetKeystrokes();
     // Go back to CONFIGURING instead of FINISHED to avoid triggering RPG
     // processing with an empty keystroke log.
     typing.setPhase('CONFIGURING');
@@ -939,7 +939,7 @@ function MainApp() {
       errorTimes,
       durationMs: finishDurationMs,
       keystrokeLog: typing.keystrokeLog.current,
-      testStartTime: typing.startTime ?? Date.now(),
+      testStartTime: typing.startTime || 0,
       onReset: () => handleReset(),
       onWatchReplay: () => setShowReplay(true),
       onStartMicroDrill: startMicroDrill,
@@ -954,7 +954,7 @@ function MainApp() {
             players={race.players}
             selfId={race.selfId}
             roomSize={race.roomSize}
-            timelines={race.timelines}
+            timelines={race.getTimelines()}
             onLeaveRace={() => { race.leave(); setRaceActive(false); handleReset(); }}
           />
           {showReplay && (

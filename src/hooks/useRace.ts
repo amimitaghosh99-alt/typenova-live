@@ -40,7 +40,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const [roomSize, setRoomSize] = useState(2);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const selfIdRef = useRef(crypto.randomUUID());
+  const [selfId] = useState(() => crypto.randomUUID());
   const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
   const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number }>>({});
   const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});
@@ -186,7 +186,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
         setStatus('idle');
       }
     });
-  }, [supabase, teardown, rebuildPlayers, leave]);
+  }, [supabase, teardown, rebuildPlayers, leave, selfId]);
 
   const createRoom = useCallback((name: string, text: string, size: number = 2) => {
     join(makeRoomCode(), name, true, text, size);
@@ -213,9 +213,9 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     channelRef.current?.send({
       type: 'broadcast',
       event: 'progress',
-      payload: { id: selfIdRef.current, progress: Math.round(progress), wpm },
+      payload: { id: selfId, progress: Math.round(progress), wpm },
     });
-  }, []);
+  }, [selfId]);
 
   const sendFinish = useCallback(async (wpm: number, acc: number, ms: number) => {
     if (finishSentRef.current) return;
@@ -223,13 +223,13 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     channelRef.current?.send({
       type: 'broadcast',
       event: 'finish',
-      payload: { id: selfIdRef.current, wpm, acc, ms },
+      payload: { id: selfId, wpm, acc, ms },
     });
     
     // Fallback: also store finish state in presence in case broadcast is dropped
     try {
       const state = channelRef.current?.presenceState() || {};
-      const metas = state[selfIdRef.current] || [];
+      const metas = state[selfId] || [];
       const currentMeta = metas[0];
       if (currentMeta) {
         await channelRef.current?.track({ ...currentMeta, finished: true, finishWpm: wpm, finishAcc: acc, finishMs: ms });
@@ -244,8 +244,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
 
   return {
     status, code, isHost, players, error, roomSize,
-    selfId: selfIdRef.current,
-    timelines: timelinesRef.current,
+    selfId,
+    getTimelines: () => timelinesRef.current,
     createRoom, joinRoom, startRace, sendProgress, sendFinish, leave,
   };
 };

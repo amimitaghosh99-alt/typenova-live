@@ -193,6 +193,10 @@ export const useTypingEngine = () => {
     setPhase('CONFIGURING');
   }, []);
 
+  const resetKeystrokes = useCallback(() => {
+    keystrokeLog.current = [];
+  }, []);
+
   return {
     phase, setPhase,
     countdownTimer, setCountdownTimer,
@@ -217,5 +221,6 @@ export const useTypingEngine = () => {
     calculateStats,
     finishTest,
     resetEngine,
+    resetKeystrokes,
   };
 };

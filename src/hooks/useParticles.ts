@@ -8,17 +8,17 @@ export interface Particle {
   ty: string;
   rot: string;
   color: string;
+  expireAt: number;
 }
 
 export const useParticles = () => {
   const [particles, setParticles] = useState<Particle[]>([]);
-  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup all pending timeouts on unmount
+  // Cleanup pending timeout on unmount
   useEffect(() => {
     return () => {
-      timeoutsRef.current.forEach(clearTimeout);
-      timeoutsRef.current = [];
+      if (cleanupTimeoutRef.current) clearTimeout(cleanupTimeoutRef.current);
     };
   }, []);
 
@@ -28,6 +28,7 @@ export const useParticles = () => {
     themeText: string,
     count: number = 3
   ) => {
+    const now = Date.now();
     const newParticles: Particle[] = Array.from({ length: count }).map(() => ({
       id: Math.random(),
       index: charIndex,
@@ -35,24 +36,25 @@ export const useParticles = () => {
       tx: (Math.random() - 0.5) * 150 + 'px',
       ty: (Math.random() - 1) * 150 + 'px',
       rot: (Math.random() - 0.5) * 360 + 'deg',
-      color: [themeText, 'text-white', 'text-zinc-500'][Math.floor(Math.random() * 3)]
+      color: [themeText, 'text-white', 'text-zinc-500'][Math.floor(Math.random() * 3)],
+      expireAt: now + 600
     }));
 
-    setParticles(prev => [...prev, ...newParticles]);
+    setParticles(prev => {
+      // Lazily clean up expired particles during spawn to save state updates
+      const active = prev.filter(p => p.expireAt > now);
+      return [...active, ...newParticles];
+    });
 
-    const timeout = setTimeout(() => {
-      setParticles(prev => {
-        const idsToRemove = new Set(newParticles.map(p => p.id));
-        return prev.filter(p => !idsToRemove.has(p.id));
-      });
-    }, 600);
-
-    timeoutsRef.current.push(timeout);
+    // Schedule a single trailing cleanup for when the user stops typing
+    if (cleanupTimeoutRef.current) clearTimeout(cleanupTimeoutRef.current);
+    cleanupTimeoutRef.current = setTimeout(() => {
+      setParticles(prev => prev.filter(p => p.expireAt > Date.now()));
+    }, 650);
   }, []);
 
   const clearAll = useCallback(() => {
-    timeoutsRef.current.forEach(clearTimeout);
-    timeoutsRef.current = [];
+    if (cleanupTimeoutRef.current) clearTimeout(cleanupTimeoutRef.current);
     setParticles([]);
   }, []);
 

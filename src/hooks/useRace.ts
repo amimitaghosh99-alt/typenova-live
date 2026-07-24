@@ -181,10 +181,11 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
         if (!asHost) {
           setTimeout(() => {
             if (channelRef.current !== ch) return;
-            const pState = ch.presenceState();
+            const pState = ch.presenceState() as Record<string, Array<{ isHost?: boolean; roomSize?: number }>>;
             const count = Object.keys(pState).length;
-            // Read roomSize from host's presence
-            const cap = roomSizeRef.current;
+            // Safely read roomSize from host's presence directly to avoid race conditions
+            const hostMeta = Object.values(pState).find(metas => metas[0]?.isHost)?.[0];
+            const cap = hostMeta?.roomSize || roomSizeRef.current;
             if (count > cap) {
               setError(`Room is full (${cap}/${cap})`);
               leave();

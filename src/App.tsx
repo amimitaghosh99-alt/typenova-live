@@ -624,7 +624,7 @@ function MainApp() {
           p_daily: dailyActive,
           p_day: todayKey(),
         }).then(({ error }) => {
-          if (error) setSaveStatus('Auto-save failed');
+          if (error) setSaveStatus(`Error: ${error.message}`);
           else {
             setSaveStatus('SCORE SAVED!');
             fetchLeaderboard();
@@ -738,6 +738,11 @@ function MainApp() {
           return;
         }
 
+        if (s.input.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
         if (s.input.length > 0) {
           if (s.stickyKeysMode && s.stickyPenalty > 0) {
             setStickyPenalty(p => Math.max(0, p - 1));
@@ -814,7 +819,7 @@ function MainApp() {
     if (typing.phase !== 'FINISHED' || !typing.endTime || !typing.startTime) return;
     const statsInput = typing.input;
     const timeMs = typing.endTime - typing.startTime;
-    const stats = typing.calculateStats(statsInput, timeMs, typing.timePenalty);
+    const stats = typing.calculateStats(statsInput, timeMs, typing.timePenalty, typing.startTime);
 
     // Timed tests are rewarded/judged by what was actually typed, not the
     // oversized text buffer they run against.
@@ -896,8 +901,9 @@ function MainApp() {
   useEffect(() => {
     if (typing.phase !== 'TYPING' || testMode !== 'time' || !typing.startTime) return;
     const interval = setInterval(() => {
-      if (Date.now() - typing.startTime! >= duration * 1000) {
-        typing.finishTest(Date.now());
+      const finalTs = typing.startTime! + duration * 1000;
+      if (Date.now() >= finalTs) {
+        typing.finishTest(finalTs);
       }
     }, 250);
     return () => clearInterval(interval);

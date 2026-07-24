@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 
@@ -71,7 +71,7 @@ interface StatsDashboardProps {
   onClose: () => void;
 }
 
-export const StatsDashboard = ({ theme, testsCompleted, onClose }: StatsDashboardProps) => {
+export const StatsDashboard = memo(({ theme, testsCompleted, onClose }: StatsDashboardProps) => {
   const history = useMemo(() => loadHistory(), []);
   const pbs = useMemo(() => loadPersonalBests(), []);
 
@@ -145,4 +145,4 @@ export const StatsDashboard = ({ theme, testsCompleted, onClose }: StatsDashboar
       </div>
     </div>
   );
-};
+});

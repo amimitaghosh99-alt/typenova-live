@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useLayoutEffect, memo, useMemo } from 'react';
+import React, { useRef, useState, useEffect, memo, useMemo } from 'react';
 import { Ghost } from 'lucide-react';
 import type { Particle } from '@/hooks/useParticles';
 import type { Theme } from '@/data/constants';
@@ -323,9 +323,9 @@ export const TypingArea = ({
           )}
 
           {/* Multiplayer opponents (inline glow) */}
-          {racePlayers && racePlayers.map(player => {
+          {racePlayers && racePlayers.map((player, i) => {
             const playerIndex = Math.min(Math.floor((player.progress / 100) * targetText.length), targetText.length - 1);
-            // We use different colors based on rank/random? For now, orange glow for opponents.
+            const opponentColors = ['rgb(245, 158, 11)', 'rgb(56, 189, 248)', 'rgb(244, 114, 182)', 'rgb(167, 139, 250)']; // Amber, Sky, Pink, Violet
             return (
               <GlidingBar
                 key={player.id}
@@ -334,7 +334,7 @@ export const TypingArea = ({
                 targetText={targetText}
                 barClass=""
                 barStyle={{
-                  background: 'rgb(245, 158, 11)', // amber-500
+                  background: opponentColors[i % opponentColors.length],
                   opacity: 0.6,
                   height: '100%',
                   top: 0,
@@ -404,11 +404,52 @@ function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
 }) {
   const [pos, setPos] = useState<{ x: number; y: number; w: number } | null>(null);
 
-  useLayoutEffect(() => {
+  const indexRef = useRef(index);
+  useEffect(() => { indexRef.current = index; }, [index]);
+
+  // Bind resize observer only when container mounts or text changes (not on every keystroke)
+  useEffect(() => {
     const container = containerRef.current;
-    if (!container) { setPos(null); return; }
+    if (!container) return;
 
     const measure = () => {
+      const idx = indexRef.current;
+      const el = container.querySelector<HTMLElement>(`[data-char-index="${idx}"]`);
+      if (!el) return;
+      
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      
+      setPos(prev => {
+        const x = elRect.left - containerRect.left + container.scrollLeft;
+        const y = elRect.top - containerRect.top + container.scrollTop + elRect.height - 4;
+        const w = Math.max(6, elRect.width);
+        // Only update state if position actually changed significantly
+        if (!prev || Math.abs(prev.x - x) > 0.5 || Math.abs(prev.y - y) > 0.5 || Math.abs(prev.w - w) > 0.5) {
+          return { x, y, w };
+        }
+        return prev;
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(() => requestAnimationFrame(measure));
+    resizeObserver.observe(container);
+
+    const handleResize = () => requestAnimationFrame(measure);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [containerRef, targetText]);
+
+  // Measure index change asynchronously to avoid synchronous layout thrashing (forced reflow)
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      if (!container) return;
+      
       const el = container.querySelector<HTMLElement>(`[data-char-index="${index}"]`);
       if (!el) { setPos(null); return; }
       
@@ -420,24 +461,10 @@ function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
         y: elRect.top - containerRect.top + container.scrollTop + elRect.height - 4, 
         w: Math.max(6, elRect.width) 
       });
-    };
-
-    measure();
-    const rafId = window.requestAnimationFrame(measure);
-    const resizeObserver = new ResizeObserver(measure);
-    resizeObserver.observe(container);
-
-    const cleanup = () => {
-      window.cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-    };
-
-    window.addEventListener('resize', measure);
-    return () => {
-      window.removeEventListener('resize', measure);
-      cleanup();
-    };
-  }, [index, targetText, containerRef]);
+    });
+    
+    return () => cancelAnimationFrame(rafId);
+  }, [index, containerRef]);
 
   if (!pos) return null;
 

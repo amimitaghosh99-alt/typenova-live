@@ -55,12 +55,12 @@ export const useTypingEngine = () => {
     comboRef.current = val;
   }, []);
 
-  const calculateStats = useCallback((currentInput: string, timeMs: number, currentPenalty = 0): TypingStats => {
+  const calculateStats = useCallback((currentInput: string, timeMs: number, currentPenalty = 0, explicitStartTime: number | null = null): TypingStats => {
     if (!timeMs || currentInput.length === 0) {
       return { currentWpm: 0, rawWpm: 0, currentAcc: 100, timeline: [], consistency: 100, flawless: 0 };
     }
     const entries = keystrokeLog.current;
-    const startTs = Date.now() - timeMs;
+    const startTs = explicitStartTime !== null ? explicitStartTime : (Date.now() - timeMs);
     const totalTimeMs = timeMs + currentPenalty;
     const minutes = totalTimeMs / 60000;
 
@@ -120,7 +120,7 @@ export const useTypingEngine = () => {
     setEndTime(finalTimestamp);
     setPhase('FINISHED');
     const statsInput = finalInput !== null ? finalInput : input;
-    const finalStats = calculateStats(statsInput, finalTimestamp - startTime, timePenalty);
+    const finalStats = calculateStats(statsInput, finalTimestamp - startTime, timePenalty, startTime);
     setWpm(finalStats.currentWpm);
     setRawWpm(finalStats.rawWpm);
     setAccuracy(finalStats.currentAcc);
@@ -163,7 +163,7 @@ export const useTypingEngine = () => {
     if (phase !== 'TYPING' || !startTime || endTime) return;
     const interval = setInterval(() => {
       const { input: liveInput, timePenalty: livePenalty } = liveRef.current;
-      const stats = calculateStats(liveInput, Date.now() - startTime, livePenalty);
+      const stats = calculateStats(liveInput, Date.now() - startTime, livePenalty, startTime);
       setWpm(stats.currentWpm);
       setRawWpm(stats.rawWpm);
       setAccuracy(stats.currentAcc);

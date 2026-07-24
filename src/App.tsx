@@ -732,19 +732,26 @@ function MainApp() {
       if (e.key === 'Shift') return;
 
       // Backspace
-      if (e.key === 'Backspace' && s.input.length > 0) {
-        if (s.stickyKeysMode && s.stickyPenalty > 0) {
-          setStickyPenalty(p => Math.max(0, p - 1));
-          audio.playSound('error');
+      if (e.key === 'Backspace') {
+        if (s.raceActive) {
+          e.preventDefault();
           return;
         }
-        typing.setInput(prev => prev.slice(0, -1));
-        // Log the (real) backspace so replay / PB ghost can reconstruct
-        // input-over-time. Excluded from all stats via isBackspace.
-        typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
-        audio.playSound('click');
-        typing.setCombo(0);
-        typing.comboRef.current = 0;
+
+        if (s.input.length > 0) {
+          if (s.stickyKeysMode && s.stickyPenalty > 0) {
+            setStickyPenalty(p => Math.max(0, p - 1));
+            audio.playSound('error');
+            return;
+          }
+          typing.setInput(prev => prev.slice(0, -1));
+          // Log the (real) backspace so replay / PB ghost can reconstruct
+          // input-over-time. Excluded from all stats via isBackspace.
+          typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
+          audio.playSound('click');
+          typing.setCombo(0);
+          typing.comboRef.current = 0;
+        }
         return;
       }
 

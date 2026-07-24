@@ -45,7 +45,8 @@ import { Routes, Route, Navigate } from 'react-router';
 import { Login } from '@/pages/Login';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
-
+import { ChangelogModal } from '@/components/ChangelogModal';
+import { CHANGELOG } from '@/data/changelog';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
 // stay import-free — tailwind.config.js loads it via jiti) to lucide
@@ -188,6 +189,7 @@ function MainApp() {
   const [showReplay, setShowReplay] = useState(false);
   const [showRace, setShowRace] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
 
@@ -1425,6 +1427,15 @@ function MainApp() {
                 {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </button>
             </div>
+            {/* Changelog Version Badge */}
+            <button
+              onClick={() => setShowChangelog(true)}
+              className="flex items-center gap-1.5 glass-panel rounded-2xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all hover:bg-white/5 mr-2"
+              title="View Update Log"
+            >
+              <Sparkles size={12} className={theme.text} />
+              {CHANGELOG[0].version}
+            </button>
 
             {/* Account: Google login + cloud-sync status */}
             <AccountMenu
@@ -1777,6 +1788,14 @@ function MainApp() {
           theme={theme}
           onClose={() => setShowSocialModal(false)}
           friendsState={friendsState}
+        />
+      )}
+
+      {/* Changelog Modal */}
+      {showChangelog && (
+        <ChangelogModal
+          theme={theme}
+          onClose={() => setShowChangelog(false)}
         />
       )}
     </div>

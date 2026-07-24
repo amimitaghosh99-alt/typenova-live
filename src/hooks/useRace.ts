@@ -51,6 +51,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const [error, setError] = useState('');
   const [roomSize, setRoomSize] = useState(2);
   const [lobbyConfig, setLobbyConfig] = useState<RaceConfig>({ mode: 'NOVICE', words: 25 });
+  const lobbyConfigRef = useRef<RaceConfig>({ mode: 'NOVICE', words: 25 });
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [selfId] = useState(() => crypto.randomUUID());
@@ -99,7 +100,10 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     for (const [key, metas] of Object.entries(state)) {
       const meta = metas[0];
       if (!meta?.name) continue;
-      if (meta.isHost && meta.lobbyConfig) setLobbyConfig(meta.lobbyConfig);
+      if (meta.isHost && meta.lobbyConfig) {
+        lobbyConfigRef.current = meta.lobbyConfig;
+        setLobbyConfig(meta.lobbyConfig);
+      }
       if (meta.text) textRef.current = meta.text;
       if (meta.roomSize) { roomSizeRef.current = meta.roomSize; setRoomSize(meta.roomSize); }
       const prog = progressRef.current[key];
@@ -172,7 +176,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
 
     ch.subscribe(async (s) => {
       if (s === 'SUBSCRIBED') {
-        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined, lobbyConfig: asHost ? lobbyConfig : undefined });
+        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined, lobbyConfig: asHost ? lobbyConfigRef.current : undefined });
         // Player cap check for non-hosts
         if (!asHost) {
           setTimeout(() => {
@@ -261,17 +265,18 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   }, []);
 
   const updateLobbyConfig = useCallback(async (newConfig: Partial<RaceConfig>) => {
-    setLobbyConfig(prev => {
-      const next = { ...prev, ...newConfig };
-      if (channelRef.current && selfIdRef.current) {
-        const state = channelRef.current.presenceState();
-        const metas = state[selfIdRef.current] || [];
-        if (metas[0]) {
-          channelRef.current.track({ ...metas[0], lobbyConfig: next });
-        }
+    const next = { ...lobbyConfigRef.current, ...newConfig };
+    lobbyConfigRef.current = next;
+    setLobbyConfig(next);
+
+    if (channelRef.current && selfIdRef.current) {
+      const state = channelRef.current.presenceState();
+      const metas = state[selfIdRef.current] || [];
+      if (metas[0]) {
+        // Optimistically track the newly merged config immediately
+        await channelRef.current.track({ ...metas[0], lobbyConfig: next });
       }
-      return next;
-    });
+    }
   }, []);
 
   // Clean up the channel on unmount

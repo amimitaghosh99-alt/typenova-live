@@ -19,6 +19,7 @@ import {
 } from '@/data/constants';
 import type { Level, Theme } from '@/data/constants';
 import { useAudioEngine } from '@/hooks/useAudioEngine';
+import { useGlassPointer } from '@/hooks/useGlassPointer';
 import { useTypingEngine } from '@/hooks/useTypingEngine';
 import type { Keystroke } from '@/hooks/useTypingEngine';
 import { useRPGSystem } from '@/hooks/useRPGSystem';
@@ -212,6 +213,7 @@ function MainApp() {
   const typing = useTypingEngine();
   const rpg = useRPGSystem();
   const particles = useParticles();
+  useGlassPointer();
 
   // Account + cloud progress sync. On login, cloud progress is merged into
   // this browser's localStorage and pushed back into the RPG state; after
@@ -563,6 +565,7 @@ function MainApp() {
       numbers: s.withNumbers,
       punctuation: s.withPunctuation,
       rng: s.dailyActive ? mulberry32(daySeed()) : undefined,
+      codeLanguage: s.codeLanguage,
     }));
     typing.resetKeystrokes();
     // Go back to CONFIGURING instead of FINISHED to avoid triggering RPG
@@ -894,14 +897,20 @@ function MainApp() {
   }, [typing.phase, typing.startTime, testMode, duration, typing]);
 
   // ─── Overclocked Penalty ─────────────────────────────────────────
+  const penaltyTypingRef = useRef(typing);
+  useEffect(() => { penaltyTypingRef.current = typing; });
+
   useEffect(() => {
-    if (overclockedMode && typing.accuracy < 95 && typing.input.length > 5 && typing.phase === 'TYPING') {
-      const interval = setInterval(() => {
-        typing.setTimePenalty(p => p + 1000);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [overclockedMode, typing.accuracy, typing.input.length, typing.phase, typing]);
+    if (!overclockedMode || typing.phase !== 'TYPING') return;
+    
+    const interval = setInterval(() => {
+      const cur = penaltyTypingRef.current;
+      if (cur.accuracy < 95 && cur.input.length > 5 && cur.phase === 'TYPING') {
+        cur.setTimePenalty(p => p + 1000);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [overclockedMode, typing.phase]);
 
   // ─── UI Derived State ────────────────────────────────────────────
   const isTypingOrCountdown = typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN';

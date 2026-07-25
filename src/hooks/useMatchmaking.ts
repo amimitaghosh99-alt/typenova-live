@@ -17,8 +17,10 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
   const [state, setState] = useState<MatchmakingState>({ status: 'idle' });
   const channelRef = useRef<RealtimeChannel | null>(null);
   const matchedRef = useRef(false);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const teardown = useCallback(() => {
+    if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
     if (channelRef.current && supabase) supabase.removeChannel(channelRef.current);
     channelRef.current = null;
   }, [supabase]);
@@ -40,37 +42,37 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     });
     channelRef.current = ch;
 
-    ch.on('presence', { event: 'sync' }, () => {
-      if (channelRef.current !== ch) return;
-      const pState = ch.presenceState() as Record<string, Array<{ name: string; elo: number; seeking: boolean }>>;
-      
-      // Find all seekers
-      const seekers = Object.entries(pState)
-        .filter(([id, metas]) => id !== myId && metas[0]?.seeking)
-        .map(([id, metas]) => ({ id, name: metas[0].name, elo: metas[0].elo }));
+    // Active ping mechanism: Send a seek_ping every 2 seconds
+    pingIntervalRef.current = setInterval(() => {
+      if (channelRef.current && !matchedRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'seek_ping',
+          payload: { id: myId, name: myName, elo: myElo }
+        });
+      }
+    }, 2000);
 
-      if (seekers.length > 0 && !matchedRef.current) {
+    ch.on('broadcast', { event: 'seek_ping' }, ({ payload }) => {
+      if (matchedRef.current || payload.id === myId) return;
+
+      // To prevent both clients from generating a room, we use UUID alphabetical order
+      if (myId < payload.id) {
+        // We are the host! Create the room code
         matchedRef.current = true;
-        // Match with the first one found (ideally we'd sort by closest Elo)
-        const opponent = seekers.sort((a, b) => Math.abs(a.elo - myElo) - Math.abs(b.elo - myElo))[0];
+        const roomCode = makeRoomCode();
+        
+        // Broadcast the match to the specific opponent
+        ch.send({
+          type: 'broadcast',
+          event: 'match_found',
+          payload: { hostId: myId, opponentId: payload.id, roomCode, hostName: myName, hostElo: myElo }
+        });
 
-        // To prevent both clients from generating a room, we use UUID alphabetical order
-        if (myId < opponent.id) {
-          // We are the host! Create the room code
-          const roomCode = makeRoomCode();
-          
-          // Broadcast the match to the queue
-          ch.send({
-            type: 'broadcast',
-            event: 'match_found',
-            payload: { hostId: myId, opponentId: opponent.id, roomCode, hostName: myName, hostElo: myElo }
-          });
-
-          setState({ status: 'found', roomCode, opponentId: opponent.id, opponentName: opponent.name, opponentElo: opponent.elo, isHost: true });
-          
-          // Leave queue after a short delay so the broadcast goes through
-          setTimeout(() => teardown(), 500);
-        }
+        setState({ status: 'found', roomCode, opponentId: payload.id, opponentName: payload.name, opponentElo: payload.elo, isHost: true });
+        
+        // Leave queue after a short delay so the broadcast goes through
+        setTimeout(() => teardown(), 500);
       }
     });
 
@@ -85,6 +87,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
 
     ch.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
+        // We still track presence just for visibility in devtools, but matching relies purely on active pings.
         await ch.track({ name: myName, elo: myElo, seeking: true });
       }
     });

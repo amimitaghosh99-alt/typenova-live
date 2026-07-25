@@ -189,14 +189,14 @@ export function RaceResultsScreen({
       <div className="relative z-10 max-w-6xl mx-auto px-4 py-8 md:py-12">
 
         {/* 🏆 WINNER BANNER 🏆 */}
-        <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative pt-12">
+        <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative">
           
           {/* Fluid Elo Transfer Animation */}
           {isRanked && eloTransfer && (
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+            <div className="flex items-center justify-center pointer-events-none mb-8 h-16">
               <div className={`transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] ${eloTransfer ? 'opacity-100 translate-y-0 scale-125' : 'opacity-0 translate-y-8 scale-50'}`}>
                 {eloTransfer && (
-                  <div className={`text-5xl font-black tracking-widest uppercase drop-shadow-2xl ${eloTransfer.direction === 'up' ? 'text-emerald-400' : 'text-red-500'}`}>
+                  <div className={`text-5xl font-black tracking-widest uppercase drop-shadow-2xl ${eloTransfer.direction === 'up' ? 'text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.5)]' : 'text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]'}`}>
                     {eloTransfer.direction === 'up' ? '+' : '-'}{eloTransfer.amount} ELO
                   </div>
                 )}

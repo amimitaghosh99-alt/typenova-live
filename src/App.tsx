@@ -1378,20 +1378,17 @@ function MainApp() {
               <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${overclockedMode ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="Overclocked"><Timer size={18} /></button>
             </div>
 
-            {/* Theme & Sound Components */}
-            <div className="flex glass-panel rounded-2xl p-1 items-center relative z-50">
-              {/* Animated Theme Dropdown */}
+            {/* Theme & Sound Controls (Decluttered) */}
+            <div className="flex glass-panel rounded-full p-1 items-center relative z-50 mr-2">
               <div className="relative" ref={themeMenuRef}>
                 <button 
                   onClick={() => setShowThemeMenu(!showThemeMenu)} 
-                  className={`p-2 px-4 rounded-xl hover:bg-white/5 ${theme.text} flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all`} 
-                  title="Select Theme"
+                  className={`p-2 rounded-xl hover:bg-white/5 ${theme.text} flex justify-center items-center transition-all`} 
+                  title={`Theme: ${theme.name.toUpperCase()}`}
                 >
-                  <Palette size={16} /> <span className="text-zinc-300">{theme.name.toUpperCase()}</span>
-                  <ChevronDown size={14} className={`text-zinc-500 transition-transform duration-300 ${showThemeMenu ? 'rotate-180' : ''}`} />
+                  <Palette size={16} />
                 </button>
-                
-                {/* Dropdown Menu Overlay - FIXED to open on the right and avoid being cut off */}
+                {/* Theme Dropdown Menu */}
                 <div 
                   className={`absolute top-full mt-2 right-0 w-56 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
                 >
@@ -1419,23 +1416,16 @@ function MainApp() {
 
               <div className="w-px h-4 bg-white/10 mx-1"></div>
               
-              <button onClick={cycleSoundProfile} className="p-2 px-3 rounded-xl hover:bg-white/5 text-zinc-300 text-[10px] font-black uppercase tracking-widest flex items-center">
-                <Volume2 size={12} className="mr-2" /> {soundProfile.toUpperCase()}
-              </button>
-              
-              <button onClick={() => setMutedState(!muted)} className="p-2 px-4 rounded-xl hover:bg-white/5 text-zinc-300">
-                {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              <button 
+                onClick={cycleSoundProfile} 
+                className="p-2 rounded-xl hover:bg-white/5 text-zinc-300 flex justify-center items-center"
+                title={`Sound Profile: ${soundProfile.toUpperCase()}`}
+              >
+                {soundProfile === 'silent' ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </button>
             </div>
-            {/* Changelog Version Badge */}
-            <button
-              onClick={() => setShowChangelog(true)}
-              className="flex items-center gap-1.5 glass-panel rounded-2xl px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all hover:bg-white/5 mr-2"
-              title="View Update Log"
-            >
-              <Sparkles size={12} className={theme.text} />
-              {CHANGELOG[0].version}
-            </button>
+
+
 
             {/* Account: Google login + cloud-sync status */}
             <AccountMenu
@@ -1709,6 +1699,20 @@ function MainApp() {
           </aside>
         </main>
       </div>
+
+      {/* Floating Bottom-Left Version/Changelog Badge */}
+      {!shouldHideClutter && (
+        <button
+          onClick={() => setShowChangelog(true)}
+          className="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-950/40 hover:bg-zinc-900/80 backdrop-blur border border-white/5 hover:border-white/20 text-zinc-500 hover:text-white transition-all group"
+          title="Update Log & Features"
+        >
+          <Sparkles size={12} className={theme.text} />
+          <span className="text-[10px] font-black uppercase tracking-widest">{CHANGELOG[0].version}</span>
+          <span className="text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 px-2 py-0.5 rounded ml-1 hidden md:block">What's New</span>
+        </button>
+      )}
+
 
       {/* Expanded Graph Overlay */}
       {showExpandedGraph && (

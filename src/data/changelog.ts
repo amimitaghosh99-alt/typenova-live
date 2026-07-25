@@ -10,6 +10,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.2',
+    date: 'July 25, 2026',
+    title: 'UI Polish & Multiplayer Fixes',
+    changes: [
+      { type: 'tweak', description: 'Massively decluttered the top navigation bar by compressing settings and moving the version badge.' },
+      { type: 'feature', description: 'Redesigned the post-race WPM graph in VS Mode to use smooth cubic curves and color-code lines by player rank.' },
+      { type: 'fix', description: 'Fixed a rubberbanding glitch in race lobbies where the difficulty would snap back to previous settings when clicked rapidly.' },
+      { type: 'fix', description: 'Fixed a visual bug where the 4th player slot in a 1v1v1v1 race would be cut off by a scrolling container.' },
+      { type: 'fix', description: 'Cleaned up the multiplayer Race Configuration by locking options that are incompatible with certain modes (like Quotes).' },
+    ],
+  },
+  {
     version: 'v1.2.1',
     date: 'July 24, 2026',
     title: 'Performance & Fluidity Update',

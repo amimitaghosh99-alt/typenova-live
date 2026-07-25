@@ -30,7 +30,7 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
   const [hoveredTimeMs, setHoveredTimeMs] = useState<number | null>(null);
   const [hoveredOvertakeIdx, setHoveredOvertakeIdx] = useState<number | null>(null);
 
-  const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes } = useMemo(() => {
+  const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor } = useMemo(() => {
     let maxW = Math.max(...timelinePoints.map(p => Math.max(p.wpm, p.rawWpm)), 10);
     if (competitorTimelines) {
       Object.values(competitorTimelines).forEach(pts => {
@@ -45,19 +45,42 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
     const px = (t: number) => (t / durationMs) * 700 + 60;
     const py = (w: number) => 30 + (1 - w / maxW) * 180;
 
-    const poly = timelinePoints.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
-    const rawPoly = timelinePoints.map(p => `${px(p.t)},${py(p.rawWpm)}`).join(' ');
+    const buildSmoothPath = (pts: Array<any>, key: string) => {
+      if (pts.length === 0) return '';
+      if (pts.length === 1) return `M ${px(pts[0].t)},${py(pts[0][key])}`;
+      let d = `M ${px(pts[0].t)},${py(pts[0][key])}`;
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const ax = px(a.t), ay = py(a[key]);
+        const bx = px(b.t), by = py(b[key]);
+        const cp1x = ax + (bx - ax) * 0.5;
+        const cp2x = ax + (bx - ax) * 0.5;
+        d += ` C ${cp1x},${ay} ${cp2x},${by} ${bx},${by}`;
+      }
+      return d;
+    };
+
+    const poly = buildSmoothPath(timelinePoints, 'wpm');
+    const rawPoly = buildSmoothPath(timelinePoints, 'rawWpm');
     
-    const compPolys: Record<string, string> = {};
-    if (competitorTimelines) {
+    const compPolys: Record<string, { path: string; color: string }> = {};
+    const medalColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
+    let selfColor = '';
+
+    if (competitorTimelines && players) {
+      const selfIdx = players.findIndex(p => p.id === selfId);
+      if (selfIdx >= 0) selfColor = medalColors[selfIdx] || medalColors[3];
+      
       Object.entries(competitorTimelines).forEach(([id, pts]) => {
         if (pts.length < 2) return;
-        compPolys[id] = pts.map(p => `${px(p.t)},${py(p.wpm)}`).join(' ');
+        const playerIdx = players.findIndex(p => p.id === id);
+        const color = playerIdx >= 0 ? medalColors[playerIdx] || medalColors[3] : '#71717a';
+        compPolys[id] = { path: buildSmoothPath(pts, 'wpm'), color };
       });
     }
 
-    // Gradient fill area (close the polygon at the bottom)
-    const gradientPoly = poly + ` ${px(timelinePoints[timelinePoints.length - 1]?.t ?? durationMs)},210 ${px(timelinePoints[0]?.t ?? 0)},210`;
+    // Gradient fill area (close the path at the bottom)
+    const gradientPoly = poly ? poly + ` L ${px(timelinePoints[timelinePoints.length - 1]?.t ?? durationMs)},210 L ${px(timelinePoints[0]?.t ?? 0)},210 Z` : '';
 
     // Y-axis labels
     const ySteps = 5;
@@ -114,7 +137,7 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
       }
     }
 
-    return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes };
+    return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor };
   }, [timelinePoints, competitorTimelines, players, selfId, durationMs]);
 
   if (timelinePoints.length < 2 || durationMs <= 0) return null;
@@ -172,18 +195,20 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
         <line x1="60" y1={py(avgWpm)} x2="760" y2={py(avgWpm)} stroke="rgba(113,113,122,0.3)" strokeWidth="1" strokeDasharray="6 4" />
 
         {/* Gradient fill */}
-        <polygon fill="url(#wpmGradient)" points={gradientPoly} className={theme.text} opacity="0.5" />
+        <path fill="url(#wpmGradient)" d={gradientPoly} className={theme.text} opacity="0.5" />
 
-        {/* Raw WPM curve */}
-        <polyline fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" strokeLinejoin="round" points={rawPoly} className="text-zinc-600" opacity="0.6" />
+        {/* Raw WPM curve (Hide in VS mode) */}
+        {!competitorTimelines && (
+          <path fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" strokeLinejoin="round" d={rawPoly} className="text-zinc-600" opacity="0.6" />
+        )}
 
         {/* Competitor curves */}
-        {Object.entries(compPolys).map(([id, p]) => (
-          <polyline key={`comp-${id}`} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="6 4" strokeLinecap="round" strokeLinejoin="round" points={p} className="text-amber-500/50" />
+        {Object.entries(compPolys).map(([id, comp]) => (
+          <path key={`comp-${id}`} fill="none" stroke={comp.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={comp.path} opacity="0.9" />
         ))}
 
         {/* Net WPM curve */}
-        <polyline fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />
+        <path fill="none" stroke={selfColor || "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={poly} className={selfColor ? "" : theme.text} />
 
         {/* Error dots on curve */}
         {errorTimes.map((t, i) => {

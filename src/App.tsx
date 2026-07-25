@@ -478,7 +478,7 @@ function MainApp() {
         rng: nextDaily ? mulberry32(daySeed()) : undefined,
       }));
       setIsCrossfading(false);
-    }, 150);
+    }, 300);
 
     setZenMode(false);
     setSaveStatus('');
@@ -1684,7 +1684,7 @@ function MainApp() {
             )}
 
             {/* Typing Area */}
-            <div className={`transition-opacity duration-150 ${isCrossfading ? 'opacity-0' : 'opacity-100'}`}>
+            <div className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 blur-md translate-y-8 scale-95' : 'opacity-100 blur-0 translate-y-0 scale-100'}`}>
               <TypingArea
                 targetText={typing.targetText}
                 input={typing.input}

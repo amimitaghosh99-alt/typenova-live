@@ -55,7 +55,7 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({
   };
 
   return (
-    <div className={`grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 w-full transition-opacity duration-700 ${isIdle ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`}>
+    <div className={`grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 w-full transition-all duration-700 ${isIdle ? 'stats-idle-dim' : ''}`}>
       
       {/* 1. NET WPM */}
       <div className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`} style={{ '--delay': '0ms' } as React.CSSProperties}>

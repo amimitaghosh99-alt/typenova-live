@@ -1547,7 +1547,7 @@ function MainApp() {
                           }
                           changeLevel(l);
                         }} 
-                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : isLocked ? 'text-zinc-600 hover:text-zinc-400 border border-transparent' : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center gap-2`}
+                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : isLocked ? 'text-zinc-600 hover:text-zinc-400 border border-transparent' : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center gap-2`}
                       >
                         {isLocked && <Lock size={10} />}
                         {l}
@@ -1584,7 +1584,7 @@ function MainApp() {
                         key={v}
                         onClick={() => (testMode === 'time' ? changeDuration(v) : changeWordCount(v))}
                         disabled={lengthLocked}
-                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all ${active ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} ${lengthLocked ? 'cursor-not-allowed' : ''}`}
+                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${active ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} ${lengthLocked ? 'cursor-not-allowed' : ''}`}
                       >
                         {v}
                       </button>
@@ -1632,7 +1632,7 @@ function MainApp() {
                       <button 
                         key={lang} 
                         onClick={() => changeCodeLanguage(lang)} 
-                        className={`px-3 md:px-5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${codeLanguage === lang ? `bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]` : 'text-zinc-500 hover:text-white border border-transparent'} flex justify-center items-center`}
+                        className={`px-3 md:px-5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${codeLanguage === lang ? `bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]` : 'text-zinc-500 hover:text-white border border-transparent'} flex justify-center items-center`}
                       >
                         {lang.toUpperCase()}
                       </button>

@@ -61,6 +61,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
   const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number }>>({});
   const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});
+  const metaRef = useRef<Record<string, any>>({});
   const startAtRef = useRef<number | null>(null);
   const textRef = useRef('');
   const statusRef = useRef<RaceStatus>('idle');
@@ -77,6 +78,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     progressRef.current = {};
     finishRef.current = {};
     timelinesRef.current = {};
+    metaRef.current = {};
     startAtRef.current = null;
     textRef.current = '';
     finishSentRef.current = false;
@@ -97,15 +99,20 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const rebuildPlayers = useCallback(() => {
     const ch = channelRef.current;
     if (!ch) return;
-    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; lobbyConfig?: RaceConfig; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number; elo?: number; userId?: string; }>>;
+    const state = ch.presenceState() as Record<string, Array<any>>;
     
+    // Update meta cache for active players
+    for (const [key, metas] of Object.entries(state)) {
+      if (metas[0]) metaRef.current[key] = metas[0];
+    }
+
     // --- Memory Leak Cleanup ---
-    // Remove data for players who have disconnected
+    // Remove data for players who have disconnected, UNLESS they have finished the race
     if (statusRef.current === 'lobby' || statusRef.current === 'racing') {
       const activeIds = new Set(Object.keys(state));
-      [progressRef, finishRef, timelinesRef].forEach(ref => {
+      [progressRef, finishRef, timelinesRef, metaRef].forEach(ref => {
         Object.keys(ref.current).forEach(id => {
-          if (!activeIds.has(id)) {
+          if (!activeIds.has(id) && !finishRef.current[id]) {
             delete ref.current[id];
           }
         });
@@ -115,8 +122,10 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     const next: RacerState[] = [];
     let hostFound = false;
     
-    for (const [key, metas] of Object.entries(state)) {
-      const meta = metas[0];
+    const allKnownIds = new Set([...Object.keys(state), ...Object.keys(finishRef.current)]);
+
+    for (const key of allKnownIds) {
+      const meta = state[key]?.[0] || metaRef.current[key];
       if (!meta?.name) continue;
       
       if (meta.isHost) hostFound = true;

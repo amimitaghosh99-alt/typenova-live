@@ -61,7 +61,7 @@ export function RaceResultsScreen({
     // If I won, call RPC to solidify it in the database.
     if (iWon && supabase) {
       supabase.rpc('resolve_ranked_duel', {
-        p_opponent_id: op.id,
+        p_opponent_id: op.userId || op.id,
         p_log: resultsProps.keystrokeLog,
         p_time_ms: me.finishMs || resultsProps.durationMs,
         p_opponent_wpm: op.finishWpm || 0

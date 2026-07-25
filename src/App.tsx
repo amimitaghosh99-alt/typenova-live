@@ -1727,7 +1727,7 @@ function MainApp() {
                         <button 
                           onClick={(e) => { 
                             e.stopPropagation(); 
-                            race.createRoom(cloud.username || 'Player', 2);
+                            race.createRoom(cloud.username || 'Player', 2, undefined, cloud.elo, undefined, cloud.user?.id);
                             setRaceActive(true);
                             setShowRace(true);
                           }}
@@ -1835,8 +1835,8 @@ function MainApp() {
           username={cloud.username || ''}
           supabase={supabase}
           updateLobbyConfig={race.updateLobbyConfig}
-          onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode); }}
-          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo); }}
+          onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, cloud.user?.id); }}
+          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, cloud.user?.id); }}
           onStart={(text) => race.startRace(text)}
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); setIsRankedMatch(false); }}
           onClose={() => setShowRace(false)}

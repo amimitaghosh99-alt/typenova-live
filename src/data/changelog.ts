@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.4.1',
+    date: 'July 26, 2026',
+    title: 'Hotfix: Heatmap Tooltip Clipping',
+    changes: [
+      { type: 'fix', description: 'Fixed an issue where the finger heatmap tooltips were getting clipped on the top row of the keyboard.' },
+    ],
+  },
+  {
     version: 'v1.4.0',
     date: 'July 26, 2026',
     title: 'New Feature: Detailed Keyboard Heatmaps 📊',

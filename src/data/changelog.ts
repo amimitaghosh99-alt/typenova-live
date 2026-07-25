@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.3.1',
+    date: 'July 25, 2026',
+    title: 'Hotfix: Matchmaking Ghost Protocol',
+    changes: [
+      { type: 'fix', description: 'Rewrote the P2P Matchmaking protocol to use Active Ping Intervals. You can no longer match with ghost instances in the queue, completely eliminating the split-lobby bug!' },
+    ],
+  },
+  {
     version: 'v1.3.0',
     date: 'July 25, 2026',
     title: 'Feature: Advanced Elo Mechanics',

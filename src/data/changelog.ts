@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.10',
+    date: 'July 25, 2026',
+    title: 'Hotfix: Anti-Cheat Pipeline',
+    changes: [
+      { type: 'fix', description: 'Anti-Cheat: Fixed an issue where the JSON keystroke parser bug fix wasn\'t applying to the correct database RPC (`submit_score`), causing false positives to persist.' },
+    ],
+  },
+  {
     version: 'v1.2.9',
     date: 'July 25, 2026',
     title: 'Anti-cheat & Graph Fidelity Updates',

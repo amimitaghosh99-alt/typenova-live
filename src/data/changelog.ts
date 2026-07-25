@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.9',
+    date: 'July 25, 2026',
+    title: 'Anti-cheat & Graph Fidelity Updates',
+    changes: [
+      { type: 'fix', description: 'Anti-Cheat: Fixed a bug where missing properties in keystroke logs would falsely trigger the backend anti-cheat system.' },
+      { type: 'tweak', description: 'Results Graph: Increased the fidelity of the post-game WPM graph to 1-second intervals and ensured it draws smoothly from the start of the race.' },
+    ],
+  },
+  {
     version: 'v1.2.8',
     date: 'July 25, 2026',
     title: 'Ranked Matchmaking & Daily Bounties',

@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.3.4',
+    date: 'July 25, 2026',
+    title: 'Hotfix: Elo Winner Evaluation',
+    changes: [
+      { type: 'fix', description: 'Fixed a logic bug where the winner of a match could mistakenly be evaluated as the loser (and lose Elo) if they finished the race with a higher WPM but the match was Timed or their time was processed differently.' },
+    ],
+  },
+  {
     version: 'v1.3.3',
     date: 'July 25, 2026',
     title: 'Update: Sound Dropdown & Elo UI Fix',

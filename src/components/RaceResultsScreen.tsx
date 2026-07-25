@@ -58,7 +58,7 @@ export function RaceResultsScreen({
     if (!me || !op || !me.finished) return;
 
     rpcCalled.current = true;
-    const iWonNow = !op.finished || (me.finishMs! <= op.finishMs!);
+    const iWonNow = !op.finished || (ranking[0]?.id === selfId);
 
     // If I won, call RPC to solidify it in the database and get actual Elo change.
     if (iWonNow && supabase) {

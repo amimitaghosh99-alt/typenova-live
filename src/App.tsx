@@ -33,6 +33,7 @@ import { ResultsScreen } from '@/components/ResultsScreen';
 import { RaceResultsScreen } from '@/components/RaceResultsScreen';
 import { StatsDashboard, appendHistory } from '@/components/StatsDashboard';
 import { ReplayModal } from '@/components/ReplayModal';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { RaceModal } from '@/components/RaceModal';
 import { SocialModal } from '@/components/SocialModal';
 import { useRace } from '@/hooks/useRace';
@@ -177,6 +178,8 @@ function MainApp() {
   const [dailyStreak, setDailyStreak] = useState(loadDailyStreak);
   const [customText, setCustomText] = useState('');
   const [microDrillActive, setMicroDrillActive] = useState(false);
+  const [isCrossfading, setIsCrossfading] = useState(false);
+  const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [themeIndex, setThemeIndex] = useState(0);
   const [soundProfile, setSoundProfileState] = useState('thocky');
@@ -463,13 +466,20 @@ function MainApp() {
     // Timed tests need a deep word buffer (240 words for 60s ≈ 240 WPM ceiling)
     const length = nextMode === 'time' ? nextDuration * 4 : nextCount;
 
-    typing.resetEngine();
-    typing.setTargetText(generateText(nextLevel, length, nextCustom, nextMirror, {
-      numbers: nextNumbers,
-      punctuation: nextPunct,
-      codeLanguage: nextCodeLanguage,
-      rng: nextDaily ? mulberry32(daySeed()) : undefined,
-    }));
+    setIsCrossfading(true);
+    if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
+
+    resetTimeoutRef.current = setTimeout(() => {
+      typing.resetEngine();
+      typing.setTargetText(generateText(nextLevel, length, nextCustom, nextMirror, {
+        numbers: nextNumbers,
+        punctuation: nextPunct,
+        codeLanguage: nextCodeLanguage,
+        rng: nextDaily ? mulberry32(daySeed()) : undefined,
+      }));
+      setIsCrossfading(false);
+    }, 150);
+
     setZenMode(false);
     setSaveStatus('');
     setRaceActive(false); // any manual reset drops out of race mode
@@ -1533,27 +1543,21 @@ function MainApp() {
             <div className={`flex flex-col md:flex-row flex-wrap gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
               <div className={`flex flex-col gap-2 transition-opacity ${dailyActive ? 'opacity-30' : 'opacity-100'}`}>
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
-                <div className="flex glass-panel p-1.5 rounded-full">
-                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE', 'CUSTOM'] as Level[]).map(l => {
-                    const isLocked = !isLoggedIn && (l === 'CODE' || l === 'CUSTOM');
-                    return (
-                      <button 
-                        key={l} 
-                        onClick={() => {
-                          if (isLocked) {
-                            const modeName = l === 'CODE' ? 'Code' : 'Custom';
-                            toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
-                            return;
-                          }
-                          changeLevel(l);
-                        }} 
-                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${level === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : isLocked ? 'text-zinc-600 hover:text-zinc-400 border border-transparent' : 'text-zinc-400 hover:text-white border border-transparent'} flex justify-center items-center gap-2`}
-                      >
-                        {isLocked && <Lock size={10} />}
-                        {l}
-                      </button>
-                    );
-                  })}
+                <div className="flex glass-panel rounded-full">
+                  <SegmentedControl
+                    options={(["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM"] as Level[]).map(l => ({
+                      label: l,
+                      value: l,
+                      locked: !isLoggedIn && (l === "CODE" || l === "CUSTOM")
+                    }))}
+                    value={level}
+                    onChange={(l) => changeLevel(l)}
+                    onLockedClick={(l) => {
+                      const modeName = l === "CODE" ? "Code" : "Custom";
+                      toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
+                    }}
+                    themeTextClass={theme.text}
+                  />
                 </div>
               </div>
 
@@ -1577,19 +1581,17 @@ function MainApp() {
                     title="Timed mode"
                   ><Clock size={13} /></button>
                   <div className="w-px h-4 bg-white/10 mx-1.5"></div>
-                  {(testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => {
-                    const active = testMode === 'time' ? duration === v : wordCount === v;
-                    return (
-                      <button
-                        key={v}
-                        onClick={() => (testMode === 'time' ? changeDuration(v) : changeWordCount(v))}
-                        disabled={lengthLocked}
-                        className={`px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${active ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'} ${lengthLocked ? 'cursor-not-allowed' : ''}`}
-                      >
-                        {v}
-                      </button>
-                    );
-                  })}
+                  <SegmentedControl
+                    options={(testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => ({
+                      label: String(v),
+                      value: v
+                    }))}
+                    value={testMode === 'time' ? duration : wordCount}
+                    onChange={(v) => testMode === 'time' ? changeDuration(v) : changeWordCount(v)}
+                    disabled={lengthLocked}
+                    themeTextClass={theme.text}
+                    className="!p-0"
+                  />
                   {mutatable && (
                     <>
                       <div className="w-px h-4 bg-white/10 mx-1.5"></div>
@@ -1682,26 +1684,28 @@ function MainApp() {
             )}
 
             {/* Typing Area */}
-            <TypingArea
-              targetText={typing.targetText}
-              input={typing.input}
-              phase={typing.phase}
-              theme={theme}
-              blindMode={blindMode}
-              focusMode={focusMode}
-              fogMode={fogMode}
-              startTime={typing.startTime}
-              shake={typing.shake}
-              capsLock={typing.capsLock}
-              stickyPenalty={stickyPenalty}
-              particles={particles.particles}
-              ghostPacer={ghostPacer}
-              combo={typing.combo}
-              zenMode={zenMode}
-              pbGhost={pbGhost}
-              isCodeMode={level === 'CODE'}
-              racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
-            />
+            <div className={`transition-opacity duration-150 ${isCrossfading ? 'opacity-0' : 'opacity-100'}`}>
+              <TypingArea
+                targetText={typing.targetText}
+                input={typing.input}
+                phase={typing.phase}
+                theme={theme}
+                blindMode={blindMode}
+                focusMode={focusMode}
+                fogMode={fogMode}
+                startTime={typing.startTime}
+                shake={typing.shake}
+                capsLock={typing.capsLock}
+                stickyPenalty={stickyPenalty}
+                particles={particles.particles}
+                ghostPacer={ghostPacer}
+                combo={typing.combo}
+                zenMode={zenMode}
+                pbGhost={pbGhost}
+                isCodeMode={level === 'CODE'}
+                racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
+              />
+            </div>
 
             {/* Abort Button (only during active test, NOT on finished) */}
             {(typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (

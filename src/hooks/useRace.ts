@@ -302,6 +302,12 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const sendFinish = useCallback(async (wpm: number, acc: number, ms: number, rawWpm?: number, consistency?: number, heatmapData?: Record<string, { total: number; errors: number }>, errorCount?: number, backspaceCount?: number) => {
     if (finishSentRef.current) return;
     finishSentRef.current = true;
+    
+    // Explicitly update our own finish state locally immediately! 
+    // This guarantees the UI triggers the match-end/Elo logic without relying on the network echoing the broadcast back to us.
+    finishRef.current[selfIdRef.current] = { wpm, acc, ms, rawWpm, consistency, heatmapData, errorCount, backspaceCount };
+    rebuildPlayers();
+
     channelRef.current?.send({
       type: 'broadcast',
       event: 'finish',
@@ -319,7 +325,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     } catch {
       // ignore track errors
     }
-  }, []);
+  }, [rebuildPlayers]);
 
   const updateLobbyConfig = useCallback(async (newConfig: Partial<RaceConfig>) => {
     const next = { ...lobbyConfigRef.current, ...newConfig };

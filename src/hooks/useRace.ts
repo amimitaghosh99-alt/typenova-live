@@ -258,8 +258,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
   }, [supabase, teardown, rebuildPlayers, leave]);
 
-  const createRoom = useCallback((name: string, size: number = 2, text?: string, elo?: number) => {
-    join(makeRoomCode(), name, true, text, size, elo);
+  const createRoom = useCallback((name: string, size: number = 2, text?: string, elo?: number, roomCode?: string) => {
+    join(roomCode || makeRoomCode(), name, true, text, size, elo);
   }, [join]);
 
   const joinRoom = useCallback((roomCode: string, name: string, elo?: number) => {

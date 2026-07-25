@@ -1835,7 +1835,7 @@ function MainApp() {
           username={cloud.username || ''}
           supabase={supabase}
           updateLobbyConfig={race.updateLobbyConfig}
-          onCreate={(name, size, isRanked) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo); }}
+          onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode); }}
           onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo); }}
           onStart={(text) => race.startRace(text)}
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); setIsRankedMatch(false); }}

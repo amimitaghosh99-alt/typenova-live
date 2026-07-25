@@ -16,7 +16,7 @@ interface RaceModalProps {
   roomSize: number;
   lobbyConfig?: RaceConfig;
   updateLobbyConfig?: (config: Partial<RaceConfig>) => void;
-  onCreate: (name: string, size: number, isRanked?: boolean) => void;
+  onCreate: (name: string, size: number, isRanked?: boolean, roomCode?: string) => void;
   onJoin: (code: string, name: string, isRanked?: boolean) => void;
   onStart: (text: string) => void;
   onLeave: () => void;
@@ -46,7 +46,7 @@ export const RaceModal = ({
   useEffect(() => {
     if (mm.state.status === 'found' && mm.state.roomCode) {
       if (mm.state.isHost) {
-        onCreate(username || name || 'GUEST', 2, true);
+        onCreate(username || name || 'GUEST', 2, true, mm.state.roomCode);
       } else {
         onJoin(mm.state.roomCode, username || name || 'GUEST', true);
       }

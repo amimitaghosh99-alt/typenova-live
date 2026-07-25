@@ -18,9 +18,11 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
   const channelRef = useRef<RealtimeChannel | null>(null);
   const matchedRef = useRef(false);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const offerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const teardown = useCallback(() => {
     if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+    if (offerTimeoutRef.current) clearTimeout(offerTimeoutRef.current);
     if (channelRef.current && supabase) supabase.removeChannel(channelRef.current);
     channelRef.current = null;
   }, [supabase]);
@@ -58,30 +60,51 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
 
       // To prevent both clients from generating a room, we use UUID alphabetical order
       if (myId < payload.id) {
-        // We are the host! Create the room code
+        // We are the host! Offer the room code
         matchedRef.current = true;
         const roomCode = makeRoomCode();
         
-        // Broadcast the match to the specific opponent
+        // Broadcast the offer to the specific opponent
         ch.send({
           type: 'broadcast',
-          event: 'match_found',
+          event: 'match_offer',
           payload: { hostId: myId, opponentId: payload.id, roomCode, hostName: myName, hostElo: myElo }
         });
 
-        setState({ status: 'found', roomCode, opponentId: payload.id, opponentName: payload.name, opponentElo: payload.elo, isHost: true });
+        // If no accept within 3 seconds, reset
+        if (offerTimeoutRef.current) clearTimeout(offerTimeoutRef.current);
+        offerTimeoutRef.current = setTimeout(() => {
+          matchedRef.current = false;
+        }, 3000);
+      }
+    });
+
+    ch.on('broadcast', { event: 'match_offer' }, ({ payload }) => {
+      if (payload.opponentId === myId && !matchedRef.current) {
+        matchedRef.current = true;
         
-        // Leave queue after a short delay so the broadcast goes through
+        // We accept the offer!
+        ch.send({
+          type: 'broadcast',
+          event: 'match_accept',
+          payload: { hostId: payload.hostId, opponentId: myId, roomCode: payload.roomCode, opponentName: myName, opponentElo: myElo }
+        });
+
+        // We are the guest!
+        setState({ status: 'found', roomCode: payload.roomCode, opponentId: payload.hostId, opponentName: payload.hostName, opponentElo: payload.hostElo, isHost: false });
         setTimeout(() => teardown(), 500);
       }
     });
 
-    ch.on('broadcast', { event: 'match_found' }, ({ payload }) => {
-      if (payload.opponentId === myId && !matchedRef.current) {
-        matchedRef.current = true;
-        // We are the guest! The host found us.
-        setState({ status: 'found', roomCode: payload.roomCode, opponentId: payload.hostId, opponentName: payload.hostName, opponentElo: payload.hostElo, isHost: false });
-        teardown();
+    ch.on('broadcast', { event: 'match_accept' }, ({ payload }) => {
+      if (payload.hostId === myId && matchedRef.current) {
+        if (offerTimeoutRef.current) clearTimeout(offerTimeoutRef.current);
+        
+        // The guest accepted our offer! We are officially the host.
+        setState({ status: 'found', roomCode: payload.roomCode, opponentId: payload.opponentId, opponentName: payload.opponentName, opponentElo: payload.opponentElo, isHost: true });
+        
+        // Wait briefly so any other pending messages settle
+        setTimeout(() => teardown(), 500);
       }
     });
 

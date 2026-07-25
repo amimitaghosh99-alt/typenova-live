@@ -17,7 +17,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       { type: 'feature', description: 'Added a beautiful, dynamic Finger Heatmap to the Stats Dashboard!' },
       { type: 'feature', description: 'You can now toggle the heatmap between "Accuracy" mode (to see exactly which keys you make the most typos on, highlighted in glowing red) and "Speed" mode (to see which keys you are the slowest at pressing, highlighted in blue).' },
       { type: 'feature', description: 'Added hover tooltips to the heatmap keys showing exact error percentages, average keypress latency (ms), and total press counts.' },
-      { type: 'system', description: 'Upgraded the anti-cheat keystroke logger to globally persist your average latency per keystroke.' },
+      { type: 'fix', description: 'Resolved a critical race condition in the Matchmaking algorithm that occasionally routed players into split lobbies when 3 or more users queued simultaneously. A strict 3-way P2P handshake is now enforced.' },
+      { type: 'perf', description: 'Upgraded the anti-cheat keystroke logger to globally persist your average latency per keystroke.' },
     ],
   },
   {

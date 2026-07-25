@@ -485,7 +485,7 @@ function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
       style={{
         width: pos.w,
         transform: `translate(${pos.x}px, ${pos.y}px)`,
-        transition: transition || 'transform 90ms cubic-bezier(0.25, 1, 0.5, 1), width 90ms ease-out',
+        transition: transition || 'transform 150ms cubic-bezier(0.32, 0.72, 0, 1), width 150ms ease-out',
         opacity,
         ...restStyle,
       }}

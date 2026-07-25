@@ -79,6 +79,9 @@ module.exports = {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
       },
       transitionTimingFunction: {
+        DEFAULT: "cubic-bezier(0.32, 0.72, 0, 1)",
+        apple: "cubic-bezier(0.32, 0.72, 0, 1)",
+        "apple-bounce": "cubic-bezier(0.34, 1.56, 0.64, 1)",
         cinematic: "cubic-bezier(0.23, 1, 0.32, 1)",
       },
       keyframes: {

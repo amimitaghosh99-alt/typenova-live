@@ -87,13 +87,15 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-apple-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .theme-transition {
-  transition: background-color 0.7s var(--ease-smooth),
-              color 0.5s var(--ease-smooth),
-              border-color 0.5s var(--ease-smooth),
-              box-shadow 0.7s var(--ease-smooth);
+  transition: background-color 0.7s var(--ease-apple),
+              color 0.5s var(--ease-apple),
+              border-color 0.5s var(--ease-apple),
+              box-shadow 0.7s var(--ease-apple);
 }
 
 /* ─── LIQUID GLASS: .glass-panel ─────────────────────────────────────
@@ -183,13 +185,7 @@
    transform (e.g. TypingArea's error-shake animation). */
 @media (hover: hover) and (pointer: fine) {
   .glass-panel {
-    /* Fallback center is parked OFF-panel (-100% -100%) so the specular
-       highlight is invisible until useGlassPointer actually writes --mx/--my.
-       Routes without the pointer hook (e.g. /results, which never mounts
-       MainApp/useGlassPointer) would otherwise show a permanent round glow
-       stuck at the panel centre. */
     background-image:
-      radial-gradient(240px circle at var(--mx, -100%) var(--my, -100%), rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.10) 35%, transparent 65%),
       linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0.08) 100%);
   }
 }
@@ -232,25 +228,25 @@
 }
 
 .lucid-enter {
-  animation: lucid-fade-up 0.6s var(--ease-out-expo) forwards;
+  animation: lucid-fade-up 0.6s var(--ease-apple) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
 }
 
 .lucid-scale {
-  animation: lucid-scale-in 0.5s var(--ease-out-expo) forwards;
+  animation: lucid-scale-in 0.5s var(--ease-apple) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
 }
 
 .lucid-slide {
-  animation: lucid-slide-right 0.5s var(--ease-out-expo) forwards;
+  animation: lucid-slide-right 0.5s var(--ease-apple) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
 }
 
 .stat-card {
-  animation: stat-stagger 0.5s var(--ease-out-expo) forwards;
+  animation: stat-stagger 0.5s var(--ease-apple) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
 }

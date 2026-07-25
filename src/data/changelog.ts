@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.7',
+    date: 'July 25, 2026',
+    title: 'Anti-Cheat Hardening & UI Cleanup',
+    changes: [
+      { type: 'fix', description: 'Patched an Anti-Cheat false-positive bug where players were falsely banned for receiving RPG time penalties.' },
+      { type: 'fix', description: 'Neutralized a Time Spoofing exploit by upgrading the backend to extract elapsed time directly from the tamper-proof keystroke log.' },
+      { type: 'perf', description: 'Removed heavy unused DOM calculation overhead attached to the legacy cursor tracker.' },
+    ],
+  },
+  {
     version: 'v1.2.6',
     date: 'July 25, 2026',
     title: 'Security & Anti-Cheat Update',

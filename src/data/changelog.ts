@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.5.0',
+    date: 'July 26, 2026',
+    title: 'The Smoothness Overhaul Update 🚀',
+    changes: [
+      { type: 'feature', description: 'Replaced the static caret with a buttery-smooth, hardware-accelerated gliding caret that physically tracks across the letters, just like Monkeytype.' },
+      { type: 'perf', description: 'Aggressively optimized GPU rendering. Heavy background blur filters (glassmorphism) are now dynamically disabled the millisecond you start typing, resulting in a flawless 144Hz+ frame rate.' },
+      { type: 'perf', description: 'Eliminated a bug where the virtual DOM was double-rendering the caret cursor.' },
+    ],
+  },
+  {
     version: 'v1.4.1',
     date: 'July 26, 2026',
     title: 'Hotfix: Heatmap Tooltip Clipping',

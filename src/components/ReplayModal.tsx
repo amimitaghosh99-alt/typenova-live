@@ -116,7 +116,6 @@ export const ReplayModal = ({ targetText, log, theme, onClose }: ReplayModalProp
                 index={index}
                 colorClass={colorClass}
                 isActive={index === input.length}
-                caretClass={theme.drop}
                 particles={EMPTY_PARTICLES}
               />
             );

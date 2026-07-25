@@ -140,21 +140,14 @@
 
 /* Tier 2: real frosted blur, once the browser proves it supports it */
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .glass-panel {
+  .glass-panel:not(.typing-active) {
     -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.05);
     backdrop-filter: blur(18px) saturate(180%) brightness(1.05);
   }
 }
 
-/* Tier 3: SVG refraction — only on hero panels (.glass-refract), only on
-   engines that actually RENDER url()-referenced filters through
-   backdrop-filter (currently Chromium). @supports cannot detect this — it
-   only checks that the value parses, and engines that parse-but-don't-render
-   would silently lose ALL frost — so the tier is gated by the .svg-backdrop
-   class that useGlassPointer puts on <html> after real detection. The whole
-   frost+refraction chain lives inside the SVG filter (see App.tsx), so no
-   extra filter functions here. */
-:root.svg-backdrop .glass-panel.glass-refract {
+/* Tier 3: SVG refraction */
+:root.svg-backdrop .glass-panel.glass-refract:not(.typing-active) {
   -webkit-backdrop-filter: url(#glass-distortion);
   backdrop-filter: url(#glass-distortion);
 }

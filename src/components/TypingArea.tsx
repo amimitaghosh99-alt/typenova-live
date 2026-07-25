@@ -79,17 +79,13 @@ interface CharProps {
   index: number;
   colorClass: string;
   isActive: boolean;
-  caretClass: string;
   particles: Particle[];
-  /** Render the per-char caret bar (used by ReplayModal). TypingArea passes
-      false and draws the smooth GlidingBar overlay instead. */
-  caretBar?: boolean;
 }
 
 // Memoized leaf: all props are primitives or stable references, so the
 // default shallow compare skips re-rendering every span whose class/caret/
 // particles didn't change on this keystroke (~99% of them).
-export const Char = memo(({ char, index, colorClass, isActive, caretClass, particles, caretBar = true }: CharProps) => (
+export const Char = memo(({ char, index, colorClass, isActive, particles }: CharProps) => (
   <span className="relative inline" id={isActive ? 'active-caret' : undefined} data-char-index={index}>
     {particles.map(p => (
       <span
@@ -106,9 +102,6 @@ export const Char = memo(({ char, index, colorClass, isActive, caretClass, parti
         {p.char}
       </span>
     ))}
-    {isActive && caretBar && (
-      <span className={`absolute left-0 -bottom-2 w-full h-[4px] bg-white rounded-full caret-lucid ${caretClass}`} />
-    )}
     <span className={`${colorClass} transition-colors duration-150`}>
       {char === '\n' ? <span className="opacity-30">↵{'\n'}</span> : char}
     </span>
@@ -210,7 +203,7 @@ export const TypingArea = ({
         className={
           zenMode
             ? 'relative w-full max-w-4xl z-10 px-4'
-            : 'relative w-full rounded-[2rem] glass-panel glass-refract theme-transition z-10 p-3 md:p-6'
+            : `relative w-full rounded-[2rem] glass-panel glass-refract theme-transition z-10 p-3 md:p-6 ${phase === 'TYPING' ? 'typing-active' : ''}`
         }
         style={{
           '--combo-glow': combo > 60 ? `0 0 120px rgba(${theme.glowPrimary},0.6)`
@@ -229,7 +222,7 @@ export const TypingArea = ({
 
         {/* Ghost race chip — live ahead/behind delta vs your best (or 60 WPM) */}
         {ghost && (
-          <div className="absolute -top-4 right-6 z-50 px-3 py-1.5 rounded-full bg-zinc-950/85 backdrop-blur-md border border-white/10 flex items-center gap-2 pointer-events-none shadow-lg">
+          <div className="absolute -top-4 right-6 z-50 px-3 py-1.5 rounded-full bg-zinc-950/90 border border-white/10 flex items-center gap-2 pointer-events-none shadow-lg">
             <Ghost size={12} className="text-zinc-400" />
             <span className={`text-[10px] font-black tabular-nums tracking-widest ${ghost.deltaS >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {ghost.deltaS >= 0 ? '▲' : '▼'} {Math.abs(ghost.deltaS).toFixed(1)}s {ghost.deltaS >= 0 ? 'AHEAD' : 'BEHIND'}
@@ -299,9 +292,7 @@ export const TypingArea = ({
                 index={index}
                 colorClass={finalColorClass}
                 isActive={isActive}
-                caretClass={theme.drop}
                 particles={particlesByIndex.get(index) ?? EMPTY_PARTICLES}
-                caretBar={false}
               />
             );
           })}
@@ -485,7 +476,7 @@ function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
       style={{
         width: pos.w,
         transform: `translate(${pos.x}px, ${pos.y}px)`,
-        transition: transition || 'transform 150ms cubic-bezier(0.32, 0.72, 0, 1), width 150ms ease-out',
+        transition: transition || 'transform 100ms ease-out, width 100ms ease-out',
         opacity,
         ...restStyle,
       }}

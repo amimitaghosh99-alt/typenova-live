@@ -144,7 +144,7 @@ function TimedHud({ startTime, duration, theme }: { startTime: number; duration:
       <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
         <div className={`h-full ${theme.solid} ${theme.glow}`} style={{ width: `${pct}%`, transition: 'width 200ms linear' }} />
       </div>
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] px-5 py-1.5 rounded-full bg-zinc-950/80 backdrop-blur-md border border-white/10 pointer-events-none">
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] px-5 py-1.5 rounded-full bg-zinc-950/90 border border-white/10 pointer-events-none">
         <span className={`font-black text-lg tabular-nums ${remaining <= 5 ? 'text-red-400' : theme.text}`}>{remaining}s</span>
       </div>
     </>

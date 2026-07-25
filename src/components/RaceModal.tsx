@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { X, Users, Copy, Check, Play, Crown, Flag, LogOut, Swords, Link } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Users, Copy, Check, Play, Crown, Flag, LogOut, Swords, Link, Activity, Target } from 'lucide-react';
 import { generateText, type Theme, type Level, type CodeLanguage } from '@/data/constants';
 import type { RacerState, RaceStatus, RaceConfig } from '@/hooks/useRace';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { useMatchmaking } from '@/hooks/useMatchmaking';
 
 interface RaceModalProps {
   status: RaceStatus;
@@ -14,24 +16,43 @@ interface RaceModalProps {
   roomSize: number;
   lobbyConfig?: RaceConfig;
   updateLobbyConfig?: (config: Partial<RaceConfig>) => void;
-  onCreate: (name: string, size: number) => void;
-  onJoin: (code: string, name: string) => void;
+  onCreate: (name: string, size: number, isRanked?: boolean) => void;
+  onJoin: (code: string, name: string, isRanked?: boolean) => void;
   onStart: (text: string) => void;
   onLeave: () => void;
   onClose: () => void;
   initialCode?: string;
+  elo: number;
+  username: string;
+  supabase: SupabaseClient | null;
 }
 
 export const RaceModal = ({
   status, code, isHost, players, error, selfId, theme, roomSize,
   lobbyConfig, updateLobbyConfig,
-  onCreate, onJoin, onStart, onLeave, onClose, initialCode
+  onCreate, onJoin, onStart, onLeave, onClose, initialCode,
+  elo, username, supabase
 }: RaceModalProps) => {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(username || '');
   const [joinCode, setJoinCode] = useState(initialCode || '');
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedSize, setSelectedSize] = useState(2);
+  const [tab, setTab] = useState<'private' | 'ranked'>('private');
+
+  const mm = useMatchmaking(supabase, selfId, username || name || 'GUEST', elo);
+
+  // Auto-join when a match is found
+  useEffect(() => {
+    if (mm.state.status === 'found' && mm.state.roomCode) {
+      if (mm.state.isHost) {
+        onCreate(username || name || 'GUEST', 2, true);
+      } else {
+        onJoin(mm.state.roomCode, username || name || 'GUEST', true);
+      }
+      mm.clearMatch();
+    }
+  }, [mm.state.status, mm.state.isHost, mm.state.roomCode, onCreate, onJoin, username, name, mm]);
 
   const accent = { color: `rgb(${theme.glowPrimary})` };
   const canAct = name.trim().length > 0;
@@ -63,9 +84,9 @@ export const RaceModal = ({
       <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-10 w-full max-w-lg shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6 border-b border-zinc-800 pb-4">
           <h2 className="text-2xl font-black text-white uppercase tracking-widest flex items-center">
-            <Swords className="mr-3" style={accent} size={24} /> Race Room
+            <Swords className="mr-3" style={accent} size={24} /> {status === 'lobby' || status === 'racing' ? 'Race Room' : 'Multiplayer'}
           </h2>
-          <button onClick={onClose} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={20} /></button>
+          <button onClick={() => { mm.cancel(); onClose(); }} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={20} /></button>
         </div>
 
         {error && (
@@ -76,69 +97,137 @@ export const RaceModal = ({
 
         {/* ── IDLE / JOINING: create or join ─────────────────────── */}
         {(status === 'idle' || status === 'joining') && (
-          <div className="flex flex-col gap-5">
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.stopPropagation()}
-              placeholder="YOUR NAME..."
-              maxLength={12}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-bold uppercase tracking-widest focus:outline-none focus:border-zinc-600 placeholder:text-zinc-600"
-            />
-
-            {/* Room Size Selector */}
-            <div className="flex flex-col gap-2">
-              <span className="text-zinc-500 text-[10px] font-black tracking-widest text-center">ROOM SIZE</span>
-              <div className="flex gap-2 justify-center">
-                {([2, 3, 4] as const).map(size => {
-                  const labels: Record<number, string> = { 2: '2 PLAYERS', 3: '3 PLAYERS', 4: '4 PLAYERS' };
-                  return (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`px-5 py-3 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all ${
-                        selectedSize === size
-                          ? `bg-white/10 ${theme.borderHalf} text-white`
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
-                      }`}
-                    >
-                      {labels[size]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <button
-              onClick={() => canAct && onCreate(name.trim(), selectedSize)}
-              disabled={!canAct || status === 'joining'}
-              className={`w-full p-4 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all flex items-center justify-center gap-3 ${canAct ? `bg-white/10 ${theme.borderHalf} text-white hover:bg-white/15` : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'}`}
-            >
-              <Users size={18} style={canAct ? accent : undefined} /> CREATE ROOM
-            </button>
-            <div className="flex items-center gap-3 text-zinc-600 text-[10px] font-black tracking-widest">
-              <div className="flex-1 h-px bg-zinc-800" /> OR <div className="flex-1 h-px bg-zinc-800" />
-            </div>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={joinCode}
-                onChange={e => setJoinCode(e.target.value.toUpperCase())}
-                onKeyDown={e => e.stopPropagation()}
-                placeholder="CODE"
-                maxLength={5}
-                className="w-32 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white font-black uppercase tracking-[0.3em] text-center focus:outline-none focus:border-zinc-600 placeholder:text-zinc-600 placeholder:tracking-widest"
-              />
-              <button
-                onClick={() => canAct && joinCode.trim().length === 5 && onJoin(joinCode, name.trim())}
-                disabled={!canAct || joinCode.trim().length !== 5 || status === 'joining'}
-                className={`flex-1 p-4 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all ${canAct && joinCode.trim().length === 5 ? 'bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800' : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'}`}
+          <div className="flex flex-col gap-6">
+            
+            {/* Tabs */}
+            <div className="flex bg-zinc-900/50 p-1.5 rounded-full border border-zinc-800">
+              <button 
+                onClick={() => setTab('private')} 
+                className={`flex-1 py-3 rounded-full text-xs font-black tracking-widest uppercase transition-all ${tab === 'private' ? `bg-white/10 ${theme.text} shadow-lg` : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                {status === 'joining' ? 'JOINING...' : 'JOIN ROOM'}
+                Private Room
+              </button>
+              <button 
+                onClick={() => setTab('ranked')} 
+                className={`flex-1 py-3 rounded-full text-xs font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${tab === 'ranked' ? `bg-white/10 ${theme.text} shadow-lg` : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                <Target size={14} /> Ranked 1v1
               </button>
             </div>
-            <p className="text-center text-zinc-600 text-[10px] font-bold tracking-widest">RACE FRIENDS ON THE SAME TEXT, LIVE</p>
+
+            {tab === 'private' && (
+              <div className="flex flex-col gap-5 animate-in fade-in slide-in-from-left-4 duration-500 ease-apple">
+                {!username && (
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    onKeyDown={e => e.stopPropagation()}
+                    placeholder="YOUR NAME..."
+                    maxLength={12}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-bold uppercase tracking-widest focus:outline-none focus:border-zinc-600 placeholder:text-zinc-600"
+                  />
+                )}
+                {/* Room Size Selector */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-zinc-500 text-[10px] font-black tracking-widest text-center">ROOM SIZE</span>
+                  <div className="flex gap-2 justify-center">
+                    {([2, 3, 4] as const).map(size => {
+                      const labels: Record<number, string> = { 2: '2 PLAYERS', 3: '3 PLAYERS', 4: '4 PLAYERS' };
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => setSelectedSize(size)}
+                          className={`px-5 py-3 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all ${
+                            selectedSize === size
+                              ? `bg-white/10 ${theme.borderHalf} text-white`
+                              : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+                          }`}
+                        >
+                          {labels[size]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => canAct && onCreate(name.trim(), selectedSize)}
+                  disabled={!canAct || status === 'joining'}
+                  className={`w-full p-4 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all flex items-center justify-center gap-3 ${canAct ? `bg-white/10 ${theme.borderHalf} text-white hover:bg-white/15` : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'}`}
+                >
+                  <Users size={18} style={canAct ? accent : undefined} /> CREATE ROOM
+                </button>
+                <div className="flex items-center gap-3 text-zinc-600 text-[10px] font-black tracking-widest">
+                  <div className="flex-1 h-px bg-zinc-800" /> OR <div className="flex-1 h-px bg-zinc-800" />
+                </div>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.stopPropagation()}
+                    placeholder="CODE"
+                    maxLength={5}
+                    className="w-32 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white font-black uppercase tracking-[0.3em] text-center focus:outline-none focus:border-zinc-600 placeholder:text-zinc-600 placeholder:tracking-widest"
+                  />
+                  <button
+                    onClick={() => canAct && joinCode.trim().length === 5 && onJoin(joinCode, name.trim())}
+                    disabled={!canAct || joinCode.trim().length !== 5 || status === 'joining'}
+                    className={`flex-1 p-4 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all ${canAct && joinCode.trim().length === 5 ? 'bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800' : 'bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed'}`}
+                  >
+                    {status === 'joining' ? 'JOINING...' : 'JOIN ROOM'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {tab === 'ranked' && (
+              <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-500 ease-apple">
+                <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
+                  
+                  {mm.state.status === 'searching' && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className={`absolute w-[200%] h-[200%] opacity-20 rounded-full animate-ping ${theme.bg}`} style={{ animationDuration: '3s' }} />
+                      <div className={`absolute w-[100%] h-[100%] opacity-30 rounded-full animate-ping ${theme.bg}`} style={{ animationDuration: '3s', animationDelay: '1s' }} />
+                    </div>
+                  )}
+
+                  <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className={`p-4 rounded-full mb-4 ${mm.state.status === 'searching' ? 'bg-white/10 animate-pulse' : 'bg-zinc-800/50'}`}>
+                      <Activity size={32} className={mm.state.status === 'searching' ? theme.text : 'text-zinc-500'} />
+                    </div>
+                    
+                    <h3 className="text-xl font-black text-white uppercase tracking-widest mb-1">
+                      {mm.state.status === 'searching' ? 'Finding Match...' : 'Ranked Queue'}
+                    </h3>
+                    
+                    <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-6">
+                      Current Elo: <span className={theme.text}>{elo}</span>
+                    </p>
+
+                    {mm.state.status === 'idle' && (
+                      <button
+                        onClick={() => username ? mm.search() : alert('You must log in to play Ranked Mode.')}
+                        className={`px-10 py-4 rounded-full font-black uppercase tracking-widest text-sm border transition-all shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:scale-105 active:scale-95 ${theme.bg} ${theme.text} ${theme.borderHalf} hover:brightness-110`}
+                      >
+                        Find Match
+                      </button>
+                    )}
+
+                    {mm.state.status === 'searching' && (
+                      <button
+                        onClick={mm.cancel}
+                        className="px-8 py-3 rounded-full font-black uppercase tracking-widest text-xs border transition-all border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                      >
+                        Cancel Search
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
           </div>
         )}
 

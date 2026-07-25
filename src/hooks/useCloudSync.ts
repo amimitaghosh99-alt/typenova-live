@@ -26,7 +26,7 @@ interface Params {
   onHydrated?: () => void;
 }
 
-interface ProfileRow { username: string; data: Partial<ProgressSnapshot> | null; }
+interface ProfileRow { username: string; elo: number; data: Partial<ProgressSnapshot> | null; }
 
 const PUSH_DEBOUNCE_MS = 1500;
 
@@ -42,6 +42,7 @@ const PUSH_DEBOUNCE_MS = 1500;
  */
 export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
   const [username, setUsername] = useState<string | null>(null);
+  const [elo, setElo] = useState<number>(1000);
   const [status, setStatus] = useState<SyncStatus>('idle');
 
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,7 +66,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
       setStatus('syncing');
       const { data, error } = await sb
         .from('profiles')
-        .select('username, data')
+        .select('username, elo, data')
         .eq('id', uid)
         .maybeSingle();
       if (!active) return;
@@ -74,6 +75,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
       if (!data) { setStatus('needs-username'); return; }
 
       const row = data as unknown as ProfileRow;
+      setElo(row.elo ?? 1000);
       const merged = mergeProgress(readLocalProgress(), row.data);
       writeLocalProgress(merged);
       hydrateRPG({
@@ -134,6 +136,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
 
   return { 
     username: session ? username : null, 
+    elo: session ? elo : 1000,
     status: session ? status : 'idle', 
     saveUsername, 
     pushProgress 

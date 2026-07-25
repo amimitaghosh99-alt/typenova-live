@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Trophy, LogOut } from 'lucide-react';
 import type { RacerState } from '@/hooks/useRace';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
 import { ResultsScreen } from '@/components/ResultsScreen';
 import { WpmGraph } from './graphs/WpmGraph';
@@ -12,11 +13,13 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   selfId: string;
   roomSize: number;
   timelines?: Record<string, Array<{ t: number; wpm: number }>>;
+  isRanked?: boolean;
+  supabase?: SupabaseClient | null;
   onLeaveRace: () => void;
 }
 
 export function RaceResultsScreen({
-  players, selfId, roomSize, timelines, onLeaveRace, theme,
+  players, selfId, roomSize, timelines, isRanked, supabase, onLeaveRace, theme,
   ...resultsProps
 }: RaceResultsScreenProps) {
   const ranking = useMemo(() =>
@@ -39,6 +42,36 @@ export function RaceResultsScreen({
   const maxRaceDurationMs = useMemo(() => {
     return Math.max(...players.map(p => p.finishMs ?? 0), resultsProps.durationMs);
   }, [players, resultsProps.durationMs]);
+
+  const [eloTransfer, setEloTransfer] = useState<{ amount: number; direction: 'up' | 'down' } | null>(null);
+
+  useEffect(() => {
+    if (!isRanked || !allFinished || players.length !== 2) return;
+    const me = players.find(p => p.id === selfId);
+    const op = players.find(p => p.id !== selfId);
+    if (!me || !op) return;
+
+    const amount = 25; // Optmistic standard Elo change
+    
+    // Smooth cinematic delay for Elo transfer
+    const t = setTimeout(() => {
+      setEloTransfer({ amount, direction: iWon ? 'up' : 'down' });
+    }, 1500);
+
+    // If I won, call RPC to solidify it in the database.
+    if (iWon && supabase) {
+      supabase.rpc('resolve_ranked_duel', {
+        p_opponent_id: op.id,
+        p_log: resultsProps.keystrokeLog,
+        p_time_ms: me.finishMs || resultsProps.durationMs,
+        p_opponent_wpm: op.finishWpm || 0
+      }).then(({ error }) => {
+        if (error) console.error("Ranked Match RPC Error:", error);
+      });
+    }
+
+    return () => clearTimeout(t);
+  }, [isRanked, allFinished, iWon, players, selfId, supabase, resultsProps.keystrokeLog, resultsProps.durationMs]);
 
   // ── AWARDS LOGIC ──
   const awards = useMemo(() => {
@@ -143,8 +176,22 @@ export function RaceResultsScreen({
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 py-8 md:py-12">
 
-        {/* ── WINNER BANNER ────────────────────────────────── */}
-        <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700">
+        {/* 🏁 WINNER BANNER 🏁 */}
+        <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative">
+          
+          {/* Fluid Elo Transfer Animation */}
+          {isRanked && allFinished && (
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+              <div className={`transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] ${eloTransfer ? 'opacity-100 -translate-y-8 scale-125' : 'opacity-0 translate-y-8 scale-50'}`}>
+                {eloTransfer && (
+                  <div className={`text-4xl font-black tracking-widest uppercase drop-shadow-2xl ${eloTransfer.direction === 'up' ? 'text-emerald-400' : 'text-red-500'}`}>
+                    {eloTransfer.direction === 'up' ? '+' : '-'}{eloTransfer.amount} ELO
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <Trophy
             size={64}
             className={`mx-auto mb-4 ${iWon ? 'text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.6)]' : 'text-zinc-400'}`}

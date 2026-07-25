@@ -191,6 +191,7 @@ function MainApp() {
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
+  const [isRankedMatch, setIsRankedMatch] = useState(false);
   const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
 
   interface LeaderboardRow {
@@ -1030,7 +1031,9 @@ function MainApp() {
             selfId={race.selfId}
             roomSize={race.roomSize}
             timelines={race.getTimelines()}
-            onLeaveRace={() => { race.leave(); setRaceActive(false); handleReset(); }}
+            isRanked={isRankedMatch}
+            supabase={supabase}
+            onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
           />
           {showReplay && (
             <ReplayModal
@@ -1827,11 +1830,14 @@ function MainApp() {
           theme={theme}
           roomSize={race.roomSize}
           lobbyConfig={race.lobbyConfig}
+          elo={cloud.elo}
+          username={cloud.username || ''}
+          supabase={supabase}
           updateLobbyConfig={race.updateLobbyConfig}
-          onCreate={(name, size) => race.createRoom(name, size)}
-          onJoin={(code, name) => race.joinRoom(code, name)}
+          onCreate={(name, size, isRanked) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size); }}
+          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name); }}
           onStart={(text) => race.startRace(text)}
-          onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); }}
+          onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); setIsRankedMatch(false); }}
           onClose={() => setShowRace(false)}
         />
       )}

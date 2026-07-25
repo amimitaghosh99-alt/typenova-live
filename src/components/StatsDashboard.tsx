@@ -1,7 +1,7 @@
 import { useMemo, memo } from 'react';
 import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle } from 'lucide-react';
 import type { Theme } from '@/data/constants';
-import { readLocalProgress, type QuestsState } from '@/lib/progress';
+import { readLocalProgress } from '@/lib/progress';
 
 export interface HistoryEntry {
   /** ISO date */

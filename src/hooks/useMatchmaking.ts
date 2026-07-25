@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
 export interface MatchmakingState {

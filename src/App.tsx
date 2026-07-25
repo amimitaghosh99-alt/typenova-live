@@ -1034,6 +1034,7 @@ function MainApp() {
             isRanked={isRankedMatch}
             supabase={supabase}
             onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
+            onUpdateElo={(elo) => cloud.setElo(elo)}
           />
           {showReplay && (
             <ReplayModal

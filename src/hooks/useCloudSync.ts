@@ -137,6 +137,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
   return { 
     username: session ? username : null, 
     elo: session ? elo : 1000,
+    setElo,
     status: session ? status : 'idle', 
     saveUsername, 
     pushProgress 

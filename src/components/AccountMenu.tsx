@@ -10,6 +10,7 @@ interface AccountMenuProps {
   displayName: string | null;
   avatarUrl?: string | null;
   status: SyncStatus;
+  elo: number;
   onSignIn: () => void;
   onSignOut: () => void;
 }
@@ -23,7 +24,7 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
 };
 
 export const AccountMenu = ({
-  theme, loggedIn, displayName, avatarUrl, status, onSignIn: _onSignIn, onSignOut,
+  theme, loggedIn, displayName, avatarUrl, status, elo, onSignIn: _onSignIn, onSignOut,
 }: AccountMenuProps) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -72,6 +73,10 @@ export const AccountMenu = ({
       <div
         className={`absolute top-full mt-2 right-0 w-52 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${open ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
       >
+        <div className="p-4 border-b border-zinc-800/70">
+          <p className="text-zinc-500 text-[9px] font-black tracking-widest uppercase mb-1">Ranked Elo</p>
+          <p className={`text-2xl font-black ${theme.text}`}>{elo}</p>
+        </div>
         <div className="p-3 border-b border-zinc-800/70 flex items-center gap-2">
           <SyncIcon size={13} className={`${status === 'error' ? 'text-red-400' : theme.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
           <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">{STATUS_TEXT[status]}</span>

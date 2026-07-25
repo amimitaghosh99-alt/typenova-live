@@ -98,7 +98,10 @@ export const SocialModal = ({ theme, onClose, friendsState }: SocialModalProps) 
                           <div className="absolute bottom-0 right-0 w-3 h-3 bg-zinc-600 rounded-full border-2 border-zinc-900"></div>
                         )}
                       </div>
-                      <span className="text-sm font-bold text-white uppercase tracking-wider">{friend.username}</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-white uppercase tracking-wider">{friend.username}</span>
+                        <span className="text-[10px] font-black text-zinc-500 tracking-widest uppercase">Elo {friend.elo}</span>
+                      </div>
                     </div>
                     <button 
                       onClick={() => friendsState.removeFriend(friend.username, false)}

@@ -25,6 +25,7 @@ export interface RacerState {
   heatmapData?: Record<string, { total: number; errors: number }>;
   errorCount?: number;
   backspaceCount?: number;
+  elo?: number;
 }
 
 export interface RaceConfig {
@@ -95,7 +96,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const rebuildPlayers = useCallback(() => {
     const ch = channelRef.current;
     if (!ch) return;
-    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; lobbyConfig?: RaceConfig; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number; }>>;
+    const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; lobbyConfig?: RaceConfig; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number; elo?: number; }>>;
     
     // --- Memory Leak Cleanup ---
     // Remove data for players who have disconnected
@@ -132,23 +133,24 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
           setRoomSize(meta.roomSize); 
         }
       }
-      const prog = progressRef.current[key];
+      const prg = progressRef.current[key];
       const fin = finishRef.current[key] || (meta.finished ? { wpm: meta.finishWpm, acc: meta.finishAcc, ms: meta.finishMs, rawWpm: meta.rawWpm, consistency: meta.consistency, heatmapData: meta.heatmapData, errorCount: meta.errorCount, backspaceCount: meta.backspaceCount } : undefined);
       next.push({
         id: key,
         name: meta.name,
         isHost: !!meta.isHost,
-        progress: fin ? 100 : (prog?.progress ?? 0),
-        wpm: fin?.wpm ?? prog?.wpm ?? 0,
-        finished: !!fin,
-        finishWpm: fin?.wpm,
-        finishAcc: fin?.acc,
-        finishMs: fin?.ms,
-        rawWpm: fin?.rawWpm,
-        consistency: fin?.consistency,
-        heatmapData: fin?.heatmapData,
-        errorCount: fin?.errorCount,
-        backspaceCount: fin?.backspaceCount,
+        elo: meta.elo,
+        progress: prg?.progress ?? 0,
+        wpm: prg?.wpm ?? 0,
+        finished: !!fin || !!meta.finished,
+        finishWpm: fin?.wpm ?? meta.finishWpm,
+        finishAcc: fin?.acc ?? meta.finishAcc,
+        finishMs: fin?.ms ?? meta.finishMs,
+        rawWpm: fin?.rawWpm ?? meta.rawWpm,
+        consistency: fin?.consistency ?? meta.consistency,
+        heatmapData: fin?.heatmapData ?? meta.heatmapData,
+        errorCount: fin?.errorCount ?? meta.errorCount,
+        backspaceCount: fin?.backspaceCount ?? meta.backspaceCount,
       });
     }
     // host first, then by name — stable lobby order
@@ -157,16 +159,17 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     // --- Host Migration ---
     if (!hostFound && next.length > 0 && statusRef.current === 'lobby') {
       next[0].isHost = true; // alphabetically first player inherits host
-      if (next[0].id === selfIdRef.current) {
-        setIsHost(true);
-        ch.track({ 
-          name: next[0].name, 
-          isHost: true, 
-          text: textRef.current,
-          roomSize: roomSizeRef.current,
-          lobbyConfig: lobbyConfigRef.current
-        });
-      }
+        if (next[0].id === selfIdRef.current) {
+          setIsHost(true);
+          ch.track({ 
+            name: next[0].name, 
+            isHost: true, 
+            text: textRef.current,
+            roomSize: roomSizeRef.current,
+            lobbyConfig: lobbyConfigRef.current,
+            elo: next[0].elo
+          });
+        }
     }
 
     setPlayers(next);
@@ -177,7 +180,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     }
   }, []);
 
-  const join = useCallback((roomCode: string, name: string, asHost: boolean, text?: string, size?: number) => {
+  const join = useCallback((roomCode: string, name: string, asHost: boolean, text?: string, size?: number, elo?: number) => {
     if (!supabase) { setError('No connection to Supabase'); return; }
     teardown();
     setError('');
@@ -218,7 +221,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
 
     ch.subscribe(async (s) => {
       if (s === 'SUBSCRIBED') {
-        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined, lobbyConfig: asHost ? lobbyConfigRef.current : undefined });
+        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined, lobbyConfig: asHost ? lobbyConfigRef.current : undefined, elo });
         // Player cap check for non-hosts
         if (!asHost) {
           setTimeout(() => {
@@ -255,12 +258,12 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
   }, [supabase, teardown, rebuildPlayers, leave]);
 
-  const createRoom = useCallback((name: string, size: number = 2, text?: string) => {
-    join(makeRoomCode(), name, true, text, size);
+  const createRoom = useCallback((name: string, size: number = 2, text?: string, elo?: number) => {
+    join(makeRoomCode(), name, true, text, size, elo);
   }, [join]);
 
-  const joinRoom = useCallback((roomCode: string, name: string) => {
-    join(roomCode.trim().toUpperCase(), name, false);
+  const joinRoom = useCallback((roomCode: string, name: string, elo?: number) => {
+    join(roomCode.trim().toUpperCase(), name, false, undefined, undefined, elo);
   }, [join]);
 
   /** Host only: synchronize the start. Everyone (incl. host, via self:true

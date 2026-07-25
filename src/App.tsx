@@ -1488,6 +1488,7 @@ function MainApp() {
               avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
                 ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
               status={cloud.status}
+              elo={cloud.elo}
               onSignIn={() => { void auth.signInWithGoogle(); }}
               onSignOut={() => { void auth.signOut(); }}
             />
@@ -1834,8 +1835,8 @@ function MainApp() {
           username={cloud.username || ''}
           supabase={supabase}
           updateLobbyConfig={race.updateLobbyConfig}
-          onCreate={(name, size, isRanked) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size); }}
-          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name); }}
+          onCreate={(name, size, isRanked) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo); }}
+          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo); }}
           onStart={(text) => race.startRace(text)}
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); setIsRankedMatch(false); }}
           onClose={() => setShowRace(false)}

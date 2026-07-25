@@ -10,6 +10,7 @@ export interface UseFriendsOptions {
 export interface FriendData {
   username: string;
   isOnline: boolean;
+  elo: number;
 }
 
 export const useFriends = ({ supabase, session, username }: UseFriendsOptions) => {
@@ -57,19 +58,19 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
           const chunk = idArray.slice(i, i + chunkSize);
           const { data: chunkData, error: profErr } = await supabase
             .from('profiles')
-            .select('id, username, last_seen')
+            .select('id, username, last_seen, elo')
             .in('id', chunk);
           if (profErr) throw profErr;
           if (chunkData) profilesList.push(...chunkData);
         }
 
-        const profileMap: Record<string, { username: string, isOnline: boolean }> = {};
+        const profileMap: Record<string, { username: string, isOnline: boolean, elo: number }> = {};
         const now = new Date().getTime();
         profilesList.forEach(p => { 
           const lastSeenTime = p.last_seen ? new Date(p.last_seen).getTime() : 0;
           // Online if last_seen was within the last 2 minutes (120,000 ms)
           const isOnline = (now - lastSeenTime) < 120000;
-          profileMap[p.id] = { username: p.username, isOnline }; 
+          profileMap[p.id] = { username: p.username, isOnline, elo: p.elo ?? 1000 }; 
         });
 
         const acc: FriendData[] = [];

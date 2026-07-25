@@ -74,18 +74,30 @@ begin
   end if;
   
   -- Anti-Cheat Verification: Re-calculate WPM from the keystroke log
-  if p_log is not null and jsonb_typeof(p_log) = 'array' and p_time_ms > 0 then
+  if p_log is not null and jsonb_typeof(p_log) = 'array' and jsonb_array_length(p_log) > 0 and p_time_ms > 0 then
     select 
       count(*) filter (where not (elem->>'isBackspace')::boolean),
       count(*) filter (where not (elem->>'isBackspace')::boolean and (elem->>'isError')::boolean)
     into v_chars, v_errors
     from jsonb_array_elements(p_log) as elem;
     
-    v_calc_wpm := round(((v_chars - v_errors) / 5.0) / (p_time_ms / 60000.0));
-    
-    if abs(v_calc_wpm - p_wpm) > 5 then
-      raise exception 'Anti-cheat trigger: Calculated WPM (%) differs from submitted WPM (%)', v_calc_wpm, p_wpm;
-    end if;
+    -- Extract the actual elapsed time from the keystroke timestamps
+    declare
+      v_first_time numeric := (p_log->0->>'time')::numeric;
+      v_last_time numeric := (p_log->(jsonb_array_length(p_log) - 1)->>'time')::numeric;
+      v_log_duration numeric := v_last_time - v_first_time;
+    begin
+      -- If the user claims a time significantly shorter than their actual typing duration, block it
+      if p_time_ms < v_log_duration - 5000 then
+         raise exception 'Anti-cheat trigger: Spoofed time. Claimed %, actual %', p_time_ms, v_log_duration;
+      end if;
+
+      v_calc_wpm := round(((v_chars - v_errors) / 5.0) / (greatest(p_time_ms, v_log_duration) / 60000.0));
+      
+      if abs(v_calc_wpm - p_wpm) > 5 then
+        raise exception 'Anti-cheat trigger: Calculated WPM (%) differs from submitted WPM (%)', v_calc_wpm, p_wpm;
+      end if;
+    end;
   else
     raise exception 'invalid payload: log and time required';
   end if;

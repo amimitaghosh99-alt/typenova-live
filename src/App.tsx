@@ -654,7 +654,7 @@ function MainApp() {
         supabase.rpc('submit_score', {
           p_wpm: wpmVal,
           p_accuracy: accVal,
-          p_time_ms: finishDurationMs,
+          p_time_ms: finishDurationMs + typing.timePenalty,
           p_log: typing.keystrokeLog.current,
           p_daily: dailyActive,
           p_day: todayKey(),

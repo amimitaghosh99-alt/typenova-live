@@ -96,10 +96,28 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     const ch = channelRef.current;
     if (!ch) return;
     const state = ch.presenceState() as Record<string, Array<{ name?: string; isHost?: boolean; text?: string; roomSize?: number; lobbyConfig?: RaceConfig; finished?: boolean; finishWpm?: number; finishAcc?: number; finishMs?: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number; }>>;
+    
+    // --- Memory Leak Cleanup ---
+    // Remove data for players who have disconnected
+    if (statusRef.current === 'lobby' || statusRef.current === 'racing') {
+      const activeIds = new Set(Object.keys(state));
+      [progressRef, finishRef, timelinesRef].forEach(ref => {
+        Object.keys(ref.current).forEach(id => {
+          if (!activeIds.has(id)) {
+            delete ref.current[id];
+          }
+        });
+      });
+    }
+
     const next: RacerState[] = [];
+    let hostFound = false;
+    
     for (const [key, metas] of Object.entries(state)) {
       const meta = metas[0];
       if (!meta?.name) continue;
+      
+      if (meta.isHost) hostFound = true;
       
       // Only update local lobby/room state from presence if it's coming from someone else (the host)
       // If we are the host, our local state is the source of truth; overwriting it with delayed presence state causes rubberbanding.
@@ -134,7 +152,23 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       });
     }
     // host first, then by name — stable lobby order
-    next.sort((a, b) => Number(b.isHost) - Number(a.isHost) || a.name.localeCompare(b.name));
+    next.sort((a, b) => Number(b.isHost) - Number(a.isHost) || a.id.localeCompare(b.id));
+
+    // --- Host Migration ---
+    if (!hostFound && next.length > 0 && statusRef.current === 'lobby') {
+      next[0].isHost = true; // alphabetically first player inherits host
+      if (next[0].id === selfIdRef.current) {
+        setIsHost(true);
+        ch.track({ 
+          name: next[0].name, 
+          isHost: true, 
+          text: textRef.current,
+          roomSize: roomSizeRef.current,
+          lobbyConfig: lobbyConfigRef.current
+        });
+      }
+    }
+
     setPlayers(next);
 
     // race is over when everyone still present has finished
@@ -219,7 +253,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
         setStatus('idle');
       }
     });
-  }, [supabase, teardown, rebuildPlayers, leave, selfId]);
+  }, [supabase, teardown, rebuildPlayers, leave]);
 
   const createRoom = useCallback((name: string, size: number = 2, text?: string) => {
     join(makeRoomCode(), name, true, text, size);
@@ -268,7 +302,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       if (currentMeta) {
         await channelRef.current?.track({ ...currentMeta, finished: true, finishWpm: wpm, finishAcc: acc, finishMs: ms, rawWpm, consistency, heatmapData, errorCount, backspaceCount });
       }
-    } catch (e) {
+    } catch {
       // ignore track errors
     }
   }, []);

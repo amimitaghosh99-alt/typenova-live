@@ -507,7 +507,7 @@ function useGhostRace(active: boolean, startTime: number | null, targetTextLengt
   useEffect(() => { inputLenRef.current = inputLength; });
 
   useEffect(() => {
-    if (!active || !startTime) { setGhost(null); return; }
+    if (!active || !startTime) { setTimeout(() => setGhost(null), 0); return; }
     const hasPb = !!pbSamples && pbSamples.length > 1;
     const interval = setInterval(() => {
       const elapsedMs = Date.now() - startTime;

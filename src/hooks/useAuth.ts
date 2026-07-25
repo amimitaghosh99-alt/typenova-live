@@ -5,11 +5,11 @@ import { supabase } from '@/lib/supabase';
 /** Session state + Google sign-in/out. Pure auth — no progress logic. */
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [authReady, setAuthReady] = useState(!supabase);
 
   useEffect(() => {
     const sb = supabase;
-    if (!sb) { setAuthReady(true); return; }
+    if (!sb) return;
 
     let active = true;
     sb.auth.getSession().then(({ data }) => {

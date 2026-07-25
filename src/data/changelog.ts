@@ -10,6 +10,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.6',
+    date: 'July 25, 2026',
+    title: 'Security & Anti-Cheat Update',
+    changes: [
+      { type: 'feature', description: 'Implemented a server-side Anti-Cheat engine in Supabase to mathematically verify all submitted WPM and Accuracy scores.' },
+      { type: 'fix', description: 'Blocked a major API exploit where users could use DevTools to forge fake god-tier scores on the global leaderboard.' },
+      { type: 'perf', description: 'Updated auto-save payload to stream raw keystroke logs directly to the secure Postgres backend for processing.' },
+    ],
+  },
+  {
+    version: 'v1.2.5',
+    date: 'July 25, 2026',
+    title: 'God-Tier Performance Optimization',
+    changes: [
+      { type: 'perf', description: 'Rewrote the typing engine’s internal timeline calculator into a single-pass O(N) algorithm.' },
+      { type: 'fix', description: 'Eliminated severe CPU spikes and Garbage Collection thrashing that occurred every 500ms during long typing tests.' },
+    ],
+  },
+  {
+    version: 'v1.2.4',
+    date: 'July 25, 2026',
+    title: 'Multiplayer Resilience & State Fixes',
+    changes: [
+      { type: 'feature', description: 'Added seamless Host Migration to multiplayer lobbies. If the host disconnects, the lobby automatically promotes a new host to prevent freezing.' },
+      { type: 'fix', description: 'Patched a massive stale-closure ghost-state bug in the core keyboard listener by implementing a Latest Ref pattern.' },
+      { type: 'perf', description: 'Squashed a trailing memory leak in the multiplayer engine by actively wiping disconnected ghost-data from memory.' },
+    ],
+  },
+  {
     version: 'v1.2.3',
     date: 'July 25, 2026',
     title: 'Social Hub & Realtime Friends',

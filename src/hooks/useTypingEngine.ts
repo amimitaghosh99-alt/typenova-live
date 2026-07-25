@@ -72,12 +72,28 @@ export const useTypingEngine = () => {
     const intervals = 10;
     const step = totalTimeMs / intervals;
     const timeline: TimelinePoint[] = [];
+    
+    let entryIndex = 0;
+    let runningChars = 0;
+    let runningRawChars = 0;
+
     for (let i = 1; i <= intervals; i++) {
       const threshold = startTs + step * i;
-      const chars = entries.filter(k => k.time <= threshold && !k.isError && !k.isBackspace).length;
-      const rawChars = entries.filter(k => k.time <= threshold && !k.isBackspace).length;
-      const calcWpm = Math.round((chars / 5) / ((step * i) / 60000));
-      const calcRaw = Math.round((rawChars / 5) / ((step * i) / 60000));
+      
+      // Fast single-pass advancement up to the current interval threshold
+      while (entryIndex < entries.length && entries[entryIndex].time <= threshold) {
+        const k = entries[entryIndex];
+        if (!k.isBackspace) {
+          runningRawChars++;
+          if (!k.isError) {
+            runningChars++;
+          }
+        }
+        entryIndex++;
+      }
+
+      const calcWpm = Math.round((runningChars / 5) / ((step * i) / 60000));
+      const calcRaw = Math.round((runningRawChars / 5) / ((step * i) / 60000));
       timeline.push({ 
         t: step * i, 
         wpm: isNaN(calcWpm) ? 0 : calcWpm,
@@ -142,13 +158,15 @@ export const useTypingEngine = () => {
   // Countdown timer effect
   useEffect(() => {
     if (phase !== 'COUNTDOWN') return;
-    if (countdownTimer > 0) {
-      const timer = setTimeout(() => setCountdownTimer(prev => prev - 1), 1000);
+      const timer = setTimeout(() => {
+        if (countdownTimer === 1) {
+          setPhase('TYPING');
+          setStartTime(Date.now());
+        } else {
+          setCountdownTimer(prev => prev - 1);
+        }
+      }, 1000);
       return () => clearTimeout(timer);
-    } else {
-      setPhase('TYPING');
-      setStartTime(Date.now());
-    }
   }, [phase, countdownTimer]);
 
   // Live stats update during typing.

@@ -3,7 +3,7 @@ import { useCallback, useRef } from 'react';
 let globalAudioCtx: AudioContext | null = null;
 
 const getAudioContext = (): AudioContext | null => {
-  const AC = window.AudioContext || (window as any).webkitAudioContext;
+  const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
   if (!globalAudioCtx) globalAudioCtx = new AC();
   if (globalAudioCtx.state === 'suspended') globalAudioCtx.resume();

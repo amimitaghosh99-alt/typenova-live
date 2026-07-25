@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { SupabaseClient, Session } from '@supabase/supabase-js';
 
 export interface UseFriendsOptions {
@@ -7,21 +7,30 @@ export interface UseFriendsOptions {
   username: string | null;
 }
 
+export interface FriendData {
+  username: string;
+  isOnline: boolean;
+}
+
 export const useFriends = ({ supabase, session, username }: UseFriendsOptions) => {
-  const [friends, setFriends] = useState<string[]>([]);
+  const [friends, setFriends] = useState<FriendData[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<string[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchCount = useRef(0);
 
-  const fetchFriends = useCallback(async () => {
+  const fetchFriends = useCallback(async (silent = false) => {
+    fetchCount.current += 1;
+    const currentFetch = fetchCount.current;
+
     if (!supabase || !session?.user.id) {
       setFriends([]);
       setIncomingRequests([]);
       setOutgoingRequests([]);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const userId = session.user.id;
@@ -42,51 +51,68 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
         });
 
         const idArray = Array.from(idSet);
-        const { data: profiles, error: profErr } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .in('id', idArray);
-          
-        if (profErr) throw profErr;
+        const profilesList = [];
+        const chunkSize = 40;
+        for (let i = 0; i < idArray.length; i += chunkSize) {
+          const chunk = idArray.slice(i, i + chunkSize);
+          const { data: chunkData, error: profErr } = await supabase
+            .from('profiles')
+            .select('id, username, last_seen')
+            .in('id', chunk);
+          if (profErr) throw profErr;
+          if (chunkData) profilesList.push(...chunkData);
+        }
 
-        const profileMap: Record<string, string> = {};
-        profiles?.forEach(p => { profileMap[p.id] = p.username; });
+        const profileMap: Record<string, { username: string, isOnline: boolean }> = {};
+        const now = new Date().getTime();
+        profilesList.forEach(p => { 
+          const lastSeenTime = p.last_seen ? new Date(p.last_seen).getTime() : 0;
+          // Online if last_seen was within the last 2 minutes (120,000 ms)
+          const isOnline = (now - lastSeenTime) < 120000;
+          profileMap[p.id] = { username: p.username, isOnline }; 
+        });
 
-        const acc: string[] = [];
+        const acc: FriendData[] = [];
         const inc: string[] = [];
         const out: string[] = [];
 
         data.forEach(row => {
           const isSender = row.user_id === userId;
           const otherId = isSender ? row.friend_id : row.user_id;
-          const otherUsername = profileMap[otherId];
+          const otherProfile = profileMap[otherId];
           
-          if (!otherUsername) return;
+          if (!otherProfile) return;
 
           if (row.status === 'accepted') {
-            if (!acc.includes(otherUsername)) acc.push(otherUsername);
+            if (!acc.some(f => f.username === otherProfile.username)) {
+              acc.push(otherProfile);
+            }
           } else if (row.status === 'pending') {
             if (isSender) {
-              out.push(otherUsername);
+              out.push(otherProfile.username);
             } else {
-              inc.push(otherUsername);
+              inc.push(otherProfile.username);
             }
           }
         });
+
+        if (fetchCount.current !== currentFetch) return;
 
         setFriends(acc);
         setIncomingRequests(inc);
         setOutgoingRequests(out);
       } else {
+        if (fetchCount.current !== currentFetch) return;
         setFriends([]);
         setIncomingRequests([]);
         setOutgoingRequests([]);
       }
     } catch (err: unknown) {
+      if (fetchCount.current !== currentFetch) return;
       setError((err as Error).message || 'Failed to fetch friends');
       console.error('Friends fetch error:', err);
     } finally {
-      setLoading(false);
+      if (fetchCount.current === currentFetch && !silent) setLoading(false);
     }
   }, [supabase, session]);
 
@@ -94,7 +120,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
     if (!supabase || !session?.user.id || !username) return false;
     
     const lowerTarget = targetUsername.toLowerCase();
-    if (friends.some(f => f.toLowerCase() === lowerTarget)) {
+    if (friends.some(f => f.username.toLowerCase() === lowerTarget)) {
       setError('ALREADY FRIENDS WITH THIS USER.');
       setTimeout(() => setError(null), 3000);
       return false;
@@ -171,7 +197,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
       if (err) throw err;
       
       setIncomingRequests(prev => prev.filter(u => u.toLowerCase() !== senderUsername.toLowerCase()));
-      setFriends(prev => [...prev, senderUsername]);
+      // Optimistic update removed; the postgres_changes listener will instantly call fetchFriends and populate this correctly
       return true;
     } catch (err: unknown) {
       setError((err as Error).message || 'Failed to accept request');
@@ -218,7 +244,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
           .eq('friend_id', session.user.id);
       }
 
-      setFriends(prev => prev.filter(u => u.toLowerCase() !== targetUsername.toLowerCase()));
+      setFriends(prev => prev.filter(u => u.username.toLowerCase() !== targetUsername.toLowerCase()));
       setIncomingRequests(prev => prev.filter(u => u.toLowerCase() !== targetUsername.toLowerCase()));
       setOutgoingRequests(prev => prev.filter(u => u.toLowerCase() !== targetUsername.toLowerCase()));
       return true;
@@ -231,9 +257,13 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
   }, [supabase, session]);
 
   useEffect(() => {
-    fetchFriends();
+    setTimeout(() => fetchFriends(), 0);
 
     if (!supabase || !session?.user.id) return;
+
+    const intervalId = setInterval(() => {
+      fetchFriends(true);
+    }, 60 * 1000);
 
     const userId = session.user.id;
     const channel = supabase
@@ -242,19 +272,20 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
         'postgres_changes',
         { event: '*', schema: 'public', table: 'friendships', filter: `user_id=eq.${userId}` },
         () => {
-          fetchFriends();
+          fetchFriends(true);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'friendships', filter: `friend_id=eq.${userId}` },
         () => {
-          fetchFriends();
+          fetchFriends(true);
         }
       )
       .subscribe();
 
     return () => {
+      clearInterval(intervalId);
       supabase.removeChannel(channel);
     };
   }, [supabase, session, fetchFriends]);

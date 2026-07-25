@@ -49,6 +49,8 @@ revoke insert, update, delete on public.daily_scores from anon, authenticated;
 create or replace function public.submit_score(
   p_wpm      int,
   p_accuracy int,
+  p_time_ms  int,
+  p_log      jsonb,
   p_daily    boolean default false,
   p_day      text default null
 )
@@ -58,14 +60,34 @@ security definer
 set search_path = public
 as $$
 declare
-  v_uid  uuid := auth.uid();
-  v_name text;
+  v_uid      uuid := auth.uid();
+  v_name     text;
+  v_chars    int := 0;
+  v_errors   int := 0;
+  v_calc_wpm int := 0;
 begin
   if v_uid is null then
     raise exception 'not authenticated';
   end if;
   if p_wpm <= 0 or p_wpm > 250 or p_accuracy < 0 or p_accuracy > 100 then
-    raise exception 'invalid score';
+    raise exception 'invalid score limit';
+  end if;
+  
+  -- Anti-Cheat Verification: Re-calculate WPM from the keystroke log
+  if p_log is not null and jsonb_typeof(p_log) = 'array' and p_time_ms > 0 then
+    select 
+      count(*) filter (where not (elem->>'isBackspace')::boolean),
+      count(*) filter (where not (elem->>'isBackspace')::boolean and (elem->>'isError')::boolean)
+    into v_chars, v_errors
+    from jsonb_array_elements(p_log) as elem;
+    
+    v_calc_wpm := round(((v_chars - v_errors) / 5.0) / (p_time_ms / 60000.0));
+    
+    if abs(v_calc_wpm - p_wpm) > 5 then
+      raise exception 'Anti-cheat trigger: Calculated WPM (%) differs from submitted WPM (%)', v_calc_wpm, p_wpm;
+    end if;
+  else
+    raise exception 'invalid payload: log and time required';
   end if;
 
   select username into v_name from public.profiles where id = v_uid;
@@ -93,5 +115,5 @@ begin
 end;
 $$;
 
-revoke all on function public.submit_score(int, int, boolean, text) from public, anon;
-grant execute on function public.submit_score(int, int, boolean, text) to authenticated;
+revoke all on function public.submit_score(int, int, int, jsonb, boolean, text) from public, anon;
+grant execute on function public.submit_score(int, int, int, jsonb, boolean, text) to authenticated;

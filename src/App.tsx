@@ -192,12 +192,15 @@ function MainApp() {
   const [raceActive, setRaceActive] = useState(false);
   const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [dailyBoard, setDailyBoard] = useState<any[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [friendsBoard, setFriendsBoard] = useState<any[]>([]);
+  interface LeaderboardRow {
+    username: string;
+    wpm: number;
+    accuracy: number;
+  }
+  
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [dailyBoard, setDailyBoard] = useState<LeaderboardRow[]>([]);
+  const [friendsBoard, setFriendsBoard] = useState<LeaderboardRow[]>([]);
   const [boardTab, setBoardTab] = useState<'alltime' | 'today' | 'friends'>('alltime');
   const [saveStatus, setSaveStatus] = useState('');
   const [autoSave] = useState(() => {
@@ -227,6 +230,27 @@ function MainApp() {
   });
   const isLoggedIn = !!auth.session;
   const friendsState = useFriends({ supabase, session: auth.session, username: cloud.username });
+
+  // ─── Online Heartbeat ────────────────────────────────────────────
+  useEffect(() => {
+    if (!supabase || !auth.session?.user.id) return;
+    
+    const pingPresence = () => {
+      supabase?.from('profiles')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('id', auth.session!.user.id)
+        .then(({ error }) => {
+          if (error) console.error("Heartbeat error:", error);
+        });
+    };
+
+    // Ping immediately when the session becomes available
+    pingPresence();
+
+    // Then ping every 60 seconds
+    const intervalId = setInterval(pingPresence, 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, [auth.session, supabase]);
 
   // Handle URL share links
   useEffect(() => {
@@ -285,6 +309,8 @@ function MainApp() {
     showStatsDashboard,
     showReplay,
     showRace,
+    showSocialModal,
+    showChangelog,
     raceActive,
     theme,
     tetrisEffect,
@@ -352,10 +378,18 @@ function MainApp() {
 
   const fetchFriendsBoard = useCallback(async () => {
     if (!supabase || !cloud.username) return;
-    const usernames = [cloud.username, ...friendsState.friends];
-    const { data, error } = await supabase.from('leaderboard').select('username, wpm, accuracy').in('username', usernames);
+    const usernames = [cloud.username, ...friendsState.friends.map(f => f.username)];
+    const data = [];
+    let fetchError = null;
+    const chunkSize = 40;
+    for (let i = 0; i < usernames.length; i += chunkSize) {
+      const chunk = usernames.slice(i, i + chunkSize);
+      const { data: chunkData, error } = await supabase.from('leaderboard').select('username, wpm, accuracy').in('username', chunk);
+      if (error) { fetchError = error; break; }
+      if (chunkData) data.push(...chunkData);
+    }
     
-    if (!error && data) {
+    if (!fetchError && data) {
       const sortedData = [...data].sort((a, b) => b.wpm - a.wpm);
       const existing = new Map();
       for (const row of sortedData) {
@@ -388,8 +422,7 @@ function MainApp() {
   // this also captures history/PB/daily writes that don't have React deps.
   useEffect(() => {
     if (cloud.status === 'synced') cloud.pushProgress();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rpg.xp, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status]);
+  }, [rpg.xp, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status, cloud.pushProgress]);
 
   // Prefill the first-login "choose a name" prompt from the Google profile.
   useEffect(() => {
@@ -617,10 +650,12 @@ function MainApp() {
       const wpmVal = Math.round(typing.wpm);
       const accVal = Math.round(typing.accuracy);
       if (wpmVal > 0 && wpmVal <= 300 && accVal >= 0 && accVal <= 100) {
-        setSaveStatus('Auto-saving...');
+        setTimeout(() => setSaveStatus('Auto-saving...'), 0);
         supabase.rpc('submit_score', {
           p_wpm: wpmVal,
           p_accuracy: accVal,
+          p_time_ms: finishDurationMs,
+          p_log: typing.keystrokeLog.current,
           p_daily: dailyActive,
           p_day: todayKey(),
         }).then(({ error }) => {
@@ -643,14 +678,20 @@ function MainApp() {
     }
   }, [typing.phase]);
 
-  // ─── Finish Test Wrapper ─────────────────────────────────────────
+  // ─── LATEST REF PATTERN ──────────────────────────────────────────
+  const actionsRef = useRef({ typing, audio, rpg, handleReset, exitMicroDrill, particles });
+  useEffect(() => {
+    actionsRef.current = { typing, audio, rpg, handleReset, exitMicroDrill, particles };
+  });
+
   // ─── KEYBOARD HANDLER (THE CORE) ─────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const s = stateRef.current;
+      const { typing, audio, rpg, handleReset, exitMicroDrill, particles } = actionsRef.current;
 
       // Modal escape handling
-      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showStatsDashboard || s.showReplay || s.showRace) {
+      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showChangelog) {
         if (e.key === 'Escape') {
           setShowTrophyRoom(false);
           setShowGodMode(false);
@@ -659,6 +700,8 @@ function MainApp() {
           setShowStatsDashboard(false);
           setShowReplay(false);
           setShowRace(false);
+          setShowSocialModal(false);
+          setShowChangelog(false);
         }
         return;
       }
@@ -720,7 +763,7 @@ function MainApp() {
       // ─── COUNTDOWN / TYPING / FINISHED ───
       if (s.phase === 'COUNTDOWN' || s.phase === 'TYPING' || s.phase === 'FINISHED') {
         if (e.key === 'Escape') {
-          if (microDrillActive) { exitMicroDrill(); }
+          if (s.microDrillActive) { exitMicroDrill(); }
           else { handleReset(); }
           return;
         }

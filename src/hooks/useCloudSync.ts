@@ -53,8 +53,6 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
   useEffect(() => {
     const sb = supabase;
     if (!sb || !session) {
-      setUsername(null);
-      setStatus('idle');
       syncedForUser.current = null;
       return;
     }
@@ -134,5 +132,10 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     }, PUSH_DEBOUNCE_MS);
   }, [session]);
 
-  return { username, status, saveUsername, pushProgress };
+  return { 
+    username: session ? username : null, 
+    status: session ? status : 'idle', 
+    saveUsername, 
+    pushProgress 
+  };
 }

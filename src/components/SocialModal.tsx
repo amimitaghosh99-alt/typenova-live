@@ -84,20 +84,24 @@ export const SocialModal = ({ theme, onClose, friendsState }: SocialModalProps) 
                   </button>
                 </div>
               ) : (
-                friendsState.friends.map((u: string) => (
-                  <div key={u} className="group flex justify-between items-center bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800/40 hover:border-zinc-700 p-4 rounded-2xl transition-all">
+                friendsState.friends.map((friend) => (
+                  <div key={friend.username} className="group flex justify-between items-center bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800/40 hover:border-zinc-700 p-4 rounded-2xl transition-all">
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 font-bold uppercase">
-                          {u.substring(0, 1)}
+                          {friend.username.substring(0, 1)}
                         </div>
-                        {/* Fake Online Indicator */}
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 rounded-full border-2 border-zinc-900 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></div>
+                        {/* Real Online Indicator */}
+                        {friend.isOnline ? (
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 rounded-full border-2 border-zinc-900 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></div>
+                        ) : (
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-zinc-600 rounded-full border-2 border-zinc-900"></div>
+                        )}
                       </div>
-                      <span className="text-sm font-bold text-white uppercase tracking-wider">{u}</span>
+                      <span className="text-sm font-bold text-white uppercase tracking-wider">{friend.username}</span>
                     </div>
                     <button 
-                      onClick={() => friendsState.removeFriend(u, false)}
+                      onClick={() => friendsState.removeFriend(friend.username, false)}
                       disabled={friendsState.loading}
                       className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded-xl transition-all disabled:opacity-50"
                       title="Remove Friend"

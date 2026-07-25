@@ -1602,7 +1602,7 @@ function MainApp() {
                 themeText={theme.text}
                 timelinePoints={typing.timelinePoints}
                 keystrokeLogLength={typing.keystrokeLog.current.length}
-                isIdle={typing.phase === 'IDLE'}
+                isIdle={typing.phase === 'CONFIGURING'}
               />
             )}
 

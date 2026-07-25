@@ -1,6 +1,7 @@
 import { useMemo, memo } from 'react';
-import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp } from 'lucide-react';
+import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle } from 'lucide-react';
 import type { Theme } from '@/data/constants';
+import { readLocalProgress, type QuestsState } from '@/lib/progress';
 
 export interface HistoryEntry {
   /** ISO date */
@@ -74,6 +75,7 @@ interface StatsDashboardProps {
 export const StatsDashboard = memo(({ theme, testsCompleted, onClose }: StatsDashboardProps) => {
   const history = useMemo(() => loadHistory(), []);
   const pbs = useMemo(() => loadPersonalBests(), []);
+  const quests = useMemo(() => readLocalProgress().quests?.active || [], []);
 
   const recent = history.slice(-60);
   const wpmSeries = recent.map(h => h.wpm);
@@ -115,6 +117,54 @@ export const StatsDashboard = memo(({ theme, testsCompleted, onClose }: StatsDas
             </div>
           ))}
         </div>
+
+        {/* Daily Bounties */}
+        {quests.length > 0 && (
+          <>
+            <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-3 flex items-center gap-2">
+              <Target size={16} /> Daily Bounties
+            </h3>
+            <div className="grid md:grid-cols-3 gap-4 mb-10">
+              {quests.map(q => {
+                const isDone = q.completed;
+                const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
+                
+                let title = '';
+                if (q.type === 'races_won') title = `Win ${q.target} Races`;
+                if (q.type === 'words_typed') title = `Type ${q.target} Words`;
+                if (q.type === 'wpm_achieved') title = `Hit ${q.target} WPM`;
+                if (q.type === 'acc_achieved') title = `Hit ${q.target}% Acc`;
+
+                return (
+                  <div key={q.id} className={`relative overflow-hidden border rounded-3xl p-5 transition-all duration-500 ${isDone ? 'bg-zinc-900/80 border-emerald-500/30' : 'bg-zinc-900/40 border-zinc-800'}`}>
+                    {/* Background Progress Fill */}
+                    {!isDone && (
+                      <div className="absolute top-0 left-0 h-full bg-zinc-800/20 transition-all duration-1000 ease-out" style={{ width: `${pct}%` }} />
+                    )}
+                    
+                    <div className="relative z-10 flex flex-col h-full justify-between">
+                      <div className="flex justify-between items-start mb-4">
+                        <span className={`text-xs font-black uppercase tracking-widest ${isDone ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                          {title}
+                        </span>
+                        {isDone && <CheckCircle size={16} className="text-emerald-500 animate-pulse" />}
+                      </div>
+                      
+                      <div className="flex justify-between items-end">
+                        <span className="text-2xl font-black text-white">
+                          {isDone ? 'DONE' : `${q.progress}/${q.target}`}
+                        </span>
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${isDone ? 'text-emerald-500' : theme.text}`}>
+                          +{q.xpReward} XP
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* WPM trend */}
         <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-3">WPM Trend <span className="text-zinc-700">— last {recent.length} tests</span></h3>

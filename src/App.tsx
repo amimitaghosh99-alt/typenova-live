@@ -24,6 +24,7 @@ import { useTypingEngine } from '@/hooks/useTypingEngine';
 import type { Keystroke } from '@/hooks/useTypingEngine';
 import { useRPGSystem } from '@/hooks/useRPGSystem';
 import { useParticles } from '@/hooks/useParticles';
+import { useQuests } from '@/hooks/useQuests';
 
 import { TypingArea } from '@/components/TypingArea';
 import type { PaceSample } from '@/components/TypingArea';
@@ -216,6 +217,7 @@ function MainApp() {
   const audio = useAudioEngine();
   const typing = useTypingEngine();
   const rpg = useRPGSystem();
+  const quests = useQuests((gained) => rpg.setXp((prev: number) => prev + gained));
   const particles = useParticles();
   useGlassPointer();
 
@@ -870,6 +872,13 @@ function MainApp() {
     const typedWords = statsInput.trim() ? statsInput.trim().split(/\s+/).length : 0;
     const effWordCount = isTimed ? typedWords : wordCount;
     const effLength = isTimed ? statsInput.length : typing.targetText.length;
+
+    // Quest Progression
+    if (stats.currentWpm > 0) {
+      quests.progressQuest('words_typed', stats.currentWpm * (timeMs / 60000));
+      quests.progressQuest('wpm_achieved', stats.currentWpm);
+      quests.progressQuest('acc_achieved', stats.currentAcc);
+    }
 
     const result = rpg.processRPG(
       stats.currentWpm, stats.currentAcc, typing.maxCombo,

@@ -12,6 +12,7 @@ const K = {
   achievements: 'typezen_achievements',
   heatmap: 'typezen_heatmap',
   daily: 'typezen_daily',
+  quests: 'typezen_quests',
 };
 const PB_PREFIX = 'typezen_pb:';
 
@@ -19,12 +20,27 @@ export interface DailyState { lastDay: string; streak: number; }
 export interface HeatKey { total: number; errors: number; }
 export interface PbEntry { wpm: number; samples: Array<{ t: number; chars: number }>; }
 
+export interface Quest {
+  id: string;
+  type: 'races_won' | 'words_typed' | 'wpm_achieved' | 'acc_achieved';
+  target: number;
+  progress: number;
+  completed: boolean;
+  xpReward: number;
+}
+
+export interface QuestsState {
+  lastReset: string; // YYYY-MM-DD
+  active: Quest[];
+}
+
 export interface ProgressSnapshot {
   xp: number;
   tests: number;
   achievements: string[];
   heatmap: Record<string, HeatKey>;
   daily: DailyState | null;
+  quests: QuestsState | null;
   history: HistoryEntry[];
   /** keyed by the suffix after `typezen_pb:` (e.g. "NOVICE:w25") */
   pbs: Record<string, PbEntry>;
@@ -52,6 +68,7 @@ export function readLocalProgress(): ProgressSnapshot {
     achievements: safeParse<string[]>(localStorage.getItem(K.achievements), []),
     heatmap: safeParse<Record<string, HeatKey>>(localStorage.getItem(K.heatmap), {}),
     daily: safeParse<DailyState | null>(localStorage.getItem(K.daily), null),
+    quests: safeParse<QuestsState | null>(localStorage.getItem(K.quests), null),
     history: safeParse<HistoryEntry[]>(localStorage.getItem(HISTORY_KEY), []),
     pbs,
   };
@@ -64,6 +81,7 @@ export function writeLocalProgress(s: ProgressSnapshot): void {
     localStorage.setItem(K.achievements, JSON.stringify(s.achievements));
     localStorage.setItem(K.heatmap, JSON.stringify(s.heatmap));
     if (s.daily) localStorage.setItem(K.daily, JSON.stringify(s.daily));
+    if (s.quests) localStorage.setItem(K.quests, JSON.stringify(s.quests));
     localStorage.setItem(HISTORY_KEY, JSON.stringify(s.history.slice(-HISTORY_CAP)));
     for (const [key, pb] of Object.entries(s.pbs)) {
       localStorage.setItem(PB_PREFIX + key, JSON.stringify(pb));
@@ -78,6 +96,7 @@ function normalize(p: Partial<ProgressSnapshot> | null | undefined): ProgressSna
     achievements: Array.isArray(p?.achievements) ? p!.achievements : [],
     heatmap: (p?.heatmap && typeof p.heatmap === 'object') ? p.heatmap : {},
     daily: p?.daily ?? null,
+    quests: p?.quests ?? null,
     history: Array.isArray(p?.history) ? p!.history : [],
     pbs: (p?.pbs && typeof p.pbs === 'object') ? p.pbs : {},
   };
@@ -90,6 +109,17 @@ function pickDaily(a: DailyState | null, b: DailyState | null): DailyState | nul
   if (a.lastDay > b.lastDay) return a;
   if (b.lastDay > a.lastDay) return b;
   return a.streak >= b.streak ? a : b;
+}
+
+function pickQuests(a: QuestsState | null, b: QuestsState | null): QuestsState | null {
+  if (!a) return b;
+  if (!b) return a;
+  if (a.lastReset > b.lastReset) return a;
+  if (b.lastReset > a.lastReset) return b;
+  // If same day, take the one with more completed progress
+  const aProgress = a.active.reduce((acc, q) => acc + q.progress, 0);
+  const bProgress = b.active.reduce((acc, q) => acc + q.progress, 0);
+  return aProgress >= bProgress ? a : b;
 }
 
 export function mergeProgress(
@@ -130,6 +160,7 @@ export function mergeProgress(
     achievements: Array.from(new Set([...A.achievements, ...B.achievements])),
     heatmap,
     daily: pickDaily(A.daily, B.daily),
+    quests: pickQuests(A.quests, B.quests),
     history,
     pbs,
   };

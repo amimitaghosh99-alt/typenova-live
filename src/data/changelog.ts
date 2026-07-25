@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.8',
+    date: 'July 25, 2026',
+    title: 'Ranked Matchmaking & Daily Bounties',
+    changes: [
+      { type: 'feature', description: 'Ranked 1v1 Mode: Queue up against opponents globally. Matchmaking uses Supabase presence channels to find the closest Elo match and automatically routes you into a private duel.' },
+      { type: 'feature', description: 'Elo Rating System: Gain or lose Elo dynamically based on match outcomes. Smooth animations highlight your gains in the post-game results screen.' },
+      { type: 'feature', description: 'Daily Bounties: Earn extra XP by completing rotating daily quests (e.g., "Hit 120 WPM", "Type 1000 Words"). Track your progress with a glowing widget in the Stats Dashboard.' },
+      { type: 'tweak', description: 'Fluid Animations: Integrated Apple-like smooth cubic-bezier transitions across the entire app for a buttery-smooth feel.' },
+    ],
+  },
+  {
     version: 'v1.2.7',
     date: 'July 25, 2026',
     title: 'Anti-Cheat Hardening & UI Cleanup',

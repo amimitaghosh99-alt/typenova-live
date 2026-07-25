@@ -3,7 +3,7 @@ import {
   Keyboard, Activity, Target, RotateCcw, Skull, Ghost,
   Focus, Brain, Volume2, VolumeX, Palette,
   Award, FlipHorizontal, CloudFog, Magnet, Timer,
-  X, Code, Star, Trophy, Terminal, Zap, Lock, ChevronDown, Check, Users,
+  X, Code, Star, Trophy, Terminal, Zap, Lock, Check, Users,
   Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
   Swords, Sword, Sparkles, Orbit, Unlock,
   Hash, Clock, BarChart2, CalendarCheck, Hourglass
@@ -178,7 +178,6 @@ function MainApp() {
 
   const [themeIndex, setThemeIndex] = useState(0);
   const [soundProfile, setSoundProfileState] = useState('thocky');
-  const [muted, setMutedState] = useState(false);
   const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
 
   const [showTrophyRoom, setShowTrophyRoom] = useState(false);
@@ -311,7 +310,6 @@ function MainApp() {
   });
 
   // Keep audio engine in sync
-  useEffect(() => { audio.setMuted(muted); }, [muted, audio]);
   useEffect(() => { audio.setSoundProfile(soundProfile); }, [soundProfile, audio]);
   useEffect(() => {
     audio.setComboRef(typing.combo);

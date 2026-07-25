@@ -15,6 +15,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'Ranked Matchmaking & Daily Bounties',
     changes: [
       { type: 'feature', description: 'Ranked 1v1 Mode: Queue up against opponents globally. Matchmaking uses Supabase presence channels to find the closest Elo match and automatically routes you into a private duel.' },
+      { type: 'fix', description: 'Fixed a race condition in Ranked Matchmaking where the Host and Guest would occasionally be routed into separate lobbies.' },
       { type: 'feature', description: 'Elo Rating System: Gain or lose Elo dynamically based on match outcomes. Smooth animations highlight your gains in the post-game results screen.' },
       { type: 'tweak', description: 'Elo Visibility: Your current Elo rating is now prominently displayed in the Account Menu, and your friends\' Elo ratings are visible in the Social Modal.' },
       { type: 'feature', description: 'Daily Bounties: Earn extra XP by completing rotating daily quests (e.g., "Hit 120 WPM", "Type 1000 Words"). Track your progress with a glowing widget in the Stats Dashboard.' },

@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.3.3',
+    date: 'July 25, 2026',
+    title: 'Update: Sound Dropdown & Elo UI Fix',
+    changes: [
+      { type: 'feature', description: 'Replaced the sound cycle button with a proper dropdown menu to easily select keyboard sound profiles.' },
+      { type: 'fix', description: 'Fixed a CSS layout bug where the Elo transfer animation was being completely clipped out of view by a scroll container.' },
+    ],
+  },
+  {
     version: 'v1.3.2',
     date: 'July 25, 2026',
     title: 'Hotfix: Elo Results Screen Fix',

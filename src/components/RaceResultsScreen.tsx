@@ -175,6 +175,7 @@ export function RaceResultsScreen({
       errorTimes: new Array(selectedPlayer.errorCount ?? 0).fill(0), // Fake error times just for the count
     };
   }, [isSelfSelected, selectedPlayer, resultsProps]);
+  console.log("DEBUG RaceResultsScreen -> isRanked:", isRanked, "players.length:", players.length, "eloTransfer:", eloTransfer, "rpcCalled:", rpcCalled.current);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
@@ -187,15 +188,15 @@ export function RaceResultsScreen({
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 py-8 md:py-12">
 
-        {/* 🏁 WINNER BANNER 🏁 */}
-        <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative">
+        {/* 🏆 WINNER BANNER 🏆 */}
+        <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative pt-12">
           
           {/* Fluid Elo Transfer Animation */}
           {isRanked && eloTransfer && (
-            <div className="absolute -top-16 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
-              <div className={`transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] ${eloTransfer ? 'opacity-100 -translate-y-8 scale-125' : 'opacity-0 translate-y-8 scale-50'}`}>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+              <div className={`transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] ${eloTransfer ? 'opacity-100 translate-y-0 scale-125' : 'opacity-0 translate-y-8 scale-50'}`}>
                 {eloTransfer && (
-                  <div className={`text-4xl font-black tracking-widest uppercase drop-shadow-2xl ${eloTransfer.direction === 'up' ? 'text-emerald-400' : 'text-red-500'}`}>
+                  <div className={`text-5xl font-black tracking-widest uppercase drop-shadow-2xl ${eloTransfer.direction === 'up' ? 'text-emerald-400' : 'text-red-500'}`}>
                     {eloTransfer.direction === 'up' ? '+' : '-'}{eloTransfer.amount} ELO
                   </div>
                 )}

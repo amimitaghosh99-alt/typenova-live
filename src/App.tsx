@@ -165,6 +165,7 @@ function MainApp() {
   const [overclockedMode, setOverclockedMode] = useState(false);
   const [stickyPenalty, setStickyPenalty] = useState(0);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [showSoundMenu, setShowSoundMenu] = useState(false);
 
   const [level, setLevel] = useState<Level>('NOVICE');
   const [wordCount, setWordCount] = useState(25);
@@ -290,6 +291,7 @@ function MainApp() {
 
   const theme: Theme = THEMES[THEME_KEYS[themeIndex]];
   const themeMenuRef = useRef<HTMLDivElement>(null);
+  const soundMenuRef = useRef<HTMLDivElement>(null);
 
   // ─── Refs for Keydown Handler ────────────────────────────────────
   // A single snapshot object avoids stale closures in the keydown listener.
@@ -345,18 +347,21 @@ function MainApp() {
     typing.syncComboRef(typing.combo);
   }, [typing.combo, audio, typing]);
 
-  // Click outside listener for Theme Dropdown
+  // Click outside listener for Theme & Sound Dropdowns
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (themeMenuRef.current && !themeMenuRef.current.contains(e.target as Node)) {
         setShowThemeMenu(false);
       }
+      if (soundMenuRef.current && !soundMenuRef.current.contains(e.target as Node)) {
+        setShowSoundMenu(false);
+      }
     };
-    if (showThemeMenu) {
+    if (showThemeMenu || showSoundMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showThemeMenu]);
+  }, [showThemeMenu, showSoundMenu]);
 
   // ─── Initialization ──────────────────────────────────────────────
   useEffect(() => {
@@ -625,9 +630,9 @@ function MainApp() {
     setShowThemeMenu(false);
   };
 
-  const cycleSoundProfile = () => {
-    const currentIdx = (SOUND_KEYS.indexOf(soundProfile) + 1) % SOUND_KEYS.length;
-    setSoundProfileState(SOUND_KEYS[currentIdx]);
+  const selectSoundProfile = (key: string) => {
+    setSoundProfileState(key);
+    setShowSoundMenu(false);
   };
 
 
@@ -1470,13 +1475,38 @@ function MainApp() {
 
               <div className="w-px h-4 bg-white/10 mx-1"></div>
               
-              <button 
-                onClick={cycleSoundProfile} 
-                className="p-2 rounded-xl hover:bg-white/5 text-zinc-300 flex justify-center items-center"
-                title={`Sound Profile: ${soundProfile.toUpperCase()}`}
-              >
-                {soundProfile === 'silent' ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              </button>
+              <div className="relative" ref={soundMenuRef}>
+                <button 
+                  onClick={() => setShowSoundMenu(!showSoundMenu)} 
+                  className={`p-2 rounded-xl hover:bg-white/5 text-zinc-300 flex justify-center items-center transition-all`} 
+                  title={`Sound Profile: ${soundProfile.toUpperCase()}`}
+                >
+                  {soundProfile === 'silent' ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+                {/* Sound Dropdown Menu */}
+                <div 
+                  className={`absolute top-full mt-2 right-0 w-48 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+                >
+                  <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
+                    {SOUND_KEYS.map((key) => {
+                       const isActive = key === soundProfile;
+                       return (
+                         <button
+                           key={key}
+                           onClick={() => selectSoundProfile(key)}
+                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? 'bg-white/10 text-emerald-400' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                         >
+                           <div className="flex items-center gap-3">
+                             <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${isActive ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                             {key}
+                           </div>
+                           {isActive && <Check size={14} className="text-emerald-400" />}
+                         </button>
+                       );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
 

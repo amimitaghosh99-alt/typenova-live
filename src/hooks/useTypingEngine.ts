@@ -69,9 +69,9 @@ export const useTypingEngine = () => {
     const netCalc = Math.round(((currentInput.length - errors) / 5) / minutes);
     const currentAcc = currentInput.length > 0 ? Math.round(((currentInput.length - errors) / currentInput.length) * 100) : 100;
 
-    const intervals = 10;
+    const intervals = Math.max(1, Math.floor(totalTimeMs / 1000));
     const step = totalTimeMs / intervals;
-    const timeline: TimelinePoint[] = [];
+    const timeline: TimelinePoint[] = [{ t: 0, wpm: 0, rawWpm: 0 }];
     
     let entryIndex = 0;
     let runningChars = 0;

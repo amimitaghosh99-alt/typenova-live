@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.3',
+    date: 'July 25, 2026',
+    title: 'Social Hub & Realtime Friends',
+    changes: [
+      { type: 'feature', description: 'Completely redesigned the Social modal into a premium "Social Hub" featuring a dedicated Friends List, glowing online indicators, and auto-generated avatars.' },
+      { type: 'feature', description: 'Added Supabase Realtime subscriptions to the friends list so that incoming requests and friend updates appear instantly without needing a page refresh.' },
+      { type: 'tweak', description: 'Added smooth slide-in and fade animations when navigating between tabs in the Social Hub.' },
+    ],
+  },
+  {
     version: 'v1.2.2',
     date: 'July 25, 2026',
     title: 'UI Polish & Multiplayer Fixes',

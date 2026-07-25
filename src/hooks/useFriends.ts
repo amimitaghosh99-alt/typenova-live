@@ -231,9 +231,33 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
   }, [supabase, session]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchFriends();
-  }, [fetchFriends]);
+
+    if (!supabase || !session?.user.id) return;
+
+    const userId = session.user.id;
+    const channel = supabase
+      .channel('friendships_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'friendships', filter: `user_id=eq.${userId}` },
+        () => {
+          fetchFriends();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'friendships', filter: `friend_id=eq.${userId}` },
+        () => {
+          fetchFriends();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, session, fetchFriends]);
 
   return {
     friends,

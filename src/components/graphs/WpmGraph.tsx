@@ -48,14 +48,24 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
     const buildSmoothPath = (pts: Array<any>, key: string) => {
       if (pts.length === 0) return '';
       if (pts.length === 1) return `M ${px(pts[0].t)},${py(pts[0][key])}`;
-      let d = `M ${px(pts[0].t)},${py(pts[0][key])}`;
-      for (let i = 1; i < pts.length; i++) {
-        const a = pts[i - 1], b = pts[i];
-        const ax = px(a.t), ay = py(a[key]);
-        const bx = px(b.t), by = py(b[key]);
-        const cp1x = ax + (bx - ax) * 0.5;
-        const cp2x = ax + (bx - ax) * 0.5;
-        d += ` C ${cp1x},${ay} ${cp2x},${by} ${bx},${by}`;
+      
+      const m = pts.map(p => ({ x: px(p.t), y: py(p[key]) }));
+      let d = `M ${m[0].x},${m[0].y}`;
+      
+      const tension = 0.15;
+      for (let i = 0; i < m.length - 1; i++) {
+        const p0 = i > 0 ? m[i - 1] : m[i];
+        const p1 = m[i];
+        const p2 = m[i + 1];
+        const p3 = i !== m.length - 2 ? m[i + 2] : p2;
+        
+        const cp1x = p1.x + (p2.x - p0.x) * tension;
+        const cp1y = p1.y + (p2.y - p0.y) * tension;
+        
+        const cp2x = p2.x - (p3.x - p1.x) * tension;
+        const cp2y = p2.y - (p3.y - p1.y) * tension;
+        
+        d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
       }
       return d;
     };
@@ -72,7 +82,7 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
       if (selfIdx >= 0) selfColor = medalColors[selfIdx] || medalColors[3];
       
       Object.entries(competitorTimelines).forEach(([id, pts]) => {
-        if (pts.length < 2) return;
+        if (id === selfId || pts.length < 2) return;
         const playerIdx = players.findIndex(p => p.id === id);
         const color = playerIdx >= 0 ? medalColors[playerIdx] || medalColors[3] : '#71717a';
         compPolys[id] = { path: buildSmoothPath(pts, 'wpm'), color };

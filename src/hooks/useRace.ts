@@ -100,12 +100,20 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     for (const [key, metas] of Object.entries(state)) {
       const meta = metas[0];
       if (!meta?.name) continue;
-      if (meta.isHost && meta.lobbyConfig) {
-        lobbyConfigRef.current = meta.lobbyConfig;
-        setLobbyConfig(meta.lobbyConfig);
+      
+      // Only update local lobby/room state from presence if it's coming from someone else (the host)
+      // If we are the host, our local state is the source of truth; overwriting it with delayed presence state causes rubberbanding.
+      if (key !== selfIdRef.current) {
+        if (meta.isHost && meta.lobbyConfig) {
+          lobbyConfigRef.current = meta.lobbyConfig;
+          setLobbyConfig(meta.lobbyConfig);
+        }
+        if (meta.text) textRef.current = meta.text;
+        if (meta.roomSize) { 
+          roomSizeRef.current = meta.roomSize; 
+          setRoomSize(meta.roomSize); 
+        }
       }
-      if (meta.text) textRef.current = meta.text;
-      if (meta.roomSize) { roomSizeRef.current = meta.roomSize; setRoomSize(meta.roomSize); }
       const prog = progressRef.current[key];
       const fin = finishRef.current[key] || (meta.finished ? { wpm: meta.finishWpm, acc: meta.finishAcc, ms: meta.finishMs, rawWpm: meta.rawWpm, consistency: meta.consistency, heatmapData: meta.heatmapData, errorCount: meta.errorCount, backspaceCount: meta.backspaceCount } : undefined);
       next.push({

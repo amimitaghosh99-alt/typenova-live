@@ -92,7 +92,7 @@ export const RaceModal = ({
               <span className="text-zinc-500 text-[10px] font-black tracking-widest text-center">ROOM SIZE</span>
               <div className="flex gap-2 justify-center">
                 {([2, 3, 4] as const).map(size => {
-                  const labels: Record<number, string> = { 2: '1v1', 3: '1v1v1', 4: '1v1v1v1' };
+                  const labels: Record<number, string> = { 2: '2 PLAYERS', 3: '3 PLAYERS', 4: '4 PLAYERS' };
                   return (
                     <button
                       key={size}
@@ -165,7 +165,7 @@ export const RaceModal = ({
                 
                 {/* Row 1: Difficulty */}
                 <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full overflow-x-auto hide-scrollbar mx-auto w-full max-w-full">
-                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE', 'CUSTOM'] as Level[]).map(l => (
+                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => (
                     <button
                       key={l}
                       onClick={() => updateLobbyConfig({ mode: l })}
@@ -177,7 +177,7 @@ export const RaceModal = ({
                 </div>
 
                 {/* Row 2: Length */}
-                <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full self-center">
+                <div className={`flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full self-center transition-opacity ${lobbyConfig.mode === 'QUOTES' ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
                   {([10, 25, 50, 100]).map(v => (
                     <button
                       key={v}
@@ -208,7 +208,7 @@ export const RaceModal = ({
 
             <p className="text-center text-zinc-500 text-[10px] font-black tracking-widest mt-2 mb-1">PLAYERS {players.length} / {roomSize}</p>
 
-            <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
               {players.map(p => (
                 <div key={p.id} className={`flex items-center justify-between px-5 py-3 rounded-2xl border ${p.id === selfId ? `bg-white/5 ${theme.borderHalf}` : 'bg-zinc-900/50 border-zinc-800'}`}>
                   <span className="font-black text-white tracking-widest uppercase text-sm flex items-center gap-2">

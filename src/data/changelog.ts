@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.3.2',
+    date: 'July 25, 2026',
+    title: 'Hotfix: Elo Results Screen Fix',
+    changes: [
+      { type: 'fix', description: 'Fixed a race condition where the client would fail to render the Elo Transfer UI if the server experienced latency in reflecting the player\'s final race completion state.' },
+    ],
+  },
+  {
     version: 'v1.3.1',
     date: 'July 25, 2026',
     title: 'Hotfix: Matchmaking Ghost Protocol',

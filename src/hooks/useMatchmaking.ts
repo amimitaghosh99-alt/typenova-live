@@ -16,6 +16,7 @@ const makeRoomCode = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(M
 export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, myName: string, myElo: number) => {
   const [state, setState] = useState<MatchmakingState>({ status: 'idle' });
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const matchedRef = useRef(false);
 
   const teardown = useCallback(() => {
     if (channelRef.current && supabase) supabase.removeChannel(channelRef.current);
@@ -30,6 +31,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
   const search = useCallback(() => {
     if (!supabase) return;
     teardown();
+    matchedRef.current = false;
     setState({ status: 'searching' });
 
     // Join the global ranked queue channel
@@ -47,7 +49,8 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
         .filter(([id, metas]) => id !== myId && metas[0]?.seeking)
         .map(([id, metas]) => ({ id, name: metas[0].name, elo: metas[0].elo }));
 
-      if (seekers.length > 0) {
+      if (seekers.length > 0 && !matchedRef.current) {
+        matchedRef.current = true;
         // Match with the first one found (ideally we'd sort by closest Elo)
         const opponent = seekers.sort((a, b) => Math.abs(a.elo - myElo) - Math.abs(b.elo - myElo))[0];
 
@@ -72,7 +75,8 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     });
 
     ch.on('broadcast', { event: 'match_found' }, ({ payload }) => {
-      if (payload.opponentId === myId) {
+      if (payload.opponentId === myId && !matchedRef.current) {
+        matchedRef.current = true;
         // We are the guest! The host found us.
         setState({ status: 'found', roomCode: payload.roomCode, opponentId: payload.hostId, opponentName: payload.hostName, opponentElo: payload.hostElo, isHost: false });
         teardown();

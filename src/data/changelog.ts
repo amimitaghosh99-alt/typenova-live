@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.11',
+    date: 'July 25, 2026',
+    title: 'Hotfix: Ranked Elo Updates',
+    changes: [
+      { type: 'fix', description: 'Matchmaking: Fixed a silent database error where the temporary connection ID was being used instead of the actual user ID during ranked match resolutions, preventing Elo updates from saving.' },
+    ],
+  },
+  {
     version: 'v1.2.10',
     date: 'July 25, 2026',
     title: 'Hotfix: Anti-Cheat Pipeline',

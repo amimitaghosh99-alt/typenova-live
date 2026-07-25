@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.3.0',
+    date: 'July 25, 2026',
+    title: 'Feature: Advanced Elo Mechanics',
+    changes: [
+      { type: 'feature', description: 'Dynamic K-Factor: Placement matches (first 10) now grant higher Elo gains/losses (K=64), while Grandmaster tier (>2000 Elo) matches become highly competitive (K=16).' },
+      { type: 'feature', description: 'Margin of Victory: Players now gain a scaled bonus multiplier up to 1.5x based on their WPM lead over their opponent.' },
+      { type: 'feature', description: 'Accuracy Bonus: Winners who maintain >98% accuracy now receive a flat +3 Elo bonus.' },
+    ],
+  },
+  {
     version: 'v1.2.12',
     date: 'July 25, 2026',
     title: 'Hotfix: Matchmaking Split Lobbies',

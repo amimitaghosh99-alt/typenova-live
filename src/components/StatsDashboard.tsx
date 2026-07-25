@@ -1,5 +1,5 @@
-import { useMemo, memo } from 'react';
-import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle } from 'lucide-react';
+import { useMemo, memo, useState } from 'react';
+import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle, Keyboard } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import { readLocalProgress } from '@/lib/progress';
 
@@ -69,10 +69,127 @@ function TrendGraph({ values, color, height = 160, maxOverride }: {
 interface StatsDashboardProps {
   theme: Theme;
   testsCompleted: number;
+  heatmapData: Record<string, { total: number; errors: number; totalMs?: number }>;
   onClose: () => void;
 }
 
-export const StatsDashboard = memo(({ theme, testsCompleted, onClose }: StatsDashboardProps) => {
+const KEYBOARD_ROWS = [
+  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+  ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+  ['SPACE']
+];
+
+function KeyboardHeatmap({ data }: { data: Record<string, { total: number; errors: number; totalMs?: number }> }) {
+  const [mode, setMode] = useState<'accuracy' | 'speed'>('accuracy');
+
+  // Find max values to normalize the heat map
+  let maxErrorRate = 0;
+  let maxDelay = 0;
+  
+  Object.values(data).forEach(d => {
+    if (d.total > 0) {
+      const errRate = d.errors / d.total;
+      if (errRate > maxErrorRate) maxErrorRate = errRate;
+      
+      if (d.totalMs && (d.total - d.errors) > 0) {
+        const delay = d.totalMs / d.total;
+        if (delay > maxDelay) maxDelay = delay;
+      }
+    }
+  });
+
+  maxDelay = Math.min(maxDelay, 1000); 
+
+  return (
+    <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 mb-8 overflow-x-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+          <Keyboard size={16} /> Finger Heatmap
+        </h3>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setMode('accuracy')}
+            className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${mode === 'accuracy' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'}`}
+          >
+            Accuracy (Typos)
+          </button>
+          <button 
+            onClick={() => setMode('speed')}
+            className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${mode === 'speed' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'}`}
+          >
+            Speed (Slowness)
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 items-center w-full min-w-[600px]">
+        {KEYBOARD_ROWS.map((row, i) => (
+          <div key={i} className={`flex gap-2 ${i === 1 ? 'ml-4' : i === 2 ? 'ml-12' : ''}`}>
+            {row.map(key => {
+              const stat = data[key] || { total: 0, errors: 0, totalMs: 0 };
+              const errorRate = stat.total > 0 ? stat.errors / stat.total : 0;
+              const avgDelay = stat.total > 0 ? (stat.totalMs || 0) / stat.total : 0;
+              
+              let intensity = 0;
+              let glowColor = '';
+              let glowAmount = 0;
+              
+              if (mode === 'accuracy') {
+                intensity = maxErrorRate > 0 ? (errorRate / maxErrorRate) : 0;
+                // Minimum intensity to make it slightly red if there is any error
+                if (errorRate > 0) intensity = Math.max(0.3, intensity);
+                glowColor = `rgba(239, 68, 68, ${intensity})`; // red
+                glowAmount = intensity * 20;
+              } else {
+                intensity = maxDelay > 0 ? Math.min(avgDelay / maxDelay, 1) : 0;
+                if (avgDelay > 0) intensity = Math.max(0.2, intensity);
+                glowColor = `rgba(59, 130, 246, ${intensity})`; // blue for slow
+                glowAmount = intensity * 15;
+              }
+
+              const isSpace = key === 'SPACE';
+              const displayChar = isSpace ? 'Space' : key;
+              const hasData = stat.total > 0;
+
+              return (
+                <div 
+                  key={key} 
+                  className={`relative flex items-center justify-center rounded-xl border transition-all group cursor-default ${isSpace ? 'w-72 h-12' : 'w-12 h-12'}`}
+                  style={{
+                    backgroundColor: hasData ? 'rgba(24, 24, 27, 0.8)' : 'rgba(24, 24, 27, 0.2)',
+                    boxShadow: intensity > 0.1 ? `0 0 ${glowAmount}px ${glowColor}, inset 0 0 ${glowAmount/2}px ${glowColor}` : 'none',
+                    borderColor: intensity > 0.1 ? glowColor : 'rgba(63, 63, 70, 0.4)',
+                    color: intensity > 0.5 ? '#fff' : (hasData ? '#a1a1aa' : '#52525b')
+                  }}
+                >
+                  <span className="text-xs font-black">{displayChar}</span>
+
+                  {/* Tooltip */}
+                  {hasData && (
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block w-max bg-zinc-950 border border-zinc-800 p-3 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-75 duration-200">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">{isSpace ? 'Spacebar' : `Key: ${key}`}</div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                        <span className="text-xs font-bold text-zinc-500">Errors:</span>
+                        <span className="text-xs font-black text-red-400">{Math.round(errorRate * 100)}% ({stat.errors})</span>
+                        <span className="text-xs font-bold text-zinc-500">Speed:</span>
+                        <span className="text-xs font-black text-blue-400">{avgDelay > 0 ? `${Math.round(avgDelay)}ms` : 'N/A'}</span>
+                        <span className="text-xs font-bold text-zinc-500">Pressed:</span>
+                        <span className="text-xs font-black text-zinc-300">{stat.total}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export const StatsDashboard = memo(({ theme, testsCompleted, heatmapData, onClose }: StatsDashboardProps) => {
   const history = useMemo(() => loadHistory(), []);
   const pbs = useMemo(() => loadPersonalBests(), []);
   const quests = useMemo(() => readLocalProgress().quests?.active || [], []);
@@ -177,6 +294,11 @@ export const StatsDashboard = memo(({ theme, testsCompleted, onClose }: StatsDas
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-4 mb-8">
           <TrendGraph values={accSeries} color="text-emerald-400" height={100} maxOverride={100} />
         </div>
+
+        {/* Keyboard Heatmap */}
+        {Object.keys(heatmapData).length > 0 && (
+          <KeyboardHeatmap data={heatmapData} />
+        )}
 
         {/* Personal bests */}
         <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-3">Personal Bests</h3>

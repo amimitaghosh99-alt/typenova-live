@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.4.0',
+    date: 'July 26, 2026',
+    title: 'New Feature: Detailed Keyboard Heatmaps 📊',
+    changes: [
+      { type: 'feature', description: 'Added a beautiful, dynamic Finger Heatmap to the Stats Dashboard!' },
+      { type: 'feature', description: 'You can now toggle the heatmap between "Accuracy" mode (to see exactly which keys you make the most typos on, highlighted in glowing red) and "Speed" mode (to see which keys you are the slowest at pressing, highlighted in blue).' },
+      { type: 'feature', description: 'Added hover tooltips to the heatmap keys showing exact error percentages, average keypress latency (ms), and total press counts.' },
+      { type: 'system', description: 'Upgraded the anti-cheat keystroke logger to globally persist your average latency per keystroke.' },
+    ],
+  },
+  {
     version: 'v1.3.4',
     date: 'July 25, 2026',
     title: 'Hotfix: Elo Winner Evaluation',

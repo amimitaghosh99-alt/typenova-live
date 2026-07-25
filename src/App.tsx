@@ -1844,6 +1844,7 @@ function MainApp() {
         <StatsDashboard
           theme={theme}
           testsCompleted={rpg.testsCompleted}
+          heatmapData={rpg.heatmapData}
           onClose={() => setShowStatsDashboard(false)}
         />
       )}

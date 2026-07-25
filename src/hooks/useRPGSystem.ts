@@ -30,7 +30,7 @@ export const useRPGSystem = () => {
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
   const [xpGainedLast, setXpGainedLast] = useState(0);
   const [leveledUp, setLeveledUp] = useState(false);
-  const [heatmapData, setHeatmapData] = useState<Record<string, { total: number; errors: number }>>(() => {
+  const [heatmapData, setHeatmapData] = useState<Record<string, { total: number; errors: number; totalMs?: number }>>(() => {
     if (typeof window === 'undefined') return {};
     try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.heatmap) || '{}'); } catch { return {}; }
   });
@@ -62,20 +62,28 @@ export const useRPGSystem = () => {
     _wordCount: number,
     targetTextLength: number,
     microDrillActive: boolean,
-    keystrokeLog: Array<{ expected: string; isError: boolean; isBackspace?: boolean }>,
+    keystrokeLog: Array<{ expected: string; isError: boolean; isBackspace?: boolean; time: number }>,
     onLevelUp: () => void
   ) => {
     const newTestsCompleted = testsCompleted + 1;
     setTestsCompleted(newTestsCompleted);
 
-    // Update heatmap (backspace events carry no expected char — skip them)
+    // Update heatmap (backspace events carry no expected char -> skip them)
     setHeatmapData(prev => {
       const next = { ...prev };
+      let lastTime = 0;
       keystrokeLog.forEach(k => {
+        const delay = k.time - lastTime;
+        lastTime = k.time;
+
         if (k.isBackspace) return;
         const char = k.expected === ' ' ? 'SPACE' : k.expected === '\n' ? 'ENTER' : k.expected.toUpperCase();
-        if (!next[char]) next[char] = { total: 0, errors: 0 };
-        next[char] = { total: next[char].total + 1, errors: next[char].errors + (k.isError ? 1 : 0) };
+        if (!next[char]) next[char] = { total: 0, errors: 0, totalMs: 0 };
+        next[char] = { 
+          total: next[char].total + 1, 
+          errors: next[char].errors + (k.isError ? 1 : 0),
+          totalMs: (next[char].totalMs || 0) + delay
+        };
       });
       localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(next));
       return next;

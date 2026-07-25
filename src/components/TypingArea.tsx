@@ -246,6 +246,15 @@ export const TypingArea = ({
             KEY STUCK! MASH BACKSPACE {stickyPenalty}x
           </div>
         )}
+        {phase === 'IDLE' && (
+          <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden rounded-[2rem] transition-opacity duration-1000 opacity-60">
+            {/* Background grid */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black" />
+            {/* Centered subtle pulse */}
+            <div className="w-1/2 h-1/2 bg-white/5 blur-[80px] rounded-full animate-pulse" style={{ animationDuration: '3s' }} />
+          </div>
+        )}
 
         <div
           id="typing-text-container"

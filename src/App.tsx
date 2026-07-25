@@ -1538,7 +1538,7 @@ function MainApp() {
                 <div className="flex glass-panel p-1.5 rounded-full">
                   <button
                     onClick={toggleDaily}
-                    className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all flex items-center gap-2 ${dailyActive ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-400 hover:text-white border border-transparent'}`}
+                    className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all flex items-center gap-2 ${dailyActive ? `bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)]` : 'text-amber-400/70 hover:text-amber-400 border border-transparent'}`}
                     title="Same seeded 50-word ADEPT text for everyone, every day"
                   >
                     <CalendarCheck size={12} /> DAILY
@@ -1600,9 +1600,9 @@ function MainApp() {
                 consistency={typing.consistency}
                 combo={typing.combo}
                 themeText={theme.text}
-                
                 timelinePoints={typing.timelinePoints}
                 keystrokeLogLength={typing.keystrokeLog.current.length}
+                isIdle={typing.phase === 'IDLE'}
               />
             )}
 

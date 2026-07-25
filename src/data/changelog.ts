@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.2.12',
+    date: 'July 25, 2026',
+    title: 'Hotfix: Matchmaking Split Lobbies',
+    changes: [
+      { type: 'fix', description: 'Matchmaking: Fixed a race condition where multiple presence syncs caused the host to generate and join a second lobby while the guest joined the first lobby, resulting in both players being automatically kicked.' },
+    ],
+  },
+  {
     version: 'v1.2.11',
     date: 'July 25, 2026',
     title: 'Hotfix: Ranked Elo Updates',

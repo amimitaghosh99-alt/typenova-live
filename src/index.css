@@ -75,6 +75,10 @@
   body {
     @apply bg-background text-foreground;
   }
+  button, a, input, select, textarea, [role="button"], [role="menuitem"], [role="tab"], .glass-panel {
+    @apply transition-all duration-300;
+    transition-timing-function: var(--ease-apple);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════

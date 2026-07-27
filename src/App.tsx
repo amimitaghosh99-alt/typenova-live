@@ -1624,49 +1624,63 @@ function MainApp() {
               </div>
 
               {/* Language Selector for Code Mode */}
-              {level === 'CODE' && (
-                <div className="flex flex-col gap-2 w-full animate-in fade-in slide-in-from-top-2 duration-300">
-                  <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
-                    <Code size={10} className="mr-1.5" /> LANGUAGE
-                  </span>
-                  <div className="flex glass-panel p-1.5 rounded-full flex-wrap gap-1 w-max max-w-full">
-                    {CODE_LANGUAGES.map(lang => (
-                      <button 
-                        key={lang} 
-                        onClick={() => changeCodeLanguage(lang)} 
-                        className={`px-3 md:px-5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${codeLanguage === lang ? `bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]` : 'text-zinc-500 hover:text-white border border-transparent'} flex justify-center items-center`}
-                      >
-                        {lang.toUpperCase()}
-                      </button>
-                    ))}
+              <div 
+                className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${
+                  level === 'CODE' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
+                }`}
+              >
+                <div className="overflow-hidden min-w-0">
+                  <div className="flex flex-col gap-2 w-max">
+                    <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                      <Code size={10} className="mr-1.5" /> LANGUAGE
+                    </span>
+                    <div className="flex glass-panel rounded-full">
+                      <SegmentedControl
+                        options={CODE_LANGUAGES.map(lang => ({
+                          label: lang.toUpperCase(),
+                          value: lang
+                        }))}
+                        value={codeLanguage}
+                        onChange={(lang) => changeCodeLanguage(lang)}
+                        themeTextClass={theme.text}
+                        pillClassName="bg-white/10 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
 
-              {level === 'CUSTOM' && (
-                <div className="flex flex-col gap-2 flex-1 min-w-[300px] max-w-xl animate-in fade-in slide-in-from-left-4 duration-300">
-                  <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
-                    <Code size={10} className="mr-1.5" /> YOUR TEXT
-                  </span>
-                  <textarea
-                    value={customText}
-                    onChange={(e) => {
-                      const newText = e.target.value;
-                      setCustomText(newText);
-                      if (level === 'CUSTOM') {
-                        const final = mirroredMode
-                          ? newText.trim().split(' ').reverse().join(' ')
-                          : newText.trim();
-                        typing.setTargetText(final || 'Type your custom text above...');
-                      }
-                    }}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    placeholder="Paste your custom text here to practice..."
-                    className="w-full h-24 bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-zinc-300 text-sm font-mono focus:outline-none focus:border-white/30 focus:bg-white/[0.06] resize-none transition-all"
-                    spellCheck={false}
-                  />
+              {/* Custom Text Area */}
+              <div 
+                className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${
+                  level === 'CUSTOM' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
+                }`}
+              >
+                <div className="overflow-hidden min-w-0">
+                  <div className="flex flex-col gap-2 min-w-[300px] max-w-xl">
+                    <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                      <Code size={10} className="mr-1.5" /> YOUR TEXT
+                    </span>
+                    <textarea
+                      value={customText}
+                      onChange={(e) => {
+                        const newText = e.target.value;
+                        setCustomText(newText);
+                        if (level === 'CUSTOM') {
+                          const final = mirroredMode
+                            ? newText.trim().split(' ').reverse().join(' ')
+                            : newText.trim();
+                          typing.setTargetText(final || 'Type your custom text above...');
+                        }
+                      }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      placeholder="Paste your custom text here to practice..."
+                      className="w-full h-24 bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-zinc-300 text-sm font-mono focus:outline-none focus:border-white/30 focus:bg-white/[0.06] resize-none transition-all"
+                      spellCheck={false}
+                    />
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Stats HUD — hidden in zen mode */}

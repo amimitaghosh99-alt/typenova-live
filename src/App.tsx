@@ -1536,7 +1536,7 @@ function MainApp() {
           </div>
         </header>
 
-        <main className={`flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
+        <main className={`relative z-10 flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
           <div className="flex-1 w-full flex flex-col gap-6">
 
             {/* Difficulty & Length/Time & Daily */}

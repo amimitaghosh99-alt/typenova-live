@@ -18,6 +18,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       { type: 'feature', description: 'Added premium Apple-style sliding pill segmented controls for mode selection, replacing static option buttons.' },
       { type: 'feature', description: 'Implemented a 300ms smooth blur and scale crossfade transition when changing modes or refreshing text.' },
       { type: 'feature', description: 'Completely overhauled layout shifts. Expanding boxes (like the Custom Text box or Code Language selector) now smoothly glide in and out using CSS Grid width transitions, eliminating any abrupt layout snapping.' },
+      { type: 'feature', description: 'Replaced the dotted background pattern in the typing area with a stunning, eye-pleasing volumetric glass glow effect featuring ambient floating orbs and 3D glass edge highlights.' },
       { type: 'perf', description: 'Aggressively optimized GPU rendering. Heavy background blur filters (glassmorphism) are now dynamically disabled the millisecond you start typing, resulting in a flawless 144Hz+ frame rate.' },
       { type: 'perf', description: 'Eliminated a bug where the virtual DOM was double-rendering the caret cursor.' },
     ],

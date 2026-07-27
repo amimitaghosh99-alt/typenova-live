@@ -1459,7 +1459,7 @@ function MainApp() {
                 </button>
                 {/* Theme Dropdown Menu */}
                 <div 
-                  className={`absolute top-full mt-2 right-0 w-56 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+                  className={`!absolute top-full mt-2 right-0 w-56 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
                 >
                   <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
                     {THEME_KEYS.map((key, idx) => {
@@ -1495,7 +1495,7 @@ function MainApp() {
                 </button>
                 {/* Sound Dropdown Menu */}
                 <div 
-                  className={`absolute top-full mt-2 right-0 w-48 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+                  className={`!absolute top-full mt-2 right-0 w-48 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
                 >
                   <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
                     {SOUND_KEYS.map((key) => {

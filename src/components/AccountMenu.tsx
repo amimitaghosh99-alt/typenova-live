@@ -71,7 +71,7 @@ export const AccountMenu = ({
       </button>
 
       <div
-        className={`absolute top-full mt-2 right-0 w-52 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${open ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+        className={`!absolute top-full mt-2 right-0 w-52 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${open ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
       >
         <div className="p-4 border-b border-zinc-800/70">
           <p className="text-zinc-500 text-[9px] font-black tracking-widest uppercase mb-1">Ranked Elo</p>

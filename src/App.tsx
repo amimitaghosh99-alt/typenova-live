@@ -1459,7 +1459,7 @@ function MainApp() {
                 </button>
                 {/* Theme Dropdown Menu */}
                 <div 
-                  className={`absolute top-full mt-2 right-0 w-56 bg-black/40 backdrop-blur-3xl backdrop-saturate-[1.5] border border-white/10 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_25px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+                  className={`absolute top-full mt-2 right-0 w-56 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
                 >
                   <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
                     {THEME_KEYS.map((key, idx) => {
@@ -1495,7 +1495,7 @@ function MainApp() {
                 </button>
                 {/* Sound Dropdown Menu */}
                 <div 
-                  className={`absolute top-full mt-2 right-0 w-48 bg-black/40 backdrop-blur-3xl backdrop-saturate-[1.5] border border-white/10 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_25px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+                  className={`absolute top-full mt-2 right-0 w-48 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
                 >
                   <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
                     {SOUND_KEYS.map((key) => {

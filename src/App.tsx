@@ -1469,13 +1469,13 @@ function MainApp() {
                          <button
                            key={key}
                            onClick={() => selectTheme(idx)}
-                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${t.text}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${t.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
                          >
                            <div className="flex items-center gap-3">
                              <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${t.solid}`} />
                              {t.name}
                            </div>
-                           {isActive && <Check size={14} className={t.text} />}
+                           {isActive && <Check size={14} className={t.vividText} />}
                          </button>
                        );
                     })}
@@ -1504,13 +1504,13 @@ function MainApp() {
                          <button
                            key={key}
                            onClick={() => selectSoundProfile(key)}
-                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? 'bg-white/10 text-emerald-400' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${theme.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
                          >
                            <div className="flex items-center gap-3">
-                             <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${isActive ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                             <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${isActive ? theme.solid : 'bg-zinc-600'}`} />
                              {key}
                            </div>
-                           {isActive && <Check size={14} className="text-emerald-400" />}
+                           {isActive && <Check size={14} className={theme.vividText} />}
                          </button>
                        );
                     })}

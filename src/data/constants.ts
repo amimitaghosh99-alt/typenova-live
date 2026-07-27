@@ -151,6 +151,7 @@ export interface Theme {
   name: string;
   bg: string;
   text: string;
+  vividText: string;
   accent: string;
   drop: string;
   border: string;
@@ -201,6 +202,7 @@ const makeTheme = (
   const rgbSecondary = glowSecondaryOverride || contrastMap[accent] || '128,128,128';
   return {
     name, bg, text, accent,
+    vividText: `text-${accent}-400`,
     drop: `drop-shadow-[0_0_8px_rgba(${rgb},0.8)]`,
     border: `border-${accent}-500/30`,
     borderHalf: `border-${accent}-500/50`,
@@ -239,6 +241,7 @@ export const THEMES: Record<string, Theme> = {
     name: 'galaxy',
     bg: 'bg-[#050014]',
     text: 'text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400',
+    vividText: 'text-fuchsia-400',
     accent: 'fuchsia',
     drop: 'drop-shadow-[0_0_12px_rgba(217,70,239,0.6)]',
     border: 'border-fuchsia-500/30',
@@ -258,7 +261,8 @@ export const THEMES: Record<string, Theme> = {
     name: 'glitch',
     bg: 'bg-black',
     text: 'text-white [text-shadow:3px_0_0_rgba(255,0,80,0.8),-3px_0_0_rgba(0,255,255,0.8)]',
-    accent: 'fuchsia',
+    vividText: 'text-rose-400',
+    accent: 'rose',
     drop: 'drop-shadow-[0_0_5px_rgba(255,0,80,0.8)]',
     border: 'border-fuchsia-500/30',
     borderHalf: 'border-fuchsia-500/50',

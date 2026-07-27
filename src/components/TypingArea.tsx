@@ -240,12 +240,20 @@ export const TypingArea = ({
           </div>
         )}
         {phase === 'CONFIGURING' && (
-          <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden rounded-[2rem] transition-opacity duration-1000 opacity-100">
-            {/* Background grid */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.15)_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black" />
-            {/* Centered subtle pulse */}
-            <div className="w-1/2 h-1/2 bg-white/5 blur-[80px] rounded-full animate-pulse" style={{ animationDuration: '3s' }} />
+          <div className={`absolute inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden rounded-[2rem] transition-opacity duration-1000 opacity-100 ${theme.text}`}>
+            {/* Elegant Ambient Mesh/Glass Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-black/40" />
+            
+            {/* Volumetric Floating Orbs */}
+            <div className="absolute -top-32 -left-16 w-[500px] h-[500px] bg-current opacity-[0.04] blur-[100px] rounded-full mix-blend-screen animate-pulse" style={{ animationDuration: '4s' }} />
+            <div className="absolute -bottom-32 -right-16 w-[400px] h-[400px] bg-current opacity-[0.03] blur-[80px] rounded-full mix-blend-screen animate-pulse" style={{ animationDuration: '7s' }} />
+            
+            {/* 3D Glass Glare Highlights */}
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
+            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-white/[0.1] via-transparent to-transparent" />
+            
+            {/* Soft inner glow */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent" />
           </div>
         )}
 

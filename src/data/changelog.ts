@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.5.1',
+    date: 'July 28, 2026',
+    title: 'Ranked Idempotency & Visual Polish 🛡️',
+    changes: [
+      { type: 'fix', description: 'Database Idempotency: Patched a major edge-case in Ranked Duels where both clients resolving the match simultaneously would result in double Elo transfers. The backend now strictly enforces single-resolution using a unique Match Key.' },
+      { type: 'fix', description: 'Chromium Z-Index Glitches: Aggressively fixed a notoriously annoying optical illusion and rendering bug where the typing leaderboard text would falsely bleed through dropdown menus.' },
+      { type: 'tweak', description: 'Fluid Animations: The Typing Area animation is now much cleaner. Instead of the entire frosted glass box vanishing when changing settings, only the text crossfades while the glass box gracefully resizes.' },
+      { type: 'fix', description: 'Safety Checks: Reinstated the "Profile Not Found" Elo transfer safeguard so matches against non-existent or invalid profiles safely abort.' },
+    ],
+  },
+  {
     version: 'v1.5.0',
     date: 'July 26, 2026',
     title: 'The Smoothness Overhaul Update 🚀',

@@ -1007,7 +1007,7 @@ function MainApp() {
     shouldHideClutter ? 'opacity-0 blur-2xl -translate-y-12 max-h-0 pointer-events-none !mb-0 overflow-hidden' : 'opacity-100 blur-none translate-y-0 max-h-[200px] mb-8 overflow-visible'
   }`;
 
-  const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel glass-refract rounded-[2rem] overflow-hidden ${
+  const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${
     shouldHideClutter ? 'w-0 opacity-0 blur-2xl translate-x-32 pointer-events-none p-0 border-transparent m-0' : 'w-full xl:w-[400px] p-8 opacity-100 blur-none translate-x-0'
   }`;
 
@@ -1355,8 +1355,9 @@ function MainApp() {
       {/* ═══ MAIN CONTENT ═══ */}
       <div className={`relative w-full px-2 md:px-4 py-4 flex flex-col z-10 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}>
 
-        {/* Header */}
-        <header className={topHudClass} style={{ translate: '0 0 100px' }}>
+        {/* Header - Wrapped in dedicated 3D composite layer to fix Chromium backdrop-filter bugs */}
+        <div style={{ position: 'relative', zIndex: 9999, transform: 'translateZ(100px)', transformStyle: 'preserve-3d' }}>
+          <header className={topHudClass}>
           <div className="flex items-center space-x-6">
             <div className={`flex items-center space-x-3 ${theme.text}`}>
               <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
@@ -1535,6 +1536,7 @@ function MainApp() {
             />
           </div>
         </header>
+        </div>
 
         <main className={`relative z-10 flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
           <div className="flex-1 w-full flex flex-col gap-6">

@@ -1684,7 +1684,7 @@ function MainApp() {
             )}
 
             {/* Typing Area */}
-            <div className="w-full relative flex flex-col items-center">
+            <div className="w-full relative flex flex-col items-center mb-12">
               <TypingArea
                 targetText={typing.targetText}
                 input={typing.input}

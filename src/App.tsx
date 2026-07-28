@@ -1166,21 +1166,6 @@ function MainApp() {
       )}
 
       {/* ═══ OVERLAY MODALS ═══ */}
-
-      {/* Spacebar Prompt */}
-      {typing.phase === 'CONFIGURING' && (
-        <div className="fixed bottom-12 left-0 right-0 z-[100] flex justify-center animate-bounce pointer-events-none">
-          <button
-            onClick={() => { typing.setPhase('READY'); typing.setInput(''); }}
-            className={`px-8 py-4 bg-zinc-950/90 backdrop-blur-xl border ${theme.border} rounded-full shadow-2xl flex items-center gap-4 text-white cursor-pointer hover:bg-zinc-900/90 transition-all duration-300 hover:scale-105 active:scale-95 group pointer-events-auto`}
-          >
-            <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">PRESS</span>
-            <div className={`px-4 py-1 rounded bg-zinc-800 font-black ${theme.text} ${theme.glow} group-hover:scale-110 transition-transform`}>SPACE</div>
-            <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">TO READY UP</span>
-          </button>
-        </div>
-      )}
-
       {/* Ready Modal */}
       {typing.phase === 'READY' && (
         <div key="ready-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
@@ -1699,7 +1684,7 @@ function MainApp() {
             )}
 
             {/* Typing Area */}
-            <div className="w-full">
+            <div className="w-full relative flex flex-col items-center">
               <TypingArea
                 targetText={typing.targetText}
                 input={typing.input}
@@ -1721,6 +1706,20 @@ function MainApp() {
                 racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
                 isCrossfading={isCrossfading}
               />
+
+              {/* Attached Spacebar Prompt */}
+              {typing.phase === 'CONFIGURING' && (
+                <div className={`absolute -bottom-6 left-1/2 -translate-x-1/2 z-[100] flex justify-center pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+                  <button
+                    onClick={() => { typing.setPhase('READY'); typing.setInput(''); }}
+                    className={`px-8 py-3 bg-zinc-950/95 backdrop-blur-xl border ${theme.borderHalf} hover:${theme.border} rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.6)] flex items-center gap-4 text-white cursor-pointer hover:bg-zinc-900 transition-all duration-300 hover:scale-105 active:scale-95 group pointer-events-auto`}
+                  >
+                    <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">PRESS</span>
+                    <div className={`px-4 py-1.5 rounded-lg bg-zinc-800 font-black text-sm ${theme.text} ${theme.glow} group-hover:scale-110 transition-transform shadow-inner`}>SPACE</div>
+                    <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">TO READY UP</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Abort Button (only during active test, NOT on finished) */}

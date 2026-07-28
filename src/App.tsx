@@ -1355,9 +1355,8 @@ function MainApp() {
       {/* ═══ MAIN CONTENT ═══ */}
       <div className={`relative w-full px-2 md:px-4 py-4 flex flex-col z-10 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}>
 
-        {/* Header - Wrapped in dedicated 3D composite layer to fix Chromium backdrop-filter bugs */}
-        <div style={{ position: 'relative', zIndex: 9999, transform: 'translateZ(100px)', transformStyle: 'preserve-3d' }}>
-          <header className={topHudClass}>
+        {/* Header */}
+        <header className={topHudClass}>
           <div className="flex items-center space-x-6">
             <div className={`flex items-center space-x-3 ${theme.text}`}>
               <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
@@ -1536,7 +1535,6 @@ function MainApp() {
             />
           </div>
         </header>
-        </div>
 
         <main className={`relative z-10 flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
           <div className="flex-1 w-full flex flex-col gap-6">

@@ -115,7 +115,7 @@
   position: relative;
   background:
     linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 35%, rgba(255,255,255,0.02) 60%, rgba(255,255,255,0.08) 100%),
-    rgba(18, 18, 22, 0.4);
+    rgba(18, 18, 22, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),

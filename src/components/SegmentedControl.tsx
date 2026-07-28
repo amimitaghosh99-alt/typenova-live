@@ -10,6 +10,7 @@ interface SegmentedControlProps<T extends string | number> {
   themeTextClass?: string;
   className?: string;
   pillClassName?: string;
+  fullWidth?: boolean;
 }
 
 export function SegmentedControl<T extends string | number>({
@@ -21,6 +22,7 @@ export function SegmentedControl<T extends string | number>({
   themeTextClass = 'text-white',
   className = '',
   pillClassName = 'bg-white/10 border border-white/10 shadow-[0_0_15px_currentColor]',
+  fullWidth = false,
 }: SegmentedControlProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pillStyle, setPillStyle] = useState<{ left: number; width: number; height: number; top: number; opacity: number }>({ left: 0, width: 0, height: 0, top: 0, opacity: 0 });
@@ -49,6 +51,8 @@ export function SegmentedControl<T extends string | number>({
 
     measure();
     
+    // Slight delay after resize or font load might be needed for perfect measuring, 
+    // but resize observer usually catches layout shifts.
     const resizeObserver = new ResizeObserver(measure);
     if (containerRef.current) resizeObserver.observe(containerRef.current);
     window.addEventListener('resize', measure);
@@ -60,7 +64,7 @@ export function SegmentedControl<T extends string | number>({
   }, [value, options]);
 
   return (
-    <div className={`relative flex flex-wrap p-1.5 rounded-full ${className}`} ref={containerRef}>
+    <div className={`relative flex flex-wrap p-1.5 rounded-full ${className} ${fullWidth ? 'w-full' : ''}`} ref={containerRef}>
       {/* The sliding pill */}
       <div 
         className={`absolute rounded-full pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] z-0 ${pillClassName}`}
@@ -92,7 +96,7 @@ export function SegmentedControl<T extends string | number>({
               }
             }}
             disabled={disabled}
-            className={`relative z-10 px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-colors duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] flex justify-center items-center gap-2 ${
+            className={`relative z-10 px-3 md:px-5 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-colors duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] flex justify-center items-center gap-2 ${fullWidth ? 'flex-1' : ''} ${
               isActive 
                 ? `${themeTextClass} drop-shadow-md` 
                 : opt.locked 

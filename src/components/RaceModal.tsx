@@ -186,6 +186,7 @@ export const RaceModal = ({
             <div className="w-full bg-zinc-900/50 rounded-full border border-zinc-800">
               <SegmentedControl
                 className="w-full"
+                fullWidth={true}
                 options={[
                   { label: "PRIVATE ROOM", value: "private" },
                   { label: <span className="flex items-center justify-center gap-2"><Target size={14} /> RANKED 1V1</span>, value: "ranked" }

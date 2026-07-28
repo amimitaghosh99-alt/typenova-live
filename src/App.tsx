@@ -1356,7 +1356,7 @@ function MainApp() {
       <div className={`relative w-full px-2 md:px-4 py-4 flex flex-col z-10 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}>
 
         {/* Header */}
-        <header className={topHudClass}>
+        <header className={topHudClass} style={{ translate: '0 0 100px' }}>
           <div className="flex items-center space-x-6">
             <div className={`flex items-center space-x-3 ${theme.text}`}>
               <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />

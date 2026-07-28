@@ -1,14 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Users, Copy, Check, Play, Crown, Flag, LogOut, Swords, Link, Activity, Target } from 'lucide-react';
 import { generateText, type Theme, type Level, type CodeLanguage } from '@/data/constants';
 import type { RacerState, RaceStatus, RaceConfig } from '@/hooks/useRace';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useMatchmaking } from '@/hooks/useMatchmaking';
 
+// Ranked is a fixed format so neither player can pick a favourable one, and
+// there is no START button — the host fires it automatically once both
+// racers are present.
+const RANKED_MODE: Level = 'ADEPT';
+const RANKED_WORDS = 25;
+/** How long the VS reveal stays up before the host starts the race. */
+const RANKED_REVEAL_MS = 2000;
+/** Give up if the matched opponent never actually reaches the room. */
+const RANKED_NO_SHOW_MS = 15000;
+
 interface RaceModalProps {
   status: RaceStatus;
   code: string;
   isHost: boolean;
+  /** True when this room came out of the ranked queue. */
+  isRankedRoom?: boolean;
   players: RacerState[];
   error: string;
   selfId: string;
@@ -28,7 +40,7 @@ interface RaceModalProps {
 }
 
 export const RaceModal = ({
-  status, code, isHost, players, error, selfId, theme, roomSize,
+  status, code, isHost, isRankedRoom, players, error, selfId, theme, roomSize,
   lobbyConfig, updateLobbyConfig,
   onCreate, onJoin, onStart, onLeave, onClose, initialCode,
   elo, username, supabase
@@ -42,17 +54,72 @@ export const RaceModal = ({
 
   const mm = useMatchmaking(supabase, selfId, username || name || 'GUEST', elo);
 
+  const { status: mmStatus, roomCode: mmRoomCode, isHost: mmIsHost } = mm.state;
+  const { cancel: mmCancel, clearMatch: mmClearMatch } = mm;
+
+  // `onCreate`/`onJoin` are inline arrows in App, so this effect re-runs on
+  // every render — the ref is what actually guarantees one join per match.
+  const joinedMatchRef = useRef<string | null>(null);
+
   // Auto-join when a match is found
   useEffect(() => {
-    if (mm.state.status === 'found' && mm.state.roomCode) {
-      if (mm.state.isHost) {
-        onCreate(username || name || 'GUEST', 2, true, mm.state.roomCode);
-      } else {
-        onJoin(mm.state.roomCode, username || name || 'GUEST', true);
-      }
-      mm.clearMatch();
+    if (mmStatus !== 'found' || !mmRoomCode) return;
+    if (joinedMatchRef.current === mmRoomCode) return;
+    joinedMatchRef.current = mmRoomCode;
+
+    if (mmIsHost) {
+      onCreate(username || name || 'GUEST', 2, true, mmRoomCode);
+    } else {
+      onJoin(mmRoomCode, username || name || 'GUEST', true);
     }
-  }, [mm.state.status, mm.state.isHost, mm.state.roomCode, onCreate, onJoin, username, name, mm]);
+    mmClearMatch();
+  }, [mmStatus, mmRoomCode, mmIsHost, mmClearMatch, onCreate, onJoin, username, name]);
+
+  // Leaving the ranked tab has to leave the queue too, otherwise a match found
+  // later yanks the player out of whatever private room they just made.
+  useEffect(() => {
+    if (tab !== 'ranked' && mmStatus === 'searching') mmCancel();
+  }, [tab, mmStatus, mmCancel]);
+
+  const closeAndCancel = useCallback(() => {
+    mmCancel();
+    onClose();
+  }, [mmCancel, onClose]);
+
+  const me = players.find(p => p.id === selfId);
+  const rival = players.find(p => p.id !== selfId);
+  const bothPresent = !!me && !!rival;
+
+  // ── Ranked auto-start ──
+  // No START button in ranked: the host fires it once both racers have landed,
+  // after a short VS reveal so each player sees who they drew.
+  const autoStartedRef = useRef(false);
+  // `onStart` is an inline arrow in App, so depending on it directly would
+  // restart the reveal timer on every parent render and it might never fire.
+  const onStartRef = useRef(onStart);
+  useEffect(() => { onStartRef.current = onStart; });
+
+  useEffect(() => {
+    if (!isRankedRoom || status !== 'lobby' || !isHost || !bothPresent) return;
+    if (autoStartedRef.current) return;
+    const t = setTimeout(() => {
+      autoStartedRef.current = true;
+      onStartRef.current(generateText(RANKED_MODE, RANKED_WORDS, '', false));
+    }, RANKED_REVEAL_MS);
+    return () => clearTimeout(t);
+  }, [isRankedRoom, status, isHost, bothPresent]);
+
+  // The matched opponent can die between the handshake and the room. Don't
+  // strand the host on a VS screen that will never resolve.
+  // Keyed by room code so it self-resets on the next match instead of needing
+  // a synchronous reset in the effect body.
+  const [noShowFor, setNoShowFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isRankedRoom || status !== 'lobby' || bothPresent) return;
+    const t = setTimeout(() => setNoShowFor(code), RANKED_NO_SHOW_MS);
+    return () => clearTimeout(t);
+  }, [isRankedRoom, status, bothPresent, code]);
+  const noShow = !!isRankedRoom && status === 'lobby' && !bothPresent && noShowFor === code;
 
   const accent = { color: `rgb(${theme.glowPrimary})` };
   const canAct = name.trim().length > 0;
@@ -74,19 +141,34 @@ export const RaceModal = ({
     } catch { /* ignore */ }
   };
 
+  const rankedCard = (p: RacerState | undefined, isSelf: boolean) => (
+    <div className={`flex-1 min-w-0 flex flex-col items-center gap-1.5 px-4 py-6 rounded-3xl border ${isSelf ? `bg-white/5 ${theme.borderHalf}` : 'bg-zinc-900/50 border-zinc-800'}`}>
+      <span className="font-black text-white tracking-widest uppercase text-sm truncate max-w-full">
+        {p?.name || '—'}
+      </span>
+      <span className={`text-3xl font-black ${p ? theme.text : 'text-zinc-700'}`}>
+        {p ? (p.elo ?? 1000) : '····'}
+      </span>
+      <span className="text-[9px] font-black tracking-widest text-zinc-500">ELO</span>
+      {isSelf && (
+        <span className="mt-1 text-[8px] font-black tracking-widest px-2 py-0.5 rounded-full bg-white/10 border border-white/20 text-zinc-300">YOU</span>
+      )}
+    </div>
+  );
+
   const ranking = [...players]
     .filter(p => p.finished)
     .sort((a, b) => (b.finishWpm ?? 0) - (a.finishWpm ?? 0) || (a.finishMs ?? Infinity) - (b.finishMs ?? Infinity));
   const unfinished = players.filter(p => !p.finished);
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={onClose}>
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={closeAndCancel}>
       <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-10 w-full max-w-lg shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6 border-b border-zinc-800 pb-4">
           <h2 className="text-2xl font-black text-white uppercase tracking-widest flex items-center">
             <Swords className="mr-3" style={accent} size={24} /> {status === 'lobby' || status === 'racing' ? 'Race Room' : 'Multiplayer'}
           </h2>
-          <button onClick={() => { mm.cancel(); onClose(); }} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={20} /></button>
+          <button onClick={closeAndCancel} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={20} /></button>
         </div>
 
         {error && (
@@ -231,8 +313,42 @@ export const RaceModal = ({
           </div>
         )}
 
+        {/* ── RANKED VS REVEAL ───────────────────────────────────── */}
+        {status === 'lobby' && isRankedRoom && (
+          <div className="flex flex-col gap-6">
+            <div className="text-center">
+              <p className="text-[10px] font-black tracking-[0.4em] uppercase text-zinc-500 mb-2">
+                {noShow ? 'Opponent never arrived' : bothPresent ? 'Match found' : 'Securing match'}
+              </p>
+              <p className="text-xs font-black tracking-widest uppercase" style={accent}>
+                {RANKED_MODE} · {RANKED_WORDS} WORDS
+              </p>
+            </div>
+
+            <div className="flex items-stretch gap-3">
+              {rankedCard(me, true)}
+              <div className="flex items-center justify-center">
+                <span className="text-xl font-black tracking-widest text-zinc-600">VS</span>
+              </div>
+              {rankedCard(rival, false)}
+            </div>
+
+            <p className={`text-center text-[10px] font-black tracking-widest uppercase py-1 ${noShow ? 'text-red-400' : 'text-zinc-500 animate-pulse'}`}>
+              {noShow
+                ? 'Match abandoned — no Elo lost'
+                : bothPresent
+                  ? 'Race starting...'
+                  : 'Waiting for opponent...'}
+            </p>
+
+            <button onClick={onLeave} className="w-full p-3 rounded-2xl font-black uppercase tracking-widest text-[10px] text-zinc-500 hover:text-red-400 transition-colors flex items-center justify-center gap-2">
+              <LogOut size={12} /> {noShow ? 'LEAVE' : 'FORFEIT & LEAVE'}
+            </button>
+          </div>
+        )}
+
         {/* ── LOBBY ──────────────────────────────────────────────── */}
-        {status === 'lobby' && (
+        {status === 'lobby' && !isRankedRoom && (
           <div className="flex flex-col gap-5">
             <div className="flex items-center justify-center gap-3">
               <span className="text-4xl font-black tracking-[0.35em] text-white pl-2" style={accent}>{code}</span>

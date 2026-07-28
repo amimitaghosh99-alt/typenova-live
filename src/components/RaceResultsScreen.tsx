@@ -16,12 +16,14 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   timelines?: Record<string, Array<{ t: number; wpm: number }>>;
   isRanked?: boolean;
   supabase?: SupabaseClient | null;
+  /** Host-minted id shared by everyone in the room; dedupes duel resolution. */
+  raceId?: string | null;
   onLeaveRace: () => void;
   onUpdateElo?: (action: SetStateAction<number>) => void;
 }
 
 export function RaceResultsScreen({
-  players, selfId, roomSize, timelines, isRanked, supabase, onLeaveRace, onUpdateElo, theme,
+  players, selfId, roomSize, timelines, isRanked, supabase, raceId, onLeaveRace, onUpdateElo, theme,
   ...resultsProps
 }: RaceResultsScreenProps) {
   const ranking = useMemo(() =>
@@ -48,41 +50,119 @@ export function RaceResultsScreen({
   }, [players, resultsProps.durationMs]);
 
   const [eloTransfer, setEloTransfer] = useState<{ amount: number; direction: 'up' | 'down' } | null>(null);
+  const [eloNote, setEloNote] = useState('');
+  const [waitExpired, setWaitExpired] = useState(false);
+
+  // Presence drops a disconnected racer out of `players` entirely, so keep the
+  // last snapshot we saw. Without it, an opponent who rage-quits mid-race makes
+  // the whole ranked result silently no-op — a free escape from losing Elo.
+  const opponentRef = useRef<RacerState | null>(null);
+  const participantsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const live = players.find(p => p.id !== selfId);
+    if (live) opponentRef.current = live;
+    players.forEach(p => participantsRef.current.add(p.id));
+  }, [players, selfId]);
+
+  const opponentPresent = players.some(p => p.id !== selfId);
+  const meFinished = !!players.find(p => p.id === selfId)?.finished;
+
+  // Give a still-connected opponent room to finish; if they've vanished, wait
+  // only long enough to rule out a transient presence blip before forfeiting.
+  useEffect(() => {
+    if (!isRanked || !meFinished || rpcCalled.current) return;
+    const t = setTimeout(() => setWaitExpired(true), opponentPresent ? 20000 : 6000);
+    return () => clearTimeout(t);
+  }, [isRanked, meFinished, opponentPresent]);
 
   useEffect(() => {
-    if (!isRanked || players.length !== 2 || rpcCalled.current) return;
+    if (!isRanked || rpcCalled.current) return;
     const me = players.find(p => p.id === selfId);
-    const op = players.find(p => p.id !== selfId);
-    
-    // We only process if WE have finished.
-    if (!me || !op || !me.finished) return;
+    const op = players.find(p => p.id !== selfId) ?? opponentRef.current;
+    if (!me?.finished || !op) return;
+    // Never claim a win just because the opponent hasn't finished *yet* — that
+    // let both clients resolve the same duel whenever a finish broadcast was
+    // dropped, writing two mirrored rows and showing "+X ELO" to both players.
+    if (!op.finished && !waitExpired) return;
 
     rpcCalled.current = true;
-    const iWonNow = !op.finished || (ranking[0]?.id === selfId);
 
-    // If I won, call RPC to solidify it in the database and get actual Elo change.
-    if (iWonNow && supabase) {
-      supabase.rpc('resolve_ranked_duel', {
-        p_opponent_id: op.userId || op.id,
+    if (participantsRef.current.size > 2) {
+      setEloNote('ELO NOT APPLIED — MORE THAN 2 RACERS');
+      return;
+    }
+
+    const myUserId = me.userId;
+    const myStartElo = me.elo ?? 1000;
+
+    if (!supabase || !myUserId) {
+      setEloNote('ELO NOT APPLIED — SIGN IN REQUIRED');
+      return;
+    }
+
+    const wpmMe = me.finishWpm ?? 0, wpmOp = op.finishWpm ?? 0;
+    const msMe = me.finishMs ?? Infinity, msOp = op.finishMs ?? Infinity;
+    const iWonNow = !op.finished
+      ? true // opponent never finished — forfeit
+      : wpmMe !== wpmOp ? wpmMe > wpmOp
+      : msMe !== msOp ? msMe < msOp
+      : selfId.localeCompare(op.id) < 0; // deterministic tiebreak, same on both clients
+
+    // Read the authoritative rating back instead of guessing a delta: the
+    // server's dynamic K-factor and margin multiplier put the real number
+    // anywhere between 1 and ~96, so the old hardcoded ±25 was almost always wrong.
+    const syncElo = async (attempts: number) => {
+      for (let i = 0; i < attempts; i++) {
+        const { data } = await supabase.from('profiles').select('elo').eq('id', myUserId).maybeSingle();
+        const value = (data as { elo?: number } | null)?.elo;
+        if (typeof value === 'number' && value !== myStartElo) {
+          onUpdateElo?.(() => value);
+          const diff = value - myStartElo;
+          setEloTransfer({ amount: Math.abs(diff), direction: diff >= 0 ? 'up' : 'down' });
+          return true;
+        }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      return false;
+    };
+
+    if (iWonNow) {
+      if (!op.userId) {
+        setEloNote('ELO NOT APPLIED — OPPONENT NOT SIGNED IN');
+        return;
+      }
+      const baseArgs = {
+        p_opponent_id: op.userId,
         p_log: resultsProps.keystrokeLog,
         p_time_ms: me.finishMs || resultsProps.durationMs,
-        p_opponent_wpm: op.finishWpm || 0
-      }).then(({ error, data }) => {
-        if (error) {
-          console.error("Ranked Match RPC Error:", error);
-          setEloTransfer({ amount: 25, direction: 'up' });
-          onUpdateElo?.((prev) => prev + 25);
-        } else if (data !== null) {
-          setEloTransfer({ amount: data, direction: 'up' });
-          onUpdateElo?.((prev) => prev + data);
+        p_opponent_wpm: op.finishWpm || 0,
+      };
+
+      (async () => {
+        let { error, data } = await supabase.rpc('resolve_ranked_duel', { ...baseArgs, p_match_key: raceId ?? null });
+        // PGRST202 = no function with that signature, i.e. the dedupe migration
+        // hasn't been applied yet. Fall back so ranked keeps working (without
+        // double-resolution protection) rather than failing outright.
+        if (error?.code === 'PGRST202') {
+          console.warn('resolve_ranked_duel is missing p_match_key — apply migration 20260728000000_ranked_duel_dedupe.sql');
+          ({ error, data } = await supabase.rpc('resolve_ranked_duel', baseArgs));
         }
-      });
+
+        if (!error && typeof data === 'number') {
+          setEloTransfer({ amount: data, direction: 'up' });
+          onUpdateElo?.(prev => prev + data);
+          return;
+        }
+        // Duplicate submission, or a rejected anti-cheat check. Never invent a
+        // delta here — take whatever the server actually recorded.
+        if (error) console.error('Ranked duel RPC failed:', error.message);
+        if (!(await syncElo(4))) setEloNote('ELO UNCHANGED — MATCH NOT COUNTED');
+      })();
     } else {
-      // Loser relies on optimistic update
-      setEloTransfer({ amount: 25, direction: 'down' });
-      onUpdateElo?.((prev) => prev - 25);
+      // The winner's client writes both sides of the transfer; wait for it.
+      syncElo(6).then(ok => { if (!ok) setEloNote('ELO SYNC PENDING'); });
     }
-  }, [isRanked, players, selfId, supabase, resultsProps.keystrokeLog, resultsProps.durationMs, onUpdateElo]);
+  }, [isRanked, players, selfId, supabase, waitExpired, raceId, resultsProps.keystrokeLog, resultsProps.durationMs, onUpdateElo]);
 
   // ── AWARDS LOGIC ──
   const awards = useMemo(() => {
@@ -175,7 +255,6 @@ export function RaceResultsScreen({
       errorTimes: new Array(selectedPlayer.errorCount ?? 0).fill(0), // Fake error times just for the count
     };
   }, [isSelfSelected, selectedPlayer, resultsProps]);
-  console.log("DEBUG RaceResultsScreen -> isRanked:", isRanked, "players.length:", players.length, "eloTransfer:", eloTransfer, "rpcCalled:", rpcCalled.current);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
@@ -191,6 +270,14 @@ export function RaceResultsScreen({
         {/* 🏆 WINNER BANNER 🏆 */}
         <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative">
           
+          {isRanked && !eloTransfer && eloNote && (
+            <div className="flex items-center justify-center mb-8 h-16">
+              <div className="text-xs font-black tracking-widest uppercase text-zinc-500 border border-zinc-800 bg-zinc-900/50 rounded-full px-5 py-3">
+                {eloNote}
+              </div>
+            </div>
+          )}
+
           {/* Fluid Elo Transfer Animation */}
           {isRanked && eloTransfer && (
             <div className="flex items-center justify-center pointer-events-none mb-8 h-16">

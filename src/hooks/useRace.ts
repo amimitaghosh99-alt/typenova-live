@@ -51,6 +51,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const [isHost, setIsHost] = useState(false);
   const [players, setPlayers] = useState<RacerState[]>([]);
   const [error, setError] = useState('');
+  /** Host-minted id for the current race, shared by every client in the room. */
+  const [raceId, setRaceId] = useState<string | null>(null);
   const [roomSize, setRoomSize] = useState(2);
   const [lobbyConfig, setLobbyConfig] = useState<RaceConfig>({ mode: 'NOVICE', words: 25 });
   const lobbyConfigRef = useRef<RaceConfig>({ mode: 'NOVICE', words: 25 });
@@ -58,6 +60,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [selfId] = useState(() => crypto.randomUUID());
   const selfIdRef = useRef(selfId);
+  /** Our Supabase auth id (distinct from the presence key), needed to survive host migration. */
+  const selfUserIdRef = useRef<string | undefined>(undefined);
   const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
   const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number }>>({});
   const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});
@@ -93,6 +97,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     setIsHost(false);
     setError('');
     setRoomSize(2);
+    setRaceId(null);
   }, [teardown]);
 
   // Rebuild the player list from presence + latest progress/finish payloads.
@@ -172,13 +177,17 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       next[0].isHost = true; // alphabetically first player inherits host
         if (next[0].id === selfIdRef.current) {
           setIsHost(true);
-          ch.track({ 
-            name: next[0].name, 
-            isHost: true, 
+          ch.track({
+            name: next[0].name,
+            isHost: true,
             text: textRef.current,
             roomSize: roomSizeRef.current,
             lobbyConfig: lobbyConfigRef.current,
-            elo: next[0].elo
+            elo: next[0].elo,
+            // Dropping userId here used to orphan the ranked result: the
+            // opponent would resolve the duel against our presence key
+            // (a random UUID) instead of our auth id.
+            userId: selfUserIdRef.current,
           });
         }
     }
@@ -191,17 +200,21 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     }
   }, []);
 
-  const join = useCallback((roomCode: string, name: string, asHost: boolean, text?: string, size?: number, elo?: number, userId?: string) => {
+  const join = useCallback((roomCode: string, name: string, asHost: boolean, text?: string, size?: number, elo?: number, userId?: string, ranked?: boolean) => {
     if (!supabase) { setError('No connection to Supabase'); return; }
     teardown();
     setError('');
     setStatus('joining');
     setCode(roomCode);
     setIsHost(asHost);
+    selfUserIdRef.current = userId;
     if (asHost && text) textRef.current = text;
     if (asHost && size) { roomSizeRef.current = size; setRoomSize(size); }
 
-    const ch = supabase.channel(`race-${roomCode}`, {
+    // Ranked rooms live in their own channel namespace. Sharing the 5-char code
+    // space with private rooms meant anyone typing a ranked code into the JOIN
+    // box could walk into a live duel and void both players' Elo.
+    const ch = supabase.channel(ranked ? `ranked-${roomCode}` : `race-${roomCode}`, {
       config: { presence: { key: selfIdRef.current }, broadcast: { self: true } },
     });
     channelRef.current = ch;
@@ -210,13 +223,20 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     ch.on('broadcast', { event: 'start' }, ({ payload }) => {
       if (!payload?.text || statusRef.current === 'racing') return;
       setStatus('racing');
-      startAtRef.current = payload.startAt as number;
-      onStartRef.current(payload.text as string, payload.startAt as number);
+      // Anchor the countdown to a *relative* lead time on our own clock. The
+      // host's absolute `startAt` is worthless here: a client whose system
+      // clock is a few seconds fast would clamp to 1s and start early.
+      const lead = typeof payload.leadMs === 'number' ? payload.leadMs : (payload.startAt as number) - Date.now();
+      const localStartAt = Date.now() + Math.max(1000, lead);
+      startAtRef.current = localStartAt;
+      // Every client in the room agrees on this id; it's what lets the server
+      // reject a second attempt to resolve the same duel.
+      if (payload.raceId) setRaceId(payload.raceId as string);
+      onStartRef.current(payload.text as string, localStartAt);
     });
     ch.on('broadcast', { event: 'progress' }, ({ payload }) => {
-      if (!payload?.id || payload.id === selfIdRef.current) {
-        // still record self so our own bar matches what others see
-      }
+      // Self is intentionally recorded too, so our own bar matches what others see.
+      if (!payload?.id) return;
       progressRef.current[payload.id] = { progress: payload.progress, wpm: payload.wpm };
       if (startAtRef.current) {
         if (!timelinesRef.current[payload.id]) timelinesRef.current[payload.id] = [];
@@ -269,12 +289,12 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     });
   }, [supabase, teardown, rebuildPlayers, leave]);
 
-  const createRoom = useCallback((name: string, size: number = 2, text?: string, elo?: number, roomCode?: string, userId?: string) => {
-    join(roomCode || makeRoomCode(), name, true, text, size, elo, userId);
+  const createRoom = useCallback((name: string, size: number = 2, text?: string, elo?: number, roomCode?: string, userId?: string, ranked?: boolean) => {
+    join(roomCode || makeRoomCode(), name, true, text, size, elo, userId, ranked);
   }, [join]);
 
-  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string) => {
-    join(roomCode.toUpperCase(), name, false, undefined, undefined, elo, userId);
+  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string, ranked?: boolean) => {
+    join(roomCode.toUpperCase(), name, false, undefined, undefined, elo, userId, ranked);
   }, [join]);
 
   /** Host only: synchronize the start. Everyone (incl. host, via self:true
@@ -284,7 +304,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     channelRef.current?.send({
       type: 'broadcast',
       event: 'start',
-      payload: { text: textToUse, startAt: Date.now() + 4000 },
+      // leadMs is what receivers actually use; startAt is kept for older clients.
+      payload: { text: textToUse, startAt: Date.now() + 4000, leadMs: 4000, raceId: crypto.randomUUID() },
     });
   }, []);
 
@@ -348,6 +369,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   return {
     status,
     code,
+    raceId,
     isHost,
     players,
     error,

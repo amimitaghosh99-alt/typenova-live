@@ -1048,6 +1048,7 @@ function MainApp() {
             timelines={race.getTimelines()}
             isRanked={isRankedMatch}
             supabase={supabase}
+            raceId={race.raceId}
             onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
             onUpdateElo={(elo) => cloud.setElo(elo)}
           />
@@ -1886,8 +1887,9 @@ function MainApp() {
           username={cloud.username || ''}
           supabase={supabase}
           updateLobbyConfig={race.updateLobbyConfig}
-          onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id); }}
-          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, auth.user?.id); }}
+          isRankedRoom={isRankedMatch}
+          onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked); }}
+          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked); }}
           onStart={(text) => race.startRace(text)}
           onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); setIsRankedMatch(false); }}
           onClose={() => setShowRace(false)}

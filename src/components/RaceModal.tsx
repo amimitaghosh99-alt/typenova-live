@@ -4,6 +4,7 @@ import { generateText, type Theme, type Level, type CodeLanguage } from '@/data/
 import type { RacerState, RaceStatus, RaceConfig } from '@/hooks/useRace';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useMatchmaking } from '@/hooks/useMatchmaking';
+import { SegmentedControl } from '@/components/SegmentedControl';
 
 // Ranked is a fixed format so neither player can pick a favourable one, and
 // there is no START button — the host fires it automatically once both
@@ -182,19 +183,18 @@ export const RaceModal = ({
           <div className="flex flex-col gap-6">
             
             {/* Tabs */}
-            <div className="flex bg-zinc-900/50 p-1.5 rounded-full border border-zinc-800">
-              <button 
-                onClick={() => setTab('private')} 
-                className={`flex-1 py-3 rounded-full text-xs font-black tracking-widest uppercase transition-all ${tab === 'private' ? `bg-white/10 ${theme.text} shadow-lg` : 'text-zinc-500 hover:text-zinc-300'}`}
-              >
-                Private Room
-              </button>
-              <button 
-                onClick={() => setTab('ranked')} 
-                className={`flex-1 py-3 rounded-full text-xs font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 ${tab === 'ranked' ? `bg-white/10 ${theme.text} shadow-lg` : 'text-zinc-500 hover:text-zinc-300'}`}
-              >
-                <Target size={14} /> Ranked 1v1
-              </button>
+            <div className="w-full bg-zinc-900/50 rounded-full border border-zinc-800">
+              <SegmentedControl
+                className="w-full"
+                options={[
+                  { label: "PRIVATE ROOM", value: "private" },
+                  { label: <span className="flex items-center justify-center gap-2"><Target size={14} /> RANKED 1V1</span>, value: "ranked" }
+                ]}
+                value={tab}
+                onChange={setTab}
+                themeTextClass={theme.text}
+                pillClassName="bg-white/10 shadow-lg"
+              />
             </div>
 
             {tab === 'private' && (
@@ -213,23 +213,18 @@ export const RaceModal = ({
                 {/* Room Size Selector */}
                 <div className="flex flex-col gap-2">
                   <span className="text-zinc-500 text-[10px] font-black tracking-widest text-center">ROOM SIZE</span>
-                  <div className="flex gap-2 justify-center">
-                    {([2, 3, 4] as const).map(size => {
-                      const labels: Record<number, string> = { 2: '2 PLAYERS', 3: '3 PLAYERS', 4: '4 PLAYERS' };
-                      return (
-                        <button
-                          key={size}
-                          onClick={() => setSelectedSize(size)}
-                          className={`px-5 py-3 rounded-2xl font-black uppercase tracking-widest text-sm border transition-all ${
-                            selectedSize === size
-                              ? `bg-white/10 ${theme.borderHalf} text-white`
-                              : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
-                          }`}
-                        >
-                          {labels[size]}
-                        </button>
-                      );
-                    })}
+                  <div className="flex justify-center bg-zinc-900/50 rounded-full border border-zinc-800 self-center">
+                    <SegmentedControl
+                      options={[
+                        { label: "2 PLAYERS", value: 2 },
+                        { label: "3 PLAYERS", value: 3 },
+                        { label: "4 PLAYERS", value: 4 }
+                      ]}
+                      value={selectedSize}
+                      onChange={(v) => setSelectedSize(v as 2|3|4)}
+                      themeTextClass={theme.text}
+                      pillClassName={`bg-white/10 ${theme.borderHalf} text-white`}
+                    />
                   </div>
                 </div>
 
@@ -369,43 +364,37 @@ export const RaceModal = ({
                 </p>
                 
                 {/* Row 1: Difficulty */}
-                <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full overflow-x-auto hide-scrollbar mx-auto w-full max-w-full">
-                  {(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => (
-                    <button
-                      key={l}
-                      onClick={() => updateLobbyConfig({ mode: l })}
-                      className={`flex-shrink-0 flex-1 px-3 py-2.5 rounded-full text-[10px] font-black tracking-widest transition-all ${lobbyConfig.mode === l ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-500 hover:text-white border border-transparent'}`}
-                    >
-                      {l}
-                    </button>
-                  ))}
+                <div className="flex justify-center bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-full self-center">
+                  <SegmentedControl
+                    options={(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => ({ label: l, value: l }))}
+                    value={lobbyConfig.mode}
+                    onChange={(v) => updateLobbyConfig({ mode: v })}
+                    themeTextClass={theme.text}
+                  />
                 </div>
 
                 {/* Row 2: Length */}
-                <div className={`flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full self-center transition-opacity ${lobbyConfig.mode === 'QUOTES' ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
-                  {([10, 25, 50, 100]).map(v => (
-                    <button
-                      key={v}
-                      onClick={() => updateLobbyConfig({ words: v })}
-                      className={`px-5 py-2.5 rounded-full text-[10px] font-black tracking-widest transition-all ${lobbyConfig.words === v ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-500 hover:text-white border border-transparent'}`}
-                    >
-                      {v}
-                    </button>
-                  ))}
+                <div className={`flex justify-center bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-full self-center transition-opacity ${lobbyConfig.mode === 'QUOTES' ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                  <SegmentedControl
+                    options={([10, 25, 50, 100]).map(v => ({ label: String(v), value: v }))}
+                    value={lobbyConfig.words}
+                    onChange={(v) => updateLobbyConfig({ words: v })}
+                    themeTextClass={theme.text}
+                  />
                 </div>
 
                 {/* Row 3: Language (Conditional) */}
                 <div className={`overflow-hidden transition-all duration-300 ease-in-out flex justify-center ${lobbyConfig.mode === 'CODE' ? 'max-h-20 opacity-100 mt-1' : 'max-h-0 opacity-0 m-0'}`}>
-                  <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 p-1.5 rounded-full overflow-x-auto hide-scrollbar w-full max-w-full">
-                    {(['JavaScript/TypeScript', 'Python', 'Rust', 'C++', 'CSS', 'HTML', 'SQL', 'Go'] as CodeLanguage[]).map(lang => (
-                      <button
-                        key={lang}
-                        onClick={() => updateLobbyConfig({ language: lang })}
-                        className={`flex-shrink-0 flex-1 px-3 py-2.5 rounded-full text-[10px] font-black tracking-widest transition-all ${lobbyConfig.language === lang || (!lobbyConfig.language && lang === 'JavaScript/TypeScript') ? `bg-white/10 ${theme.text} border border-white/10 shadow-[0_0_15px_currentColor]` : 'text-zinc-500 hover:text-white border border-transparent'}`}
-                      >
-                        {lang.split('/')[0].toUpperCase()}
-                      </button>
-                    ))}
+                  <div className="flex bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-full">
+                    <SegmentedControl
+                      options={(['JavaScript/TypeScript', 'Python', 'Rust', 'C++', 'CSS', 'HTML', 'SQL', 'Go'] as CodeLanguage[]).map(lang => ({
+                        label: lang.split('/')[0].toUpperCase(),
+                        value: lang
+                      }))}
+                      value={lobbyConfig.language || 'JavaScript/TypeScript'}
+                      onChange={(v) => updateLobbyConfig({ language: v })}
+                      themeTextClass={theme.text}
+                    />
                   </div>
                 </div>
               </div>

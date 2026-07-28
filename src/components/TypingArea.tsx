@@ -138,13 +138,14 @@ interface TypingAreaProps {
   pbGhost?: { wpm: number; samples: PaceSample[] } | null;
   isCodeMode?: boolean;
   racePlayers?: RacerState[];
+  isCrossfading?: boolean;
 }
 
 export const TypingArea = ({
   targetText, input, phase, theme, blindMode, focusMode,
   fogMode, startTime, shake, capsLock, stickyPenalty,
   particles, ghostPacer, combo, zenMode = false, pbGhost = null,
-  isCodeMode = false, racePlayers
+  isCodeMode = false, racePlayers, isCrossfading = false
 }: TypingAreaProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -213,145 +214,147 @@ export const TypingArea = ({
           animation: shake && !zenMode ? 'shake 0.2s ease-in-out' : 'none',
         } as React.CSSProperties}
       >
-        {capsLock && (
-          <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-lg animate-bounce z-50">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            CAPS LOCK ON
-          </div>
-        )}
-
-        {/* Ghost race chip — live ahead/behind delta vs your best (or 60 WPM) */}
-        {ghost && (
-          <div className="absolute -top-4 right-6 z-50 px-3 py-1.5 rounded-full bg-zinc-950/90 border border-white/10 flex items-center gap-2 pointer-events-none shadow-lg">
-            <Ghost size={12} className="text-zinc-400" />
-            <span className={`text-[10px] font-black tabular-nums tracking-widest ${ghost.deltaS >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {ghost.deltaS >= 0 ? '▲' : '▼'} {Math.abs(ghost.deltaS).toFixed(1)}s {ghost.deltaS >= 0 ? 'AHEAD' : 'BEHIND'}
-            </span>
-            <span className="text-[9px] font-bold text-zinc-500 tracking-widest">
-              {pbGhost ? `BEST ${pbGhost.wpm}` : '60 WPM'}
-            </span>
-          </div>
-        )}
-
-        {stickyPenalty > 0 && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-[10px] md:text-xs px-6 py-2 rounded-full font-black flex items-center shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-pulse z-50 uppercase tracking-widest border border-red-400">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-            KEY STUCK! MASH BACKSPACE {stickyPenalty}x
-          </div>
-        )}
-        {phase === 'CONFIGURING' && (
-          <div className={`absolute inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden rounded-[2rem] transition-opacity duration-1000 opacity-100 ${theme.text}`}>
-            {/* Elegant Ambient Mesh/Glass Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-black/40" />
-            
-            {/* Volumetric Floating Orbs */}
-            <div className="absolute -top-32 -left-16 w-[500px] h-[500px] bg-current opacity-[0.04] blur-[100px] rounded-full mix-blend-screen animate-pulse" style={{ animationDuration: '4s' }} />
-            <div className="absolute -bottom-32 -right-16 w-[400px] h-[400px] bg-current opacity-[0.03] blur-[80px] rounded-full mix-blend-screen animate-pulse" style={{ animationDuration: '7s' }} />
-            
-            {/* 3D Glass Glare Highlights */}
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
-            <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-white/[0.1] via-transparent to-transparent" />
-            
-            {/* Soft inner glow */}
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent" />
-          </div>
-        )}
-
-        <div
-          id="typing-text-container"
-          ref={containerRef}
-          className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto pb-4 pt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-700`}
-          style={{
-            fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace",
-            filter: !startTime && !zenMode ? 'blur(12px)' : 'none',
-            opacity: !startTime && !zenMode ? 0.3 : 1,
-            textShadow: zenMode ? '0 0 40px rgba(255,255,255,0.03)' : 'none',
-          }}
-        >
-          {textArray.map((char, index) => {
-            const inputChar = index < input.length ? input[index] : undefined;
-            const isActive = index === input.length && phase === 'TYPING';
-
-            const syntaxColor = syntaxColors[index] || untypedColor;
-
-            let finalColorClass = inputChar !== undefined
-              ? (inputChar === char
-                ? (blindMode ? "opacity-0" : "text-zinc-100 drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]")
-                : "text-red-400 bg-red-500/20 rounded-md shadow-[0_0_8px_rgba(248,113,113,0.5)]")
-              : syntaxColor;
-
-            if (focusMode && !fogMode) {
-              const dist = Math.abs(index - input.length);
-              if (dist < 15) finalColorClass += " blur-none filter-none opacity-100 transition-all";
-              else finalColorClass += " blur-sm opacity-20";
-            }
-
-            if (fogMode) {
-              const charWordIndex = wordIndices[index] ?? 0;
-              if (charWordIndex < currentWordIndex) finalColorClass += " opacity-0 transition-opacity duration-300";
-              else if (charWordIndex > currentWordIndex + 1) finalColorClass += " opacity-0 transition-opacity duration-300";
-              else if (charWordIndex === currentWordIndex + 1) finalColorClass += " opacity-20 blur-[2px] transition-opacity duration-300";
-            }
-
-            return (
-              <Char
-                key={index}
-                char={char}
-                index={index}
-                colorClass={finalColorClass}
-                isActive={isActive}
-                particles={particlesByIndex.get(index) ?? EMPTY_PARTICLES}
-              />
-            );
-          })}
-
-          {/* Smooth-glide caret — one bar that slides between characters */}
-          {phase === 'TYPING' && input.length < targetText.length && (
-            <GlidingBar
-              index={input.length}
-              containerRef={containerRef}
-              targetText={targetText}
-              barClass={`bg-white caret-lucid ${theme.drop}`}
-            />
+        <div className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 blur-md translate-y-8 scale-95' : 'opacity-100 blur-0 translate-y-0 scale-100'} w-full flex flex-col items-center`}>
+          {capsLock && (
+            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-lg animate-bounce z-50">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              CAPS LOCK ON
+            </div>
           )}
 
-          {/* Ghost caret — a translucent themed bar racing your best pace */}
+          {/* Ghost race chip — live ahead/behind delta vs your best (or 60 WPM) */}
           {ghost && (
-            <GlidingBar
-              index={ghost.index}
-              containerRef={containerRef}
-              targetText={targetText}
-              barClass=""
-              barStyle={{
-                background: `rgb(${theme.glowPrimary})`,
-                opacity: 0.45,
-                transition: 'transform 100ms linear, width 100ms ease-out',
-              }}
-            />
+            <div className="absolute -top-4 right-6 z-50 px-3 py-1.5 rounded-full bg-zinc-950/90 border border-white/10 flex items-center gap-2 pointer-events-none shadow-lg">
+              <Ghost size={12} className="text-zinc-400" />
+              <span className={`text-[10px] font-black tabular-nums tracking-widest ${ghost.deltaS >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {ghost.deltaS >= 0 ? '▲' : '▼'} {Math.abs(ghost.deltaS).toFixed(1)}s {ghost.deltaS >= 0 ? 'AHEAD' : 'BEHIND'}
+              </span>
+              <span className="text-[9px] font-bold text-zinc-500 tracking-widest">
+                {pbGhost ? `BEST ${pbGhost.wpm}` : '60 WPM'}
+              </span>
+            </div>
           )}
 
-          {/* Multiplayer opponents (inline glow) */}
-          {racePlayers && racePlayers.map((player, i) => {
-            const playerIndex = Math.min(Math.floor((player.progress / 100) * targetText.length), targetText.length - 1);
-            const opponentColors = ['rgb(245, 158, 11)', 'rgb(56, 189, 248)', 'rgb(244, 114, 182)', 'rgb(167, 139, 250)']; // Amber, Sky, Pink, Violet
-            return (
+          {stickyPenalty > 0 && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-[10px] md:text-xs px-6 py-2 rounded-full font-black flex items-center shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-pulse z-50 uppercase tracking-widest border border-red-400">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              KEY STUCK! MASH BACKSPACE {stickyPenalty}x
+            </div>
+          )}
+          {phase === 'CONFIGURING' && (
+            <div className={`absolute inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden rounded-[2rem] transition-opacity duration-1000 opacity-100 ${theme.text}`}>
+              {/* Elegant Ambient Mesh/Glass Effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-black/40" />
+              
+              {/* Volumetric Floating Orbs */}
+              <div className="absolute -top-32 -left-16 w-[500px] h-[500px] bg-current opacity-[0.04] blur-[100px] rounded-full mix-blend-screen animate-pulse" style={{ animationDuration: '4s' }} />
+              <div className="absolute -bottom-32 -right-16 w-[400px] h-[400px] bg-current opacity-[0.03] blur-[80px] rounded-full mix-blend-screen animate-pulse" style={{ animationDuration: '7s' }} />
+              
+              {/* 3D Glass Glare Highlights */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.15] to-transparent" />
+              <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-white/[0.1] via-transparent to-transparent" />
+              
+              {/* Soft inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent" />
+            </div>
+          )}
+
+          <div
+            id="typing-text-container"
+            ref={containerRef}
+            className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto pb-4 pt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-700`}
+            style={{
+              fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace",
+              filter: !startTime && !zenMode ? 'blur(12px)' : 'none',
+              opacity: !startTime && !zenMode ? 0.3 : 1,
+              textShadow: zenMode ? '0 0 40px rgba(255,255,255,0.03)' : 'none',
+            }}
+          >
+            {textArray.map((char, index) => {
+              const inputChar = index < input.length ? input[index] : undefined;
+              const isActive = index === input.length && phase === 'TYPING';
+
+              const syntaxColor = syntaxColors[index] || untypedColor;
+
+              let finalColorClass = inputChar !== undefined
+                ? (inputChar === char
+                  ? (blindMode ? "opacity-0" : "text-zinc-100 drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]")
+                  : "text-red-400 bg-red-500/20 rounded-md shadow-[0_0_8px_rgba(248,113,113,0.5)]")
+                : syntaxColor;
+
+              if (focusMode && !fogMode) {
+                const dist = Math.abs(index - input.length);
+                if (dist < 15) finalColorClass += " blur-none filter-none opacity-100 transition-all";
+                else finalColorClass += " blur-sm opacity-20";
+              }
+
+              if (fogMode) {
+                const charWordIndex = wordIndices[index] ?? 0;
+                if (charWordIndex < currentWordIndex) finalColorClass += " opacity-0 transition-opacity duration-300";
+                else if (charWordIndex > currentWordIndex + 1) finalColorClass += " opacity-0 transition-opacity duration-300";
+                else if (charWordIndex === currentWordIndex + 1) finalColorClass += " opacity-20 blur-[2px] transition-opacity duration-300";
+              }
+
+              return (
+                <Char
+                  key={index}
+                  char={char}
+                  index={index}
+                  colorClass={finalColorClass}
+                  isActive={isActive}
+                  particles={particlesByIndex.get(index) ?? EMPTY_PARTICLES}
+                />
+              );
+            })}
+
+            {/* Smooth-glide caret — one bar that slides between characters */}
+            {phase === 'TYPING' && input.length < targetText.length && (
               <GlidingBar
-                key={player.id}
-                index={playerIndex}
+                index={input.length}
+                containerRef={containerRef}
+                targetText={targetText}
+                barClass={`bg-white caret-lucid ${theme.drop}`}
+              />
+            )}
+
+            {/* Ghost caret — a translucent themed bar racing your best pace */}
+            {ghost && (
+              <GlidingBar
+                index={ghost.index}
                 containerRef={containerRef}
                 targetText={targetText}
                 barClass=""
                 barStyle={{
-                  background: opponentColors[i % opponentColors.length],
-                  opacity: 0.6,
-                  height: '100%',
-                  top: 0,
-                  mixBlendMode: 'screen',
-                  transition: 'transform 200ms linear, width 100ms ease-out',
+                  background: `rgb(${theme.glowPrimary})`,
+                  opacity: 0.45,
+                  transition: 'transform 100ms linear, width 100ms ease-out',
                 }}
               />
-            );
-          })}
+            )}
+
+            {/* Multiplayer opponents (inline glow) */}
+            {racePlayers && racePlayers.map((player, i) => {
+              const playerIndex = Math.min(Math.floor((player.progress / 100) * targetText.length), targetText.length - 1);
+              const opponentColors = ['rgb(245, 158, 11)', 'rgb(56, 189, 248)', 'rgb(244, 114, 182)', 'rgb(167, 139, 250)']; // Amber, Sky, Pink, Violet
+              return (
+                <GlidingBar
+                  key={player.id}
+                  index={playerIndex}
+                  containerRef={containerRef}
+                  targetText={targetText}
+                  barClass=""
+                  barStyle={{
+                    background: opponentColors[i % opponentColors.length],
+                    opacity: 0.6,
+                    height: '100%',
+                    top: 0,
+                    mixBlendMode: 'screen',
+                    transition: 'transform 200ms linear, width 100ms ease-out',
+                  }}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

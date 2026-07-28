@@ -1698,7 +1698,7 @@ function MainApp() {
             )}
 
             {/* Typing Area */}
-            <div className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 blur-md translate-y-8 scale-95' : 'opacity-100 blur-0 translate-y-0 scale-100'}`}>
+            <div className="w-full">
               <TypingArea
                 targetText={typing.targetText}
                 input={typing.input}
@@ -1718,6 +1718,7 @@ function MainApp() {
                 pbGhost={pbGhost}
                 isCodeMode={level === 'CODE'}
                 racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
+                isCrossfading={isCrossfading}
               />
             </div>
 

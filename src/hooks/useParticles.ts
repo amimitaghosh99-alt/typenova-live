@@ -14,6 +14,7 @@ export interface Particle {
 export const useParticles = () => {
   const [particles, setParticles] = useState<Particle[]>([]);
   const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const particleIdCounter = useRef(0);
 
   // Cleanup pending timeout on unmount
   useEffect(() => {
@@ -29,16 +30,19 @@ export const useParticles = () => {
     count: number = 3
   ) => {
     const now = Date.now();
-    const newParticles: Particle[] = Array.from({ length: count }).map(() => ({
-      id: Math.random(),
-      index: charIndex,
-      char: Math.random() > 0.5 ? expectedChar : ['+', '*', 'x', 'o', '.'][Math.floor(Math.random() * 5)],
-      tx: (Math.random() - 0.5) * 150 + 'px',
-      ty: (Math.random() - 1) * 150 + 'px',
-      rot: (Math.random() - 0.5) * 360 + 'deg',
-      color: [themeText, 'text-white', 'text-zinc-500'][Math.floor(Math.random() * 3)],
-      expireAt: now + 600
-    }));
+    const newParticles: Particle[] = Array.from({ length: count }).map(() => {
+      particleIdCounter.current += 1;
+      return {
+        id: particleIdCounter.current,
+        index: charIndex,
+        char: Math.random() > 0.5 ? expectedChar : ['+', '*', 'x', 'o', '.'][Math.floor(Math.random() * 5)],
+        tx: (Math.random() - 0.5) * 150 + 'px',
+        ty: (Math.random() - 1) * 150 + 'px',
+        rot: (Math.random() - 0.5) * 360 + 'deg',
+        color: [themeText, 'text-white', 'text-zinc-500'][Math.floor(Math.random() * 3)],
+        expireAt: now + 600
+      };
+    });
 
     setParticles(prev => {
       // Lazily clean up expired particles during spawn to save state updates

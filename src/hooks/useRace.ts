@@ -58,6 +58,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const lobbyConfigRef = useRef<RaceConfig>({ mode: 'NOVICE', words: 25 });
 
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const roomTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [selfId] = useState(() => crypto.randomUUID());
   const selfIdRef = useRef(selfId);
   /** Our Supabase auth id (distinct from the presence key), needed to survive host migration. */
@@ -77,6 +78,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   useEffect(() => { statusRef.current = status; });
 
   const teardown = useCallback(() => {
+    roomTimeoutsRef.current.forEach(t => clearTimeout(t));
+    roomTimeoutsRef.current = [];
     if (channelRef.current && supabase) supabase.removeChannel(channelRef.current);
     channelRef.current = null;
     progressRef.current = {};
@@ -173,7 +176,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     next.sort((a, b) => Number(b.isHost) - Number(a.isHost) || a.id.localeCompare(b.id));
 
     // --- Host Migration ---
-    if (!hostFound && next.length > 0 && statusRef.current === 'lobby') {
+    if (!hostFound && next.length > 0 && (statusRef.current === 'lobby' || statusRef.current === 'racing')) {
       next[0].isHost = true; // alphabetically first player inherits host
         if (next[0].id === selfIdRef.current) {
           setIsHost(true);
@@ -255,24 +258,25 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
         await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined, lobbyConfig: asHost ? lobbyConfigRef.current : undefined, elo, userId });
         // Player cap check for non-hosts
         if (!asHost) {
-          setTimeout(() => {
+          const t1 = setTimeout(() => {
             if (channelRef.current !== ch) return;
             const pState = ch.presenceState() as Record<string, Array<{ isHost?: boolean; roomSize?: number }>>;
             const count = Object.keys(pState).length;
             // Safely read roomSize from host's presence directly to avoid race conditions
             const hostMeta = Object.values(pState).find(metas => metas[0]?.isHost)?.[0];
-            const cap = hostMeta?.roomSize || roomSizeRef.current;
+            const cap = hostMeta?.roomSize ?? 4;
             if (count > cap) {
               setError(`Room is full (${cap}/${cap})`);
               leave();
               return;
             }
           }, 800);
+          roomTimeoutsRef.current.push(t1);
         }
         setStatus('lobby');
         if (!asHost) {
           // If no host shows up in presence shortly, the room doesn't exist.
-          setTimeout(() => {
+          const t2 = setTimeout(() => {
             if (channelRef.current !== ch) return;
             const state = ch.presenceState() as Record<string, Array<{ isHost?: boolean }>>;
             const hostThere = Object.values(state).some(metas => metas[0]?.isHost);
@@ -281,6 +285,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
               leave();
             }
           }, 2500);
+          roomTimeoutsRef.current.push(t2);
         }
       } else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') {
         setError('Realtime connection failed');
@@ -366,6 +371,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   // Clean up the channel on unmount
   useEffect(() => teardown, [teardown]);
 
+  const getTimelines = useCallback(() => timelinesRef.current, []);
+
   return {
     status,
     code,
@@ -374,7 +381,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     players,
     error,
     selfId,
-    getTimelines: () => timelinesRef.current,
+    getTimelines,
     roomSize,
     lobbyConfig,
     createRoom,

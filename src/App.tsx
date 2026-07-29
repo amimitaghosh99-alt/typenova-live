@@ -297,10 +297,7 @@ function MainApp() {
   const soundMenuRef = useRef<HTMLDivElement>(null);
 
   // ─── Refs for Keydown Handler ────────────────────────────────────
-  // A single snapshot object avoids stale closures in the keydown listener.
-  // Built ONCE per render and shared by the ref initializer and the sync
-  // effect, so the two can never drift apart.
-  const snapshot = {
+  const stateRef = useRef({
     phase: typing.phase,
     input: typing.input,
     targetText: typing.targetText,
@@ -314,6 +311,7 @@ function MainApp() {
     showGodMode,
     showExpandedGraph,
     showThemeMenu,
+    showSoundMenu,
     showStatsDashboard,
     showReplay,
     showRace,
@@ -335,12 +333,47 @@ function MainApp() {
     microDrillActive,
     startTime: typing.startTime,
     zenMode,
-  };
-  const stateRef = useRef(snapshot);
+  });
 
   // Keep stateRef in sync on every render
   useEffect(() => {
-    stateRef.current = snapshot;
+    Object.assign(stateRef.current, {
+      phase: typing.phase,
+      input: typing.input,
+      targetText: typing.targetText,
+      combo: typing.combo,
+      maxCombo: typing.maxCombo,
+      suddenDeath,
+      stickyKeysMode,
+      stickyPenalty,
+      timePenalty: typing.timePenalty,
+      showTrophyRoom,
+      showGodMode,
+      showExpandedGraph,
+      showThemeMenu,
+      showSoundMenu,
+      showStatsDashboard,
+      showReplay,
+      showRace,
+      showSocialModal,
+      showChangelog,
+      raceActive,
+      theme,
+      tetrisEffect,
+      mirroredMode,
+      level,
+      wordCount,
+      testMode,
+      duration,
+      withNumbers,
+      withPunctuation,
+      codeLanguage,
+      dailyActive,
+      customText,
+      microDrillActive,
+      startTime: typing.startTime,
+      zenMode,
+    });
   });
 
   // Keep audio engine in sync
@@ -361,7 +394,7 @@ function MainApp() {
       }
     };
     if (showThemeMenu || showSoundMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside, { passive: true });
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showThemeMenu, showSoundMenu]);
@@ -466,6 +499,7 @@ function MainApp() {
     // Timed tests need a deep word buffer (240 words for 60s ≈ 240 WPM ceiling)
     const length = nextMode === 'time' ? nextDuration * 4 : nextCount;
 
+    typing.setPhase('READY');
     setIsCrossfading(true);
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
@@ -482,10 +516,13 @@ function MainApp() {
 
     setZenMode(false);
     setSaveStatus('');
-    setRaceActive(false); // any manual reset drops out of race mode
+    if (stateRef.current.raceActive) {
+      race.leave();
+      setRaceActive(false);
+    }
     rpg.resetRPGFlags();
     particles.clearAll();
-  }, [typing, rpg, particles]);
+  }, [typing, rpg, particles, race]);
 
   const changeLevel = (newLevel: Level) => {
     setLevel(newLevel);
@@ -580,7 +617,7 @@ function MainApp() {
   const launchDrill = (text: string) => {
     setMicroDrillActive(true);
     typing.setTargetText(text);
-    typing.setInput('');
+    typing.setInputSync('');
     typing.setStartTime(null);
     typing.setEndTime(null);
     typing.setPhase('READY');
@@ -699,7 +736,7 @@ function MainApp() {
   // ─── LATEST REF PATTERN ──────────────────────────────────────────
   const actionsRef = useRef({ typing, audio, rpg, handleReset, exitMicroDrill, particles });
   useEffect(() => {
-    actionsRef.current = { typing, audio, rpg, handleReset, exitMicroDrill, particles };
+    Object.assign(actionsRef.current, { typing, audio, rpg, handleReset, exitMicroDrill, particles });
   });
 
   // ─── KEYBOARD HANDLER (THE CORE) ─────────────────────────────────
@@ -709,12 +746,13 @@ function MainApp() {
       const { typing, audio, rpg, handleReset, exitMicroDrill, particles } = actionsRef.current;
 
       // Modal escape handling
-      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showChangelog) {
+      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showSoundMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showChangelog) {
         if (e.key === 'Escape') {
           setShowTrophyRoom(false);
           setShowGodMode(false);
           setShowExpandedGraph(false);
           setShowThemeMenu(false);
+          setShowSoundMenu(false);
           setShowStatsDashboard(false);
           setShowReplay(false);
           setShowRace(false);
@@ -735,31 +773,32 @@ function MainApp() {
       // ─── CONFIGURING ───
       if (s.phase === 'CONFIGURING') {
         if (!e.ctrlKey && !e.metaKey && e.key.length === 1 && e.key !== ' ') {
-          const nextInput = (s.input + e.key).toLowerCase();
+          const currentInput = typing.inputRef.current;
+          const nextInput = (currentInput + e.key).toLowerCase();
 
           if ('iamnova'.startsWith(nextInput)) {
-            typing.setInput(nextInput);
+            typing.setInputSync(nextInput);
             if (nextInput === 'iamnova') {
               rpg.unlockAllAchievements();
-              typing.setInput('');
+              typing.setInputSync('');
             }
             return;
           } else if ('godmode'.startsWith(nextInput)) {
-            typing.setInput(nextInput);
+            typing.setInputSync(nextInput);
             if (nextInput === 'godmode') {
               setShowGodMode(true);
-              typing.setInput('');
+              typing.setInputSync('');
             }
             return;
           } else {
-            typing.setInput('');
+            typing.setInputSync('');
           }
         }
 
         if (e.key === ' ') {
           e.preventDefault();
           typing.setPhase('READY');
-          typing.setInput('');
+          typing.setInputSync('');
           return;
         }
         return;
@@ -799,18 +838,19 @@ function MainApp() {
           return;
         }
 
-        if (s.input.length === 0) {
+        const currentInput = typing.inputRef.current;
+        if (currentInput.length === 0) {
           e.preventDefault();
           return;
         }
 
-        if (s.input.length > 0) {
+        if (currentInput.length > 0) {
           if (s.stickyKeysMode && s.stickyPenalty > 0) {
             setStickyPenalty(p => Math.max(0, p - 1));
             audio.playSound('error');
             return;
           }
-          typing.setInput(prev => prev.slice(0, -1));
+          typing.setInputSync(prev => prev.slice(0, -1));
           // Log the (real) backspace so replay / PB ghost can reconstruct
           // input-over-time. Excluded from all stats via isBackspace.
           typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
@@ -823,16 +863,17 @@ function MainApp() {
 
       if (e.key === ' ' || e.key === 'Enter') e.preventDefault();
 
-      if (s.input.length < s.targetText.length) {
+      const currentInput = typing.inputRef.current;
+      if (currentInput.length < s.targetText.length) {
         const now = Date.now();
         let typedChar = e.key;
         if (typedChar === 'Enter') typedChar = '\n';
 
-        const expectedChar = s.targetText[s.input.length];
+        const expectedChar = s.targetText[currentInput.length];
         const isError = typedChar !== expectedChar;
-        const nextInput = s.input + typedChar;
+        const nextInput = currentInput + typedChar;
 
-        typing.setInput(nextInput);
+        typing.setInputSync(prev => prev + typedChar);
         typing.keystrokeLog.current.push({ key: typedChar, expected: expectedChar, time: now, isError });
 
         if (isError) {
@@ -856,7 +897,7 @@ function MainApp() {
           // Tetris particles at 50+ combo or when tetrisEffect is forced on
           if (s.tetrisEffect || nextCombo >= 50) {
             particles.spawnParticles(
-              s.input.length,
+              currentInput.length,
               expectedChar,
               s.theme.text,
               Math.floor(Math.random() * 3) + 2
@@ -953,7 +994,7 @@ function MainApp() {
     if (raceActive) {
       const errCount = typing.keystrokeLog.current.filter(k => k.isError).length;
       const backspaceCount = typing.keystrokeLog.current.filter(k => k.key === 'Backspace').length;
-      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, rpg.heatmapData, errCount, backspaceCount);
+      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, result.updatedHeatmap, errCount, backspaceCount);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase, typing.endTime]);
@@ -1004,7 +1045,7 @@ function MainApp() {
 
   // IMPORTANT FIX: Removed hardcoded overflow-hidden and added it conditionally, and added z-[200]
   const topHudClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] origin-top flex flex-col md:flex-row justify-between items-center gap-6 relative z-[200] ${
-    shouldHideClutter ? 'opacity-0 blur-2xl -translate-y-12 max-h-0 pointer-events-none !mb-0 overflow-hidden' : 'opacity-100 blur-none translate-y-0 max-h-[200px] mb-8 overflow-visible'
+    shouldHideClutter ? 'opacity-0 blur-2xl -translate-y-12 max-h-0 pointer-events-none !mb-0 overflow-hidden' : 'opacity-100 blur-none translate-y-0 max-h-none mb-8 overflow-visible'
   }`;
 
   const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${
@@ -1344,13 +1385,13 @@ function MainApp() {
         {/* Header */}
         <header className={topHudClass}>
           <div className="flex items-center space-x-6">
-            <div className={`flex items-center space-x-3 ${theme.text}`}>
+            <div className={`flex items-center space-x-3 ${theme.vividText}`}>
               <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
               <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
             </div>
             <div className="flex items-center glass-panel p-1.5 rounded-2xl">
               <div className="flex items-center px-3 py-1">
-                <Star size={14} className={`${theme.text} mr-2`} />
+                <Star size={14} className={`${theme.vividText} mr-2`} />
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black uppercase tracking-widest text-white">LVL {rpg.userLevel}</span>
                   <div className="w-24 h-1.5 bg-zinc-800 rounded-full mt-1 overflow-hidden border border-zinc-800/50">
@@ -1365,7 +1406,7 @@ function MainApp() {
                 onClick={() => isLoggedIn ? setShowTrophyRoom(true) : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })} 
                 className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
                   !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
-                  : rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.text} ${theme.glow} ${theme.bgHover}` 
+                  : rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.vividText} ${theme.glow} ${theme.bgHover}` 
                   : 'border-white/10 text-zinc-500 hover:text-white'
                 }`} 
                 title={isLoggedIn ? "View Trophies" : "Sign in to unlock Trophies"}
@@ -1424,12 +1465,12 @@ function MainApp() {
             {/* Mode Toggles */}
             <div className="grid grid-cols-4 lg:grid-cols-8 gap-1 glass-panel rounded-2xl p-1">
               <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${suddenDeath ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="1HP: One mistake ends it"><Skull size={18} /></button>
-              <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={18} /></button>
-              <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Focus"><Focus size={18} /></button>
-              <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Blind"><Brain size={18} /></button>
-              <button onClick={toggleMirror} className={`p-2 rounded-xl transition-all flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Mirror"><FlipHorizontal size={18} /></button>
-              <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Fog"><CloudFog size={18} /></button>
-              <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.text}` : 'hover:text-white hover:bg-white/5'}`} title="Sticky Keys"><Magnet size={18} /></button>
+              <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={18} /></button>
+              <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Focus"><Focus size={18} /></button>
+              <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Blind"><Brain size={18} /></button>
+              <button onClick={toggleMirror} className={`p-2 rounded-xl transition-all flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Mirror"><FlipHorizontal size={18} /></button>
+              <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Fog"><CloudFog size={18} /></button>
+              <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Sticky Keys"><Magnet size={18} /></button>
               <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${overclockedMode ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="Overclocked"><Timer size={18} /></button>
             </div>
 
@@ -1438,7 +1479,7 @@ function MainApp() {
               <div className="relative" ref={themeMenuRef}>
                 <button 
                   onClick={() => setShowThemeMenu(!showThemeMenu)} 
-                  className={`p-2 rounded-xl hover:bg-white/5 ${theme.text} flex justify-center items-center transition-all`} 
+                  className={`p-2 rounded-xl hover:bg-white/5 ${theme.vividText} flex justify-center items-center transition-all`} 
                   title={`Theme: ${theme.name.toUpperCase()}`}
                 >
                   <Palette size={16} />

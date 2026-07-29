@@ -69,25 +69,24 @@ export const useRPGSystem = () => {
     setTestsCompleted(newTestsCompleted);
 
     // Update heatmap (backspace events carry no expected char -> skip them)
-    setHeatmapData(prev => {
-      const next = { ...prev };
-      let lastTime = 0;
-      keystrokeLog.forEach(k => {
-        const delay = k.time - lastTime;
-        lastTime = k.time;
+    const updatedHeatmap = { ...heatmapData };
+    const validKeystrokes = keystrokeLog.filter(k => !k.isBackspace);
+    let lastTime = validKeystrokes.length > 0 ? validKeystrokes[0].time : 0;
 
-        if (k.isBackspace) return;
-        const char = k.expected === ' ' ? 'SPACE' : k.expected === '\n' ? 'ENTER' : k.expected.toUpperCase();
-        if (!next[char]) next[char] = { total: 0, errors: 0, totalMs: 0 };
-        next[char] = { 
-          total: next[char].total + 1, 
-          errors: next[char].errors + (k.isError ? 1 : 0),
-          totalMs: (next[char].totalMs || 0) + delay
-        };
-      });
-      localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(next));
-      return next;
+    validKeystrokes.forEach((k, idx) => {
+      const delay = idx === 0 ? 0 : Math.max(0, k.time - lastTime);
+      lastTime = k.time;
+
+      const char = k.expected === ' ' ? 'SPACE' : k.expected === '\n' ? 'ENTER' : k.expected.toUpperCase();
+      if (!updatedHeatmap[char]) updatedHeatmap[char] = { total: 0, errors: 0, totalMs: 0 };
+      updatedHeatmap[char] = { 
+        total: updatedHeatmap[char].total + 1, 
+        errors: updatedHeatmap[char].errors + (k.isError ? 1 : 0),
+        totalMs: (updatedHeatmap[char].totalMs || 0) + delay
+      };
     });
+    setHeatmapData(updatedHeatmap);
+    localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(updatedHeatmap));
 
     // Calculate XP
     let newXp = xp;
@@ -105,8 +104,8 @@ export const useRPGSystem = () => {
       }
     }
 
-    return { newXp, newTestsCompleted };
-  }, [xp, testsCompleted]);
+    return { newXp, newTestsCompleted, updatedHeatmap };
+  }, [xp, testsCompleted, heatmapData]);
 
   const checkAchievements = useCallback((
     finalWpm: number,
@@ -174,7 +173,7 @@ export const useRPGSystem = () => {
     xp: number;
     tests: number;
     achievements: string[];
-    heatmap: Record<string, { total: number; errors: number }>;
+    heatmap: Record<string, { total: number; errors: number; totalMs?: number }>;
   }) => {
     setXp(snapshot.xp);
     setTestsCompleted(snapshot.tests);

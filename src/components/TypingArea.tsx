@@ -11,35 +11,40 @@ import type { RacerState } from '@/hooks/useRace';
 export const EMPTY_PARTICLES: Particle[] = [];
 
 // ─── SYNTAX HIGHLIGHTER ─────────────────────────────────────────────
+const REGEX_KEYWORDS = /\b(import|export|from|const|let|var|function|return|if|else|for|while|class|try|catch|async|await|def|impl|fn|mut|pub|WITH|SELECT|FROM|WHERE|JOIN|ON|OVER|ORDER|BY|func|chan|range|type|interface|throw|new|yield|break|continue)\b/g;
+const REGEX_STRINGS = /(['"`])(?:(?=(\\?))\2.)*?\1/g;
+const REGEX_NUMBERS = /\b\d+(\.\d+)?\b/g;
+const REGEX_FUNCS = /\b([a-zA-Z_]\w*)(?=\s*\()/g;
+const REGEX_COMMENTS = /(\/\/.*|\/\*[\s\S]*?\*\/)/g;
+const REGEX_HTML_TAGS = /<\/?[\w\s="/.':;#-/?]+>/g;
+const REGEX_CSS_PROPS = /\b([a-zA-Z-]+)(?=\s*:)/g;
+
 const useSyntaxHighlighter = (text: string, isActive: boolean) => {
   return useMemo(() => {
     const colors = new Array(text.length).fill('');
     if (!isActive) return colors;
     
-    // Keywords
-    const keywords = /\b(import|export|from|const|let|var|function|return|if|else|for|while|class|try|catch|async|await|def|impl|fn|mut|pub|WITH|SELECT|FROM|WHERE|JOIN|ON|OVER|ORDER|BY|func|chan|range|type|interface|throw|new|yield|break|continue)\b/g;
     let match;
-    while ((match = keywords.exec(text)) !== null) {
+
+    REGEX_KEYWORDS.lastIndex = 0;
+    while ((match = REGEX_KEYWORDS.exec(text)) !== null) {
       for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-purple-400';
     }
 
-    // Strings (single, double, backticks)
-    const strings = /(['"\`])(?:(?=(\\?))\2.)*?\1/g;
-    while ((match = strings.exec(text)) !== null) {
+    REGEX_STRINGS.lastIndex = 0;
+    while ((match = REGEX_STRINGS.exec(text)) !== null) {
       for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-emerald-400';
     }
 
-    // Numbers
-    const numbers = /\b\d+(\.\d+)?\b/g;
-    while ((match = numbers.exec(text)) !== null) {
+    REGEX_NUMBERS.lastIndex = 0;
+    while ((match = REGEX_NUMBERS.exec(text)) !== null) {
       for (let i = match.index; i < match.index + match[0].length; i++) {
         if (!colors[i]) colors[i] = 'text-orange-400';
       }
     }
 
-    // Functions/Methods
-    const funcs = /\b([a-zA-Z_]\w*)(?=\s*\()/g;
-    while ((match = funcs.exec(text)) !== null) {
+    REGEX_FUNCS.lastIndex = 0;
+    while ((match = REGEX_FUNCS.exec(text)) !== null) {
       const isKeyword = ['if', 'for', 'while', 'catch'].includes(match[1]);
       if (!isKeyword) {
         for (let i = match.index; i < match.index + match[1].length; i++) {
@@ -48,23 +53,20 @@ const useSyntaxHighlighter = (text: string, isActive: boolean) => {
       }
     }
 
-    // Comments
-    const comments = /(\/\/.*|\/\*[\s\S]*?\*\/)/g;
-    while ((match = comments.exec(text)) !== null) {
+    REGEX_COMMENTS.lastIndex = 0;
+    while ((match = REGEX_COMMENTS.exec(text)) !== null) {
       for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-zinc-600 font-normal italic';
     }
 
-    // HTML Tags
-    const htmlTags = /<\/?[\w\s="/.':;#-\/\?]+>/g;
-    while ((match = htmlTags.exec(text)) !== null) {
+    REGEX_HTML_TAGS.lastIndex = 0;
+    while ((match = REGEX_HTML_TAGS.exec(text)) !== null) {
       for (let i = match.index; i < match.index + match[0].length; i++) {
         if (!colors[i]) colors[i] = 'text-pink-400';
       }
     }
 
-    // CSS Properties (basic heuristic: word followed by colon in CSS-like blocks)
-    const cssProps = /\b([a-zA-Z-]+)(?=\s*:)/g;
-    while ((match = cssProps.exec(text)) !== null) {
+    REGEX_CSS_PROPS.lastIndex = 0;
+    while ((match = REGEX_CSS_PROPS.exec(text)) !== null) {
       for (let i = match.index; i < match.index + match[1].length; i++) {
         if (!colors[i]) colors[i] = 'text-cyan-400';
       }
@@ -86,7 +88,7 @@ interface CharProps {
 // default shallow compare skips re-rendering every span whose class/caret/
 // particles didn't change on this keystroke (~99% of them).
 export const Char = memo(({ char, index, colorClass, isActive, particles }: CharProps) => (
-  <span className="relative inline" id={isActive ? 'active-caret' : undefined} data-char-index={index}>
+  <span className="relative inline-block" id={isActive ? 'active-caret' : undefined} data-char-index={index}>
     {particles.map(p => (
       <span
         key={p.id}
@@ -462,22 +464,27 @@ function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
     const rafId = requestAnimationFrame(() => {
       const container = containerRef.current;
       if (!container) return;
-      
-      const el = container.querySelector<HTMLElement>(`[data-char-index="${index}"]`);
+
+      const idx = Math.min(index, Math.max(0, targetText.length - 1));
+      const el = container.querySelector<HTMLElement>(`[data-char-index="${idx}"]`);
       if (!el) { setPos(null); return; }
-      
-      const containerRect = container.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      
-      setPos({ 
-        x: elRect.left - containerRect.left + container.scrollLeft, 
-        y: elRect.top - containerRect.top + container.scrollTop + elRect.height - 4, 
-        w: Math.max(6, elRect.width) 
-      });
+
+      let x = 0;
+      let y = 0;
+      let curr: HTMLElement | null = el;
+      while (curr && curr !== container) {
+        x += curr.offsetLeft;
+        y += curr.offsetTop;
+        curr = curr.offsetParent as HTMLElement | null;
+      }
+      y += el.offsetHeight - 4;
+      const w = Math.max(6, el.offsetWidth);
+
+      setPos({ x, y, w });
     });
-    
+
     return () => cancelAnimationFrame(rafId);
-  }, [index, containerRef]);
+  }, [index, targetText.length, containerRef]);
 
   if (!pos) return null;
 
@@ -511,7 +518,7 @@ function useGhostRace(active: boolean, startTime: number | null, targetTextLengt
   useEffect(() => { inputLenRef.current = inputLength; });
 
   useEffect(() => {
-    if (!active || !startTime) { setTimeout(() => setGhost(null), 0); return; }
+    if (!active || !startTime) { setGhost(null); return; }
     const hasPb = !!pbSamples && pbSamples.length > 1;
     const interval = setInterval(() => {
       const elapsedMs = Date.now() - startTime;

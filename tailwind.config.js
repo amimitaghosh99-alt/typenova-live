@@ -6,15 +6,16 @@
 // adding or editing a theme, restart `npm run dev` to refresh the safelist.
 const jiti = require('jiti')(__dirname);
 const { THEMES } = jiti('./src/data/constants.ts');
-const themeSafelist = [...new Set(
-  Object.values(THEMES)
-    .flatMap(theme => Object.values(theme))
-    .filter(v => typeof v === 'string')
-    .flatMap(v => v.split(/\s+/))
-    // keep only class-like tokens; drops theme names ('amoled') and raw RGB
-    // triplets ('34,' '211,' '238') from glowPrimary/glowSecondary
-    .filter(token => token.includes('-') || token.includes('['))
-)];
+const rawTokens = Object.values(THEMES)
+  .flatMap(theme => Object.values(theme))
+  .filter(v => typeof v === 'string')
+  .flatMap(v => v.split(/\s+/))
+  .filter(token => token.includes('-') || token.includes('['));
+
+const themeSafelist = [...new Set([
+  ...rawTokens,
+  ...rawTokens.filter(t => t.startsWith('border-') || t.startsWith('bg-')).map(t => `hover:${t}`)
+])];
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {

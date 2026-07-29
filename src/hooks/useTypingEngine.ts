@@ -32,19 +32,49 @@ export const useTypingEngine = () => {
   const [countdownTimer, setCountdownTimer] = useState(5);
   const [targetText, setTargetText] = useState('');
   const [input, setInput] = useState('');
+  const inputRef = useRef('');
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
-  const [wpm, setWpm] = useState(0);
-  const [rawWpm, setRawWpm] = useState(0);
-  const [accuracy, setAccuracy] = useState(100);
-  const [consistency, setConsistency] = useState(100);
-  const [flawlessStreak, setFlawlessStreak] = useState(0);
-  const [timelinePoints, setTimelinePoints] = useState<TimelinePoint[]>([]);
+
+  const [liveStats, setLiveStats] = useState({
+    wpm: 0,
+    rawWpm: 0,
+    accuracy: 100,
+    consistency: 100,
+    flawlessStreak: 0,
+    timelinePoints: [] as TimelinePoint[],
+  });
+
+  const setWpm = useCallback((val: number | ((prev: number) => number)) => {
+    setLiveStats(s => ({ ...s, wpm: typeof val === 'function' ? val(s.wpm) : val }));
+  }, []);
+  const setRawWpm = useCallback((val: number | ((prev: number) => number)) => {
+    setLiveStats(s => ({ ...s, rawWpm: typeof val === 'function' ? val(s.rawWpm) : val }));
+  }, []);
+  const setAccuracy = useCallback((val: number | ((prev: number) => number)) => {
+    setLiveStats(s => ({ ...s, accuracy: typeof val === 'function' ? val(s.accuracy) : val }));
+  }, []);
+  const setConsistency = useCallback((val: number | ((prev: number) => number)) => {
+    setLiveStats(s => ({ ...s, consistency: typeof val === 'function' ? val(s.consistency) : val }));
+  }, []);
+  const setFlawlessStreak = useCallback((val: number | ((prev: number) => number)) => {
+    setLiveStats(s => ({ ...s, flawlessStreak: typeof val === 'function' ? val(s.flawlessStreak) : val }));
+  }, []);
+  const setTimelinePoints = useCallback((val: TimelinePoint[] | ((prev: TimelinePoint[]) => TimelinePoint[])) => {
+    setLiveStats(s => ({ ...s, timelinePoints: typeof val === 'function' ? val(s.timelinePoints) : val }));
+  }, []);
+
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [timePenalty, setTimePenalty] = useState(0);
   const [capsLock, setCapsLock] = useState(false);
   const [shake, setShake] = useState(false);
+
+  const setInputSync = useCallback((valOrFn: string | ((prev: string) => string)) => {
+    const nextVal = typeof valOrFn === 'function' ? valOrFn(inputRef.current) : valOrFn;
+    inputRef.current = nextVal;
+    setInput(nextVal);
+  }, []);
 
   const keystrokeLog = useRef<Keystroke[]>([]);
   const comboRef = useRef(0);
@@ -64,30 +94,46 @@ export const useTypingEngine = () => {
     const totalTimeMs = timeMs + currentPenalty;
     const minutes = totalTimeMs / 60000;
 
-    const errors = entries.filter(k => k.isError && !k.isBackspace).length;
-    const rawCalc = Math.round((currentInput.length / 5) / minutes);
-    const netCalc = Math.round(((currentInput.length - errors) / 5) / minutes);
-    const currentAcc = currentInput.length > 0 ? Math.round(((currentInput.length - errors) / currentInput.length) * 100) : 100;
+    // Single-pass loop for total non-backspace keystrokes, errors, and max flawless streak
+    let totalTyped = 0;
+    let errorCount = 0;
+    let localMaxStreak = 0;
+    let curStreak = 0;
+
+    for (let i = 0; i < entries.length; i++) {
+      const k = entries[i];
+      if (!k.isBackspace) {
+        totalTyped++;
+        if (k.isError) {
+          errorCount++;
+          if (curStreak > localMaxStreak) localMaxStreak = curStreak;
+          curStreak = 0;
+        } else {
+          curStreak++;
+        }
+      }
+    }
+    if (curStreak > localMaxStreak) localMaxStreak = curStreak;
+
+    const rawCalc = minutes > 0 ? Math.round((totalTyped / 5) / minutes) : 0;
+    const netCalc = minutes > 0 ? Math.max(0, Math.round(((currentInput.length - errorCount) / 5) / minutes)) : 0;
+    const currentAcc = totalTyped > 0 ? Math.min(Math.max(Math.round(((totalTyped - errorCount) / totalTyped) * 100), 0), 100) : 100;
 
     const intervals = Math.max(1, Math.floor(totalTimeMs / 1000));
     const step = totalTimeMs / intervals;
     const timeline: TimelinePoint[] = [{ t: 0, wpm: 0, rawWpm: 0 }];
-    
+
     let entryIndex = 0;
     let runningChars = 0;
     let runningRawChars = 0;
 
     for (let i = 1; i <= intervals; i++) {
       const threshold = startTs + step * i;
-      
-      // Fast single-pass advancement up to the current interval threshold
       while (entryIndex < entries.length && entries[entryIndex].time <= threshold) {
         const k = entries[entryIndex];
         if (!k.isBackspace) {
           runningRawChars++;
-          if (!k.isError) {
-            runningChars++;
-          }
+          if (!k.isError) runningChars++;
         }
         entryIndex++;
       }
@@ -110,14 +156,6 @@ export const useTypingEngine = () => {
     if (mean > 0) consistencyScore = Math.round(Math.max(0, Math.min(100, (1 - (stddev / mean)) * 100)));
     else if (stddev > 0) consistencyScore = 50;
 
-    let localMaxStreak = 0, cur = 0;
-    for (const k of entries) {
-      if (k.isBackspace) continue;
-      if (!k.isError) cur++;
-      else { localMaxStreak = Math.max(localMaxStreak, cur); cur = 0; }
-    }
-    localMaxStreak = Math.max(localMaxStreak, cur);
-
     return {
       currentWpm: isNaN(netCalc) || netCalc < 0 ? 0 : netCalc,
       rawWpm: isNaN(rawCalc) ? 0 : rawCalc,
@@ -137,12 +175,14 @@ export const useTypingEngine = () => {
     setPhase('FINISHED');
     const statsInput = finalInput !== null ? finalInput : input;
     const finalStats = calculateStats(statsInput, finalTimestamp - startTime, timePenalty, startTime);
-    setWpm(finalStats.currentWpm);
-    setRawWpm(finalStats.rawWpm);
-    setAccuracy(finalStats.currentAcc);
-    setConsistency(finalStats.consistency);
-    setFlawlessStreak(finalStats.flawless);
-    setTimelinePoints(finalStats.timeline);
+    setLiveStats({
+      wpm: finalStats.currentWpm,
+      rawWpm: finalStats.rawWpm,
+      accuracy: finalStats.currentAcc,
+      consistency: finalStats.consistency,
+      flawlessStreak: finalStats.flawless,
+      timelinePoints: finalStats.timeline,
+    });
   }, [calculateStats, input, startTime, timePenalty]);
 
   // STABLE wrapper: App's keydown listener is registered once (empty deps) and
@@ -182,31 +222,36 @@ export const useTypingEngine = () => {
     const interval = setInterval(() => {
       const { input: liveInput, timePenalty: livePenalty } = liveRef.current;
       const stats = calculateStats(liveInput, Date.now() - startTime, livePenalty, startTime);
-      setWpm(stats.currentWpm);
-      setRawWpm(stats.rawWpm);
-      setAccuracy(stats.currentAcc);
-      setConsistency(stats.consistency);
-      setFlawlessStreak(stats.flawless);
-      setTimelinePoints(stats.timeline);
+      setLiveStats({
+        wpm: stats.currentWpm,
+        rawWpm: stats.rawWpm,
+        accuracy: stats.currentAcc,
+        consistency: stats.consistency,
+        flawlessStreak: stats.flawless,
+        timelinePoints: stats.timeline,
+      });
     }, 500);
     return () => clearInterval(interval);
   }, [phase, startTime, endTime, calculateStats]);
 
   const resetEngine = useCallback(() => {
     isFinishingRef.current = false;
+    inputRef.current = '';
     setInput('');
     setStartTime(null);
     setEndTime(null);
-    setWpm(0);
-    setRawWpm(0);
-    setAccuracy(100);
+    setLiveStats({
+      wpm: 0,
+      rawWpm: 0,
+      accuracy: 100,
+      consistency: 100,
+      flawlessStreak: 0,
+      timelinePoints: [],
+    });
     setCombo(0);
     comboRef.current = 0;
     setMaxCombo(0);
     setTimePenalty(0);
-    setTimelinePoints([]);
-    setConsistency(100);
-    setFlawlessStreak(0);
     keystrokeLog.current = [];
     setPhase('CONFIGURING');
   }, []);
@@ -220,14 +265,15 @@ export const useTypingEngine = () => {
     countdownTimer, setCountdownTimer,
     targetText, setTargetText,
     input, setInput,
+    inputRef, setInputSync,
     startTime, setStartTime,
     endTime, setEndTime,
-    wpm, setWpm,
-    rawWpm, setRawWpm,
-    accuracy, setAccuracy,
-    consistency, setConsistency,
-    flawlessStreak, setFlawlessStreak,
-    timelinePoints, setTimelinePoints,
+    wpm: liveStats.wpm, setWpm,
+    rawWpm: liveStats.rawWpm, setRawWpm,
+    accuracy: liveStats.accuracy, setAccuracy,
+    consistency: liveStats.consistency, setConsistency,
+    flawlessStreak: liveStats.flawlessStreak, setFlawlessStreak,
+    timelinePoints: liveStats.timelinePoints, setTimelinePoints,
     combo, setCombo,
     maxCombo, setMaxCombo,
     timePenalty, setTimePenalty,

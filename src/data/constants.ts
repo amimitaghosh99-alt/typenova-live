@@ -285,7 +285,7 @@ export const THEMES: Record<string, Theme> = {
   aurora: makeTheme('aurora', 'bg-[#001214]', 'text-white', 'teal'), 
   goldrush: makeTheme('goldrush', 'bg-[#0f0a00]', 'text-amber-100', 'amber'), 
   bubblegum: makeTheme('bubblegum', 'bg-[#1a0a14]', 'text-pink-200', 'sky'), 
-  void: makeTheme('void', 'bg-[#000000]', 'text-zinc-500', 'zinc'), 
+  void: makeTheme('void', 'bg-[#000000]', 'text-zinc-200', 'zinc'), 
   hacker: makeTheme('hacker', 'bg-[#020a02]', 'text-lime-400', 'lime'),
   
   sakura: makeTheme('sakura', 'bg-[#1a0a10]', 'text-pink-300', 'pink'),

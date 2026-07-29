@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { readLocalProgress, writeLocalProgress, type Quest, type QuestsState } from '@/lib/progress';
 
 // Helper to get today's date in YYYY-MM-DD
@@ -40,6 +40,8 @@ function generateDailyQuests(): QuestsState {
 
 export function useQuests(grantXp?: (amount: number) => void) {
   const [questsState, setQuestsState] = useState<QuestsState | null>(null);
+  const questsRef = useRef(questsState);
+  useEffect(() => { questsRef.current = questsState; }, [questsState]);
 
   // Load and generate quests on mount
   useEffect(() => {
@@ -57,50 +59,39 @@ export function useQuests(grantXp?: (amount: number) => void) {
   }, []);
 
   const progressQuest = useCallback((type: Quest['type'], value: number) => {
-    setQuestsState(prev => {
-      if (!prev) return prev;
-      let changed = false;
-      let totalXpGained = 0;
+    const prev = questsRef.current;
+    if (!prev) return;
+    let totalXpGained = 0;
+    let changed = false;
 
-      const newActive = prev.active.map(q => {
-        if (q.completed || q.type !== type) return q;
-        
-        let newProgress = q.progress;
-        
-        // For accumulative types:
-        if (type === 'races_won' || type === 'words_typed') {
-          newProgress += value;
-        } 
-        // For threshold types (e.g. hit 100 WPM):
-        else if (type === 'wpm_achieved' || type === 'acc_achieved') {
-          if (value >= q.target) newProgress = q.target;
-        }
-
-        if (newProgress !== q.progress) {
-          changed = true;
-          const completed = newProgress >= q.target;
-          if (completed) {
-            newProgress = q.target;
-            totalXpGained += q.xpReward;
-          }
-          return { ...q, progress: newProgress, completed };
-        }
-        return q;
-      });
-
-      if (!changed) return prev;
-
-      const newState = { ...prev, active: newActive };
-      const progress = readLocalProgress();
-      progress.quests = newState;
-      writeLocalProgress(progress);
-      
-      if (totalXpGained > 0 && grantXp) {
-        grantXp(totalXpGained);
+    const newActive = prev.active.map(q => {
+      if (q.completed || q.type !== type) return q;
+      let newProgress = q.progress;
+      if (type === 'races_won' || type === 'words_typed') newProgress += value;
+      else if (type === 'wpm_achieved' || type === 'acc_achieved') {
+        if (value >= q.target) newProgress = q.target;
       }
 
-      return newState;
+      if (newProgress !== q.progress) {
+        changed = true;
+        const completed = newProgress >= q.target;
+        if (completed) {
+          newProgress = q.target;
+          totalXpGained += q.xpReward;
+        }
+        return { ...q, progress: newProgress, completed };
+      }
+      return q;
     });
+
+    if (!changed) return;
+    const newState = { ...prev, active: newActive };
+    setQuestsState(newState);
+
+    const progress = readLocalProgress();
+    progress.quests = newState;
+    writeLocalProgress(progress);
+    if (totalXpGained > 0 && grantXp) grantXp(totalXpGained);
   }, [grantXp]);
 
   return { questsState, progressQuest };

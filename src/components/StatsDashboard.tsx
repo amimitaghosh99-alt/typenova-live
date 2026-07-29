@@ -102,7 +102,7 @@ function KeyboardHeatmap({ data }: { data: Record<string, { total: number; error
   maxDelay = Math.min(maxDelay, 1000); 
 
   return (
-    <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 mb-8">
+    <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 mb-8 overflow-x-auto custom-scrollbar">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
           <Keyboard size={16} /> Finger Heatmap

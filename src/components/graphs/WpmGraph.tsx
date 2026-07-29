@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 
@@ -29,6 +29,7 @@ function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): n
 export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId, errorTimes, durationMs, theme }: WpmGraphProps) => {
   const [hoveredTimeMs, setHoveredTimeMs] = useState<number | null>(null);
   const [hoveredOvertakeIdx, setHoveredOvertakeIdx] = useState<number | null>(null);
+  const svgRectRef = useRef<DOMRect | null>(null);
 
   const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor } = useMemo(() => {
     let maxW = Math.max(...timelinePoints.map(p => Math.max(p.wpm, p.rawWpm)), 10);
@@ -172,9 +173,10 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
       <svg
         viewBox="0 0 800 250"
         className="w-full relative"
-        onMouseLeave={() => { setHoveredTimeMs(null); setHoveredOvertakeIdx(null); }}
+        onMouseEnter={(e) => { svgRectRef.current = e.currentTarget.getBoundingClientRect(); }}
+        onMouseLeave={() => { svgRectRef.current = null; setHoveredTimeMs(null); setHoveredOvertakeIdx(null); }}
         onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
+          const rect = svgRectRef.current || e.currentTarget.getBoundingClientRect();
           const svgX = ((e.clientX - rect.left) / rect.width) * 800;
           const t = ((svgX - 60) / 700) * durationMs;
           if (t >= 0 && t <= durationMs) setHoveredTimeMs(t);

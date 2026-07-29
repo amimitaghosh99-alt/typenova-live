@@ -35,7 +35,7 @@ export const AccountMenu = ({
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', onClick);
+    document.addEventListener('mousedown', onClick, { passive: true });
     return () => document.removeEventListener('mousedown', onClick);
   }, [open]);
 

@@ -265,7 +265,7 @@ export const TypingArea = ({
             className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto pb-4 pt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-700`}
             style={{
               fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace",
-              filter: !startTime && !zenMode && !isCodeMode ? 'blur(12px)' : 'none',
+              filter: !startTime && !zenMode ? 'blur(12px)' : 'none',
               opacity: !startTime && !zenMode ? 0.3 : 1,
               textShadow: zenMode ? '0 0 40px rgba(255,255,255,0.03)' : 'none',
               willChange: 'opacity, filter',

@@ -301,5 +301,5 @@
   60%  { transform: translate(-10vw, 40vh) scale(0.9); opacity: 0.06; }
   100% { transform: translate(-40vw, 25vh) scale(1.1); opacity: 0.035; }
 }
-.stats-idle-dim { opacity: 0 !important; pointer-events: none !important; } .stats-idle-dim .stat-card { animation: none !important; opacity: 1 !important; }
+.stats-idle-dim { display: none !important; }
 

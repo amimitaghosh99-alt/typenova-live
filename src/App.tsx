@@ -499,7 +499,7 @@ function MainApp() {
     // Timed tests need a deep word buffer (240 words for 60s ≈ 240 WPM ceiling)
     const length = nextMode === 'time' ? nextDuration * 4 : nextCount;
 
-    typing.setPhase('READY');
+    typing.setPhase('CONFIGURING');
     setIsCrossfading(true);
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 

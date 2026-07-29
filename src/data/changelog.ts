@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.5.2',
+    date: 'July 30, 2026',
+    title: 'UI Polish & Bug Fixes 🛠️',
+    changes: [
+      { type: 'fix', description: 'Applied numerous bug fixes to improve overall stability and performance.' },
+      { type: 'fix', description: 'Fixed a visual issue where modals would flash on the screen when changing difficulty or settings.' },
+      { type: 'fix', description: 'Re-enabled text blur (fog mode) for Code Mode during the configuring phase to prevent reading ahead.' },
+      { type: 'tweak', description: 'Hid the stats panel on the home screen to provide a cleaner, decluttered UI.' },
+    ],
+  },
+  {
     version: 'v1.5.1',
     date: 'July 28, 2026',
     title: 'Ranked Idempotency & Visual Polish 🛡️',

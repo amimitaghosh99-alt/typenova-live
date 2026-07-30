@@ -62,15 +62,15 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
   const getTypeBadgeStyle = (type: string) => {
     switch (type) {
       case 'feature':
-        return 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] backdrop-blur-md';
+        return 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
       case 'fix':
-        return 'bg-rose-500/15 border-rose-400/40 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.2)] backdrop-blur-md';
+        return 'bg-rose-500/15 border-rose-400/40 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
       case 'perf':
-        return 'bg-amber-500/15 border-amber-400/40 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)] backdrop-blur-md';
+        return 'bg-amber-500/15 border-amber-400/40 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]';
       case 'tweak':
-        return 'bg-sky-500/15 border-sky-400/40 text-sky-300 shadow-[0_0_10px_rgba(14,165,233,0.2)] backdrop-blur-md';
+        return 'bg-sky-500/15 border-sky-400/40 text-sky-300 shadow-[0_0_10px_rgba(14,165,233,0.2)]';
       default:
-        return 'bg-white/10 border-white/20 text-zinc-300 backdrop-blur-md';
+        return 'bg-white/10 border-white/20 text-zinc-300';
     }
   };
 
@@ -148,21 +148,21 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
           )}
 
           {tweaks > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-sky-500/20 to-cyan-500/10 border border-sky-500/30 text-sky-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_12px_rgba(56,189,248,0.15)] hover:border-sky-400/50 hover:shadow-[0_0_18px_rgba(56,189,248,0.3)] transition-all">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-sky-500/20 to-cyan-500/10 border border-sky-500/30 text-sky-300 text-xs font-semibold shadow-[0_0_12px_rgba(56,189,248,0.15)] hover:border-sky-400/50 hover:shadow-[0_0_18px_rgba(56,189,248,0.3)] transition-all">
               <Wrench size={13} className="text-sky-400" />
               <span>{tweaks} {tweaks === 1 ? 'Tweak' : 'Tweaks'}</span>
             </div>
           )}
 
           {linesChanged > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-purple-500/20 to-indigo-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_12px_rgba(168,85,247,0.15)] hover:border-purple-400/50 hover:shadow-[0_0_18px_rgba(168,85,247,0.3)] transition-all">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-purple-500/20 to-indigo-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold shadow-[0_0_12px_rgba(168,85,247,0.15)] hover:border-purple-400/50 hover:shadow-[0_0_18px_rgba(168,85,247,0.3)] transition-all">
               <GitCommit size={13} className="text-purple-400" />
               <span>+{linesChanged} Lines</span>
             </div>
           )}
 
           {perfGain && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_12px_rgba(251,191,36,0.15)] hover:border-amber-400/50 hover:shadow-[0_0_18px_rgba(251,191,36,0.3)] transition-all">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold shadow-[0_0_12px_rgba(251,191,36,0.15)] hover:border-amber-400/50 hover:shadow-[0_0_18px_rgba(251,191,36,0.3)] transition-all">
               <TrendingUp size={13} className="text-amber-400" />
               <span>{perfGain}</span>
             </div>
@@ -170,7 +170,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
         </div>
 
         {/* Segmented Translucent Glowing Energy Bar Track */}
-        <div className="h-3 w-full bg-slate-950/60 backdrop-blur-md rounded-full flex items-center overflow-hidden p-1 gap-1 border border-white/10 shadow-inner">
+        <div className="h-3 w-full bg-slate-950/60 rounded-full flex items-center overflow-hidden p-1 gap-1 border border-white/10 shadow-inner">
           {fixesPct > 0 && (
             <div 
               style={{ width: `${fixesPct}%` }} 
@@ -206,7 +206,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-xl p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-300"
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-300"
       onClick={onClose}
     >
       <div 
@@ -225,7 +225,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
         />
 
         {/* Modal Top Bar / Header Controls */}
-        <div className="relative z-10 shrink-0 p-5 sm:p-6 pb-4 border-b border-white/10 bg-slate-900/40 backdrop-blur-xl">
+        <div className="relative z-10 shrink-0 p-5 sm:p-6 pb-4 border-b border-white/10 bg-slate-900/40">
           <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div 

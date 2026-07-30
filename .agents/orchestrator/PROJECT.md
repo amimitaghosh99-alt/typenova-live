@@ -1,36 +1,16 @@
-# Project: TypeNova Update Log UI Overhaul & Dynamic Metrics
+# Project: TypeNova ChangelogModal Overhaul
 
-## Mission
-Redesign the existing `ChangelogModal` UI to match a premium glassmorphism aesthetic with an interactive left timeline navigation sidebar and dynamic metric fetching from backend/GitHub API.
-
-## Architecture & Requirements
-- **R1: Glassmorphism UI Overhaul**
-  - Left sidebar + right-side scrollable content area in `ChangelogModal`.
-  - Frosted glass cards (`backdrop-filter` / `backdrop-blur`, inner shadows, neon glow accents).
-  - Horizontal stat metric pills row for each version update block.
-- **R2: Interactive Timeline Navigation**
-  - Left-aligned vertical timeline sidebar with interactive version nodes.
-  - Clicking any version node smoothly scrolls the right-side main container to the matching version block using `scrollIntoView` or ref-based smooth scrolling.
-- **R3: Dynamic Metrics Fetching**
-  - Fetch real statistical metrics (Fixes, Tweaks, Lines Changed, Perf Gain) dynamically from backend or GitHub API.
-  - Render dynamically fetched metric data points into the stat pills.
+## Architecture
+- Component: `src/components/ChangelogModal.tsx`
+- CSS Tokens: `src/index.css` (`.glass-panel`, `lucid-scale`, `lucid-fade-up`, `var(--ease-apple)`, `var(--ease-out-expo)`, JetBrains Mono font `font-mono`)
+- Accent scheme: Dark bg (`#0a0a0f`), Cyan primary (`text-cyan-400`, `border-cyan-500/30`), Zinc secondary text.
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Exploration & Technical Design | Analyze `ChangelogModal` component, CSS/styling setup, API integration path, and scroll anchors | None | IN_PROGRESS |
-| M2 | Glassmorphism UI & Timeline Nav (R1, R2) | Implement left sidebar timeline, smooth scroll to version block, glassmorphism styling, stat pills UI | M1 | PLANNED |
-| M3 | Dynamic Metrics API Fetching (R3) | Implement dynamic API fetching for update log metrics, connect state to stat pills | M1, M2 | PLANNED |
-| M4 | Verification & Forensic Audit | Type-check (`npx tsc --noEmit`), build (`npm run build`), verify tests, challenger verification, forensic audit | M2, M3 | PLANNED |
+| 1 | ChangelogModal Overhaul (R1-R4 + Search Bar Removal) | Redesign `ChangelogModal.tsx` to strip all nested backdrop-blur-* classes, use `.glass-panel` on container, compact layout (reduced padding/spacing/font size, narrow timeline sidebar `w-36`, dense change cards `divide-y divide-white/5`), JetBrains Mono font (`font-mono`), cyan accents, remove mismatched black/uppercase headers, remove search bar, and apply `lucid-scale` entrance animation | None | DONE |
+| 2 | Verification & Audit | `npx tsc --noEmit` check, JSX code audit for zero nested backdrop-blur, `npm run build` check, JetBrains Mono font audit, glass-panel container check, lucid-scale animation check, forensic integrity audit | M1 | DONE |
 
-## Interface Contracts
-- `ChangelogModal`: Accepts props (e.g. `isOpen`, `onClose`), renders timeline sidebar and update list.
-- Dynamic Metrics Fetcher: API function/hook returning version metric stats (e.g. `{ version, fixes, tweaks, linesChanged, perfGain, ... }`).
-
-## Acceptance Criteria
-- Modal features distinct left timeline sidebar and right scrollable container.
-- Horizontal row of stat metric pills per version block.
-- Heavy use of glassmorphism theme tokens (`backdrop-blur`, inner shadows, glow accents).
-- Clicking left sidebar version node smoothly scrolls right panel to corresponding version block.
-- Codebase makes external network/API call (or backend API fetch) for metrics rather than relying solely on static hardcoded data.
-- UI renders fetched data in stat pills.
+## Code Layout
+- `src/components/ChangelogModal.tsx`: The overhauled modal component.
+- `src/index.css`: App global styles including body font-family set to `'JetBrains Mono'`.

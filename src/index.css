@@ -74,6 +74,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
   button, a, input, select, textarea, [role="button"], [role="menuitem"], [role="tab"], .glass-panel {
     @apply transition-all duration-300;

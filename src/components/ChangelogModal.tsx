@@ -328,7 +328,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
           </div>
 
           {/* Right Main Scrollable Changelog List */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar min-h-0">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar min-h-0 transform-gpu">
             {CHANGELOG.map((release, i) => (
               <div 
                 key={release.version}
@@ -337,8 +337,8 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
               >
                 {/* Timeline Card Wrapper */}
                 <div
-                  className="lucid-enter glass-panel relative rounded-xl bg-slate-900/40 border border-white/10 p-3.5 sm:p-4 transition-all duration-300 hover:border-cyan-500/30 hover:bg-slate-900/60"
-                  style={{ '--delay': `${i * 40}ms` } as React.CSSProperties}
+                  className="lucid-enter relative rounded-xl bg-slate-900/50 border border-white/10 p-3.5 sm:p-4 transition-colors duration-150 hover:border-cyan-500/30 hover:bg-slate-900/70"
+                  style={{ '--delay': `${i * 30}ms` } as React.CSSProperties}
                 >
                   
                   {/* Header of Release Card */}

@@ -1,401 +1,206 @@
-# Deep Static Code Review & Bug Analysis Report
-
-**Date**: 2026-07-29  
-**Reviewer**: `explorer_1`  
-**Target Files**:
-- `src/App.tsx`
-- `src/hooks/useTypingEngine.ts`
-- `src/hooks/useRace.ts`
-- `src/hooks/useRPGSystem.ts`
-- `src/hooks/useQuests.ts`
-
----
+# Analysis: ChangelogModal & Glassmorphism UI Overhaul (R1)
 
 ## Executive Summary
-
-A comprehensive static code review was conducted across the core state management, custom React hooks, multiplayer race subsystem, RPG progression system, and top-level component (`App.tsx`). A total of **13 high-impact bugs** were identified: **7 Logic Bugs**, **2 UI Bugs**, and **4 Performance Bugs**.
-
-Below is a summary table followed by detailed descriptions, root-cause analyses, impacts, and concrete code fixes for every identified issue.
+This document provides a comprehensive technical investigation of the current `ChangelogModal` implementation, styling tokens, and layout architecture within TypeNova v2. It presents a detailed design and layout specification for the **Glassmorphism UI Overhaul (R1)**, enabling a premium dual-pane layout featuring an interactive left-side timeline sidebar, right-side scrollable content container, nested frosted glass cards for version releases, and horizontal stat metric pills.
 
 ---
 
-## Bug Matrix
+## 1. Codebase Architecture & Current State Analysis
 
-| ID | File Path | Starting Line / Function | Category | Summary |
-|---|---|---|---|---|
-| **ENG-01** | `src/hooks/useTypingEngine.ts` | Line 58 (`calculateStats`) | Logic | Negative accuracy & distorted Raw WPM during backspacing |
-| **ENG-02** | `src/hooks/useTypingEngine.ts` | Line 195 (`resetEngine`) | Logic | Countdown timer skips 5-second sequence on restarts |
-| **ENG-03** | `src/hooks/useTypingEngine.ts` | Line 180 (`useEffect`) | Performance | Unnecessary array recreation & multi-state set during live 500ms ticks |
-| **RAC-01** | `src/hooks/useRace.ts` | Line 116 (`rebuildPlayers`) | Logic | Finished racers omitted from scoreboard & race finishes prematurely on disconnect |
-| **RAC-02** | `src/hooks/useRace.ts` | Line 377 (`getTimelines`) | Performance | Unmemoized `getTimelines` causes child component re-renders on every presence tick |
-| **RAC-03** | `src/hooks/useRace.ts` | Line 176 (`rebuildPlayers`) | Logic | Host migration race condition causing split-brain host tracking |
-| **RPG-01** | `src/hooks/useRPGSystem.ts` | Line 75 (`processRPG`) | Logic | Epoch timestamp (`lastTime = 0`) corrupts key latency heatmap data |
-| **RPG-02** | `src/hooks/useRPGSystem.ts` | Line 158 (`checkAchievements`) | Logic | Meta-achievement `type_nova` mathematically impossible to unlock |
-| **RPG-03** | `src/hooks/useRPGSystem.ts` | Line 190 (`resetAllProgress`) | Logic/UI | `resetAllProgress` leaves heatmap data intact in state and `localStorage` |
-| **QST-01** | `src/hooks/useQuests.ts` | Line 94 (`progressQuest`) | Logic | Side-effects inside `setQuestsState` updater function cause double XP grant in StrictMode |
-| **QST-02** | `src/hooks/useQuests.ts` | Line 75 (`progressQuest`) | UI | WPM and Accuracy threshold quests display 0 progress until target met |
-| **APP-01** | `src/App.tsx` | Line 978 & 984 (`useEffect`) | Performance | Object literal identity churn of `typing` causes timer teardown loops |
-| **APP-02** | `src/App.tsx` | Line 1650 (`textarea`) | UI/Logic | Custom text target state desync when re-selecting `CUSTOM` level |
+### 1.1 Existing Components & Render Paths
+- **Component File**: `src/components/ChangelogModal.tsx`
+- **Data Model File**: `src/data/changelog.ts`
+- **Theme Definition File**: `src/data/constants.ts`
+- **Global Styles & CSS Utilities**: `src/index.css`
+- **Tailwind Configuration**: `tailwind.config.js`
+- **Application Integration**: `src/App.tsx` (rendered conditionally via state `showChangelog` at line 1950, toggled from floating version badge at line 1851 and keyboard shortcut listener at line 760).
 
----
-
-## Detailed Findings & Proposed Solutions
-
----
-
-### 1. `src/hooks/useTypingEngine.ts`
-
-#### Bug ENG-01: Negative Accuracy & Distorted Raw WPM During Backspacing
-- **Category**: Logic
-- **File Path**: `src/hooks/useTypingEngine.ts`
-- **Line Number**: Lines 58–70 (`calculateStats`)
-- **Description & Impact**:
-  In `calculateStats`:
-  ```ts
-  const errors = entries.filter(k => k.isError && !k.isBackspace).length;
-  const rawCalc = Math.round((currentInput.length / 5) / minutes);
-  const netCalc = Math.round(((currentInput.length - errors) / 5) / minutes);
-  const currentAcc = currentInput.length > 0 ? Math.round(((currentInput.length - errors) / currentInput.length) * 100) : 100;
-  ```
-  `errors` counts all non-backspace error keystrokes ever logged in `keystrokeLog.current`. However, `currentInput.length` is only the current length of the text input string.
-  If a user types 10 incorrect characters and then backspaces 8 of them, `currentInput.length` becomes 2, while `errors` remains 10. `(currentInput.length - errors)` equals `-8`.
-  `currentAcc` evaluates to `Math.round((-8 / 2) * 100) = -400%`! Line 124 (`currentAcc: isNaN(currentAcc) ? 100 : currentAcc`) does NOT clamp `currentAcc` between 0 and 100.
-  Furthermore, Raw WPM (`rawCalc`) uses `currentInput.length` instead of total typed non-backspace keystrokes, causing Raw WPM to artificially collapse toward 0 when backspacing.
-- **Proposed Solution**:
-  Calculate accuracy and raw WPM using total typed non-backspace keystrokes (`totalTyped = entries.filter(k => !k.isBackspace).length`). Clamp accuracy between 0% and 100%.
-
-```ts
-// PROPOSED FIX for useTypingEngine.ts (lines 67-71)
-const nonBackspaceEntries = entries.filter(k => !k.isBackspace);
-const totalTyped = nonBackspaceEntries.length;
-const errors = nonBackspaceEntries.filter(k => k.isError).length;
-
-const rawCalc = totalTyped > 0 ? Math.round((totalTyped / 5) / minutes) : 0;
-const netCalc = totalTyped > 0 ? Math.round(((totalTyped - errors) / 5) / minutes) : 0;
-const currentAcc = totalTyped > 0 ? Math.max(0, Math.min(100, Math.round(((totalTyped - errors) / totalTyped) * 100))) : 100;
-```
+### 1.2 Analysis of Current `ChangelogModal.tsx`
+- **Structure**: Single-column vertical scroll container (`max-w-2xl`, `max-h-[85vh]`).
+- **Modal Backdrop**: `fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300`.
+- **Modal Container**: `bg-zinc-950 border border-zinc-800 rounded-[2.5rem] w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col`.
+- **Header**: Fixed top row (`p-8 pb-6 border-b border-zinc-800/70`) with title "UPDATE LOG", subtitle "WHAT'S NEW IN TYPENOVA", and close button (`X` icon).
+- **Body Content**: Single scrolling column (`overflow-y-auto p-8 pt-6 space-y-12`) rendering an inline timeline vertical bar (`absolute top-12 left-[19px] bottom-[-48px] w-0.5 bg-zinc-800/50`).
+- **Release Entries**: Flat timeline items displaying version header, release date, version title, and a simple list of changes (`change.type` + `change.description`).
+- **Key Deficiencies vs R1 Requirements**:
+  1. **No Left Sidebar**: The current modal lacks a dedicated left navigation timeline sidebar.
+  2. **No Stat Metric Pills**: Releases currently only render text bullet points without horizontal stat pills (Fixes, Tweaks, Lines Changed, Perf Gain).
+  3. **No Nested Frosted Glass Cards**: Version releases are simple flat text blocks without distinct frosted glass card boundaries, backdrop blurs, or inner specular highlights.
+  4. **Limited Screen Space**: `max-w-2xl` is too narrow for a dual-pane layout.
 
 ---
 
-#### Bug ENG-02: Countdown Timer Skips 5-Second Sequence on Restart
-- **Category**: Logic
-- **File Path**: `src/hooks/useTypingEngine.ts`
-- **Line Number**: Line 195 (`resetEngine`) & Lines 159–170 (`useEffect`)
-- **Description & Impact**:
-  `resetEngine()` clears `input`, `startTime`, `wpm`, etc., but does **not** reset `countdownTimer` back to `5`.
-  When a test or race finishes or resets, `countdownTimer` state retains `1` (or whatever value it reached when the previous countdown finished).
-  When a new test starts and `setPhase('COUNTDOWN')` is called, the countdown effect sees `countdownTimer === 1`, waits 1 second, and immediately switches `phase` to `'TYPING'`, skipping 5, 4, 3, 2 entirely!
-- **Proposed Solution**:
-  Reset `setCountdownTimer(5)` inside `resetEngine()` or when entering `COUNTDOWN`.
+## 2. Design Token & Glassmorphism Aesthetic Examination
 
-```ts
-// PROPOSED FIX for useTypingEngine.ts (line 195)
-const resetEngine = useCallback(() => {
-  isFinishingRef.current = false;
-  setInput('');
-  setStartTime(null);
-  setEndTime(null);
-  setCountdownTimer(5); // <--- ADD THIS LINE
-  setWpm(0);
-  setRawWpm(0);
-  ...
-```
+### 2.1 TypeNova Design Tokens (`src/index.css` & `src/data/constants.ts`)
+TypeNova has a multi-tiered liquid glass styling system (`.glass-panel`) in `src/index.css`:
 
----
-
-#### Bug ENG-03: Live Stats Interval Triggers High-Frequency Churn
-- **Category**: Performance
-- **File Path**: `src/hooks/useTypingEngine.ts`
-- **Line Number**: Lines 180–193 (`useEffect` for live stats update)
-- **Description & Impact**:
-  During typing, `setInterval` fires every 500ms calling `calculateStats`. `calculateStats` constructs a new `timeline` array every 500ms and calls 6 React state setters (`setWpm`, `setRawWpm`, `setAccuracy`, `setConsistency`, `setFlawlessStreak`, `setTimelinePoints`).
-  Re-creating the array reference `timelinePoints` every 500ms forces child components like `StatsPanel` to execute heavy re-renders even when WPM hasn't changed.
-- **Proposed Solution**:
-  Only update state variables if computed stats differ from previous state.
-
----
-
-### 2. `src/hooks/useRace.ts`
-
-#### Bug RAC-01: Disconnected Racers Dropped from Scoreboard & Premature End
-- **Category**: Logic
-- **File Path**: `src/hooks/useRace.ts`
-- **Line Number**: Lines 116–134 (`rebuildPlayers`)
-- **Description & Impact**:
-  In `rebuildPlayers`:
-  ```ts
-  const allKnownIds = new Set([...Object.keys(state), ...Object.keys(finishRef.current)]);
-  for (const key of allKnownIds) {
-    const meta = state[key]?.[0] || metaRef.current[key];
-    if (!meta?.name) continue;
-  ```
-  If a player finishes the race and their presence key disconnects before presence sync updates `metaRef.current[key]`, `meta?.name` evaluates to `undefined`. `continue` skips the player, omitting them from `next`.
-  Then line 198: `if (statusRef.current === 'racing' && next.length > 0 && next.every(p => p.finished))` sees only the remaining active players and transitions `status` to `'finished'`, cutting off the race prematurely and removing the finished player from the final leaderboard.
-- **Proposed Solution**:
-  Store player name and metadata directly in `finishRef` when recording finish payloads, ensuring disconnected finished players retain their name.
-
-```ts
-// PROPOSED FIX for useRace.ts (lines 133-135)
-const meta = state[key]?.[0] || metaRef.current[key] || { name: 'Racer' };
-```
-
----
-
-#### Bug RAC-02: Unmemoized `getTimelines` Method
-- **Category**: Performance
-- **File Path**: `src/hooks/useRace.ts`
-- **Line Number**: Line 377 (`getTimelines`)
-- **Description & Impact**:
-  `useRace` returns `getTimelines: () => timelinesRef.current` created as a inline arrow function on every render.
-  Any component that passes `race.getTimelines()` down as a prop or includes `race` in dependencies will re-render continuously whenever presence syncs or progress updates fire (every 250ms).
-- **Proposed Solution**:
-  Wrap `getTimelines` in `useCallback`.
-
-```ts
-// PROPOSED FIX for useRace.ts (line 377)
-const getTimelines = useCallback(() => timelinesRef.current, []);
-```
-
----
-
-#### Bug RAC-03: Host Migration Race Condition
-- **Category**: Logic
-- **File Path**: `src/hooks/useRace.ts`
-- **Line Number**: Lines 176–193 (`rebuildPlayers`)
-- **Description & Impact**:
-  When the host drops, `hostFound` becomes `false`. Every connected client executes `rebuildPlayers()` upon receiving the presence `leave` event.
-  If two clients execute this logic before their presence lists reach consensus, both clients might identify themselves as `next[0]` and issue `ch.track({ isHost: true })`, resulting in dual host collisions.
-- **Proposed Solution**:
-  Use a ref flag `isMigratingHostRef` to lock migration tracking during transition.
-
----
-
-### 3. `src/hooks/useRPGSystem.ts`
-
-#### Bug RPG-01: Epoch Timestamp (`lastTime = 0`) Corrupts Heatmap Latency
-- **Category**: Logic
-- **File Path**: `src/hooks/useRPGSystem.ts`
-- **Line Number**: Lines 75–88 (`processRPG`)
-- **Description & Impact**:
-  In `processRPG`:
-  ```ts
-  setHeatmapData(prev => {
-    const next = { ...prev };
-    let lastTime = 0;
-    keystrokeLog.forEach(k => {
-      const delay = k.time - lastTime;
-      lastTime = k.time;
-      ...
-      next[char] = { 
-        total: next[char].total + 1, 
-        errors: next[char].errors + (k.isError ? 1 : 0),
-        totalMs: (next[char].totalMs || 0) + delay
-      };
-    });
-  ```
-  `lastTime` starts at `0`. `k.time` is a Unix timestamp in milliseconds (`~1,722,250,000,000`).
-  For the very first character in `keystrokeLog`, `delay` = `k.time - 0` = ~1.7 billion ms (54+ years)!
-  This value is added to `next[char].totalMs`, ruining character speed analytics in the dashboard for whichever key was typed first.
-- **Proposed Solution**:
-  Initialize `lastTime` to the timestamp of the first keystroke (`keystrokeLog[0]?.time || 0`).
-
-```ts
-// PROPOSED FIX for useRPGSystem.ts (line 75)
-setHeatmapData(prev => {
-  const next = { ...prev };
-  let lastTime = keystrokeLog[0]?.time || 0;
-  keystrokeLog.forEach(k => {
-    const delay = lastTime > 0 ? Math.max(0, k.time - lastTime) : 0;
-    lastTime = k.time;
-    if (k.isBackspace) return;
-    const char = k.expected === ' ' ? 'SPACE' : k.expected === '\n' ? 'ENTER' : k.expected.toUpperCase();
-    if (!next[char]) next[char] = { total: 0, errors: 0, totalMs: 0 };
-    next[char] = { 
-      total: next[char].total + 1, 
-      errors: next[char].errors + (k.isError ? 1 : 0),
-      totalMs: (next[char].totalMs || 0) + delay
-    };
-  });
-  localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(next));
-  return next;
-});
-```
-
----
-
-#### Bug RPG-02: Meta-Achievement `type_nova` Impossible to Unlock
-- **Category**: Logic
-- **File Path**: `src/hooks/useRPGSystem.ts`
-- **Line Number**: Line 158 (`checkAchievements`)
-- **Description & Impact**:
-  Line 158: `if (check('type_nova') && totalSet.size >= ACHIEVEMENTS.length) unlock('type_nova');`
-  `ACHIEVEMENTS` array contains N achievements, including `type_nova` itself.
-  Before `type_nova` is unlocked, `totalSet.size` can at most be N - 1.
-  The condition `totalSet.size >= ACHIEVEMENTS.length` evaluates to `(N - 1) >= N`, which is permanently `false`!
-  `type_nova` can NEVER be unlocked naturally.
-- **Proposed Solution**:
-  Check `totalSet.size >= ACHIEVEMENTS.length - 1`.
-
-```ts
-// PROPOSED FIX for useRPGSystem.ts (line 158)
-if (check('type_nova') && totalSet.size >= ACHIEVEMENTS.length - 1) unlock('type_nova');
-```
-
----
-
-#### Bug RPG-03: `resetAllProgress` Ignores Heatmap Data
-- **Category**: Logic / UI
-- **File Path**: `src/hooks/useRPGSystem.ts`
-- **Line Number**: Lines 190–195 (`resetAllProgress`)
-- **Description & Impact**:
-  `resetAllProgress()` resets `xp`, `testsCompleted`, and `unlockedAchievements`, but leaves `heatmapData` state intact and does not remove `STORAGE_KEYS.heatmap` from `localStorage`.
-  After a progress reset, old key statistics linger in the dashboard.
-- **Proposed Solution**:
-  Reset `setHeatmapData({})` and call `localStorage.removeItem(STORAGE_KEYS.heatmap)` inside `resetAllProgress`.
-
-```ts
-// PROPOSED FIX for useRPGSystem.ts (lines 190-195)
-const resetAllProgress = useCallback(() => {
-  setUnlockedAchievements([]);
-  setXp(0);
-  setTestsCompleted(0);
-  setHeatmapData({});
-  if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEYS.heatmap);
-  setAchievementQueue(prev => [...prev, { id: 'reset', title: 'All Progress Reset', desc: '', icon: 'rotate-ccw', category: 'SUPER' }]);
-}, []);
-```
-
----
-
-### 4. `src/hooks/useQuests.ts`
-
-#### Bug QST-01: State Updater Side Effects & Double XP in StrictMode
-- **Category**: Logic
-- **File Path**: `src/hooks/useQuests.ts`
-- **Line Number**: Lines 94–100 (`progressQuest`)
-- **Description & Impact**:
-  Inside `setQuestsState(prev => { ... })`:
-  Line 95: `writeLocalProgress(progress);`
-  Line 98: `if (totalXpGained > 0 && grantXp) grantXp(totalXpGained);`
-  Executing side-effects inside state updater functions violates React state purity rules. In React 18 StrictMode, updater functions are invoked twice. This causes `grantXp` to be called twice, granting double XP reward for completed quests.
-- **Proposed Solution**:
-  Compute the updated quest state first, and invoke `grantXp` and `writeLocalProgress` outside the `setQuestsState` call.
-
-```ts
-// PROPOSED FIX for useQuests.ts (lines 59-104)
-const progressQuest = useCallback((type: Quest['type'], value: number) => {
-  let xpToGrant = 0;
-  setQuestsState(prev => {
-    if (!prev) return prev;
-    let changed = false;
-
-    const newActive = prev.active.map(q => {
-      if (q.completed || q.type !== type) return q;
-      let newProgress = q.progress;
-      if (type === 'races_won' || type === 'words_typed') {
-        newProgress += value;
-      } else if (type === 'wpm_achieved' || type === 'acc_achieved') {
-        if (value >= q.target) newProgress = q.target;
-      }
-
-      if (newProgress !== q.progress) {
-        changed = true;
-        const completed = newProgress >= q.target;
-        if (completed) {
-          newProgress = q.target;
-          xpToGrant += q.xpReward;
-        }
-        return { ...q, progress: newProgress, completed };
-      }
-      return q;
-    });
-
-    if (!changed) return prev;
-    const newState = { ...prev, active: newActive };
-    const progress = readLocalProgress();
-    progress.quests = newState;
-    writeLocalProgress(progress);
-    return newState;
-  });
-
-  if (xpToGrant > 0 && grantXp) {
-    grantXp(xpToGrant);
-  }
-}, [grantXp]);
-```
-
----
-
-#### Bug QST-02: Threshold Quests Show 0 Progress Until Target Reached
-- **Category**: UI
-- **File Path**: `src/hooks/useQuests.ts`
-- **Line Number**: Lines 75–77 (`progressQuest`)
-- **Description & Impact**:
-  For `wpm_achieved` and `acc_achieved` quests:
-  `if (value >= q.target) newProgress = q.target;`
-  If a quest target is 100 WPM, and the user hits 95 WPM, `newProgress` remains 0.
-  The Quest UI progress bar shows `0 / 100 WPM` despite the user achieving 95 WPM, staying at 0% until suddenly snapping to 100%.
-- **Proposed Solution**:
-  Track progress as the highest value achieved (`Math.max(q.progress, value)` capped at `q.target`).
-
-```ts
-// PROPOSED FIX for useQuests.ts (lines 75-77)
-else if (type === 'wpm_achieved' || type === 'acc_achieved') {
-  newProgress = Math.min(q.target, Math.max(q.progress, Math.round(value)));
-}
-```
-
----
-
-### 5. `src/App.tsx`
-
-#### Bug APP-01: `typing` Hook Identity Churn Teardown Loops
-- **Category**: Performance
-- **File Path**: `src/App.tsx`
-- **Line Number**: Line 978 & Lines 984–994 (`useEffect`)
-- **Description & Impact**:
-  In `App.tsx`:
-  `useEffect(() => { ... }, [typing.phase, typing.startTime, testMode, duration, typing]);`
-  Because `useTypingEngine()` returns a fresh object literal `{ phase, setPhase, ... }` on every render, including `typing` in dependency arrays causes `setInterval` in timed mode and overclocked mode to unmount and re-initialize on every single keystroke.
-- **Proposed Solution**:
-  Remove `typing` object literal from effect dependency arrays, keeping only primitive dependencies like `typing.phase`, `typing.startTime`.
-
-```ts
-// PROPOSED FIX for App.tsx (line 978)
-}, [typing.phase, typing.startTime, testMode, duration]); // Remove `typing` object
-```
-
----
-
-#### Bug APP-02: Custom Text Target State Desync
-- **Category**: UI / Logic
-- **File Path**: `src/App.tsx`
-- **Line Number**: Lines 1650–1666 (`textarea`) & `changeLevel`
-- **Description & Impact**:
-  When editing custom text in `textarea`, `typing.setTargetText` is called.
-  If the user switches level from `CUSTOM` to `NOVICE` and back to `CUSTOM`, `customText` remains in React state, but `targetText` is reset to default text because `changeLevel('CUSTOM')` does not update `targetText` with `customText`.
-- **Proposed Solution**:
-  In `changeLevel(newLevel)`, when `newLevel === 'CUSTOM'`, update `targetText` using `customText`.
-
-```ts
-// PROPOSED FIX for App.tsx (changeLevel)
-if (newLevel === 'CUSTOM') {
-  typing.setTargetText(customText.trim() || 'Type your custom text above...');
-}
-```
-
----
-
-## Verification Method
-
-1. **Static Analysis & Lint Verification**:
-   Execute standard TypeScript compiler checks:
-   ```bash
-   npx tsc --noEmit
+1. **Layer 1: Base Linear Gradient & Inset Shadows**
+   ```css
+   background: linear-gradient(
+     135deg,
+     rgba(255, 255, 255, 0.14) 0%,
+     rgba(255, 255, 255, 0.05) 35%,
+     rgba(255, 255, 255, 0.02) 60%,
+     rgba(255, 255, 255, 0.08) 100%
+   ), rgba(18, 18, 22, 0.65);
+   border: 1px solid rgba(255, 255, 255, 0.14);
+   box-shadow:
+     inset 0 1px 0 rgba(255, 255, 255, 0.35),
+     inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+     inset 0 -16px 28px -18px rgba(0, 0, 0, 0.5),
+     0 4px 12px rgba(0, 0, 0, 0.28),
+     0 24px 48px -16px rgba(0, 0, 0, 0.55);
    ```
-2. **Regression Testing**:
-   - Verify typing engine accuracy with backspaces: Type text, type errors, backspace all errors, ensure accuracy does not drop below 0% or turn negative.
-   - Verify countdown restart: Complete a test and restart; confirm 5-second countdown displays.
-   - Verify heatmap initial delay: Inspect `localStorage.getItem('typezen_heatmap')` and ensure `totalMs` for the first key is < 1000ms.
-   - Verify quest progress & XP grant: Test `progressQuest` with React StrictMode enabled; confirm single XP grant on quest completion.
-   - Verify `type_nova` achievement check.
+2. **Layer 2: Progressive Frosted Backdrop Blur**
+   ```css
+   -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.05);
+   backdrop-filter: blur(18px) saturate(180%) brightness(1.05);
+   ```
+3. **Layer 3: Specular Edge Highlight (`::after` pseudo-element)**
+   ```css
+   content: "";
+   position: absolute;
+   inset: 0;
+   border-radius: inherit;
+   pointer-events: none;
+   box-shadow:
+     inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 0.6),
+     inset -1px -1px 1px -1px rgba(255, 255, 255, 0.25),
+     inset 0 0 18px -8px rgba(255, 255, 255, 0.12);
+   ```
+4. **Theme Dynamic Accents (`Theme` object in `src/data/constants.ts`)**
+   - `theme.text`: Accent text color or gradient (e.g. `text-cyan-400`, `text-transparent bg-clip-text ...`).
+   - `theme.border`: Border accent with opacity (e.g. `border-cyan-500/30`).
+   - `theme.glow`: Ambient drop shadow (`shadow-[0_0_10px_rgba(...,1)]`).
+   - `theme.glowPrimary` & `theme.glowSecondary`: RGB color tuples (e.g. `168, 85, 247` and `34, 211, 238`).
+
+### 2.2 Color & Status Badges
+- **Features (`feature`)**: Emerald (`text-emerald-400`, `bg-emerald-500/10`, `border-emerald-500/30`)
+- **Fixes (`fix`)**: Red / Rose (`text-red-400`, `bg-red-500/10`, `border-red-500/30`)
+- **Performance (`perf`)**: Amber / Yellow (`text-amber-400`, `bg-amber-500/10`, `border-amber-500/30`)
+- **Tweaks (`tweak`)**: Sky / Blue (`text-sky-400`, `bg-sky-500/10`, `border-sky-500/30`)
+
+---
+
+## 3. Recommendations for Glassmorphism UI Overhaul (R1)
+
+To transform `ChangelogModal` into a premium glassmorphic experience matching target design expectations, the following architectural redesign is recommended:
+
+```
++---------------------------------------------------------------------------------------------------------+
+|                                    MAIN MODAL CONTAINER (max-w-5xl / h-[85vh])                           |
+|  bg-zinc-950/90 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[2.5rem] flex flex-col/row |
++---------------------------------------------------------------------------------------------------------+
+|  LEFT SIDEBAR (w-64 to w-72)                    |  RIGHT CONTENT AREA (flex-1)                          |
+|  - Modal Header (Title, Subtitle, Status)       |  - Top Action Header (Search, Filters, Close Button)  |
+|  - Vertical Timeline Nav Container              |  - Scrollable Version Feed (overflow-y-auto)          |
+|    * Connected vertical glowing guide line      |    * Nested Glass Card 1 (v1.5.2) [Active / Glow]     |
+|    * Interactive Version Nodes (Pills/Buttons)  |      - Header: Version Badge + Date + Title           |
+|      - Version tag (e.g. v1.5.2)                |      - Stat Metric Pills Row (Horizontal Scroll/Flex) |
+|      - Release label & highlight indicator      |        [ 🛠️ 4 Fixes ] [ 🎨 1 Tweak ] [ ⚡ +15% Perf ]|
+|      - Active indicator dot & theme glow        |      - Categorized Changes List (Glass Pills)         |
+|                                                 |    * Nested Glass Card 2 (v1.5.1)                      |
+|                                                 |      - ...                                            |
++---------------------------------------------------------------------------------------------------------+
+```
+
+### 3.1 Modal Layout & Container Architecture
+- **Dimensions**: Expand modal from `max-w-2xl` to `max-w-5xl` (or `max-w-6xl`) with height fixed to `h-[85vh]` or `h-[80vh]`.
+- **Layout Split**:
+  - Desktop (`md:` and above): Dual-column split (`flex flex-row overflow-hidden`).
+  - Mobile (`< md`): Stacked single-column with collapsible left timeline bar or top scrollable pill bar.
+- **Glass Shell**: Apply `glass-panel rounded-[2.5rem] border border-white/15 bg-zinc-950/80 backdrop-blur-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden`.
+
+### 3.2 Left Sidebar Specification (Navigation & Timeline Anchor)
+- **Width**: `w-full md:w-72 border-b md:border-b-0 md:border-r border-white/10 bg-zinc-900/30 backdrop-blur-md p-6 flex flex-col shrink-0`.
+- **Sidebar Header**:
+  - App Branding / Icon: Small glowing logo badge (e.g., `Sparkles` or `Zap` icon using `theme.glowPrimary`).
+  - Title: `"VERSIONS"` / `"TIMELINE"`.
+  - Version Count Pill: e.g. `"21 Releases"`.
+- **Timeline Navigation List**:
+  - Vertical timeline line: `absolute left-4 top-2 bottom-2 w-0.5 bg-gradient-to-b from-emerald-500/50 via-zinc-700/50 to-transparent`.
+  - Node Buttons: Interactive version pills with hover states (`hover:bg-white/5 hover:border-white/20`).
+  - Active Node Styling: `bg-white/10 border-white/30 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]` with a theme accent indicator dot (`w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]`).
+
+### 3.3 Right Content Area Specification
+- **Container**: `flex-1 flex flex-col h-full bg-black/20 overflow-hidden`.
+- **Top Bar**: Sticky top bar inside right container with modal close button (`X`), search filter input (optional refinement), and quick jump options.
+- **Scroll Container**: `flex-1 overflow-y-auto p-6 md:p-8 space-y-6 scroll-smooth` (ref linked for `scrollIntoView`).
+
+### 3.4 Nested Frosted Glass Version Cards (`VersionCard`)
+Each release entry should be wrapped in a nested frosted glass card:
+- **Card Shell**:
+  ```tsx
+  className="relative glass-panel rounded-3xl p-6 md:p-7 border border-white/10 bg-zinc-900/40 backdrop-blur-xl hover:border-white/20 transition-all duration-300 shadow-xl group"
+  ```
+- **Top Release Header**:
+  - Version Tag Pill: `px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.2)]`.
+  - Release Date: `text-xs font-medium text-zinc-400 flex items-center gap-1`.
+  - Version Title: `text-xl font-extrabold text-white tracking-wide mt-2 mb-4`.
+- **Highlight Effect for Latest Version (`v1.5.2`)**:
+  - Highlight border using `theme.borderHalf` and subtle ambient glow (`shadow-[0_0_30px_rgba(...,0.15)]`).
+
+### 3.5 Horizontal Stat Metric Pills Specification
+Each version block must contain a horizontal row of distinct stat metric pills:
+- **Pill Container**: `flex items-center gap-2.5 overflow-x-auto pb-2 mb-6 scrollbar-none` (horizontal scrolling if content overflows on narrow viewports).
+- **Stat Metric Pill Items**:
+  1. **Fixes Pill**:
+     - Icon: `Bug` (Red/Rose)
+     - Label: `${fixesCount} Fixes`
+     - Class: `bg-red-500/10 border border-red-500/20 text-red-300 px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-2 backdrop-blur-md hover:bg-red-500/20 transition-all`
+  2. **Tweaks Pill**:
+     - Icon: `PenTool` or `Wrench` (Sky/Blue)
+     - Label: `${tweaksCount} Tweaks`
+     - Class: `bg-sky-500/10 border border-sky-500/20 text-sky-300 px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-2 backdrop-blur-md hover:bg-sky-500/20 transition-all`
+  3. **Lines Changed Pill**:
+     - Icon: `GitCommit` or `Code2` (Fuchsia/Purple)
+     - Label: `${linesChanged || '+420 / -180'} Lines`
+     - Class: `bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-300 px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-2 backdrop-blur-md hover:bg-fuchsia-500/20 transition-all`
+  4. **Perf Gain Pill**:
+     - Icon: `Zap` or `Gauge` (Amber/Yellow)
+     - Label: `${perfGain || '144Hz Optimized'}`
+     - Class: `bg-amber-500/10 border border-amber-500/20 text-amber-300 px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-2 backdrop-blur-md hover:bg-amber-500/20 transition-all`
+
+### 3.6 Data Extension Strategy
+To support stat pills seamlessly:
+- Compute stat totals dynamically from `release.changes` array (count of `type === 'fix'`, `type === 'tweak'`, `type === 'perf'`, `type === 'feature'`).
+- Allow optional explicit metrics override in `ChangelogEntry`:
+  ```ts
+  export interface ChangelogEntry {
+    version: string;
+    date: string;
+    title: string;
+    metrics?: {
+      fixes?: number;
+      tweaks?: number;
+      linesChanged?: number | string;
+      perfGain?: string;
+      features?: number;
+    };
+    changes: {
+      type: 'feature' | 'fix' | 'perf' | 'tweak';
+      description: string;
+    }[];
+  }
+  ```
+
+---
+
+## 4. Implementation Steps for Implementer Agent
+
+1. **Data Model Preparation (`src/data/changelog.ts`)**:
+   - Update `ChangelogEntry` interface to include optional `metrics` metadata while maintaining full backward compatibility.
+2. **Component Redesign (`src/components/ChangelogModal.tsx`)**:
+   - Refactor `ChangelogModal.tsx` to introduce dual-pane layout (`md:flex-row`).
+   - Implement Left Sidebar component with version nodes list.
+   - Implement Right Content Area with ref maps for smooth scrolling.
+   - Implement `VersionCard` component with `.glass-panel` backdrop blur, inner shadow, and specular rim.
+   - Render horizontal row of stat metric pills (`Fixes`, `Tweaks`, `Lines`, `Perf`) per version card.
+3. **Glassmorphism CSS Fine-Tuning (`src/index.css`)**:
+   - Ensure `.glass-panel` specular rim (`::after`) and `-webkit-backdrop-filter` handle nested modal elements without visual clipping.
+4. **Verification**:
+   - Type check (`npx tsc --noEmit`).
+   - Build test (`npm run build`).
+
+---

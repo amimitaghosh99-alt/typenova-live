@@ -1,103 +1,38 @@
-# Handoff Report — Soft Handoff
-
-**From**: `explorer_1`  
-**To**: `parent` (`f80fdffc-6fe7-4307-822d-256f4b7600e6`)  
-**Date**: 2026-07-29  
-**Working Directory**: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_1`
-
----
+# Handoff Report — Explorer 1 (UI & Layout Specialist)
 
 ## 1. Observation
-
-Direct code inspection via `view_file` across 5 core target files revealed 13 critical bugs:
-
-1. **`src/hooks/useTypingEngine.ts` (lines 67-70)**:
-   ```ts
-   const errors = entries.filter(k => k.isError && !k.isBackspace).length;
-   const rawCalc = Math.round((currentInput.length / 5) / minutes);
-   const netCalc = Math.round(((currentInput.length - errors) / 5) / minutes);
-   const currentAcc = currentInput.length > 0 ? Math.round(((currentInput.length - errors) / currentInput.length) * 100) : 100;
-   ```
-   - `currentInput.length - errors` can be negative when user backspaces after making errors.
-
-2. **`src/hooks/useTypingEngine.ts` (line 195)**:
-   - `resetEngine()` omits `setCountdownTimer(5)`.
-
-3. **`src/hooks/useRace.ts` (lines 133-134)**:
-   ```ts
-   const meta = state[key]?.[0] || metaRef.current[key];
-   if (!meta?.name) continue;
-   ```
-   - If player presence drops upon finish before presence sync, `meta?.name` is missing and `continue` skips racer from `next`.
-
-4. **`src/hooks/useRPGSystem.ts` (line 75)**:
-   ```ts
-   let lastTime = 0;
-   keystrokeLog.forEach(k => {
-     const delay = k.time - lastTime;
-   ```
-   - `lastTime = 0` causes `delay` for 1st key to equal Unix timestamp `~1.72 billion ms`.
-
-5. **`src/hooks/useRPGSystem.ts` (line 158)**:
-   ```ts
-   if (check('type_nova') && totalSet.size >= ACHIEVEMENTS.length) unlock('type_nova');
-   ```
-   - `ACHIEVEMENTS.length` includes `type_nova`, making condition `(N - 1) >= N` evaluate to `false`.
-
-6. **`src/hooks/useQuests.ts` (lines 94-98)**:
-   - `grantXp` and `writeLocalProgress` called inside `setQuestsState` updater function.
-
-7. **`src/App.tsx` (lines 978 & 984)**:
-   - `typing` object literal in `useEffect` dependency array causes interval teardown loops.
-
----
+- **Component File**: `src/components/ChangelogModal.tsx`
+  - Rendered in `src/App.tsx:1950` as `<ChangelogModal theme={theme} onClose={() => setShowChangelog(false)} />`.
+  - Outer container: `bg-zinc-950 border border-zinc-800 rounded-[2.5rem] w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col` (`ChangelogModal.tsx:34`).
+  - Lacks dual-pane structure, left sidebar, nested glass cards, and stat metric pills.
+- **Data Source**: `src/data/changelog.ts`
+  - Defines `CHANGELOG: ChangelogEntry[]` with 21 version releases ranging from `v1.0.0` to `v1.5.2`.
+  - Entries currently contain `version`, `date`, `title`, and `changes: { type: 'feature' | 'fix' | 'perf' | 'tweak'; description: string; }[]`.
+- **Glassmorphism CSS Tokens**: `src/index.css`
+  - `.glass-panel` rule defines base linear gradient `linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 35%, ...)` and box-shadows with top specular highlight (`inset 0 1px 0 rgba(255,255,255,0.35)`).
+  - Progressive enhancement uses `-webkit-backdrop-filter: blur(18px) saturate(180%) brightness(1.05)` and `backdrop-filter: blur(18px) saturate(180%) brightness(1.05)`.
+  - Pseudo-element `::after` adds specular rim highlight across glass cards (`inset 1.5px 1.5px 1px -1px rgba(255, 255, 255, 0.6)`).
+- **Theme Accents & Tokens**: `src/data/constants.ts`
+  - `Theme` interface includes `text`, `vividText`, `solid`, `border`, `borderHalf`, `glow`, `glowPrimary`, `glowSecondary`.
 
 ## 2. Logic Chain
-
-1. **Accuracy Underflow**:
-   - *Observation*: `errors` counts historical non-backspace keystrokes, whereas `currentInput.length` counts current length.
-   - *Deduction*: Typing 10 errors and backspacing 8 yields `length=2` and `errors=10`. `(2 - 10)/2 * 100 = -400%`.
-   - *Conclusion*: Calculation produces invalid negative accuracy percentages.
-
-2. **Heatmap Timing Corruption**:
-   - *Observation*: `lastTime` starts at `0`. First `k.time` is epoch timestamp `~1.72e12 ms`.
-   - *Deduction*: `k.time - lastTime` = ~1.72 billion ms added to `totalMs`.
-   - *Conclusion*: Key latency metrics in heatmap are corrupted by 54 years for the initial keystroke.
-
-3. **Achievement Unreachable**:
-   - *Observation*: `ACHIEVEMENTS.length` is N. `type_nova` is 1 of N achievements.
-   - *Deduction*: Before `type_nova` is unlocked, `totalSet.size` is at most `N - 1`. `N - 1 >= N` is `false`.
-   - *Conclusion*: `type_nova` meta-achievement cannot be unlocked naturally.
-
----
+1. **Observation**: `ChangelogModal.tsx` is currently constrained to `max-w-2xl` with a single vertical column (`flex flex-col`).
+   -> **Inference**: To support a left sidebar navigation timeline alongside a main content scroll area, the container modal must expand to `max-w-5xl` or `max-w-6xl` with `flex flex-col md:flex-row`.
+2. **Observation**: `ChangelogModal.tsx` renders flat change items directly inside a single container div without card borders or background blur.
+   -> **Inference**: Wrapping each version block in a dedicated nested frosted glass card utilizing `.glass-panel` or `bg-zinc-900/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6` will achieve the targeted glassmorphism aesthetic (R1).
+3. **Observation**: The current `CHANGELOG` entries classify changes into 4 types (`feature`, `fix`, `perf`, `tweak`).
+   -> **Inference**: Stat metric pills can be computed dynamically from `changes` array counts or optionally supplemented by explicit `metrics` properties in `ChangelogEntry` (e.g. `fixes`, `tweaks`, `linesChanged`, `perfGain`), which can then be rendered as horizontal pill badges per version card.
 
 ## 3. Caveats
-
-- UI visual styling and CSS layout were reviewed in relation to state changes, but visual rendering under specific browser DPI settings was not dynamically simulated.
-- Supabase Realtime broadcast socket behaviors were statically analyzed based on event handlers and presence state code logic.
-
----
+- **Uninvestigated Area**: Real-time API fetching logic (R3 requirement) was analyzed from a structural data model perspective, but concrete GitHub API / backend fetching implementation is delegated to M3 (Dynamic Metrics Fetching).
+- **Assumptions Made**: Mobile viewport screens (<768px) will collapse the left sidebar into a top horizontal timeline bar or collapsible toggle so the modal remains usable on mobile devices.
 
 ## 4. Conclusion
+The existing `ChangelogModal` can be seamlessly overhauled to satisfy requirement R1 (Glassmorphism UI Overhaul) without breaking existing data structures. By expanding the container layout to a dual-pane flex row (`w-full max-w-5xl h-[85vh]`), establishing a left navigation sidebar, styling version blocks as nested `.glass-panel` cards with backdrop blur, and adding a horizontal flex row of stat metric pills (`Fixes`, `Tweaks`, `Lines`, `Perf`), the UI will achieve a premium glassmorphic standard.
 
-The application has solid foundational architecture, but exhibits key logic glitches in statistics computation (accuracy underflow, heatmap initial timestamp), state transitions (countdown timer reset skip), quest XP granting (React StrictMode double trigger), achievement requirements (`type_nova` condition), and performance loops in timer effects (`typing` reference churn).
-
-All 13 identified bugs have been documented with concrete code fixes in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_1\analysis.md`.
-
----
+Full design specifications and recommendations have been written to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_1\analysis.md`.
 
 ## 5. Verification Method
-
-1. Inspect `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_1\analysis.md` for full breakdown and fixes.
-2. Run TypeScript static type checker:
-   ```bash
-   npx tsc --noEmit
-   ```
-3. Test key user scenarios (backspacing error text, restarting test countdown, checking heatmap timing metrics, completing daily quests).
-
----
-
-## 6. Remaining Work
-
-- Hand off findings report `analysis.md` to implementer/parent agent for patch application.
-- Verify fixes after implementation using `tsc` and test execution.
+1. Inspect `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_1\analysis.md` for complete technical recommendations.
+2. Verify TypeScript integrity: run `npx tsc --noEmit` from the root workspace directory.
+3. Verify build execution: run `npm run build` to confirm CSS and JSX syntax validity.

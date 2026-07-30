@@ -1,34 +1,42 @@
-# BRIEFING — 2026-07-29T11:20:00Z
+# BRIEFING — 2026-07-29T20:21:47Z
 
 ## Mission
-Perform a deep, thorough static code review of UI Components, Audio & Visuals in TypeNova.
+Investigate scroll behavior, DOM ref handling, and timeline navigation requirements for ChangelogModal to support Interactive Timeline Navigation (R2).
 
 ## 🔒 My Identity
-- Archetype: explorer
-- Roles: explorer_2
+- Archetype: Teamwork explorer
+- Roles: Explorer 2 (Timeline Navigation Specialist)
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_2
-- Original parent: 79012e93-8b55-4dc5-9b0c-cd124f9ff1f9
-- Milestone: Static Code Review - UI & Audio/Visuals
+- Original parent: 0e4a63be-620c-493c-a7f5-fda30eaa5a8b
+- Milestone: Interactive Timeline Navigation (R2)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement changes directly in src/
-- Output analysis report to analysis.md and handoff report to handoff.md in working directory
-- Send completion message to parent upon finishing
+- Read-only investigation — do NOT implement changes in project source code.
+- Write analysis and recommendations into `.agents/explorer_2/analysis.md`.
+- Deliver handoff report at `.agents/explorer_2/handoff.md`.
+- Send message back to parent when complete.
 
 ## Current Parent
-- Conversation ID: 79012e93-8b55-4dc5-9b0c-cd124f9ff1f9
-- Updated: 2026-07-29T11:20:00Z
+- Conversation ID: 0e4a63be-620c-493c-a7f5-fda30eaa5a8b
+- Updated: 2026-07-29T20:21:47Z
 
 ## Investigation State
-- **Explored paths**: All 11 target files (`useAudioEngine.ts`, `useParticles.ts`, `TypingArea.tsx`, `RaceModal.tsx`, `RaceResultsScreen.tsx`, `ResultsScreen.tsx`, `StatsDashboard.tsx`, `StatsPanel.tsx`, `AccountMenu.tsx`, `ChangelogModal.tsx`, `SocialModal.tsx`)
-- **Key findings**: Identified 15 bugs (6 Logic, 5 UI, 4 Performance). Detailed analysis report generated in `analysis.md` and soft handoff report written to `handoff.md`.
-- **Unexplored areas**: None within the assigned target list.
+- **Explored paths**: `src/components/ChangelogModal.tsx`, `src/data/changelog.ts`
+- **Key findings**:
+  - Modal must transform into 2-column split panel (`max-w-5xl h-[85vh]`).
+  - DOM ID querying (`#version-v1-5-2`) is cleaner and more robust than Map ref objects or arrays.
+  - Container-relative `scrollTo()` is superior to `scrollIntoView()` (avoids window scroll bleed and allows 24px top padding offset).
+  - `IntersectionObserver` with a 600ms manual scroll lock ref prevents highlight flickering during smooth scroll animations.
+- **Unexplored areas**: None. Investigation complete.
 
 ## Key Decisions Made
-- Categorized findings systematically by exact file, line number, issue description, potential impact, and concrete code fix proposals.
+- Recommended container-relative `scrollTo()` with 24px top padding offset.
+- Recommended slugified HTML ID targeting (`version-${release.version.replace(/\./g, '-')}`).
+- Designed scroll spy using `IntersectionObserver` + `isManualScrollingRef` lock pattern.
+- Published complete analysis report at `analysis.md` and handoff report at `handoff.md`.
 
 ## Artifact Index
-- analysis.md — Full static code review report
-- handoff.md — Soft handoff report
-- progress.md — Progress report
-- ORIGINAL_REQUEST.md — Initial user request with timestamp
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_2\ORIGINAL_REQUEST.md — Original request log
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_2\BRIEFING.md — Persistent memory state
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_2\analysis.md — Comprehensive technical design report
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_2\handoff.md — 5-component handoff report

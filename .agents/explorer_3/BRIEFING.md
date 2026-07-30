@@ -1,33 +1,38 @@
-# BRIEFING — 2026-07-29T11:10:32Z
+# BRIEFING — 2026-07-30T01:54:30Z
 
 ## Mission
-Thorough static code review of Cloud Sync, Auth, Matchmaking, Social & Utilities modules in TypeNova v2.
+Investigate metrics data sources, backend API structure, and GitHub API options for dynamic metric fetching.
 
 ## 🔒 My Identity
-- Archetype: explorer
-- Roles: investigator, reviewer
+- Archetype: Explorer
+- Roles: Dynamic Metrics Data Fetching Specialist
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_3
-- Original parent: 79012e93-8b55-4dc5-9b0c-cd124f9ff1f9
-- Milestone: Static Code Review - Module 3 (Cloud Sync, Auth, Matchmaking, Social, Utilities, Data)
+- Original parent: 0e4a63be-620c-493c-a7f5-fda30eaa5a8b
+- Milestone: M1
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement changes in src/ directly.
-- Identify Logic, UI, and Performance bugs with exact file paths, line numbers, descriptions, impact, and concrete proposed code fixes.
-- Write analysis report to analysis.md and handoff to handoff.md.
+- Read-only investigation — do NOT implement
+- Analyze existing backend/frontend structure and GitHub API integration paths
 
 ## Current Parent
-- Conversation ID: 79012e93-8b55-4dc5-9b0c-cd124f9ff1f9
-- Updated: 2026-07-29T11:10:32Z
+- Conversation ID: 0e4a63be-620c-493c-a7f5-fda30eaa5a8b
+- Updated: 2026-07-30T01:54:30Z
 
 ## Investigation State
-- **Explored paths**: None yet.
-- **Key findings**: Investigation starting.
-- **Unexplored areas**: useCloudSync.ts, useMatchmaking.ts, useFriends.ts, useAuth.ts, supabase.ts, src/utils/*, src/data/*
+- **Explored paths**: `src/data/changelog.ts`, `src/components/ChangelogModal.tsx`, `package.json`, `src/lib/supabase.ts`, `.agents/explorer_1/analysis.md`, `.agents/explorer_2/analysis.md`
+- **Key findings**: 
+  1. `src/data/changelog.ts` contains 22 version entries with `changes` categories (`fix`, `tweak`, `feature`, `perf`), but lacks pre-calculated metric fields.
+  2. The application is a Vite SPA using React 19 + TypeScript + Supabase client; no Node/Express server exists in the repo.
+  3. GitHub API unauthenticated REST endpoint (`/repos/{owner}/{repo}/releases`) offers release stats but is rate-limited to 60 req/hr/IP.
+  4. Recommended Hybrid Dynamic Metrics Engine (`src/services/changelogApi.ts` & `src/hooks/useChangelogMetrics.ts`) combining async API fetching with deterministic static derivation fallback (`deriveMetricsFromChangelog`) and 15-min `sessionStorage` caching.
+- **Unexplored areas**: None for M1 scope.
 
 ## Key Decisions Made
-- Initiated static investigation of specified files.
+- Formulated data contracts (`VersionMetrics`, `ChangelogMetricsMap`, `UseChangelogMetricsReturn`).
+- Designed hybrid fallback mechanism for offline/rate-limited operation.
+- Defined stat pills UI rendering with shimmer loading skeletons in `ChangelogModal.tsx`.
+- Written comprehensive analysis (`analysis.md`) and handoff report (`handoff.md`).
 
 ## Artifact Index
-- ORIGINAL_REQUEST.md — Prompt instructions
-- BRIEFING.md — Persistent context index
-- progress.md — Heartbeat and step tracking
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_3\analysis.md — Detailed analysis report
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_3\handoff.md — Final handoff report

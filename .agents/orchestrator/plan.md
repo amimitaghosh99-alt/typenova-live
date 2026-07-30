@@ -1,47 +1,35 @@
-# Implementation Plan — 27 Bug Fixes (4 Phased Rollout)
+# Execution Plan: TypeNova Update Log UI Overhaul & Dynamic Metrics
 
 ## Overview
-This plan details the step-by-step resolution of all 27 identified bugs across 4 sequential rollout phases as specified in `bug_report.md`.
+Redesign `ChangelogModal` to feature a glassmorphism UI overhaul, interactive left timeline navigation sidebar with smooth scroll anchors, dynamic statistical metrics fetching (from backend or GitHub API), and thorough verification.
 
-## Rollout Roadmap
+## Phased Plan
 
-### Phase 1: Critical Business Logic & Math Fixes (4 Bugs)
-- [ ] **LOGIC-01**: Stale input state & character loss under rapid typing (`src/App.tsx`, `src/hooks/useTypingEngine.ts`)
-- [ ] **LOGIC-02**: Accuracy & Net WPM miscalculation on backspacing (`src/hooks/useTypingEngine.ts`)
-- [ ] **LOGIC-03**: Heatmap finger speed delay overflow (`src/hooks/useRPGSystem.ts`, `src/components/StatsDashboard.tsx`)
-- [ ] **LOGIC-05**: Host migration blocked during active race (`src/hooks/useRace.ts`)
+### Phase 1: Exploration & Codebase Analysis (Milestone 1)
+- Dispatch 3 Explorers (`teamwork_preview_explorer`):
+  - **Explorer 1 (UI & Layout Specialist)**: Locate `ChangelogModal` component, CSS/Tailwind tokens, themes, frosted glass styling, stat pills layout, responsive structure.
+  - **Explorer 2 (Timeline Navigation Specialist)**: Investigate scroll behavior, DOM ref structure, left sidebar vs right content container, `scrollIntoView` implementation.
+  - **Explorer 3 (Data Fetching Specialist)**: Investigate current changelog metrics source (static array location), API endpoints, backend services or GitHub API fetching options, fallback handling, TypeScript types.
+- Synthesize findings into concrete implementation design.
 
-### Phase 2: Core Render Pipeline & UI Integrity (5 Bugs)
-- [ ] **PERF-08**: Layout thrashing in `GlidingBar` caret (`src/components/TypingArea.tsx`)
-- [ ] **PERF-03**: Top-level snapshot allocation & full component cascade (`src/App.tsx`)
-- [ ] **UI-02**: Dynamic hover theme border classes purged by Tailwind safelist (`src/App.tsx`, `tailwind.config.js`)
-- [ ] **UI-03**: Galaxy theme text transparent & Void theme low contrast (`src/data/constants.ts`, `src/App.tsx`)
-- [ ] **UI-05**: GlidingBar caret disappears on last character (`src/components/TypingArea.tsx`)
+### Phase 2: Implementation of UI Overhaul & Navigation (Milestone 2 - R1 & R2)
+- Dispatch Worker (`teamwork_preview_worker`):
+  - Overhaul `ChangelogModal` layout to left sidebar timeline + right scrollable main container.
+  - Apply frosted glass styling (`backdrop-filter`, inner shadow, neon glow accents).
+  - Add stat metric pills container per version update block.
+  - Connect left sidebar version nodes with smooth scrolling (`scrollIntoView` or ref scrolling) to right version blocks.
+- Run typecheck and build validation.
 
-### Phase 3: Multiplayer Stability & Memory Leaks (5 Bugs)
-- [ ] **PERF-01**: Uncleaned `setTimeout` timers in Supabase Realtime subscription (`src/hooks/useRace.ts`)
-- [ ] **LOGIC-04**: Multiplayer stale heatmap payload race condition (`src/App.tsx`, `src/hooks/useRPGSystem.ts`)
-- [ ] **LOGIC-07**: Realtime channel leak / phantom presence on manual reset (`src/App.tsx`)
-- [ ] **LOGIC-08**: Side-effects executing inside React state updater callback (`src/hooks/useQuests.ts`)
-- [ ] **LOGIC-09**: Non-host false kicks on slow presence sync (`src/hooks/useRace.ts`)
+### Phase 3: Dynamic Metrics Fetching Integration (Milestone 3 - R3)
+- Dispatch Worker (`teamwork_preview_worker`):
+  - Implement dynamic API fetching logic for update log statistical metrics (Fixes, Tweaks, Lines Changed, Perf Gain).
+  - Create endpoint or client fetcher function (GitHub API / backend metrics API with proper loading & fallback states).
+  - Update `ChangelogModal` to populate stat metric pills dynamically from fetched API response.
+- Run typecheck and build validation.
 
-### Phase 4: Component Polish & Secondary Performance (13 Bugs)
-- [ ] **PERF-06**: Heavy regex re-compilation in syntax highlighter (`src/components/TypingArea.tsx`)
-- [ ] **PERF-09**: Layout thrashing on `onMouseMove` in WPM graph (`src/components/graphs/WpmGraph.tsx`)
-- [ ] **UI-01**: Header layout clipping on mobile & small breakpoints (`src/App.tsx`)
-- [ ] **UI-04**: Sound menu missing from global Esc/modal hotkey guard (`src/App.tsx`)
-- [ ] **UI-06**: Inline container position-relative particle drift (`src/components/TypingArea.tsx`)
-- [ ] **UI-07**: Keyboard heatmap modal horizontal overflow (`src/components/StatsDashboard.tsx`)
-- [ ] **LOGIC-06**: Reset delay timer race condition wiping active session (`src/App.tsx`)
-- [ ] **LOGIC-10**: Dangling timeout in ghost pacer hook (`src/components/TypingArea.tsx`)
-- [ ] **PERF-02**: Non-unique keys & trailing timeout leak in particle hook (`src/hooks/useParticles.ts`)
-- [ ] **PERF-04**: Multiple individual state setters fired every 500ms (`src/hooks/useTypingEngine.ts`)
-- [ ] **PERF-05**: Unmemoized function prop in `useRace` hook return object (`src/hooks/useRace.ts`)
-- [ ] **PERF-07**: O(N) array operations & multi-pass filtering on keystroke log (`src/hooks/useTypingEngine.ts`)
-- [ ] **PERF-10**: Missing passive event listener flags on document listeners (`src/App.tsx`, `src/components/AccountMenu.tsx`)
-
-## Verification Strategy
-- Each phase is executed by a dedicated worker subagent.
-- Worker runs build (`npm run build` or `npx tsc --noEmit`) to verify zero TypeScript/JSX/syntax compilation errors.
-- Orchestrator verifies phase completion and updates progress before proceeding to next phase.
-- Final phase: Generate `walkthrough.md` and notify Sentinel.
+### Phase 4: Review, Verification, Hardening & Forensic Audit (Milestone 4)
+- Dispatch 2 Reviewers (`teamwork_preview_reviewer`): Verify correctness, aesthetic match, code quality, TypeScript types, build pass.
+- Dispatch 2 Challengers (`teamwork_preview_challenger`): Stress test smooth scrolling, edge cases, missing metric API responses, fallbacks.
+- Dispatch Forensic Auditor (`teamwork_preview_auditor`): Check for hardcoding, dummy logic, facade API calls, or integrity violations.
+- Verify 100% pass across all criteria.
+- Report completion to Sentinel.

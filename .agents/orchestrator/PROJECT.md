@@ -1,18 +1,36 @@
-# Project: TypeNova Live 27 Bug Fixes Implementation
+# Project: TypeNova Update Log UI Overhaul & Dynamic Metrics
 
-## Architecture
-Web application built with React, TypeScript, Vite, Tailwind CSS, and Supabase.
-Remediation of 27 forensic audit bugs across Logic, UI/UX, and Performance/Memory management.
+## Mission
+Redesign the existing `ChangelogModal` UI to match a premium glassmorphism aesthetic with an interactive left timeline navigation sidebar and dynamic metric fetching from backend/GitHub API.
+
+## Architecture & Requirements
+- **R1: Glassmorphism UI Overhaul**
+  - Left sidebar + right-side scrollable content area in `ChangelogModal`.
+  - Frosted glass cards (`backdrop-filter` / `backdrop-blur`, inner shadows, neon glow accents).
+  - Horizontal stat metric pills row for each version update block.
+- **R2: Interactive Timeline Navigation**
+  - Left-aligned vertical timeline sidebar with interactive version nodes.
+  - Clicking any version node smoothly scrolls the right-side main container to the matching version block using `scrollIntoView` or ref-based smooth scrolling.
+- **R3: Dynamic Metrics Fetching**
+  - Fetch real statistical metrics (Fixes, Tweaks, Lines Changed, Perf Gain) dynamically from backend or GitHub API.
+  - Render dynamically fetched metric data points into the stat pills.
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Phase 1: Critical Logic & Math | LOGIC-01, LOGIC-02, LOGIC-03, LOGIC-05 | none | DONE |
-| 2 | Phase 2: Render Pipeline & UI | PERF-08, PERF-03, UI-02, UI-03, UI-05 | Phase 1 | DONE |
-| 3 | Phase 3: Multiplayer & Memory Leaks | PERF-01, LOGIC-04, LOGIC-07, LOGIC-08, LOGIC-09 | Phase 2 | DONE |
-| 4 | Phase 4: Component Polish & Secondary Perf | PERF-06, PERF-09, UI-01, UI-04, UI-06, UI-07, LOGIC-06, LOGIC-10, PERF-02, PERF-04, PERF-05, PERF-07, PERF-10 | Phase 3 | DONE |
-| 5 | Phase 5: Verification & Walkthrough | Build check, `walkthrough.md`, notify Sentinel | Phase 4 | DONE |
+| M1 | Exploration & Technical Design | Analyze `ChangelogModal` component, CSS/styling setup, API integration path, and scroll anchors | None | IN_PROGRESS |
+| M2 | Glassmorphism UI & Timeline Nav (R1, R2) | Implement left sidebar timeline, smooth scroll to version block, glassmorphism styling, stat pills UI | M1 | PLANNED |
+| M3 | Dynamic Metrics API Fetching (R3) | Implement dynamic API fetching for update log metrics, connect state to stat pills | M1, M2 | PLANNED |
+| M4 | Verification & Forensic Audit | Type-check (`npx tsc --noEmit`), build (`npm run build`), verify tests, challenger verification, forensic audit | M2, M3 | PLANNED |
 
 ## Interface Contracts
-- All 27 fixes must strictly align with `bug_report.md` specifications.
-- Code replacements must preserve overall application features and maintain type safety.
+- `ChangelogModal`: Accepts props (e.g. `isOpen`, `onClose`), renders timeline sidebar and update list.
+- Dynamic Metrics Fetcher: API function/hook returning version metric stats (e.g. `{ version, fixes, tweaks, linesChanged, perfGain, ... }`).
+
+## Acceptance Criteria
+- Modal features distinct left timeline sidebar and right scrollable container.
+- Horizontal row of stat metric pills per version block.
+- Heavy use of glassmorphism theme tokens (`backdrop-blur`, inner shadows, glow accents).
+- Clicking left sidebar version node smoothly scrolls right panel to corresponding version block.
+- Codebase makes external network/API call (or backend API fetch) for metrics rather than relying solely on static hardcoded data.
+- UI renders fetched data in stat pills.

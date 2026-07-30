@@ -1,67 +1,80 @@
-# Soft Handoff Report: UI Components, Audio & Visuals Code Review
+# Handoff Report: Interactive Timeline Navigation (R2)
 
-**Agent**: explorer_2  
-**Working Directory**: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_2`  
+**Agent**: `explorer_2` (Timeline Navigation Specialist)  
 **Date**: 2026-07-29  
+**Handoff Type**: Hard (Task Complete)  
+**Target Files**: `src/components/ChangelogModal.tsx`, `src/data/changelog.ts`
 
 ---
 
 ## 1. Observation
 
-All 11 target files were inspected using static analysis:
-- `src/hooks/useAudioEngine.ts` (81 lines)
-- `src/hooks/useParticles.ts` (63 lines)
-- `src/components/TypingArea.tsx` (535 lines)
-- `src/components/RaceModal.tsx` (486 lines)
-- `src/components/RaceResultsScreen.tsx` (411 lines)
-- `src/components/ResultsScreen.tsx` (266 lines)
-- `src/components/StatsDashboard.tsx` (321 lines)
-- `src/components/StatsPanel.tsx` (112 lines)
-- `src/components/AccountMenu.tsx` (94 lines)
-- `src/components/ChangelogModal.tsx` (101 lines)
-- `src/components/SocialModal.tsx` (215 lines)
+1. **Existing Component (`src/components/ChangelogModal.tsx`)**:
+   - Lines 32–37: Outer modal container is `max-w-2xl max-h-[85vh]` rendered in a single vertical column.
+   - Line 50: Scroll container is `overflow-y-auto p-8 pt-6 space-y-12`.
+   - Lines 51–95: Maps directly over `CHANGELOG` to render all releases in a continuous single-pane list without left sidebar timeline navigation.
 
-Key direct observations:
-1. `useAudioEngine.ts`: Line 28 defines `const now = ctx.currentTime`. Lines 53, 54, 59, 60, 69 invoke `createOneShot` inside `setTimeout`, which relies on `now` captured in `playSound` closure.
-2. `useParticles.ts`: Line 33 uses `id: Math.random()`. Line 43 calls `setParticles` on every spawn.
-3. `TypingArea.tsx`: Line 171 triggers `scrollTo({ behavior: 'smooth' })` on every keystroke. Line 183 creates new Map and Array instances for `particlesByIndex` on every particle update. Line 265 lacks `break-words`.
-4. `RaceModal.tsx`: Line 97 relies on `autoStartedRef.current`, which is set to `true` on auto-start but never reset to `false` when status changes. Line 167 lacks `max-h-[90vh] overflow-y-auto`.
-5. `RaceResultsScreen.tsx`: Line 245 uses `...resultsProps` in `useMemo` dependency array, creating a new object identity every render. Line 114 `syncElo` async polling loop lacks unmount checks.
-6. `ResultsScreen.tsx`: Line 78 has uncleaned `setTimeout`. Line 179 uses `marginLeft: i * 20`. Line 92 calls `k.expected.toUpperCase()` without null check on `k.expected`.
-7. `StatsDashboard.tsx`: Lines 37-38 parse `key.split(':')` without validating length before calling `cfg.startsWith('t')`. Line 126 uses `min-w-[600px]`.
-8. `StatsPanel.tsx`: Lines 32-55 recalculates SVG polyline points on every render without `useMemo`.
+2. **Data Structure (`src/data/changelog.ts`)**:
+   - Exported array `CHANGELOG: ChangelogEntry[]` containing 22 entries from `v1.5.2` to `v1.0.0`.
+   - Each release entry contains a unique `version` string (e.g. `'v1.5.2'`), `date`, `title`, and `changes` array.
+   - The `version` string is guaranteed unique and serves as the ideal key for DOM `id` attributes (slugified as `version-v1-5-2`), `activeVersion` state, and anchor targets.
+
+3. **Scroll API Capabilities**:
+   - `element.scrollIntoView()` causes window/overlay scroll bleed when used inside `fixed inset-0` modal containers.
+   - `container.scrollTo({ top, behavior: 'smooth' })` isolates scroll positioning 100% inside `scrollContainerRef.current`, supporting exact top padding offsets (e.g., 24px offset).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Audio Distortion Logic**: In `useAudioEngine`, capturing `now` at function call time rather than callback execution time means delayed notes are scheduled with an AudioContext timestamp in the past. Web Audio API immediately triggers scheduled nodes that have past timestamps, destroying arpeggiated timing and causing audio clipping.
-2. **React Rendering Performance**: Component memoization (`React.memo`) relies on referential equality. Passing newly allocated array references (such as `particlesByIndex.get(index) ?? []` in `TypingArea` or destructured `restProps` in `RaceResultsScreen`) causes memoized child components (`Char`, `ResultsScreen`) to re-render completely on every single parent render or particle update.
-3. **Multiplayer Race Stalling**: Mutating refs like `autoStartedRef.current = true` to guard one-time auto-start actions without resetting the ref when a new room/match starts causes the guard condition to block all future matches while the component remains mounted.
-4. **Layout & Responsiveness**: Combining hardcoded pixel offsets (`marginLeft: i * 20`, `min-w-[600px]`) with modal containers that lack vertical max-height scrolling (`max-h-[90vh] overflow-y-auto`) guarantees visual clipping on viewports under 600px wide or low vertical heights.
+1. **Requirement Mapping**:
+   - Project scope requires **R2** (Interactive Timeline Navigation): clicking a version node in the left-aligned vertical timeline sidebar must smoothly scroll the right main container to the targeted version block, while manual scrolling updates active highlighting.
+
+2. **Layout Transformation**:
+   - To accommodate both the vertical timeline sidebar and version content cards side-by-side, the modal width must expand from `max-w-2xl` to `max-w-5xl`.
+   - The body container must use `flex overflow-hidden min-h-0` to establish two independent vertical scrollable regions (Left `aside` sidebar + Right `main` content panel).
+
+3. **DOM Anchoring Strategy**:
+   - Rather than maintaining callback refs or dictionary objects (`useRef<Record<string, HTMLElement>>({})`), assigning normalized HTML IDs (`id={`version-${release.version.replace(/\./g, '-')}`}`) to each right-side version card allows target lookup via `scrollContainerRef.current.querySelector('#version-v1-5-2')`.
+   - This approach eliminates ref dictionary state management, callback ref overhead, and ref cleanup logic.
+
+4. **Scroll Navigation & Isolation**:
+   - Container-relative scrolling (`relativeTop = targetTop - containerTop + container.scrollTop`) with `container.scrollTo()` ensures zero layout shift or window jitter outside the modal container.
+   - A top padding offset of 24px prevents target version headers from colliding directly with container borders.
+
+5. **Scroll Spy & Jitter Prevention**:
+   - `IntersectionObserver` attached to `scrollContainerRef` dynamically tracks which version block is visible and updates `activeVersion`.
+   - To prevent rapid highlight flickering during click-triggered smooth scroll animations, a manual scroll lock ref (`isManualScrollingRef`) locks `IntersectionObserver` state updates for 600ms upon clicking a timeline node.
 
 ---
 
 ## 3. Caveats
 
-- **Runtime Execution**: Findings are based strictly on static code analysis. Audio API timing and browser layout engine reflow behaviors were validated logically against browser standards, but not measured with profiling tools in a live browser session.
-- **Backend Integrations**: Ranked duel RPC functions (`resolve_ranked_duel`) and Supabase table schemas (`profiles`, `friends`) were verified from client-side RPC calls only; backend database functions were outside the scope.
+1. **Read-Only Investigation**: No direct changes were made to source files during this phase. Code snippets in `analysis.md` provide complete blueprints for the implementer.
+2. **Integration with R1 & R3**: The 2-column layout design must co-exist with Glassmorphism UI tokens (R1) and dynamic metrics stat pill rows (R3). Container width (`max-w-5xl`) and vertical spacing were chosen to accommodate stat pills without layout wrapping.
+3. **Reduced Motion**: Smooth scrolling should automatically downgrade to `'auto'` (instant jump) if `window.matchMedia('(prefers-reduced-motion: reduce)').matches` evaluates to `true`.
 
 ---
 
 ## 4. Conclusion
 
-A total of 15 distinct issues (6 Logic, 5 UI, 4 Performance) were identified across the 11 target files. All issues have concrete, actionable proposed fixes documented in `analysis.md`. Address the high-severity logic bugs (`autoStartedRef` state stall in `RaceModal`, audio timestamp calculation in `useAudioEngine`, and unmounted state updates in `RaceResultsScreen`) first before optimizing re-render performance.
+The design for **Interactive Timeline Navigation (R2)** inside `ChangelogModal.tsx` is fully specified and validated. Implementation requires:
+1. Converting `ChangelogModal.tsx` into a 2-column flexbox layout (`max-w-5xl h-[85vh]`).
+2. Indexing version cards using slugified DOM IDs (`version-v1-5-2`).
+3. Using `container.scrollTo()` for isolated container scrolling with 24px top padding offset.
+4. Using `IntersectionObserver` with a 600ms manual scroll lock guard for active timeline node highlighting.
 
 ---
 
 ## 5. Verification Method
 
-1. **Static Analysis & Build Verification**:
-   - Run TypeScript type checking (`npx tsc --noEmit` or `npm run build`) to ensure all proposed fixes preserve type safety.
-2. **Audio Verification**:
-   - Trigger level-up and achievement audio effects in `useAudioEngine.ts` and verify that notes play sequentially without clipping or instantaneous firing.
-3. **Race Room Verification**:
-   - Play two consecutive ranked 1v1 matches in `RaceModal.tsx` to verify that auto-start fires reliably on the second match without getting stuck in the lobby.
-4. **Performance Verification**:
-   - Profile `TypingArea.tsx` rendering using React Developer Tools Profiler during fast typing to verify `<Char>` memoization holds and particle updates do not re-render unaffected character nodes.
+1. **Static Analysis**:
+   Verify type correctness across `src/components/ChangelogModal.tsx` and `src/data/changelog.ts`:
+   ```bash
+   npx tsc --noEmit
+   ```
+2. **Interactive UI Verification**:
+   - Open `ChangelogModal`.
+   - Click `v1.0.0` in the left timeline sidebar. Confirm the right panel smoothly scrolls to `version-v1-0-0` with 24px top offset.
+   - Confirm active node highlight switches to `v1.0.0`.
+   - Manually scroll the right panel from bottom to top; confirm sidebar active node updates cleanly without flickering.

@@ -1,13 +1,12 @@
-# Progress Report - explorer_2
+# Progress Heartbeat — Explorer 2
 
-Last visited: 2026-07-29T11:20:00Z
+Last visited: 2026-07-29T20:25:00Z
 
-- [x] Initialized workspace files (`ORIGINAL_REQUEST.md`, `BRIEFING.md`, `progress.md`)
-- [x] Inspect `src/hooks/useAudioEngine.ts` and `src/hooks/useParticles.ts`
-- [x] Inspect `src/components/TypingArea.tsx`
-- [x] Inspect `src/components/RaceModal.tsx` and `src/components/RaceResultsScreen.tsx`
-- [x] Inspect `src/components/ResultsScreen.tsx` and `src/components/StatsDashboard.tsx`
-- [x] Inspect `src/components/StatsPanel.tsx`, `src/components/AccountMenu.tsx`, `src/components/ChangelogModal.tsx`, `src/components/SocialModal.tsx`
-- [x] Synthesize findings and write `analysis.md`
-- [x] Write `handoff.md`
-- [x] Notify parent agent
+- [x] Analyzed `ChangelogModal.tsx` and `src/data/changelog.ts`.
+- [x] Evaluated DOM ref handling strategies and scroll mechanisms.
+- [x] Formulated container-relative `scrollTo()` design with 24px top padding offset.
+- [x] Designed `IntersectionObserver` scroll spy with 600ms manual scroll lock pattern.
+- [x] Published `analysis.md`.
+- [x] Published `handoff.md`.
+- [x] Updated `BRIEFING.md`.
+- [x] Completed task.

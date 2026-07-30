@@ -1,434 +1,485 @@
-# Comprehensive Static Code Review Report: UI Components, Audio & Visuals
+# Interactive Timeline Navigation & Scroll Behavior Analysis Report
 
-**Reviewer**: explorer_2  
 **Date**: 2026-07-29  
-**Target Scope**: UI Components, Audio & Visuals Hooks  
+**Investigator**: `explorer_2` (Timeline Navigation Specialist)  
+**Target Component**: `src/components/ChangelogModal.tsx`  
+**Data Source**: `src/data/changelog.ts`  
+**Milestone Alignment**: M1 (Exploration & Technical Design) -> M2 (Glassmorphism UI & Timeline Nav - R1, R2)
 
 ---
 
-## Executive Summary
+## Executive Overview
 
-A deep static code review was conducted across 11 target files covering UI rendering, audio playback, particle generation, multiplayer race modals, and statistics dashboards. Total 15 actionable bugs were identified across **Logic**, **UI**, and **Performance** categories.
+This report provides a detailed technical analysis and implementation design for **Interactive Timeline Navigation (R2)** inside `ChangelogModal.tsx`. 
+
+Currently, `ChangelogModal` renders as a standard single-column scrollable modal. To satisfy project requirements **R1** (Glassmorphism UI Overhaul) and **R2** (Interactive Timeline Navigation), the modal must be transformed into a dual-pane layout featuring:
+1. A **left-aligned vertical timeline sidebar** containing clickable version nodes (`v1.5.2`, `v1.5.1`, ..., `v1.0.0`).
+2. A **right-side main scrollable container** rendering detailed frosted glass cards for each release.
+3. **Smooth bi-directional scrolling**: clicking a version node in the left sidebar smoothly scrolls the right container to the targeted version block.
+4. **Active Version Scroll Spy**: scrolling through the right content panel dynamically highlights the corresponding version node in the left timeline sidebar.
+
+Below are the complete findings, comparative technical evaluations, and exact code design specifications.
 
 ---
 
-## Detailed Bug Reports
+## 1. Existing Component & Version Data Analysis
 
-### 1. Stale `now` Time in Web Audio One-Shot Scheduling (Logic Bug)
-- **Category**: Logic Bug
-- **File**: `src/hooks/useAudioEngine.ts`
-- **Line Number / Function**: Line 24, `playSound` / Line 31 `createOneShot`
-- **Description**: In `useAudioEngine.ts`, `playSound` captures `const now = ctx.currentTime` when initially invoked. When triggering multi-note sounds (`levelup` on lines 51-56, `achievement` on lines 57-62, `modelm` on lines 67-70), `setTimeout` calls `createOneShot` after a delay (100ms, 200ms). However, `createOneShot` uses the closed-over, stale `now` value computed at initial invocation rather than fetching the updated `ctx.currentTime`. Because `now` is in the past by 100–200ms, Web Audio schedules all oscillators immediately, causing notes to play simultaneously, clip, or pop.
-- **Impact**: Multi-note audio effects (Level Up, Achievement, Model M keypresses) sound distorted or play out of sequence.
-- **Proposed Solution**: Remove the closed-over `now` constant from `playSound` scope and compute `const now = ctx.currentTime` dynamically inside `createOneShot`.
+### 1.1 Existing Component (`src/components/ChangelogModal.tsx`)
+- **Location**: `src/components/ChangelogModal.tsx` (101 lines)
+- **Props**: `{ theme: Theme; onClose: () => void; }`
+- **Current Layout**:
+  - Backdrop overlay: `fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4`
+  - Modal container: `bg-zinc-950 border border-zinc-800 rounded-[2.5rem] w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col`
+  - Content area: `overflow-y-auto p-8 pt-6 space-y-12` (single column rendering all releases).
 
+### 1.2 Version Data Structure (`src/data/changelog.ts`)
+- **Location**: `src/data/changelog.ts` (262 lines)
+- **Data Export**: `CHANGELOG: ChangelogEntry[]`
+- **Type Interface**:
+  ```typescript
+  export interface ChangelogEntry {
+    version: string; // e.g. 'v1.5.2', 'v1.5.1', 'v1.5.0', ..., 'v1.0.0'
+    date: string;    // e.g. 'July 30, 2026'
+    title: string;   // e.g. 'UI Polish & Bug Fixes 🛠️'
+    changes: {
+      type: 'feature' | 'fix' | 'perf' | 'tweak';
+      description: string;
+    }[];
+  }
+  ```
+- **Dataset Scale**: 22 version entries sorted in descending order (`v1.5.2` down to `v1.0.0`).
+- **Key Observation**: The `version` string (e.g. `'v1.5.2'`) is unique for every entry in `CHANGELOG`. This string serves as the canonical primary key for DOM indexing, ref maps, HTML `id` targets, and `activeVersion` tracking state.
+
+---
+
+## 2. Layout Architecture: 2-Column Glassmorphic Split Panel
+
+To support timeline navigation, the modal container width must expand from `max-w-2xl` to `max-w-4xl` or `max-w-5xl`, using a `flex` or `grid` dual-pane layout:
+
+```
++---------------------------------------------------------------------------------------------------+
+|  HEADER: UPDATE LOG                                                                   [ X Close ] |
++------------------------------------+--------------------------------------------------------------+
+|  LEFT SIDEBAR (Timeline Nav)       |  RIGHT MAIN CONTAINER (Version Cards)                        |
+|  Fixed Width: w-64                 |  Flex-1: overflow-y-auto ref={scrollContainerRef}            |
+|  Overflow: overflow-y-auto         |                                                              |
+|                                    |  +--------------------------------------------------------+  |
+|  [*] v1.5.2 (July 30, 2026) -----> |  | VERSION BLOCK: v1.5.2 (id="version-v1-5-2")            |  |
+|   |   UI Polish & Bug Fixes        |  | UI Polish & Bug Fixes                                  |  |
+|   |                                |  +--------------------------------------------------------+  |
+|  [ ] v1.5.1 (July 28, 2026)        |                                                              |
+|   |   Ranked Idempotency           |  +--------------------------------------------------------+  |
+|   |                                |  | VERSION BLOCK: v1.5.1 (id="version-v1-5-1")            |  |
+|  [ ] v1.5.0 (July 26, 2026)        |  | Ranked Idempotency & Visual Polish                     |  |
+|   |   Smoothness Overhaul          |  +--------------------------------------------------------+  |
+|  ...                               |  ...                                                         |
++------------------------------------+--------------------------------------------------------------+
+```
+
+### CSS Layout Utility Classes:
+- **Modal Container**:
+  `bg-zinc-950/90 border border-zinc-800/80 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-5xl shadow-2xl h-[85vh] flex flex-col overflow-hidden`
+- **Body Wrapper**:
+  `flex-1 flex overflow-hidden min-h-0` (`min-h-0` is essential in flexbox to enable nested vertical scrolling).
+- **Left Sidebar Container**:
+  `w-64 flex-shrink-0 border-r border-zinc-800/70 p-6 overflow-y-auto space-y-1 bg-zinc-950/40 scrollbar-thin`
+- **Right Content Container**:
+  `flex-1 overflow-y-auto p-8 space-y-10 scroll-smooth scrollbar-thin`
+
+---
+
+## 3. Deep Technical Evaluation: DOM Ref Handling & Scroll Navigation
+
+### 3.1 DOM Ref Handling Strategies
+
+| Strategy | Implementation Pattern | Pros | Cons | Recommendation |
+|---|---|---|---|---|
+| **A. Map Ref Object** | `useRef<Record<string, HTMLDivElement \| null>>({})` with inline callback ref `ref={el => refs.current[v] = el}` | Direct React ref dictionary; no DOM queries. | Callback ref boilerplate; ref cleanup required if list changes. | Good |
+| **B. Container Ref + DOM ID Query** | `scrollContainerRef.current.querySelector('#version-' + slug)` | Cleanest React code; no ref map sync or callback ref state; single `scrollContainerRef`. | Requires ID slug normalization (`v1.5.2` -> `version-v1-5-2`). | **PREFERRED (Best Practices)** |
+| **C. Ref Array by Index** | `useRef<HTMLDivElement[]>([])` using `ref={el => refs.current[index] = el}` | Simple array indexing. | Vulnerable to index desync if list filtered/reordered. | Not Recommended |
+
+### 3.2 Navigation Scroll Mechanics: `scrollIntoView()` vs Container-Relative `scrollTo()`
+
+#### Evaluation of Native `element.scrollIntoView()`:
 ```typescript
-// Proposed Fix in src/hooks/useAudioEngine.ts
-const createOneShot = ({ oscType = 'sine', freq = 200, duration = 0.06, gainVal = 0.2, detune = 0 }: {
-  oscType?: OscillatorType; freq?: number; duration?: number; gainVal?: number; detune?: number;
-}) => {
-  const now = ctx.currentTime; // Fetch fresh audio context time on execution
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = oscType;
-  osc.frequency.setValueAtTime(freq * (1 + comboFactor * 0.45), now);
-  osc.detune.value = detune;
-  gain.gain.setValueAtTime(gainVal + comboFactor * 0.25, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + duration);
+element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+```
+- **Issues in Modal Contexts**:
+  1. **Window / Modal Body Scroll Bleed**: Calling `scrollIntoView()` on an element nested inside a fixed overlay (`fixed inset-0`) can cause the parent window or overlay container to shift vertically if viewport dimensions are tight.
+  2. **Zero Top Padding Collision**: `block: 'start'` aligns the top edge of the element flush against the top of the container, clipping border shadows or card padding.
+
+#### Evaluation of Container-Relative `scrollTo()` (RECOMMENDED):
+```typescript
+const scrollToVersion = (version: string) => {
+  const container = scrollContainerRef.current;
+  if (!container) return;
+
+  const targetId = `version-${version.replace(/\./g, '-')}`;
+  const targetElement = container.querySelector(`#${targetId}`) as HTMLElement;
+  if (!targetElement) return;
+
+  const containerTop = container.getBoundingClientRect().top;
+  const targetTop = targetElement.getBoundingClientRect().top;
+  const relativeTop = targetTop - containerTop + container.scrollTop;
+
+  // Apply 24px top padding offset for optimal visual spacing
+  const offsetPadding = 24;
+
+  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  container.scrollTo({
+    top: Math.max(0, relativeTop - offsetPadding),
+    behavior: isReducedMotion ? 'auto' : 'smooth',
+  });
 };
 ```
 
----
-
-### 2. Random ID Collisions & Heavy Keystroke State Updates in `useParticles` (Performance & Logic Bug)
-- **Category**: Performance & Logic Bug
-- **File**: `src/hooks/useParticles.ts`
-- **Line Number / Function**: Line 33 & Line 43, `spawnParticles`
-- **Description**: Particle IDs are generated using `Math.random()` (line 33). Fast typing can produce duplicate particle IDs, leading to React key collision warnings and DOM rendering artifacts. Additionally, `spawnParticles` calls `setParticles` on every single keystroke, causing full React component re-renders for parent components (`TypingArea`) 20–30 times per second during fast typing.
-- **Impact**: UI frame drops and keystroke latency during fast typing streaks.
-- **Proposed Solution**: Use an incremental counter or `crypto.randomUUID()` for unique particle IDs, and batch/limit state updates.
-
-```typescript
-// Proposed Fix in src/hooks/useParticles.ts
-let particleIdCounter = 0;
-
-export const useParticles = () => {
-  const [particles, setParticles] = useState<Particle[]>([]);
-  const cleanupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const spawnParticles = useCallback((
-    charIndex: number,
-    expectedChar: string,
-    themeText: string,
-    count: number = 3
-  ) => {
-    const now = Date.now();
-    const newParticles: Particle[] = Array.from({ length: count }).map(() => ({
-      id: ++particleIdCounter,
-      index: charIndex,
-      char: Math.random() > 0.5 ? expectedChar : ['+', '*', 'x', 'o', '.'][Math.floor(Math.random() * 5)],
-      tx: (Math.random() - 0.5) * 150 + 'px',
-      ty: (Math.random() - 1) * 150 + 'px',
-      rot: (Math.random() - 0.5) * 360 + 'deg',
-      color: [themeText, 'text-white', 'text-zinc-500'][Math.floor(Math.random() * 3)],
-      expireAt: now + 600
-    }));
-
-    setParticles(prev => {
-      const active = prev.filter(p => p.expireAt > now);
-      return [...active, ...newParticles];
-    });
-    // ...
-```
+#### Why Container-Relative `scrollTo` is Superior:
+1. **100% Scope Isolation**: Only adjusts `scrollTop` on `scrollContainerRef.current`. Guaranteed zero window or modal backdrop jitter.
+2. **Custom Header/Padding Offsets**: Allows precise pixel offsets (`offsetPadding = 24`) so target version blocks do not collide with container borders.
+3. **Accessibility Integration**: Respects `prefers-reduced-motion` media queries seamlessly.
 
 ---
 
-### 3. Particle Map Object Creation Invalidating `Char` Component Memoization (Performance Bug)
-- **Category**: Performance Bug
-- **File**: `src/components/TypingArea.tsx`
-- **Line Number / Function**: Line 183 (`particlesByIndex`), Line 307 (`<Char>`)
-- **Description**: `<Char>` is wrapped in `React.memo` to prevent re-rendering unchanged character spans. However, `particlesByIndex` constructs a new `Map` and fresh `Particle[]` arrays (`const existing = map.get(p.index) || []; existing.push(p);`) whenever `particles` state changes. When passed to `<Char particles={particlesByIndex.get(index) ?? EMPTY_PARTICLES}>`, every character with active particles receives a newly allocated array instance on every particle update, completely bypassing `React.memo` prop equality checks.
-- **Impact**: Severe DOM re-rendering overhead on every keystroke when particle effects are enabled.
-- **Proposed Solution**: Store particles by index using stable structures or reference comparisons so unchanged characters don't re-render.
+## 4. Active Version Highlighting & Scroll Spy Mechanism
+
+As the user scrolls the right-side container manually, the left timeline sidebar must dynamically update its active highlighted node (`activeVersion`).
+
+### 4.1 Implementation via `IntersectionObserver`
+`IntersectionObserver` provides off-main-thread detection of elements entering the visible viewport.
 
 ```typescript
-// Proposed Fix in src/components/TypingArea.tsx
-// Ensure stable particle array references or compare particles by identity inside Char memo custom comparison:
-export const Char = memo(({ char, index, colorClass, isActive, particles }: CharProps) => (
-  // ... component JSX
-), (prevProps, nextProps) => {
-  return (
-    prevProps.char === nextProps.char &&
-    prevProps.index === nextProps.index &&
-    prevProps.colorClass === nextProps.colorClass &&
-    prevProps.isActive === nextProps.isActive &&
-    prevProps.particles === nextProps.particles
-  );
-});
-```
-
----
-
-### 4. Continuous Smooth Scroll Queue Stacking on Keystroke in `TypingArea` (UI & Performance Bug)
-- **Category**: UI & Performance Bug
-- **File**: `src/components/TypingArea.tsx`
-- **Line Number / Function**: Line 171, `useEffect` (Auto-scroll)
-- **Description**: `useEffect` executes `container.scrollTo({ top: ..., behavior: 'smooth' })` on every keystroke (`[input.length]`). Calling `scrollTo({ behavior: 'smooth' })` rapid-fire (10–15 times per second while typing) stacks smooth scroll animations in the browser engine, leading to erratic scroll stutter and visual lag.
-- **Impact**: Laggy scrolling and visual jitter while typing multi-line passages.
-- **Proposed Solution**: Use `behavior: 'auto'` (or throttle smooth scrolling) when updating scroll position during fast typing.
-
-```typescript
-// Proposed Fix in src/components/TypingArea.tsx
 useEffect(() => {
-  if (!containerRef.current) return;
-  const caret = document.getElementById('active-caret');
-  if (caret) {
-    const container = containerRef.current;
-    const targetTop = caret.offsetTop - container.clientHeight / 2 + 40;
-    // Use instant scroll during fast typing to prevent animation queue jitter
-    container.scrollTo({ top: targetTop, behavior: 'auto' });
-  }
-}, [input.length]);
-```
+  const container = scrollContainerRef.current;
+  if (!container) return;
 
----
+  const observer = new IntersectionObserver(
+    (entries) => {
+      // Ignore scroll spy updates during programmatic click scrolling
+      if (isManualScrollingRef.current) return;
 
-### 5. Missing Word Breaking in Code Mode in `TypingArea` (UI Bug)
-- **Category**: UI Bug
-- **File**: `src/components/TypingArea.tsx`
-- **Line Number / Function**: Line 263, `id="typing-text-container"`
-- **Description**: `typing-text-container` applies `whitespace-pre-wrap` but lacks `break-words` or `break-all`. In Code mode or when displaying long continuous strings/identifiers, text exceeds container boundaries and overflows horizontally off-screen.
-- **Impact**: Broken layout on narrow screens or code snippets with long variable names.
-- **Proposed Solution**: Add `break-words` and `break-all` to `typing-text-container`.
-
-```typescript
-// Proposed Fix in src/components/TypingArea.tsx (Line 265)
-className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap break-words text-left max-h-[70vh] overflow-y-auto pb-4 pt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-700`}
-```
-
----
-
-### 6. Ranked Auto-Start Ref Never Resets Across Matches (Logic Bug)
-- **Category**: Logic Bug
-- **File**: `src/components/RaceModal.tsx`
-- **Line Number / Function**: Line 97 & Line 107, Ranked Auto-Start `useEffect`
-- **Description**: `autoStartedRef.current` is set to `true` when a ranked race auto-starts. If the host finishes a match and enters a second ranked match while `RaceModal` remains mounted, `autoStartedRef.current` remains `true`. Consequently, the second ranked match auto-start effect returns early (`if (autoStartedRef.current) return;`) and never triggers the start timer.
-- **Impact**: Racers get stuck in the ranked lobby indefinitely on consecutive matches.
-- **Proposed Solution**: Reset `autoStartedRef.current = false` when `status` transitions out of `'lobby'` or when `code` changes.
-
-```typescript
-// Proposed Fix in src/components/RaceModal.tsx
-useEffect(() => {
-  if (status !== 'lobby') {
-    autoStartedRef.current = false;
-  }
-}, [status, code]);
-
-useEffect(() => {
-  if (!isRankedRoom || status !== 'lobby' || !isHost || !bothPresent) return;
-  if (autoStartedRef.current) return;
-  const t = setTimeout(() => {
-    autoStartedRef.current = true;
-    onStartRef.current(generateText(RANKED_MODE, RANKED_WORDS, '', false));
-  }, RANKED_REVEAL_MS);
-  return () => clearTimeout(t);
-}, [isRankedRoom, status, isHost, bothPresent]);
-```
-
----
-
-### 7. Modal Vertical Clipping on Small Screens in `RaceModal` (UI Bug)
-- **Category**: UI Bug
-- **File**: `src/components/RaceModal.tsx`
-- **Line Number / Function**: Line 167, Modal Card Div
-- **Description**: The modal dialog container (`bg-zinc-950 border border-zinc-800 ...`) does not specify `max-h-[90vh]` or `overflow-y-auto`. When displaying private room settings with 8 code languages, room size options, player list, and action buttons, the modal height exceeds screen height on mobile and laptop screens, clipping the action buttons off-screen.
-- **Impact**: Users on smaller viewports cannot access "START RACE" or "LEAVE ROOM" buttons.
-- **Proposed Solution**: Add `max-h-[90vh] overflow-y-auto` to the modal container.
-
-```typescript
-// Proposed Fix in src/components/RaceModal.tsx (Line 167)
-<div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-10 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
-```
-
----
-
-### 8. `useMemo` Invalidation via Rest Parameter Destructuring in `RaceResultsScreen` (Performance Bug)
-- **Category**: Performance Bug
-- **File**: `src/components/RaceResultsScreen.tsx`
-- **Line Number / Function**: Line 245, `displayProps`
-- **Description**: `displayProps` is wrapped in `useMemo` with `resultsProps` in its dependency array. However, `resultsProps` is constructed via rest parameter destructuring (`...resultsProps`) in the component signature. In JavaScript, rest parameters construct a brand new object instance on every component render. As a result, `displayProps` recomputes on every single render, invalidating memoization of downstream `ResultsScreen` components.
-- **Impact**: Redundant re-renders of the detailed results screen on every parent update.
-- **Proposed Solution**: Depend on individual scalar properties or memoize the parent rest object.
-
-```typescript
-// Proposed Fix in src/components/RaceResultsScreen.tsx
-const displayProps = useMemo(() => {
-  if (isSelfSelected || !selectedPlayer) return resultsProps;
-  return {
-    ...resultsProps,
-    wpm: selectedPlayer.finishWpm ?? 0,
-    accuracy: selectedPlayer.finishAcc ?? 0,
-    rawWpm: selectedPlayer.rawWpm ?? selectedPlayer.finishWpm ?? 0,
-    consistency: selectedPlayer.consistency ?? 0,
-    durationMs: selectedPlayer.finishMs ?? resultsProps.durationMs,
-    heatmapData: selectedPlayer.heatmapData ?? {},
-    errorTimes: new Array(selectedPlayer.errorCount ?? 0).fill(0),
-  };
-}, [
-  isSelfSelected,
-  selectedPlayer,
-  resultsProps.wpm,
-  resultsProps.accuracy,
-  resultsProps.rawWpm,
-  resultsProps.consistency,
-  resultsProps.durationMs,
-  resultsProps.heatmapData,
-  resultsProps.errorTimes
-]);
-```
-
----
-
-### 9. Unhandled Unmount in Async ELO Sync Polling in `RaceResultsScreen` (Logic Bug)
-- **Category**: Logic Bug
-- **File**: `src/components/RaceResultsScreen.tsx`
-- **Line Number / Function**: Line 114, `syncElo` & Line 141
-- **Description**: `syncElo` executes asynchronous retry loops with `await new Promise(r => setTimeout(r, 1500))`. If the player leaves the room or unmounts the component during this polling, `onUpdateElo`, `setEloTransfer`, and `setEloNote` are invoked on an unmounted component.
-- **Impact**: Console errors ("Can't perform a React state update on an unmounted component") and potential memory leaks.
-- **Proposed Solution**: Maintain an `isMounted` flag inside the `useEffect` and check it before setting state or triggering callbacks.
-
-```typescript
-// Proposed Fix in src/components/RaceResultsScreen.tsx
-useEffect(() => {
-  let isMounted = true;
-  if (!isRanked || rpcCalled.current) return;
-  // ...
-  const syncElo = async (attempts: number) => {
-    for (let i = 0; i < attempts; i++) {
-      if (!isMounted) return false;
-      const { data } = await supabase.from('profiles').select('elo').eq('id', myUserId).maybeSingle();
-      if (!isMounted) return false;
-      const value = (data as { elo?: number } | null)?.elo;
-      if (typeof value === 'number' && value !== myStartElo) {
-        onUpdateElo?.(() => value);
-        const diff = value - myStartElo;
-        setEloTransfer({ amount: Math.abs(diff), direction: diff >= 0 ? 'up' : 'down' });
-        return true;
-      }
-      await new Promise(r => setTimeout(r, 1500));
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const version = entry.target.getAttribute('data-version');
+          if (version) {
+            setActiveVersion(version);
+          }
+        }
+      });
+    },
+    {
+      root: container,
+      // Trigger when element passes top 20% to bottom 60% of container
+      rootMargin: '-10% 0px -70% 0px',
+      threshold: 0.1,
     }
-    return false;
-  };
-  // ...
-  return () => { isMounted = false; };
-}, [...]);
+  );
+
+  const blocks = container.querySelectorAll('[data-version]');
+  blocks.forEach((block) => observer.observe(block));
+
+  return () => observer.disconnect();
+}, []);
 ```
 
----
+### 4.2 Handling Click Jitter (Manual Scroll Lock Pattern)
+When a user clicks a version in the left timeline sidebar:
+1. The sidebar immediately sets `activeVersion` to the clicked version.
+2. The smooth scroll animation starts, taking ~400ms–600ms to complete.
+3. As the content scrolls, target blocks pass through the `IntersectionObserver` threshold zone, which would trigger intermediate `setActiveVersion` calls and cause rapid sidebar highlight flickering.
 
-### 10. Uncleaned Timeout in `handleShare` in `ResultsScreen` (Logic Bug)
-- **Category**: Logic Bug
-- **File**: `src/components/ResultsScreen.tsx`
-- **Line Number / Function**: Line 78, `handleShare`
-- **Description**: `setTimeout(() => setShareStatus(''), 3000)` inside `handleShare` is unmanaged. If the user clicks "PLAY AGAIN" or navigates away within 3 seconds after sharing, `setShareStatus` fires on an unmounted component.
-- **Impact**: React warning on unmounted state update.
-- **Proposed Solution**: Store the timer ref and clear it in a cleanup effect.
-
+**Solution: Manual Scroll Lock Guard**:
 ```typescript
-// Proposed Fix in src/components/ResultsScreen.tsx
-const shareTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const isManualScrollingRef = useRef<boolean>(false);
+const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-useEffect(() => {
-  return () => {
-    if (shareTimeoutRef.current) clearTimeout(shareTimeoutRef.current);
-  };
-}, []);
+const handleVersionClick = (version: string) => {
+  setActiveVersion(version);
+  isManualScrollingRef.current = true;
 
-const handleShare = async () => {
-  setShareStatus('RENDERING...');
-  try {
-    const result = await shareResultCard({ ... });
-    setShareStatus(result === 'copied' ? 'COPIED TO CLIPBOARD!' : 'PNG DOWNLOADED!');
-  } catch {
-    setShareStatus('SHARE FAILED');
+  if (manualScrollTimerRef.current) {
+    clearTimeout(manualScrollTimerRef.current);
   }
-  if (shareTimeoutRef.current) clearTimeout(shareTimeoutRef.current);
-  shareTimeoutRef.current = setTimeout(() => setShareStatus(''), 3000);
+
+  scrollToVersion(version);
+
+  // Re-enable IntersectionObserver scroll spy after smooth scroll completes
+  manualScrollTimerRef.current = setTimeout(() => {
+    isManualScrollingRef.current = false;
+  }, 600);
 };
 ```
 
 ---
 
-### 11. Heatmap Row Margin Horizontal Overflow on Mobile in `ResultsScreen` (UI Bug)
-- **Category**: UI Bug
-- **File**: `src/components/ResultsScreen.tsx`
-- **Line Number / Function**: Line 179, Heatmap Row Map
-- **Description**: `heatmapRows.map` applies `style={{ marginLeft: i * 20 }}` alongside fixed-width keys (`w-10 md:w-12`). On viewports under 500px width, 10 keys plus margins equal 520px+, forcing horizontal overflow and breaking mobile responsive layout.
-- **Impact**: Breaks mobile layout alignment and causes unwanted horizontal scrolling.
-- **Proposed Solution**: Replace fixed pixel margins with responsive padding/margins or responsive CSS flex alignment.
+## 5. Detailed Implementation Blueprint for `ChangelogModal.tsx`
 
-```typescript
-// Proposed Fix in src/components/ResultsScreen.tsx (Line 179)
-<div key={i} className={`flex gap-1 md:gap-2 justify-center ${i === 1 ? 'ml-2 md:ml-5' : i === 2 ? 'ml-4 md:ml-10' : ''}`}>
-```
+Below is the complete architectural implementation blueprint for `ChangelogModal.tsx` including type definitions, hooks, event handlers, and JSX layout structure.
 
----
+```tsx
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Sparkles, Bug, Zap, PenTool, ChevronRight, Calendar } from 'lucide-react';
+import { CHANGELOG, ChangelogEntry } from '@/data/changelog';
+import type { Theme } from '@/data/constants';
 
-### 12. Potential Exception on Missing `expected` Character in `ResultsScreen` Heatmap (Logic Bug)
-- **Category**: Logic Bug
-- **File**: `src/components/ResultsScreen.tsx`
-- **Line Number / Function**: Line 92, `testHeatmapData`
-- **Description**: `k.expected.toUpperCase()` assumes `k.expected` is always a valid string. If a keystroke object has `expected` as `undefined` or empty, calling `toUpperCase()` throws `TypeError: Cannot read properties of undefined (reading 'toUpperCase')`.
-- **Impact**: Results screen crash if keystroke log contains malformed entries.
-- **Proposed Solution**: Add optional chaining / fallback check `if (!k.expected) continue;`.
+interface ChangelogModalProps {
+  theme: Theme;
+  onClose: () => void;
+}
 
-```typescript
-// Proposed Fix in src/components/ResultsScreen.tsx (Line 92)
-const testHeatmapData = useMemo(() => {
-  const data: Record<string, { total: number; errors: number }> = {};
-  for (const k of keystrokeLog) {
-    if (k.isBackspace || !k.expected) continue;
-    const char = k.expected.toUpperCase();
-    if (!data[char]) data[char] = { total: 0, errors: 0 };
-    data[char].total++;
-    if (k.isError) data[char].errors++;
-  }
-  return data;
-}, [keystrokeLog]);
-```
+export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
+  // Active version state defaults to latest version (v1.5.2)
+  const [activeVersion, setActiveVersion] = useState<string>(CHANGELOG[0]?.version || '');
+  
+  // Container ref for right scrollable panel
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  
+  // Guard flag to prevent scroll spy flickering during programmatic smooth scroll
+  const isManualScrollingRef = useRef<boolean>(false);
+  const manualScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
----
+  // Helper to format version string into valid DOM id slug
+  const getVersionId = (version: string) => `version-${version.replace(/\./g, '-')}`;
 
-### 13. Crash on Malformed Local Storage Personal Best Keys in `StatsDashboard` (Logic Bug)
-- **Category**: Logic Bug
-- **File**: `src/components/StatsDashboard.tsx`
-- **Line Number / Function**: Lines 37-38, `loadPersonalBests`
-- **Description**: `const [, level, cfg] = key.split(':')` assumes keys starting with `typezen_pb:` always contain at least two colons. If a key formatted as `typezen_pb:MASTER` is present in `localStorage`, `cfg` is `undefined`. Accessing `cfg.startsWith('t')` throws `TypeError: Cannot read properties of undefined (reading 'startsWith')` and crashes the stats dashboard modal.
-- **Impact**: Total crash of the stats modal if local storage has corrupt or legacy keys.
-- **Proposed Solution**: Check `if (!level || !cfg) continue;` before processing `cfg`.
+  // Programmatic smooth scroll to targeted version block
+  const scrollToVersion = useCallback((version: string) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-```typescript
-// Proposed Fix in src/components/StatsDashboard.tsx (Lines 37-38)
-function loadPersonalBests(): Array<{ label: string; wpm: number }> {
-  const out: Array<{ label: string; wpm: number }> = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key?.startsWith('typezen_pb:')) continue;
-    try {
-      const pb = JSON.parse(localStorage.getItem(key) || 'null');
-      if (!pb?.wpm) continue;
-      const parts = key.split(':');
-      if (parts.length < 3) continue;
-      const level = parts[1];
-      const cfg = parts[2];
-      const label = `${level} · ${cfg.startsWith('t') ? cfg.slice(1) + 's' : cfg.slice(1) + ' words'}`;
-      out.push({ label, wpm: pb.wpm });
-    } catch { /* ignore corrupt entries */ }
-  }
-  return out.sort((a, b) => b.wpm - a.wpm);
+    const targetId = getVersionId(version);
+    const targetElement = container.querySelector(`#${targetId}`) as HTMLElement;
+    if (!targetElement) return;
+
+    const containerTop = container.getBoundingClientRect().top;
+    const targetTop = targetElement.getBoundingClientRect().top;
+    const relativeTop = targetTop - containerTop + container.scrollTop;
+    const offsetPadding = 24; // top spacing offset
+
+    const isReducedMotion = typeof window !== 'undefined' && 
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    container.scrollTo({
+      top: Math.max(0, relativeTop - offsetPadding),
+      behavior: isReducedMotion ? 'auto' : 'smooth',
+    });
+  }, []);
+
+  // Timeline node click handler
+  const handleVersionClick = (version: string) => {
+    setActiveVersion(version);
+    isManualScrollingRef.current = true;
+
+    if (manualScrollTimerRef.current) {
+      clearTimeout(manualScrollTimerRef.current);
+    }
+
+    scrollToVersion(version);
+
+    manualScrollTimerRef.current = setTimeout(() => {
+      isManualScrollingRef.current = false;
+    }, 600);
+  };
+
+  // Scroll Spy via IntersectionObserver
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isManualScrollingRef.current) return;
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const version = entry.target.getAttribute('data-version');
+            if (version) {
+              setActiveVersion(version);
+            }
+          }
+        });
+      },
+      {
+        root: container,
+        rootMargin: '-10% 0px -70% 0px',
+        threshold: 0.1,
+      }
+    );
+
+    const blocks = container.querySelectorAll('[data-version]');
+    blocks.forEach((block) => observer.observe(block));
+
+    return () => {
+      observer.disconnect();
+      if (manualScrollTimerRef.current) {
+        clearTimeout(manualScrollTimerRef.current);
+      }
+    };
+  }, []);
+
+  const getIconForType = (type: string) => {
+    switch (type) {
+      case 'feature': return <Sparkles size={14} className="text-emerald-400" />;
+      case 'fix': return <Bug size={14} className="text-red-400" />;
+      case 'perf': return <Zap size={14} className="text-amber-400" />;
+      case 'tweak': return <PenTool size={14} className="text-sky-400" />;
+      default: return null;
+    }
+  };
+
+  const getLabelForType = (type: string) => {
+    switch (type) {
+      case 'feature': return 'NEW';
+      case 'fix': return 'FIX';
+      case 'perf': return 'FAST';
+      case 'tweak': return 'TWEAK';
+      default: return '';
+    }
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-zinc-950/95 border border-zinc-800/80 rounded-[2.5rem] w-full max-w-5xl shadow-2xl h-[85vh] flex flex-col overflow-hidden backdrop-blur-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center px-8 py-6 border-b border-zinc-800/70 bg-zinc-950/60 flex-shrink-0">
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-widest text-white flex items-center gap-3">
+              <span>Update Log</span>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold lowercase tracking-normal">
+                {CHANGELOG.length} releases
+              </span>
+            </h2>
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mt-0.5">
+              TypeNova Version History & Changelog
+            </p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-3 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition-all border border-white/5"
+            aria-label="Close changelog modal"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Dual-Pane Body Container */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          {/* Left Vertical Timeline Sidebar */}
+          <aside className="w-64 flex-shrink-0 border-r border-zinc-800/70 p-5 overflow-y-auto space-y-1 bg-zinc-950/40 scrollbar-thin">
+            <div className="text-[10px] font-black uppercase tracking-wider text-zinc-500 px-3 mb-3">
+              Versions
+            </div>
+            {CHANGELOG.map((release) => {
+              const isActive = activeVersion === release.version;
+              return (
+                <button
+                  key={release.version}
+                  onClick={() => handleVersionClick(release.version)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-all duration-200 group border ${
+                    isActive
+                      ? 'bg-white/10 border-white/20 text-white shadow-lg backdrop-blur-md'
+                      : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                  }`}
+                  aria-current={isActive ? 'true' : undefined}
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    <span className={`w-2 h-2 rounded-full transition-all ${
+                      isActive ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] scale-110' : 'bg-zinc-700 group-hover:bg-zinc-500'
+                    }`} />
+                    <span className="font-mono font-bold text-sm tracking-tight">{release.version}</span>
+                  </div>
+                  <span className="text-[10px] font-medium text-zinc-500 group-hover:text-zinc-400 truncate ml-2">
+                    {release.date.split(',')[0]}
+                  </span>
+                </button>
+              );
+            })}
+          </aside>
+
+          {/* Right Main Scrollable Container */}
+          <main 
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto p-8 space-y-10 scroll-smooth scrollbar-thin"
+          >
+            {CHANGELOG.map((release) => (
+              <article
+                key={release.version}
+                id={getVersionId(release.version)}
+                data-version={release.version}
+                className="relative bg-zinc-900/40 border border-zinc-800/60 rounded-2xl p-6 backdrop-blur-md hover:border-zinc-700/80 transition-colors"
+              >
+                {/* Release Card Header */}
+                <div className="flex items-start justify-between mb-4 pb-4 border-b border-zinc-800/50">
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-xl font-black uppercase tracking-wider text-white font-mono">
+                        {release.version}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-zinc-400 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">
+                        <Calendar size={12} className="text-zinc-400" />
+                        {release.date}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-zinc-300">{release.title}</h3>
+                  </div>
+                </div>
+
+                {/* Release Changes List */}
+                <div className="space-y-3.5">
+                  {release.changes.map((change, j) => (
+                    <div key={j} className="flex gap-3.5 items-start text-sm">
+                      <div className="mt-0.5 p-1 rounded-md bg-white/5 border border-white/10 flex-shrink-0">
+                        {getIconForType(change.type)}
+                      </div>
+                      <div>
+                        <span className="inline-block text-[9px] font-black uppercase tracking-wider text-zinc-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/10 mr-2">
+                          {getLabelForType(change.type)}
+                        </span>
+                        <span className="text-zinc-300 leading-relaxed">{change.description}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
 }
 ```
 
 ---
 
-### 14. Fixed Minimum Width Overflow in `KeyboardHeatmap` in `StatsDashboard` (UI Bug)
-- **Category**: UI Bug
-- **File**: `src/components/StatsDashboard.tsx`
-- **Line Number / Function**: Line 126, `KeyboardHeatmap`
-- **Description**: `KeyboardHeatmap` container has hardcoded class `min-w-[600px]`. On mobile screens under 600px width, this forces horizontal scrolling and breaks modal alignment.
-- **Impact**: Horizontal overflow on mobile devices inside the stats modal.
-- **Proposed Solution**: Replace `min-w-[600px]` with `w-full overflow-x-auto`.
+## 6. Verification & Forensic Audit Plan
 
-```typescript
-// Proposed Fix in src/components/StatsDashboard.tsx (Line 126)
-<div className="flex flex-col gap-2 items-center w-full overflow-x-auto pb-2">
-```
+To independently verify the implementation during subsequent milestones:
 
----
-
-### 15. Unmemoized SVG Path Calculation in `StatsPanel` (Performance Bug)
-- **Category**: Performance Bug
-- **File**: `src/components/StatsPanel.tsx`
-- **Line Number / Function**: Lines 32-55, `renderGraph`
-- **Description**: `renderGraph` recalculates the SVG `polyline` points string (`points`) on every component render without memoization. Because `StatsPanel` re-renders on every keystroke, SVG polyline strings are continuously re-computed and re-parsed by the browser.
-- **Impact**: Extra CPU overhead during live typing.
-- **Proposed Solution**: Wrap graph calculation in `useMemo`.
-
-```typescript
-// Proposed Fix in src/components/StatsPanel.tsx
-const points = React.useMemo(() => {
-  if (!timelinePoints || timelinePoints.length === 0) return null;
-  const maxWpm = Math.max(...timelinePoints.map(p => p.wpm), 50);
-  return timelinePoints.map((p, i) => {
-    const x = (i / Math.max(timelinePoints.length - 1, 1)) * 100;
-    const y = 100 - (p.wpm / maxWpm) * 100;
-    return `${x},${y}`;
-  }).join(' ');
-}, [timelinePoints]);
-```
+1. **TypeScript Type Compilation**:
+   Run static type checking without code generation:
+   ```bash
+   npx tsc --noEmit
+   ```
+2. **Interactive Scroll Verification**:
+   - Open `ChangelogModal`.
+   - Click `v1.0.0` at the bottom of the left timeline sidebar; verify the right panel smoothly scrolls to `id="version-v1-0-0"`.
+   - Verify `v1.0.0` sidebar button gains the active highlighted styling (`bg-white/10 border-white/20 text-white`).
+   - Manually scroll the right panel back to top (`v1.5.2`); verify the active sidebar highlight smoothly transitions from `v1.0.0` -> `v1.5.0` -> `v1.5.2` without flickering or locking up.
+3. **Accessibility Verification**:
+   - Verify keyboard focus (`Tab` navigation) moves through left sidebar version buttons in logical DOM order.
+   - Press `Enter` or `Space` on a version button to activate smooth scrolling.
 
 ---
 
-## Summary Matrix
+## 7. Conclusions & Recommendations for Implementer
 
-| # | Component / Hook | Category | Description |
-|---|---|---|---|
-| 1 | `useAudioEngine.ts` | Logic | Stale `now` timestamp in `createOneShot` breaks multi-note audio timing |
-| 2 | `useParticles.ts` | Performance & Logic | `Math.random()` ID collisions & heavy per-keystroke state updates |
-| 3 | `TypingArea.tsx` | Performance | Particle Map allocation invalidates `<Char>` memoization |
-| 4 | `TypingArea.tsx` | UI & Performance | Rapid smooth scrolling on keystroke stacks animation frames |
-| 5 | `TypingArea.tsx` | UI | Missing `break-words` causes text overflow in Code mode |
-| 6 | `RaceModal.tsx` | Logic | `autoStartedRef` never resets across consecutive ranked matches |
-| 7 | `RaceModal.tsx` | UI | Modal container lacks max-height overflow, clipping buttons on small screens |
-| 8 | `RaceResultsScreen.tsx` | Performance | Rest parameter object destructuring invalidates `displayProps` memoization |
-| 9 | `RaceResultsScreen.tsx` | Logic | Async ELO sync polling calls state updates on unmounted component |
-| 10 | `ResultsScreen.tsx` | Logic | Uncleaned `setTimeout` in `handleShare` updates unmounted state |
-| 11 | `ResultsScreen.tsx` | UI | Fixed row pixel margins cause heatmap overflow on mobile |
-| 12 | `ResultsScreen.tsx` | Logic | `k.expected.toUpperCase()` throws if `expected` character is undefined |
-| 13 | `StatsDashboard.tsx` | Logic | Malformed `typezen_pb` local storage keys crash stats dashboard |
-| 14 | `StatsDashboard.tsx` | UI | `min-w-[600px]` in `KeyboardHeatmap` breaks mobile layout |
-| 15 | `StatsPanel.tsx` | Performance | Unmemoized SVG polyline calculation on every keystroke |
+1. **Adopt Container-Relative `scrollTo()`**: Avoid `element.scrollIntoView()` to eliminate window scroll bleed risks inside modal overlays.
+2. **Use DOM ID Selectors (`version-v1-5-2`)**: Avoid managing dynamic `useRef` arrays or map objects. Binding a single `scrollContainerRef` and querying `#version-[slug]` is lightweight, resilient, and zero-overhead.
+3. **Enforce Manual Scroll Lock**: Lock `IntersectionObserver` updates for ~600ms during click-triggered smooth scrolls to prevent sidebar highlight flickering.
+4. **Cooperate with R1 & R3**: Ensure layout container width (`max-w-5xl`) and horizontal stat pill placeholders are integrated seamlessly when implementing Glassmorphism UI (R1) and Dynamic Metrics (R3).

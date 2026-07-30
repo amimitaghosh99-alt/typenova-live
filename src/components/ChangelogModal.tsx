@@ -28,6 +28,8 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
   const [isClosing, setIsClosing] = useState(false);
 
   const releaseRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const isManualScrollRef = useRef(false);
 
   const handleClose = () => {
     if (isClosing) return;
@@ -38,8 +40,12 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
   };
 
   useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
+        if (isManualScrollRef.current) return;
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             const version = entry.target.getAttribute('data-version');
@@ -49,7 +55,11 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
           }
         });
       },
-      { threshold: 0.35 }
+      {
+        root: container,
+        rootMargin: '-5% 0px -65% 0px',
+        threshold: 0.1
+      }
     );
 
     Object.values(releaseRefs.current).forEach((el) => {
@@ -105,10 +115,14 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
 
   const scrollToRelease = (version: string) => {
     setActiveVersion(version);
+    isManualScrollRef.current = true;
     const element = releaseRefs.current[version];
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+    setTimeout(() => {
+      isManualScrollRef.current = false;
+    }, 600);
   };
 
   const renderImpactBar = (impact?: ImpactStats) => {
@@ -312,7 +326,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
         {/* Modal Body with Left Sidebar & Content List */}
         <div className="relative z-10 flex-1 flex overflow-hidden min-h-0">
           {/* Left Vertical Timeline Sidebar Navigation */}
-          <div className="hidden md:flex flex-col w-36 shrink-0 border-r border-white/10 bg-slate-950/40 p-2 overflow-y-auto custom-scrollbar min-h-0">
+          <div className="hidden md:flex flex-col w-36 shrink-0 border-r border-white/10 bg-slate-950/40 p-2 overflow-y-auto custom-scrollbar min-h-0 transform-gpu">
             <div className="flex items-center gap-1.5 px-2 py-1 mb-2 text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5">
               <Layers size={12} className="text-cyan-400" />
               <span>Releases</span>
@@ -328,14 +342,14 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
                   <button
                     key={entry.version}
                     onClick={() => scrollToRelease(entry.version)}
-                    className={`group relative w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all ${
+                    className={`group relative w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors duration-150 ${
                       isActive 
                         ? 'bg-cyan-500/10 border border-cyan-500/30 text-white shadow-[0_0_12px_rgba(6,182,212,0.15)]' 
                         : 'hover:bg-white/5 text-zinc-400 hover:text-zinc-200 border border-transparent'
                     }`}
                   >
                     {/* Node Dot */}
-                    <div className={`relative z-10 w-2 h-2 rounded-full transition-all shrink-0 ${
+                    <div className={`relative z-10 w-2 h-2 rounded-full transition-colors duration-150 shrink-0 ${
                       isActive 
                         ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)] scale-110' 
                         : 'bg-zinc-700 group-hover:bg-zinc-500'
@@ -363,7 +377,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
           </div>
 
           {/* Right Main Scrollable Changelog List */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar min-h-0 transform-gpu">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar min-h-0 transform-gpu">
             {CHANGELOG.map((release, i) => (
               <div 
                 key={release.version}

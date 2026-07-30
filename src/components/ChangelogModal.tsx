@@ -62,15 +62,15 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
   const getTypeBadgeStyle = (type: string) => {
     switch (type) {
       case 'feature':
-        return 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+        return 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] backdrop-blur-md';
       case 'fix':
-        return 'bg-rose-500/10 border-rose-500/30 text-rose-400';
+        return 'bg-rose-500/15 border-rose-400/40 text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.2)] backdrop-blur-md';
       case 'perf':
-        return 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+        return 'bg-amber-500/15 border-amber-400/40 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)] backdrop-blur-md';
       case 'tweak':
-        return 'bg-sky-500/10 border-sky-500/30 text-sky-400';
+        return 'bg-sky-500/15 border-sky-400/40 text-sky-300 shadow-[0_0_10px_rgba(14,165,233,0.2)] backdrop-blur-md';
       default:
-        return 'bg-zinc-500/10 border-zinc-500/30 text-zinc-400';
+        return 'bg-white/10 border-white/20 text-zinc-300 backdrop-blur-md';
     }
   };
 
@@ -100,9 +100,9 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
   const renderImpactBar = (impact?: ImpactStats) => {
     if (!impact) {
       return (
-        <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-xs text-zinc-500">
-          <Activity size={13} className="text-zinc-600" />
-          <span>Standard Maintenance Release</span>
+        <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-2 text-xs text-zinc-400 font-medium">
+          <Activity size={13} className="text-zinc-500 animate-pulse" />
+          <span>Standard Maintenance & Stability Release</span>
         </div>
       );
     }
@@ -126,70 +126,76 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
 
     return (
       <div className="mt-5 pt-4 border-t border-white/10">
-        <div className="flex items-center justify-between mb-2.5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-            <Activity size={12} className="text-purple-400" />
-            Release Impact
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-300 flex items-center gap-1.5">
+            <Activity size={13} className="text-purple-400 animate-pulse" />
+            Release Impact & Activity Metrics
           </span>
           {perfGain && (
-            <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-              <Zap size={11} /> {perfGain}
+            <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30 backdrop-blur-md shadow-[0_0_12px_rgba(251,191,36,0.2)]">
+              <Zap size={11} className="text-amber-400" /> {perfGain}
             </span>
           )}
         </div>
 
-        {/* Metric Pills Row */}
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium">
-            <Bug size={13} className="text-rose-400" />
-            <span>{fixes} {fixes === 1 ? 'Fix' : 'Fixes'}</span>
-          </div>
+        {/* Metric Gradient Glass Pills Row - Only renders positive metrics */}
+        <div className="flex flex-wrap items-center gap-2 mb-3.5">
+          {fixes > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-rose-500/20 to-pink-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_12px_rgba(244,63,94,0.15)] hover:border-rose-400/50 hover:shadow-[0_0_18px_rgba(244,63,94,0.3)] transition-all">
+              <Bug size={13} className="text-rose-400" />
+              <span>{fixes} {fixes === 1 ? 'Fix' : 'Fixes'}</span>
+            </div>
+          )}
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 text-xs font-medium">
-            <Wrench size={13} className="text-sky-400" />
-            <span>{tweaks} {tweaks === 1 ? 'Tweak' : 'Tweaks'}</span>
-          </div>
+          {tweaks > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-sky-500/20 to-cyan-500/10 border border-sky-500/30 text-sky-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_12px_rgba(56,189,248,0.15)] hover:border-sky-400/50 hover:shadow-[0_0_18px_rgba(56,189,248,0.3)] transition-all">
+              <Wrench size={13} className="text-sky-400" />
+              <span>{tweaks} {tweaks === 1 ? 'Tweak' : 'Tweaks'}</span>
+            </div>
+          )}
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium">
-            <GitCommit size={13} className="text-purple-400" />
-            <span>+{linesChanged} Lines</span>
-          </div>
+          {linesChanged > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-purple-500/20 to-indigo-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_12px_rgba(168,85,247,0.15)] hover:border-purple-400/50 hover:shadow-[0_0_18px_rgba(168,85,247,0.3)] transition-all">
+              <GitCommit size={13} className="text-purple-400" />
+              <span>+{linesChanged} Lines</span>
+            </div>
+          )}
 
           {perfGain && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-medium">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold backdrop-blur-md shadow-[0_0_12px_rgba(251,191,36,0.15)] hover:border-amber-400/50 hover:shadow-[0_0_18px_rgba(251,191,36,0.3)] transition-all">
               <TrendingUp size={13} className="text-amber-400" />
               <span>{perfGain}</span>
             </div>
           )}
         </div>
 
-        {/* Segmented Visual Bar */}
-        <div className="h-2 w-full bg-zinc-950/80 rounded-full flex overflow-hidden p-0.5 gap-0.5 border border-white/10 shadow-inner">
+        {/* Segmented Translucent Glowing Energy Bar Track */}
+        <div className="h-3 w-full bg-slate-950/60 backdrop-blur-md rounded-full flex items-center overflow-hidden p-1 gap-1 border border-white/10 shadow-inner">
           {fixesPct > 0 && (
             <div 
               style={{ width: `${fixesPct}%` }} 
-              className="h-full bg-rose-500 rounded-sm shadow-[0_0_8px_rgba(244,63,94,0.5)] transition-all duration-500" 
+              className="h-full bg-gradient-to-r from-rose-500 to-pink-500 rounded-full shadow-[0_0_10px_rgba(244,63,94,0.6)] transition-all duration-500 hover:brightness-125" 
               title={`Fixes: ${fixes}`}
             />
           )}
           {tweaksPct > 0 && (
             <div 
               style={{ width: `${tweaksPct}%` }} 
-              className="h-full bg-sky-400 rounded-sm shadow-[0_0_8px_rgba(56,189,248,0.5)] transition-all duration-500" 
+              className="h-full bg-gradient-to-r from-sky-400 to-cyan-400 rounded-full shadow-[0_0_10px_rgba(56,189,248,0.6)] transition-all duration-500 hover:brightness-125" 
               title={`Tweaks: ${tweaks}`}
             />
           )}
           {linesPct > 0 && (
             <div 
               style={{ width: `${linesPct}%` }} 
-              className="h-full bg-purple-500 rounded-sm shadow-[0_0_8px_rgba(168,85,247,0.5)] transition-all duration-500" 
+              className="h-full bg-gradient-to-r from-purple-500 to-indigo-400 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.6)] transition-all duration-500 hover:brightness-125" 
               title={`Lines Changed: ${linesChanged}`}
             />
           )}
           {perfPct > 0 && (
             <div 
               style={{ width: `${perfPct}%` }} 
-              className="h-full bg-amber-400 rounded-sm shadow-[0_0_8px_rgba(251,191,36,0.5)] transition-all duration-500" 
+              className="h-full bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.6)] transition-all duration-500 hover:brightness-125" 
               title={`Perf Gain: ${perfGain}`}
             />
           )}
@@ -200,11 +206,11 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-xl p-3 sm:p-6 animate-in fade-in duration-300"
+      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-xl p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-300"
       onClick={onClose}
     >
       <div 
-        className="glass-panel relative w-full max-w-5xl max-h-[90vh] flex flex-col rounded-[2.5rem] bg-zinc-950/90 border border-white/10 shadow-2xl shadow-purple-950/40 overflow-hidden lucid-scale"
+        className="glass-panel relative w-full max-w-5xl max-h-[85vh] sm:max-h-[88vh] my-auto flex flex-col rounded-[2rem] sm:rounded-[2.5rem] bg-slate-950/60 backdrop-blur-2xl border border-white/15 shadow-2xl shadow-purple-950/50 overflow-hidden lucid-scale min-h-0"
         style={{ '--delay': '0ms' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
@@ -219,8 +225,8 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
         />
 
         {/* Modal Top Bar / Header Controls */}
-        <div className="relative z-10 p-6 sm:p-8 pb-5 border-b border-white/10 bg-zinc-950/60 backdrop-blur-md">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+        <div className="relative z-10 shrink-0 p-5 sm:p-6 pb-4 border-b border-white/10 bg-slate-900/40 backdrop-blur-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div 
                 className="w-10 h-10 rounded-2xl flex items-center justify-center border border-white/15 bg-white/5 shadow-lg"
@@ -285,7 +291,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search logs..."
-              className="w-full bg-zinc-900/80 border border-white/10 rounded-2xl pl-11 pr-10 py-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all backdrop-blur-md shadow-inner"
+              className="w-full bg-slate-900/60 border border-white/15 rounded-2xl pl-11 pr-10 py-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/20 focus:shadow-[0_0_15px_rgba(168,85,247,0.25)] transition-all backdrop-blur-md shadow-inner"
             />
             {searchQuery && (
               <button
@@ -307,9 +313,9 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
         </div>
 
         {/* Modal Body with Left Sidebar & Content List */}
-        <div className="relative z-10 flex-1 flex overflow-hidden">
+        <div className="relative z-10 flex-1 flex overflow-hidden min-h-0">
           {/* Left Vertical Timeline Sidebar Navigation */}
-          <div className="hidden md:flex flex-col w-56 border-r border-white/10 bg-zinc-950/40 backdrop-blur-sm p-4 overflow-y-auto custom-scrollbar">
+          <div className="hidden md:flex flex-col w-56 shrink-0 border-r border-white/10 bg-slate-950/40 backdrop-blur-md p-4 overflow-y-auto custom-scrollbar min-h-0">
             <div className="flex items-center gap-2 px-3 py-2 mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-400 border-b border-white/5">
               <Layers size={12} className="text-purple-400" />
               <span>Releases Timeline</span>
@@ -317,7 +323,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
 
             <div className="relative space-y-1">
               {/* Sidebar Rail Line */}
-              <div className="absolute top-3 bottom-3 left-4 w-0.5 bg-gradient-to-b from-purple-500/50 via-zinc-800 to-zinc-900" />
+              <div className="absolute top-4 bottom-4 left-[18px] -translate-x-1/2 w-0.5 bg-gradient-to-b from-purple-500/50 via-zinc-800 to-zinc-900" />
 
               {filteredLogs.map((entry) => {
                 const isActive = activeVersion === entry.version;
@@ -325,14 +331,14 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
                   <button
                     key={entry.version}
                     onClick={() => scrollToRelease(entry.version)}
-                    className={`group relative w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all ${
+                    className={`group relative w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
                       isActive 
-                        ? 'bg-purple-500/15 border border-purple-500/30 text-white shadow-lg shadow-purple-950/30' 
+                        ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/10 border border-purple-400/40 text-white shadow-[0_0_15px_rgba(168,85,247,0.25)]' 
                         : 'hover:bg-white/5 text-zinc-400 hover:text-zinc-200 border border-transparent'
                     }`}
                   >
                     {/* Node Dot */}
-                    <div className={`relative z-10 w-2.5 h-2.5 rounded-full transition-all shrink-0 ${
+                    <div className={`relative z-10 w-2.5 h-2.5 rounded-full transition-all shrink-0 mt-1 ${
                       isActive 
                         ? 'bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)] scale-125' 
                         : 'bg-zinc-700 group-hover:bg-zinc-500'
@@ -360,7 +366,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
           </div>
 
           {/* Right Main Scrollable Changelog List */}
-          <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-8 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pr-3 sm:pr-6 space-y-6 sm:space-y-8 custom-scrollbar min-h-0">
             {filteredLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-500 mb-4">
@@ -385,7 +391,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
                   className="relative group"
                 >
                   {/* Timeline Card Wrapper */}
-                  <div className="glass-panel relative rounded-3xl bg-zinc-900/50 border border-white/10 p-6 md:p-7 backdrop-blur-md shadow-xl transition-all duration-300 hover:border-white/20 hover:bg-zinc-900/70">
+                  <div className="glass-panel relative rounded-3xl bg-slate-900/40 border border-white/15 p-6 md:p-7 backdrop-blur-xl shadow-xl transition-all duration-300 hover:border-cyan-500/30 hover:bg-slate-900/60 hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]">
                     
                     {/* Header of Release Card */}
                     <div className="flex flex-wrap items-start justify-between gap-4 mb-4 pb-4 border-b border-white/10">
@@ -416,7 +422,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
                       {release.changes.map((change, j) => (
                         <div 
                           key={j} 
-                          className="flex items-start gap-3.5 p-3 rounded-2xl bg-zinc-950/40 border border-white/5 hover:border-white/10 transition-all"
+                          className="flex items-start gap-3.5 p-3 rounded-2xl bg-white/[0.03] backdrop-blur-sm border border-white/10 hover:border-cyan-500/20 hover:bg-white/[0.06] hover:shadow-[0_0_15px_rgba(34,211,238,0.08)] transition-all"
                         >
                           <div className="mt-0.5 shrink-0 p-1.5 rounded-xl bg-white/5 border border-white/10">
                             {getIconForType(change.type)}

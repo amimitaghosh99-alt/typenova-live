@@ -1,0 +1,177 @@
+================================================================================
+ EMPIRICAL VERIFICATION SUITE: Requirement R1 & Acceptance Criteria 1 & 2
+ Header & Viewport DOM Bounds Verifier (Challenger 1)
+ Timestamp: 2026-07-30T03:00:09.022Z
+================================================================================
+
+[STEP 1] Parsing ChangelogModal.tsx AST to verify DOM layout contracts...
+--- AST Static Inspection Results ---
+1. Overlay Fixed & Viewport Inset (fixed inset-0): PASS
+2. Overlay Flex Centering (items-center justify-center): PASS
+3. Modal Container Max-Height (max-h-[85vh] sm:max-h-[88vh]): PASS
+4. Modal Container Flex Column (flex flex-col): PASS
+5. Modal Container Overflow Clip (overflow-hidden): PASS
+6. Modal Header Shrink Protection (shrink-0): PASS
+7. Search Input Component Present (placeholder="Search logs..."): PASS
+8. Subscribe Button Component Present (title="Subscribe..."): PASS
+9. Close Button Component Present (aria-label="Close modal"): PASS
+
+[SUCCESS] AST verification passed all structural contract checks.
+
+[STEP 2] Empirical Mathematical Geometry & Viewport Clipping Verification across 7 Viewports...
+================================================================================
+
+>>> Testing Viewport: FHD Desktop (1920x1080) [1920x1080px]
+  [AC 1] Modal Max-Height Constraint: 950.4px / Viewport 1080px (88vh) => PASS
+  [AC 2] Modal Top Offset Y: 64.8px (Y > 0 check: PASS)
+  [AC 2] Header Element Bounds & Clipping Results:
+    - Close Button:
+        Render Bounds: Y=[88.8px .. 129.8px], X=[1407px .. 1448px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Subscribe Button:
+        Render Bounds: Y=[88.8px .. 124.8px], X=[1245px .. 1395px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Search Input:
+        Render Bounds: Y=[144.8px .. 186.8px], X=[472px .. 1448px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+  >>> Viewport Verdict: PASS
+
+>>> Testing Viewport: QHD Desktop (2560x1440) [2560x1440px]
+  [AC 1] Modal Max-Height Constraint: 1267.2px / Viewport 1440px (88vh) => PASS
+  [AC 2] Modal Top Offset Y: 86.4px (Y > 0 check: PASS)
+  [AC 2] Header Element Bounds & Clipping Results:
+    - Close Button:
+        Render Bounds: Y=[110.4px .. 151.4px], X=[1727px .. 1768px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Subscribe Button:
+        Render Bounds: Y=[110.4px .. 146.4px], X=[1565px .. 1715px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Search Input:
+        Render Bounds: Y=[166.4px .. 208.4px], X=[792px .. 1768px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+  >>> Viewport Verdict: PASS
+
+>>> Testing Viewport: Standard Laptop (1366x768) [1366x768px]
+  [AC 1] Modal Max-Height Constraint: 675.8px / Viewport 768px (88vh) => PASS
+  [AC 2] Modal Top Offset Y: 46.1px (Y > 0 check: PASS)
+  [AC 2] Header Element Bounds & Clipping Results:
+    - Close Button:
+        Render Bounds: Y=[70.08px .. 111.08px], X=[1130px .. 1171px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Subscribe Button:
+        Render Bounds: Y=[70.08px .. 106.08px], X=[968px .. 1118px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Search Input:
+        Render Bounds: Y=[126.08px .. 168.08px], X=[195px .. 1171px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+  >>> Viewport Verdict: PASS
+
+>>> Testing Viewport: iPad / Tablet Landscape (1024x768) [1024x768px]
+  [AC 1] Modal Max-Height Constraint: 675.8px / Viewport 768px (88vh) => PASS
+  [AC 2] Modal Top Offset Y: 46.1px (Y > 0 check: PASS)
+  [AC 2] Header Element Bounds & Clipping Results:
+    - Close Button:
+        Render Bounds: Y=[70.08px .. 111.08px], X=[935px .. 976px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Subscribe Button:
+        Render Bounds: Y=[70.08px .. 106.08px], X=[773px .. 923px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Search Input:
+        Render Bounds: Y=[126.08px .. 168.08px], X=[48px .. 976px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+  >>> Viewport Verdict: PASS
+
+>>> Testing Viewport: Tablet Portrait (768x1024) [768x1024px]
+  [AC 1] Modal Max-Height Constraint: 901.1px / Viewport 1024px (88vh) => PASS
+  [AC 2] Modal Top Offset Y: 61.4px (Y > 0 check: PASS)
+  [AC 2] Header Element Bounds & Clipping Results:
+    - Close Button:
+        Render Bounds: Y=[85.44px .. 126.44px], X=[679px .. 720px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Subscribe Button:
+        Render Bounds: Y=[85.44px .. 121.44px], X=[517px .. 667px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Search Input:
+        Render Bounds: Y=[141.44px .. 183.44px], X=[48px .. 720px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+  >>> Viewport Verdict: PASS
+
+>>> Testing Viewport: Modern Mobile (375x812) [375x812px]
+  [AC 1] Modal Max-Height Constraint: 690.2px / Viewport 812px (85vh) => PASS
+  [AC 2] Modal Top Offset Y: 60.9px (Y > 0 check: PASS)
+  [AC 2] Header Element Bounds & Clipping Results:
+    - Close Button:
+        Render Bounds: Y=[80.9px .. 121.9px], X=[302px .. 343px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Subscribe Button:
+        Render Bounds: Y=[80.9px .. 116.9px], X=[140px .. 290px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Search Input:
+        Render Bounds: Y=[136.9px .. 178.9px], X=[32px .. 343px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+  >>> Viewport Verdict: PASS
+
+>>> Testing Viewport: Compact Mobile (360x640) [360x640px]
+  [AC 1] Modal Max-Height Constraint: 544.0px / Viewport 640px (85vh) => PASS
+  [AC 2] Modal Top Offset Y: 48.0px (Y > 0 check: PASS)
+  [AC 2] Header Element Bounds & Clipping Results:
+    - Close Button:
+        Render Bounds: Y=[68px .. 109px], X=[287px .. 328px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Subscribe Button:
+        Render Bounds: Y=[68px .. 104px], X=[125px .. 275px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+    - Search Input:
+        Render Bounds: Y=[124px .. 166px], X=[32px .. 328px]
+        Y-Coordinate > 0: YES (PASS)
+        Clipping: Top=0px, Bottom=0px, Left=0px, Right=0px
+        Zero-Clipping Status: PASS (0px clipped)
+  >>> Viewport Verdict: PASS
+
+================================================================================
+ VERIFICATION SUMMARY & CONCLUSION
+================================================================================
+1. Requirement R1 & Acceptance Criteria 1 (Max-Height <= 100vh): VERIFIED (PASS)
+2. Requirement R1 & Acceptance Criteria 2 (Header Y > 0 & Zero Clipping): VERIFIED (PASS)
+================================================================================
+

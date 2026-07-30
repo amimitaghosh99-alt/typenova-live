@@ -1,38 +1,54 @@
-# Handoff Report — Explorer 2
+# Handoff Report: Requirement R2 (Timeline & Scrollbar Polish)
 
 ## 1. Observation
-- **Target Files**:
-  - `src/components/ChangelogModal.tsx` (101 lines): Current `ChangelogModal` modal component. Accepts `theme` and `onClose` props. Lacks search input, subscribe button, state management, and impact metrics UI.
-  - `src/data/changelog.ts` (262 lines): Currently contains 21 log entries (`ChangelogEntry[]`) from `v1.0.0` to `v1.5.2`. Currently lacks `ImpactStats` interface and `impact` field on entries.
-  - `src/index.css`: Defines `.glass-panel` glassmorphism tokens (`backdrop-filter: blur(18px) saturate(180%) brightness(1.05)`, rim specular highlights via `::after`, shadow glows), `.lucid-scale` entrance animations, and custom webkit scrollbar.
-  - `package.json`: Lucide icons (`lucide-react` v0.562.0) and Tailwind CSS v3.4 are available. Framer Motion is *not* installed, so standard CSS/Tailwind transitions/keyframes (`animate-in`, `fade-in`, `lucid-scale`) are used.
-  - `src/App.tsx` (lines 1948-1954): Instantiates `<ChangelogModal theme={theme} onClose={() => setShowChangelog(false)} />`.
+- **Target File**: `src/components/ChangelogModal.tsx`
+- **Global CSS File**: `src/index.css`
+- **Timeline Sidebar Structure (Lines 312–360)**:
+  - Line 320: `<div className="absolute top-3 bottom-3 left-4 w-0.5 bg-gradient-to-b from-purple-500/50 via-zinc-800 to-zinc-900" />`
+  - Line 328: `<button className="group relative w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all ...">`
+  - Line 331: `<div className="relative z-10 w-2.5 h-2.5 rounded-full transition-all shrink-0 ... " />`
+  - Line 335: `<span className="text-xs font-mono font-bold truncate ...">{entry.version}</span>`
+  - Line 344: `<p className="text-[10px] text-zinc-500 truncate font-sans">{entry.date}</p>`
+- **Main Content & Outer Modal Structure (Lines 207, 310, 363)**:
+  - Line 207: `<div className="glass-panel relative w-full max-w-5xl max-h-[90vh] flex flex-col rounded-[2.5rem] bg-zinc-950/90 border border-white/10 shadow-2xl shadow-purple-950/40 overflow-hidden lucid-scale">`
+  - Line 310: `<div className="relative z-10 flex-1 flex overflow-hidden">`
+  - Line 363: `<div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-8 custom-scrollbar">`
+- **Global Scrollbar CSS (`src/index.css` lines 257–260)**:
+  - `::-webkit-scrollbar { width: 6px; }`
+  - `::-webkit-scrollbar-track { background: transparent; }`
+  - `::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }`
 
 ## 2. Logic Chain
-1. **Component Requirements**: The user request requires rebuilding `ChangelogModal` with:
-   - Translucent frosted glass modal & cards.
-   - Left-aligned vertical timeline with version nodes.
-   - Functional search bar filtering entries by version/title/description.
-   - Impact metrics section per release (numerical pills + segmented visual bar for Fixes, Tweaks, Lines Changed, Perf Gain).
-   - "Subscribe to Updates" placeholder button and clean top close button.
-2. **UI Architecture Alignment**:
-   - The project already defines `.glass-panel` in `src/index.css` with progressive backdrop blur, specular rims, and gradient overlays. Rebuilding `ChangelogModal` using `.glass-panel bg-zinc-950/85 backdrop-blur-2xl` aligns seamlessly with the app's glass design system.
-   - Using `lucide-react` icons (`Search`, `X`, `Sparkles`, `Bug`, `Zap`, `Wrench`, `GitCommit`, `TrendingUp`, `Bell`) provides crisp, themed iconography.
-   - Pure CSS transitions/animations (`animate-in`, `fade-in`, `.lucid-scale`, `--ease-apple`) ensure 60fps performance without extra dependencies.
-3. **Data Layer Contract**:
-   - Milestone 1 updates `changelog.ts` to add `ImpactStats` (`fixes`, `tweaks`, `linesChanged`, `perfGain`).
-   - `ChangelogModal.tsx` will consume this `impact` object per entry to render numerical pills and calculate segment widths for the visual bar (`fixesPct`, `tweaksPct`, `linesPct`, `perfPct`).
+1. **Vertical Node Dot Misalignment**:
+   - Line 328 uses `flex items-center gap-3` on the sidebar button.
+   - The button contains 2 lines of text (version header + date description) totaling ~47px height.
+   - `items-center` places the vertical center of the node dot at ~23.5px from the top of the button.
+   - The version text line `v1.5.3` starts at y = 8px and has a center at y = 16px.
+   - Therefore, the node dot is vertically offset downwards by ~7.5px relative to the version text string.
+2. **Horizontal Rail Line Offset**:
+   - Line 320 positions the rail line at `left-4` (16px) with width `w-0.5` (2px), giving a rail center at 17.0px.
+   - Button padding `px-3` (12px) + 1px border + dot width `w-2.5` (10px) places the dot center at 18.0px.
+   - This creates a 1.0px horizontal misalignment between the dot center and the rail line center.
+3. **Scrollbar Glass Border Overlap**:
+   - The outer container has `rounded-[2.5rem]` (40px border radius).
+   - Line 363 positions `<div className="flex-1 overflow-y-auto ...">` flush against the right boundary of the outer modal box.
+   - Native WebKit vertical scrollbars render at `right: 0`.
+   - Content padding (`p-5 sm:p-8`) does not constrain the scrollbar track.
+   - At the top-right and bottom-right corners, the 40px rounded glass border curves inward while the scrollbar track runs straight, causing the scrollbar thumb/track to clip into the 40px glass border stroke and specular highlights.
 
 ## 3. Caveats
-- `framer-motion` is not installed, so fluid transitions rely on CSS transitions/keyframes and Tailwind CSS utilities (`transition-all`, `animate-in`, `fade-in`).
-- Search filtering operates client-side in memory on the `CHANGELOG` array, which is lightweight (21 entries).
-- If an older log entry lacks `impact` stats, the component should fallback gracefully and omit the impact block without throwing runtime errors.
+- Browser-specific scrollbar appearance may vary slightly across Gecko (Firefox) vs WebKit/Blink (Chrome/Safari/Edge). Applying `margin-top`/`margin-bottom` on `::-webkit-scrollbar-track` and container inset padding guarantees cross-browser isolation.
 
 ## 4. Conclusion
-The codebase is ready for Milestone 1 (data structure update in `changelog.ts`) and Milestone 2 (UI redesign of `ChangelogModal.tsx`). Detailed architectural design and code plans have been documented in `analysis.md`.
+- **Timeline Alignment Fix**:
+  1. Change line 328 in `ChangelogModal.tsx` from `items-center` to `items-start`, add `mt-1` to the node dot.
+  2. Change line 320 in `ChangelogModal.tsx` to `left-[18px] -translate-x-1/2` and `top-4 bottom-4`.
+- **Scrollbar Border Overlap Fix**:
+  1. Update line 363 in `ChangelogModal.tsx` to include `pr-3 sm:pr-6` (or `mr-1.5`).
+  2. Enhance `.custom-scrollbar` in `src/index.css` with `::-webkit-scrollbar-track { margin-top: 12px; margin-bottom: 12px; }`.
 
 ## 5. Verification Method
-1. Read `analysis.md` for complete design specifications.
-2. Check `src/components/ChangelogModal.tsx` and `src/data/changelog.ts` locations.
-3. Run `npm run build` or `npx tsc --noEmit` to verify TypeScript compilation once changes are applied.
-4. Verify DOM element rendering for the search input, left timeline rail, version nodes, numerical impact pills, and segmented visual bars.
+- **File Inspection**: Inspect `src/components/ChangelogModal.tsx` and `src/index.css` against the proposed line edits in `analysis.md`.
+- **Build/Test Verification**:
+  - Run `npm run build` or `npx tsc --noEmit` to verify type safety and layout integrity.
+  - Open `ChangelogModal` in browser to visually confirm dot-to-text alignment and scrollbar containment inside the 40px glass border.

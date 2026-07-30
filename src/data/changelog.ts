@@ -18,6 +18,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.5.4',
+    date: 'July 30, 2026',
+    title: 'The 144Hz Butter Smooth Update 🧈',
+    changes: [
+      { type: 'perf', description: 'Hardware Acceleration: Aggressively optimized UI animations by removing heavy nested glass-panel blurs during keyframe transitions, allowing for flawless 144Hz rendering.' },
+      { type: 'perf', description: 'Scroll Lag Eliminated: Removed nested background blurs from scrolling release cards and enabled GPU hardware acceleration for buttery smooth scrolling.' },
+      { type: 'fix', description: 'Sidebar Scroll-Spy Jitter: Completely fixed sidebar jitter by attaching the scroll container as the observer root and implementing a manual scroll lock mechanism.' },
+      { type: 'fix', description: 'Jittery Modals: Fixed jittery modal entrance animations and added a beautiful staggered card entrance effect.' },
+    ],
+    impact: { fixes: 2, tweaks: 0, linesChanged: 230, perfGain: '144Hz Locked' },
+  },
+  {
     version: 'v1.5.3',
     date: 'July 30, 2026',
     title: 'Changelog Redesign & Search 🔍',

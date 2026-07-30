@@ -195,18 +195,23 @@
 }
 
 @keyframes lucid-fade-up {
-  0% { opacity: 0; transform: translateY(24px) scale(0.96); filter: blur(8px); }
-  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+  0% { opacity: 0; transform: translateY(12px) translateZ(0); }
+  100% { opacity: 1; transform: translateY(0) translateZ(0); }
 }
 
 @keyframes lucid-scale-in {
-  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+  0% { opacity: 0; transform: scale(0.96) translateY(8px) translateZ(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0) translateZ(0); }
+}
+
+@keyframes lucid-scale-out {
+  0% { opacity: 1; transform: scale(1) translateY(0) translateZ(0); }
+  100% { opacity: 0; transform: scale(0.96) translateY(8px) translateZ(0); }
 }
 
 @keyframes lucid-slide-right {
-  0% { opacity: 0; transform: translateX(-30px); filter: blur(4px); }
-  100% { opacity: 1; transform: translateX(0); filter: blur(0px); }
+  0% { opacity: 0; transform: translateX(-20px) translateZ(0); }
+  100% { opacity: 1; transform: translateX(0) translateZ(0); }
 }
 
 @keyframes caret-blink {
@@ -226,21 +231,29 @@
 }
 
 .lucid-enter {
-  animation: lucid-fade-up 0.6s var(--ease-apple) forwards;
+  animation: lucid-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
+  will-change: transform, opacity;
 }
 
 .lucid-scale {
-  animation: lucid-scale-in 0.45s var(--ease-out-expo) forwards;
+  animation: lucid-scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
+  will-change: transform, opacity;
+}
+
+.lucid-scale-exit {
+  animation: lucid-scale-out 0.2s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: transform, opacity;
 }
 
 .lucid-slide {
-  animation: lucid-slide-right 0.5s var(--ease-apple) forwards;
+  animation: lucid-slide-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
+  will-change: transform, opacity;
 }
 
 .stat-card {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   Sparkles, 
@@ -25,8 +25,39 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
   const [subscribed, setSubscribed] = useState(false);
   const [activeVersion, setActiveVersion] = useState<string>(CHANGELOG[0]?.version || '');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   const releaseRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const handleClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 180);
+  };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const version = entry.target.getAttribute('data-version');
+            if (version) {
+              setActiveVersion(version);
+            }
+          }
+        });
+      },
+      { threshold: 0.35 }
+    );
+
+    Object.values(releaseRefs.current).forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleSubscribeToggle = () => {
     const nextState = !subscribed;
@@ -189,11 +220,15 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-3 sm:p-6 overflow-y-auto"
-      onClick={onClose}
+      className={`fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-3 sm:p-6 overflow-y-auto transition-opacity duration-200 ${
+        isClosing ? 'opacity-0' : 'opacity-100'
+      }`}
+      onClick={handleClose}
     >
       <div 
-        className="glass-panel relative w-full max-w-4xl max-h-[85vh] my-auto flex flex-col rounded-2xl border border-white/15 shadow-2xl shadow-cyan-950/30 overflow-hidden lucid-scale min-h-0"
+        className={`glass-panel relative w-full max-w-4xl max-h-[85vh] my-auto flex flex-col rounded-2xl border border-white/15 shadow-2xl shadow-cyan-950/30 overflow-hidden min-h-0 ${
+          isClosing ? 'lucid-scale-exit' : 'lucid-scale'
+        }`}
         style={{ '--delay': '0ms' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
@@ -256,7 +291,7 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
               </button>
 
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white rounded-full transition-all hover:rotate-90"
                 aria-label="Close modal"
               >
@@ -333,12 +368,13 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
               <div 
                 key={release.version}
                 ref={(el) => { releaseRefs.current[release.version] = el; }}
+                data-version={release.version}
                 className="relative group"
               >
                 {/* Timeline Card Wrapper */}
                 <div
                   className="lucid-enter relative rounded-xl bg-slate-900/50 border border-white/10 p-3.5 sm:p-4 transition-colors duration-150 hover:border-cyan-500/30 hover:bg-slate-900/70"
-                  style={{ '--delay': `${i * 30}ms` } as React.CSSProperties}
+                  style={{ '--delay': `${i * 20}ms` } as React.CSSProperties}
                 >
                   
                   {/* Header of Release Card */}

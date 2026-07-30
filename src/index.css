@@ -200,8 +200,8 @@
 }
 
 @keyframes lucid-scale-in {
-  0% { opacity: 0; transform: scale(0.92) translateY(10px); filter: blur(12px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes lucid-slide-right {
@@ -232,7 +232,7 @@
 }
 
 .lucid-scale {
-  animation: lucid-scale-in 0.5s var(--ease-apple) forwards;
+  animation: lucid-scale-in 0.45s var(--ease-out-expo) forwards;
   animation-delay: var(--delay, 0ms);
   opacity: 0;
 }

@@ -336,7 +336,10 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
                 className="relative group"
               >
                 {/* Timeline Card Wrapper */}
-                <div className="glass-panel relative rounded-xl bg-slate-900/40 border border-white/10 p-3.5 sm:p-4 transition-all duration-300 hover:border-cyan-500/30 hover:bg-slate-900/60">
+                <div
+                  className="lucid-enter glass-panel relative rounded-xl bg-slate-900/40 border border-white/10 p-3.5 sm:p-4 transition-all duration-300 hover:border-cyan-500/30 hover:bg-slate-900/60"
+                  style={{ '--delay': `${i * 40}ms` } as React.CSSProperties}
+                >
                   
                   {/* Header of Release Card */}
                   <div className="flex flex-wrap items-start justify-between gap-2 mb-3 pb-2.5 border-b border-white/10">

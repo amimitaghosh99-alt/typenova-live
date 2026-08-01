@@ -252,6 +252,37 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       finishRef.current[payload.id] = { wpm: payload.wpm, acc: payload.acc, ms: payload.ms, rawWpm: payload.rawWpm, consistency: payload.consistency, heatmapData: payload.heatmapData, errorCount: payload.errorCount, backspaceCount: payload.backspaceCount };
       rebuildPlayers();
     });
+    ch.on('broadcast', { event: 'rematch' }, async () => {
+      progressRef.current = {};
+      finishRef.current = {};
+      timelinesRef.current = {};
+      finishSentRef.current = false;
+      startAtRef.current = null;
+      setStatus('lobby');
+
+      if (selfIdRef.current && channelRef.current) {
+        try {
+          const state = channelRef.current.presenceState();
+          const metas = state[selfIdRef.current] || [];
+          if (metas[0]) {
+            await channelRef.current.track({
+              ...metas[0],
+              finished: false,
+              finishWpm: undefined,
+              finishAcc: undefined,
+              finishMs: undefined,
+              rawWpm: undefined,
+              consistency: undefined,
+              heatmapData: undefined,
+              errorCount: undefined,
+              backspaceCount: undefined,
+            });
+          }
+        } catch {
+          // ignore track error
+        }
+      }
+    });
 
     ch.subscribe(async (s) => {
       if (s === 'SUBSCRIBED') {
@@ -368,6 +399,46 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     }
   }, []);
 
+  const rematch = useCallback(async () => {
+    if (!channelRef.current) return;
+
+    progressRef.current = {};
+    finishRef.current = {};
+    timelinesRef.current = {};
+    finishSentRef.current = false;
+    startAtRef.current = null;
+    setStatus('lobby');
+
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'rematch',
+      payload: { by: selfIdRef.current },
+    });
+
+    if (selfIdRef.current && channelRef.current) {
+      try {
+        const state = channelRef.current.presenceState();
+        const metas = state[selfIdRef.current] || [];
+        if (metas[0]) {
+          await channelRef.current.track({
+            ...metas[0],
+            finished: false,
+            finishWpm: undefined,
+            finishAcc: undefined,
+            finishMs: undefined,
+            rawWpm: undefined,
+            consistency: undefined,
+            heatmapData: undefined,
+            errorCount: undefined,
+            backspaceCount: undefined,
+          });
+        }
+      } catch {
+        // ignore track error
+      }
+    }
+  }, []);
+
   // Clean up the channel on unmount
   useEffect(() => teardown, [teardown]);
 
@@ -389,6 +460,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     startRace,
     sendProgress,
     sendFinish,
+    rematch,
     leave,
     updateLobbyConfig,
   };

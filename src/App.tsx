@@ -325,6 +325,16 @@ function MainApp() {
     },
   });
 
+  // Rematch State Sync: when the room status returns to 'lobby' while a race was active,
+  // unmount the Results screen and pull all connected clients back into the VS Lobby together!
+  useEffect(() => {
+    if (race.status === 'lobby' && raceActive) {
+      setRaceActive(false);
+      setShowRace(true);
+      typing.setPhase('CONFIGURING');
+    }
+  }, [race.status, raceActive]);
+
   const theme: Theme = THEMES[THEME_KEYS[themeIndex]];
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const soundMenuRef = useRef<HTMLDivElement>(null);
@@ -1123,6 +1133,8 @@ function MainApp() {
             isRanked={isRankedMatch}
             supabase={supabase}
             raceId={race.raceId}
+            isHost={race.isHost}
+            onRematch={() => race.rematch()}
             onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
             onUpdateElo={(elo) => cloud.setElo(elo)}
           />

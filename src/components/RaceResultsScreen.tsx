@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Trophy, LogOut } from 'lucide-react';
+import { Trophy, LogOut, RotateCcw } from 'lucide-react';
 import type { RacerState } from '@/hooks/useRace';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
@@ -19,12 +19,14 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   supabase?: SupabaseClient | null;
   /** Host-minted id shared by everyone in the room; dedupes duel resolution. */
   raceId?: string | null;
+  isHost?: boolean;
+  onRematch?: () => void;
   onLeaveRace: () => void;
   onUpdateElo?: (action: SetStateAction<number>) => void;
 }
 
 export function RaceResultsScreen({
-  players, selfId, roomSize, timelines, isRanked, supabase, raceId, onLeaveRace, onUpdateElo, theme,
+  players, selfId, roomSize, timelines, isRanked, supabase, raceId, isHost, onRematch, onLeaveRace, onUpdateElo, theme,
   ...resultsProps
 }: RaceResultsScreenProps) {
   const ranking = useMemo(() =>
@@ -407,10 +409,26 @@ export function RaceResultsScreen({
         </div>
 
         {/* ── RACE ACTIONS ────────────────────────────────── */}
-        <div className="flex justify-center gap-4 mt-4 pb-12">
+        <div className="flex flex-wrap items-center justify-center gap-4 mt-6 pb-12 font-mono">
+          {isHost ? (
+            <button
+              onClick={onRematch}
+              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black tracking-wider text-sm shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-105 active:scale-100 transition-all cursor-pointer"
+            >
+              <RotateCcw size={18} /> REMATCH
+            </button>
+          ) : (
+            <button
+              disabled
+              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-slate-900/80 border border-white/15 text-zinc-400 font-bold tracking-wider text-sm cursor-not-allowed opacity-80 animate-pulse"
+            >
+              <RotateCcw size={18} /> WAITING FOR HOST…
+            </button>
+          )}
+
           <button
             onClick={onLeaveRace}
-            className="flex items-center gap-3 px-8 py-4 glass-panel rounded-2xl text-zinc-300 font-black tracking-widest text-sm hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
+            className="flex items-center gap-2.5 px-8 py-4 glass-panel rounded-2xl text-zinc-300 font-bold tracking-wider text-sm hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
           >
             <LogOut size={16} /> LEAVE ROOM
           </button>

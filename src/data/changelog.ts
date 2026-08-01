@@ -18,6 +18,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.6.1',
+    date: 'August 2, 2026',
+    title: 'Post-Match Chat & Custom Friend Challenges 💬⚔️',
+    changes: [
+      { type: 'feature', description: 'Post-Match Chat: Added a zero-DB real-time broadcast chat panel to the VS Mode Results screen with auto-scrolling, player graph color matching, and quick-chat preset pills (gg, Rematch?, So close!, My keyboard lagged!).' },
+      { type: 'feature', description: 'Selectable Challenge Modes: Configure difficulty (Novice, Adept, Master, Quotes, Code), word count (10, 25, 50, 100), and programming language before sending direct friend challenges.' },
+      { type: 'tweak', description: 'Dynamic Island Challenge HUD: Repositioned incoming challenge notifications to top-center with 95% opacity, backdrop blur, and high contrast buttons for 100% readability.' },
+      { type: 'tweak', description: 'Race Modal Glassmorphism: Overhauled Race Room modal UI to match the liquid glass design system and JetBrains Mono typography.' },
+    ],
+    impact: { fixes: 0, tweaks: 2, linesChanged: 620, perfGain: 'Zero-DB Realtime' },
+  },
+  {
     version: 'v1.6.0',
     date: 'August 2, 2026',
     title: 'The Feature Trilogy & Direct Challenges ⚔️',

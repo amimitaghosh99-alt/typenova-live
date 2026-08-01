@@ -136,7 +136,7 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChal
               onClick={() => setTab('profile')}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${
                 tab === 'profile' 
-                  ? 'bg-purple-500/15 border border-purple-500/30 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.15)]' 
+                  ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]' 
                   : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
               }`}
             >

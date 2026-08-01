@@ -97,14 +97,14 @@ export function ProfileCard({
         </div>
 
         {/* Level XP Bar */}
-        <div className="w-full sm:w-48 bg-slate-900/60 border border-white/10 p-2.5 rounded-xl">
-          <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-1">
-            <span>Level {level}</span>
-            <span className="text-cyan-300 font-bold">{xp} XP</span>
+        <div className="w-full sm:w-52 bg-slate-900/60 border border-white/10 p-3 rounded-xl">
+          <div className="flex justify-between items-center text-xs font-mono mb-1.5">
+            <span className="font-bold text-zinc-300">Level {level}</span>
+            <span className="text-cyan-300 font-extrabold">{xp} XP</span>
           </div>
-          <div className="h-2 w-full bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-white/5">
+          <div className="relative h-2.5 w-full bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-white/10">
             <div
-              className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(6,182,212,0.6)]"
+              className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]"
               style={{ width: `${Math.min(100, Math.max(0, (currentLevelProgress / xpNeeded) * 100))}%` }}
             />
           </div>
@@ -112,36 +112,36 @@ export function ProfileCard({
       </div>
 
       {/* Quick Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        <div className="bg-slate-900/40 border border-white/5 p-2.5 rounded-xl flex items-center gap-2">
-          <Zap size={14} className="text-amber-400 shrink-0" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+        <div className="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex items-center gap-2.5">
+          <Zap size={15} className="text-amber-400 shrink-0" />
           <div>
-            <div className="text-[9px] text-zinc-400 uppercase">Max WPM</div>
-            <div className="text-xs font-bold text-white">{skillStats.maxWpm} WPM</div>
+            <div className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Max WPM</div>
+            <div className="text-xs font-black text-white mt-0.5">{skillStats.maxWpm} WPM</div>
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-white/5 p-2.5 rounded-xl flex items-center gap-2">
-          <Target size={14} className="text-emerald-400 shrink-0" />
+        <div className="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex items-center gap-2.5">
+          <Target size={15} className="text-emerald-400 shrink-0" />
           <div>
-            <div className="text-[9px] text-zinc-400 uppercase">Avg Acc</div>
-            <div className="text-xs font-bold text-white">{skillStats.avgAccuracy}%</div>
+            <div className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Avg Acc</div>
+            <div className="text-xs font-black text-white mt-0.5">{skillStats.avgAccuracy}%</div>
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-white/5 p-2.5 rounded-xl flex items-center gap-2">
-          <Flame size={14} className="text-orange-400 shrink-0" />
+        <div className="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex items-center gap-2.5">
+          <Flame size={15} className="text-orange-400 shrink-0" />
           <div>
-            <div className="text-[9px] text-zinc-400 uppercase">Streak</div>
-            <div className="text-xs font-bold text-white">{skillStats.dailyStreak} Days</div>
+            <div className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Streak</div>
+            <div className="text-xs font-black text-white mt-0.5">{skillStats.dailyStreak} Days</div>
           </div>
         </div>
 
-        <div className="bg-slate-900/40 border border-white/5 p-2.5 rounded-xl flex items-center gap-2">
-          <ShieldCheck size={14} className="text-cyan-400 shrink-0" />
+        <div className="bg-slate-900/40 border border-white/5 p-3 rounded-xl flex items-center gap-2.5">
+          <ShieldCheck size={15} className="text-cyan-400 shrink-0" />
           <div>
-            <div className="text-[9px] text-zinc-400 uppercase">Badges</div>
-            <div className="text-xs font-bold text-white">
+            <div className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Badges</div>
+            <div className="text-xs font-black text-white mt-0.5">
               {unlockedCount} / {TITLE_BADGES.length}
             </div>
           </div>
@@ -155,7 +155,7 @@ export function ProfileCard({
             <span className="text-xs font-bold text-white flex items-center gap-1.5">
               <Award size={14} className="text-cyan-400" /> Select Skill Title Badge
             </span>
-            <span className="text-[10px] text-zinc-400">
+            <span className="text-[10px] font-bold text-cyan-300">
               {unlockedCount} Unlocked
             </span>
           </div>
@@ -170,19 +170,19 @@ export function ProfileCard({
                   key={badge.id}
                   disabled={!unlocked}
                   onClick={() => unlocked && handleSelectTitle(badge.id)}
-                  className={`flex items-center justify-between p-2 rounded-xl border text-left transition-all ${
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
                     isSelected
                       ? 'bg-cyan-500/15 border-cyan-500/40 text-white shadow-[0_0_12px_rgba(6,182,212,0.2)]'
                       : unlocked
-                      ? 'bg-slate-900/40 border-white/10 hover:border-white/20 text-zinc-300'
-                      : 'bg-slate-950/40 border-white/5 opacity-40 cursor-not-allowed text-zinc-500'
+                      ? 'bg-slate-900/40 border-white/10 hover:border-white/20 text-zinc-200'
+                      : 'bg-slate-950/60 border-white/8 text-zinc-400 cursor-not-allowed'
                   }`}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base">{badge.icon}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`text-base shrink-0 ${unlocked ? '' : 'grayscale opacity-50'}`}>{badge.icon}</span>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold truncate">{badge.name}</div>
-                      <div className="text-[9px] text-zinc-400 truncate">{badge.description}</div>
+                      <div className={`text-xs font-bold truncate ${unlocked ? 'text-white' : 'text-zinc-300'}`}>{badge.name}</div>
+                      <div className={`text-[9px] truncate ${unlocked ? 'text-zinc-400' : 'text-zinc-400/90'}`}>{badge.description}</div>
                     </div>
                   </div>
                   {isSelected && <Check size={14} className="text-cyan-400 shrink-0 ml-1" />}

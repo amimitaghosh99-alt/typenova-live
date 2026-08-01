@@ -8,6 +8,7 @@ import { WpmGraph } from './graphs/WpmGraph';
 import { calculatePlayerTitle } from '../utils/playerTitles';
 import type { PlayerTitleStats, TitleIntervalRanking } from '../utils/playerTitles';
 import type { SetStateAction } from 'react';
+import { PostMatchChat } from './PostMatchChat';
 
 interface RaceResultsScreenProps extends ResultsScreenProps {
   players: RacerState[];
@@ -391,6 +392,17 @@ export function RaceResultsScreen({
             theme={theme}
             competitorTimelines={undefined}
             compact
+          />
+        </div>
+
+        {/* ── POST-MATCH CHAT ────────────────────────────── */}
+        <div className="border-t border-zinc-800/50 pt-8 pb-4 animate-in fade-in slide-in-from-bottom-8">
+          <PostMatchChat
+            supabase={supabase || null}
+            lobbyId={raceId || 'vs-race-lobby'}
+            username={players.find(p => p.id === selfId)?.name || 'Typist'}
+            selfId={selfId}
+            players={players}
           />
         </div>
 

@@ -17,6 +17,16 @@ export interface HydratePayload {
   heatmap: Record<string, HeatKey>;
 }
 
+export interface PublicProfileSyncData {
+  level?: number;
+  xp?: number;
+  equippedTitle?: string;
+  unlockedBadges?: string[];
+  maxWpm?: number;
+  avgAcc?: number;
+  testsCompleted?: number;
+}
+
 interface Params {
   session: Session | null;
   /** Push a merged snapshot into the RPG hook's React state. */
@@ -121,7 +131,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
   }, [session]);
 
   /** Debounced push of the current local snapshot to the cloud. */
-  const pushProgress = useCallback(() => {
+  const pushProgress = useCallback((extraData?: PublicProfileSyncData) => {
     const sb = supabase;
     if (!sb || !session) return;
     const uid = session.user.id;
@@ -131,8 +141,24 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
         .update({ data: readLocalProgress(), updated_at: new Date().toISOString() })
         .eq('id', uid)
         .then(undefined, () => { /* offline / transient — next push retries */ });
+
+      if (extraData && username) {
+        sb.from('public_profiles')
+          .upsert({
+            username,
+            level: extraData.level || 1,
+            xp: extraData.xp || 0,
+            equipped_title: extraData.equippedTitle || 'novice',
+            unlocked_badges: extraData.unlockedBadges || ['novice'],
+            max_wpm: extraData.maxWpm || 0,
+            avg_acc: extraData.avgAcc || 0,
+            tests_completed: extraData.testsCompleted || 0,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'username' })
+          .then(undefined, () => {});
+      }
     }, PUSH_DEBOUNCE_MS);
-  }, [session]);
+  }, [session, username]);
 
   return { 
     username: session ? username : null, 

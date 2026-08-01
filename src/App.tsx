@@ -39,6 +39,7 @@ import { RaceModal } from '@/components/RaceModal';
 import { SocialModal } from '@/components/SocialModal';
 import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
 import { ChallengeNotification } from '@/components/ChallengeNotification';
+import { PlayerProfileModal } from '@/components/PlayerProfileModal';
 import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
 import { useChallenges } from '@/hooks/useChallenges';
 import { useRace, makeRoomCode } from '@/hooks/useRace';
@@ -203,6 +204,7 @@ function MainApp() {
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
   const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
+  const [selectedProfileUsername, setSelectedProfileUsername] = useState<string | null>(null);
 
   interface LeaderboardRow {
     username: string;
@@ -508,8 +510,29 @@ function MainApp() {
   // (debounced in the hook). A finished test always bumps testsCompleted, so
   // this also captures history/PB/daily writes that don't have React deps.
   useEffect(() => {
-    if (cloud.status === 'synced') cloud.pushProgress();
-  }, [rpg.xp, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status, cloud.pushProgress]);
+    if (cloud.status === 'synced' && cloud.username) {
+      const stats = {
+        maxWpm: (() => { const h: HistoryEntry[] = loadHistory(); return h.length ? Math.max(...h.map((e: HistoryEntry) => e.wpm)) : 0; })(),
+        avgAccuracy: (() => { const h: HistoryEntry[] = loadHistory().slice(-20); return h.length ? Math.round(h.reduce((a: number, e: HistoryEntry) => a + e.acc, 0) / h.length) : 0; })(),
+        testsCompleted: rpg.testsCompleted,
+        dailyStreak,
+        racesWon: 0,
+        totalWordsTyped: (() => { const h: HistoryEntry[] = loadHistory(); return h.reduce((a: number, e: HistoryEntry) => a + e.size, 0); })(),
+      };
+      const activeId = getActiveTitleId();
+      const unlocked = TITLE_BADGES.filter((b) => b.isUnlocked(stats)).map((b) => b.id);
+
+      cloud.pushProgress({
+        level: rpg.userLevel,
+        xp: rpg.xp,
+        equippedTitle: activeId,
+        unlockedBadges: unlocked,
+        maxWpm: stats.maxWpm,
+        avgAcc: stats.avgAccuracy,
+        testsCompleted: stats.testsCompleted,
+      });
+    }
+  }, [rpg.xp, rpg.userLevel, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status, cloud.pushProgress, cloud.username]);
 
   // Prefill the first-login "choose a name" prompt from the Google profile.
   useEffect(() => {
@@ -1435,7 +1458,11 @@ function MainApp() {
               <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
             </div>
             <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono">
-              <div className="flex items-center px-3 py-1">
+              <button
+                onClick={() => cloud.username && setSelectedProfileUsername(cloud.username)}
+                className="flex items-center px-3 py-1 hover:bg-white/5 rounded-xl transition-all cursor-pointer text-left"
+                title="View / Edit your Player Profile"
+              >
                 <Star size={14} className={`${theme.vividText} mr-2`} />
                 <div className="flex flex-col">
                   <div className="flex items-center gap-1.5">
@@ -1455,7 +1482,7 @@ function MainApp() {
                   </div>
                 </div>
                 <span className="text-[8px] font-mono text-zinc-500 ml-3 w-12 text-right">{rpg.xp} XP</span>
-              </div>
+              </button>
 
               <button
                 onClick={() => setShowDailyQuestsModal(true)}
@@ -1873,7 +1900,13 @@ function MainApp() {
                   <div key={idx} className="flex justify-between items-center group p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 w-full border border-transparent hover:border-white/5 hover:translate-x-1 relative">
                     <div className="flex items-center space-x-6">
                       <span className={`font-black text-xl ${idx === 0 ? theme.text : 'text-zinc-500'}`}>#{idx + 1}</span>
-                      <span className="font-black text-white tracking-widest uppercase text-lg whitespace-nowrap">{entry.username}</span>
+                      <button
+                        onClick={() => setSelectedProfileUsername(entry.username)}
+                        className="font-black text-white hover:text-cyan-300 tracking-widest uppercase text-lg whitespace-nowrap hover:underline transition-colors text-left"
+                        title={`View ${entry.username}'s Profile`}
+                      >
+                        {entry.username}
+                      </button>
                     </div>
                     <div className="flex flex-col items-end mr-4 group-hover:mr-10 transition-all">
                       <span className={`font-black text-3xl ${theme.text}`}>{entry.wpm}</span>
@@ -2025,8 +2058,19 @@ function MainApp() {
           friendsState={friendsState}
           onChallengeFriend={handleChallengeFriend}
           sentChallengeTo={challenges.sentChallengeTo}
-          profileStats={cloud.username ? {
-            username: cloud.username,
+          onOpenProfile={(name) => setSelectedProfileUsername(name)}
+        />
+      )}
+
+      {/* Public Player Profile Modal */}
+      {selectedProfileUsername && (
+        <PlayerProfileModal
+          targetUsername={selectedProfileUsername}
+          onClose={() => setSelectedProfileUsername(null)}
+          supabase={supabase}
+          localUsername={cloud.username}
+          theme={theme}
+          localRPGStats={cloud.username && selectedProfileUsername.toLowerCase() === cloud.username.toLowerCase() ? {
             level: rpg.userLevel,
             xp: rpg.xp,
             currentLevelProgress: rpg.currentLevelProgress,

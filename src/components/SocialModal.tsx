@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, User, Swords } from 'lucide-react';
+import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, Swords } from 'lucide-react';
 import type { Theme, Level, CodeLanguage } from '@/data/constants';
 import type { useFriends } from '@/hooks/useFriends';
-import { ProfileCard } from './ProfileCard';
-import type { UserSkillStats } from '@/data/titles';
 import { SegmentedControl } from '@/components/SegmentedControl';
 
 interface SocialModalProps {
@@ -12,18 +10,11 @@ interface SocialModalProps {
   friendsState: ReturnType<typeof useFriends>;
   onChallengeFriend?: (username: string, config?: { mode?: Level; words?: number; language?: CodeLanguage }) => void;
   sentChallengeTo?: string | null;
-  profileStats?: {
-    username: string;
-    level: number;
-    xp: number;
-    currentLevelProgress: number;
-    xpNeeded: number;
-    skillStats: UserSkillStats;
-  };
+  onOpenProfile?: (username: string) => void;
 }
 
-export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChallengeFriend, sentChallengeTo }: SocialModalProps) => {
-  const [tab, setTab] = useState<'friends' | 'add' | 'inbox' | 'profile'>('friends');
+export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, sentChallengeTo, onOpenProfile }: SocialModalProps) => {
+  const [tab, setTab] = useState<'friends' | 'add' | 'inbox'>('friends');
   const [searchInput, setSearchInput] = useState('');
   const [isClosing, setIsClosing] = useState(false);
   const [challengingUser, setChallengingUser] = useState<string | null>(null);
@@ -131,32 +122,10 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChal
               </span>
             )}
           </button>
-          {profileStats && (
-            <button
-              onClick={() => setTab('profile')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${
-                tab === 'profile' 
-                  ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]' 
-                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-              }`}
-            >
-              <User size={13} /> Profile
-            </button>
-          )}
         </div>
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-0 relative z-10 transform-gpu font-mono">
-          {tab === 'profile' && profileStats && (
-            <ProfileCard
-              username={profileStats.username}
-              level={profileStats.level}
-              xp={profileStats.xp}
-              currentLevelProgress={profileStats.currentLevelProgress}
-              xpNeeded={profileStats.xpNeeded}
-              skillStats={profileStats.skillStats}
-            />
-          )}
           {tab === 'friends' && (
             <div className="flex flex-col gap-2 min-h-[180px] transition-opacity duration-150">
               {/* Inline Challenge Configuration Panel */}
@@ -256,7 +225,11 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChal
                     className="lucid-enter group flex justify-between items-center bg-slate-900/50 hover:bg-slate-900/80 border border-white/10 hover:border-cyan-500/30 p-3 rounded-xl transition-colors duration-150"
                     style={{ '--delay': `${i * 20}ms` } as React.CSSProperties}
                   >
-                    <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => onOpenProfile?.(friend.username)}
+                      className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity"
+                      title={`View ${friend.username}'s Profile`}
+                    >
                       <div className="relative">
                         <div className="w-9 h-9 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-300 font-bold uppercase text-xs">
                           {friend.username.substring(0, 1)}
@@ -268,10 +241,12 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChal
                         )}
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold text-white tracking-wide">{friend.username}</span>
+                        <span className="text-xs font-bold text-white tracking-wide hover:underline hover:text-cyan-300 transition-colors">
+                          {friend.username}
+                        </span>
                         <span className="text-[10px] text-zinc-400 tracking-wider">Elo {friend.elo}</span>
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                       {/* Challenge Button */}
                       {onChallengeFriend && (

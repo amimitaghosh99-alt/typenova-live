@@ -38,8 +38,10 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { RaceModal } from '@/components/RaceModal';
 import { SocialModal } from '@/components/SocialModal';
 import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
+import { ChallengeNotification } from '@/components/ChallengeNotification';
 import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
-import { useRace } from '@/hooks/useRace';
+import { useChallenges } from '@/hooks/useChallenges';
+import { useRace, makeRoomCode } from '@/hooks/useRace';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -241,6 +243,27 @@ function MainApp() {
   });
   const isLoggedIn = !!auth.session;
   const friendsState = useFriends({ supabase, session: auth.session, username: cloud.username });
+
+  const challenges = useChallenges({
+    supabase,
+    username: cloud.username,
+    onAccepted: () => {
+      // Challenger: friend accepted — they already joined, we open the race UI
+      setShowSocialModal(false);
+      setShowRace(true);
+    },
+  });
+
+  const handleChallengeFriend = (friendUsername: string) => {
+    if (!cloud.username) return;
+    // Pre-generate room code so it can be sent in the challenge immediately
+    const roomCode = makeRoomCode();
+    race.createRoom(cloud.username, 2, undefined, cloud.elo, roomCode, auth.user?.id, false);
+    challenges.sendChallenge(friendUsername, roomCode, cloud.elo);
+    toast.success(`Challenge sent to ${friendUsername}! Waiting…`, { icon: '⚔️' });
+    setShowSocialModal(false);
+    setShowRace(true);
+  };
 
   // ─── Online Heartbeat ────────────────────────────────────────────
   useEffect(() => {
@@ -1982,6 +2005,8 @@ function MainApp() {
           theme={theme}
           onClose={() => setShowSocialModal(false)}
           friendsState={friendsState}
+          onChallengeFriend={handleChallengeFriend}
+          sentChallengeTo={challenges.sentChallengeTo}
           profileStats={cloud.username ? {
             username: cloud.username,
             level: rpg.userLevel,
@@ -2005,6 +2030,22 @@ function MainApp() {
         <ChangelogModal
           theme={theme}
           onClose={() => setShowChangelog(false)}
+        />
+      )}
+
+      {/* Incoming Challenge Notification */}
+      {challenges.pendingChallenge && (
+        <ChallengeNotification
+          challenge={challenges.pendingChallenge}
+          onAccept={async () => {
+            const roomCode = await challenges.acceptChallenge();
+            if (roomCode && cloud.username) {
+              race.joinRoom(roomCode, cloud.username, cloud.elo, auth.user?.id, false);
+              setShowSocialModal(false);
+              setShowRace(true);
+            }
+          }}
+          onReject={() => challenges.rejectChallenge()}
         />
       )}
     </div>

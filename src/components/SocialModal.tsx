@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, User } from 'lucide-react';
+import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, User, Swords } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { useFriends } from '@/hooks/useFriends';
 import { ProfileCard } from './ProfileCard';
@@ -9,6 +9,8 @@ interface SocialModalProps {
   theme: Theme;
   onClose: () => void;
   friendsState: ReturnType<typeof useFriends>;
+  onChallengeFriend?: (username: string) => void;
+  sentChallengeTo?: string | null;
   profileStats?: {
     username: string;
     level: number;
@@ -19,7 +21,7 @@ interface SocialModalProps {
   };
 }
 
-export const SocialModal = ({ theme, onClose, friendsState, profileStats }: SocialModalProps) => {
+export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChallengeFriend, sentChallengeTo }: SocialModalProps) => {
   const [tab, setTab] = useState<'friends' | 'add' | 'inbox' | 'profile'>('friends');
   const [searchInput, setSearchInput] = useState('');
   const [isClosing, setIsClosing] = useState(false);
@@ -186,14 +188,34 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats }: Soci
                         <span className="text-[10px] text-zinc-400 tracking-wider">Elo {friend.elo}</span>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => friendsState.removeFriend(friend.username, false)}
-                      disabled={friendsState.loading}
-                      className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-zinc-500 hover:text-rose-400 rounded-lg transition-all disabled:opacity-50"
-                      title="Remove Friend"
-                    >
-                      <UserMinus size={15} />
-                    </button>
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      {/* Challenge Button */}
+                      {onChallengeFriend && (
+                        <button
+                          onClick={() => friend.isOnline && onChallengeFriend(friend.username)}
+                          disabled={!friend.isOnline || sentChallengeTo === friend.username}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold font-mono transition-all ${
+                            !friend.isOnline
+                              ? 'text-zinc-600 border border-zinc-800 cursor-not-allowed'
+                              : sentChallengeTo === friend.username
+                                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400 animate-pulse cursor-wait'
+                                : 'bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:shadow-[0_0_10px_rgba(244,63,94,0.2)] hover:scale-105'
+                          }`}
+                          title={friend.isOnline ? `Challenge ${friend.username}` : 'Friend is offline'}
+                        >
+                          <Swords size={12} />
+                          {sentChallengeTo === friend.username ? 'Sent…' : 'Challenge'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => friendsState.removeFriend(friend.username, false)}
+                        disabled={friendsState.loading}
+                        className="p-1.5 hover:bg-rose-500/10 text-zinc-500 hover:text-rose-400 rounded-lg transition-all disabled:opacity-50"
+                        title="Remove Friend"
+                      >
+                        <UserMinus size={15} />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

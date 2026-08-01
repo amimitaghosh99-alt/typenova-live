@@ -35,8 +35,8 @@ export interface RaceConfig {
   language?: CodeLanguage;
 }
 
-const ROOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L
-const makeRoomCode = () =>
+export const ROOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L
+export const makeRoomCode = () =>
   Array.from({ length: 5 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join('');
 
 interface UseRaceOptions {

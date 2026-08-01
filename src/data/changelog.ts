@@ -18,6 +18,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.6.0',
+    date: 'August 2, 2026',
+    title: 'The Feature Trilogy & Direct Challenges ⚔️',
+    changes: [
+      { type: 'feature', description: 'Direct Friend Challenges: Challenge online friends directly to a live race from the Social Hub! Friends receive a real-time banner notification with Accept/Decline and a 30s countdown.' },
+      { type: 'feature', description: 'Prestige Badges & Skill Titles: Unlockable title badges (Speed Demon, Warp Speed, Precision Master, etc.) based on performance milestones, equipped on your profile card and shown in the top bar.' },
+      { type: 'feature', description: 'Weak Key Heatmap & Dynamic Drill Generator: Interactive QWERTY keyboard diagnostic in Stats Dashboard with a single-click "Drill Weak Keys" button that generates custom practice drills focused on your problem letters.' },
+      { type: 'feature', description: 'Daily Quests & Streak Multipliers: Daily quest panel with XP rewards, live progress tracking, and a top-bar flame streak counter with XP multipliers.' },
+      { type: 'tweak', description: 'Social Hub Profile Tab: View your skill statistics, level progress, and active badge title directly inside the Social Modal.' },
+    ],
+    impact: { fixes: 0, tweaks: 1, linesChanged: 1086 },
+  },
+  {
     version: 'v1.5.4',
     date: 'July 30, 2026',
     title: 'The 144Hz Butter Smooth Update 🧈',

@@ -18,6 +18,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.6.2',
+    date: 'August 2, 2026',
+    title: 'The Great Bug Sweep & Stability Update 🛡️',
+    changes: [
+      { type: 'fix', description: 'Critical Fixes: Patched 7 critical bugs including unmatched array crashes, chat null pointer exceptions, and network blip aborts that caused complete application failure.' },
+      { type: 'fix', description: 'Multiplayer Stability: Resolved memory leaks from stale chat subscriptions, channel collisions, and recursive infinite re-render loops during Ranked matchmaking.' },
+      { type: 'fix', description: 'Rematch Protocol: Refactored the rematch handler to guarantee that all ghost state is wiped clean. Players no longer see stale avatars or broken progress bars after restarting a race.' },
+      { type: 'fix', description: 'Cloud Data Integrity: Prevented older, stale data fetches from overwriting fresh local RPG stats, and fixed database constraint errors that occurred during profile creation.' },
+      { type: 'tweak', description: 'UI Polish: Fixed missing null-coalescing fallbacks for player stats, hid the word count selector for Code mode, and improved the touch targets for Social Hub action buttons.' },
+    ],
+    impact: { fixes: 27, tweaks: 5, linesChanged: 485, perfGain: 'Zero Crashes' },
+  },
+  {
     version: 'v1.6.1',
     date: 'August 2, 2026',
     title: 'Post-Match Chat & Custom Friend Challenges 💬⚔️',

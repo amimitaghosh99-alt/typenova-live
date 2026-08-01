@@ -31,11 +31,14 @@ import type { PaceSample } from '@/components/TypingArea';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ResultsScreen } from '@/components/ResultsScreen';
 import { RaceResultsScreen } from '@/components/RaceResultsScreen';
-import { StatsDashboard, appendHistory } from '@/components/StatsDashboard';
+import { StatsDashboard, appendHistory, loadHistory } from '@/components/StatsDashboard';
+import type { HistoryEntry } from '@/components/StatsDashboard';
 import { ReplayModal } from '@/components/ReplayModal';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { RaceModal } from '@/components/RaceModal';
 import { SocialModal } from '@/components/SocialModal';
+import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
+import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
 import { useRace } from '@/hooks/useRace';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
 import { supabase } from '@/lib/supabase';
@@ -193,6 +196,7 @@ function MainApp() {
   const [showReplay, setShowReplay] = useState(false);
   const [showRace, setShowRace] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
+  const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
@@ -1389,17 +1393,38 @@ function MainApp() {
               <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
               <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
             </div>
-            <div className="flex items-center glass-panel p-1.5 rounded-2xl">
+            <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono">
               <div className="flex items-center px-3 py-1">
                 <Star size={14} className={`${theme.vividText} mr-2`} />
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white">LVL {rpg.userLevel}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">LVL {rpg.userLevel}</span>
+                    {(() => {
+                      const activeId = getActiveTitleId();
+                      const badge = TITLE_BADGES.find(b => b.id === activeId);
+                      return badge ? (
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded border font-mono ${badge.color}`} title={badge.description}>
+                          {badge.icon} {badge.name}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   <div className="w-24 h-1.5 bg-zinc-800 rounded-full mt-1 overflow-hidden border border-zinc-800/50">
                     <div className={`h-full ${theme.solid} transition-all duration-500`} style={{ width: `${(rpg.currentLevelProgress / rpg.xpNeeded) * 100}%` }} />
                   </div>
                 </div>
                 <span className="text-[8px] font-mono text-zinc-500 ml-3 w-12 text-right">{rpg.xp} XP</span>
               </div>
+
+              <button
+                onClick={() => setShowDailyQuestsModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 text-xs font-mono font-bold transition-all ml-1 shadow-[0_0_10px_rgba(249,115,22,0.15)] hover:scale-105"
+                title="View Daily Quests & Streak Multipliers"
+              >
+                <Flame size={13} className="text-orange-400 animate-pulse" />
+                <span>{dailyStreak}d</span>
+              </button>
+
               <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
               
               <button 
@@ -1906,6 +1931,21 @@ function MainApp() {
           testsCompleted={rpg.testsCompleted}
           heatmapData={rpg.heatmapData}
           onClose={() => setShowStatsDashboard(false)}
+          onStartWeaknessDrill={(drillText) => {
+            typing.setTargetText(drillText);
+            setShowStatsDashboard(false);
+            typing.resetEngine();
+            toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+          }}
+        />
+      )}
+
+      {/* Daily Quests Modal */}
+      {showDailyQuestsModal && (
+        <DailyQuestsPanel
+          questsState={quests.questsState}
+          dailyStreak={dailyStreak}
+          onClose={() => setShowDailyQuestsModal(false)}
         />
       )}
 
@@ -1942,6 +1982,21 @@ function MainApp() {
           theme={theme}
           onClose={() => setShowSocialModal(false)}
           friendsState={friendsState}
+          profileStats={cloud.username ? {
+            username: cloud.username,
+            level: rpg.userLevel,
+            xp: rpg.xp,
+            currentLevelProgress: rpg.currentLevelProgress,
+            xpNeeded: rpg.xpNeeded,
+            skillStats: {
+              maxWpm: (() => { const h: HistoryEntry[] = loadHistory(); return h.length ? Math.max(...h.map((e: HistoryEntry) => e.wpm)) : 0; })(),
+              avgAccuracy: (() => { const h: HistoryEntry[] = loadHistory().slice(-20); return h.length ? Math.round(h.reduce((a: number, e: HistoryEntry) => a + e.acc, 0) / h.length) : 0; })(),
+              dailyStreak,
+              testsCompleted: rpg.testsCompleted,
+              racesWon: 0,
+              totalWordsTyped: (() => { const h: HistoryEntry[] = loadHistory(); return h.reduce((a: number, e: HistoryEntry) => a + e.size, 0); })(),
+            }
+          } : undefined}
         />
       )}
 

@@ -1,5 +1,5 @@
 import { useMemo, memo, useState } from 'react';
-import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle, Keyboard } from 'lucide-react';
+import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle, Keyboard, Zap } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import { readLocalProgress } from '@/lib/progress';
 
@@ -26,7 +26,7 @@ export function appendHistory(entry: HistoryEntry) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
 }
 
-function loadPersonalBests(): Array<{ label: string; wpm: number }> {
+export function loadPersonalBests(): Array<{ label: string; wpm: number }> {
   const out: Array<{ label: string; wpm: number }> = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -40,6 +40,30 @@ function loadPersonalBests(): Array<{ label: string; wpm: number }> {
     } catch { /* ignore corrupt entries */ }
   }
   return out.sort((a, b) => b.wpm - a.wpm);
+}
+
+export function generateWeaknessDrillText(weakKeys: string[]): string {
+  const charSet = new Set(weakKeys.map(k => k.toLowerCase()));
+  const WORD_POOL = [
+    'experience', 'determine', 'strategy', 'execution', 'system', 'architecture',
+    'performance', 'optimization', 'keyboard', 'precision', 'momentum', 'velocity',
+    'algorithm', 'structure', 'javascript', 'typescript', 'interface', 'react',
+    'component', 'responsive', 'hardware', 'acceleration', 'animation', 'sequence',
+    'threshold', 'frequency', 'calibration', 'accuracy', 'consistency', 'excellence',
+    'challenge', 'victory', 'champion', 'mastery', 'flowstate', 'focus', 'rhythm',
+    'stamina', 'endurance', 'developer', 'intelligence', 'antigravity', 'typenova'
+  ];
+
+  const prioritized = WORD_POOL.filter(w => w.split('').some(c => charSet.has(c)));
+  const pool = prioritized.length >= 10 ? prioritized : WORD_POOL;
+
+  const result: string[] = [];
+  for (let i = 0; i < 40; i++) {
+    const word = pool[Math.floor(Math.random() * pool.length)];
+    result.push(word);
+  }
+
+  return result.join(' ');
 }
 
 // Simple polyline over the last N entries, same visual language as the
@@ -71,6 +95,7 @@ interface StatsDashboardProps {
   testsCompleted: number;
   heatmapData: Record<string, { total: number; errors: number; totalMs?: number }>;
   onClose: () => void;
+  onStartWeaknessDrill?: (text: string) => void;
 }
 
 const KEYBOARD_ROWS = [
@@ -80,7 +105,7 @@ const KEYBOARD_ROWS = [
   ['SPACE']
 ];
 
-function KeyboardHeatmap({ data }: { data: Record<string, { total: number; errors: number; totalMs?: number }> }) {
+function KeyboardHeatmap({ data, onStartWeaknessDrill }: { data: Record<string, { total: number; errors: number; totalMs?: number }>; onStartWeaknessDrill?: (text: string) => void }) {
   const [mode, setMode] = useState<'accuracy' | 'speed'>('accuracy');
 
   // Find max values to normalize the heat map
@@ -101,6 +126,10 @@ function KeyboardHeatmap({ data }: { data: Record<string, { total: number; error
 
   maxDelay = Math.min(maxDelay, 1000); 
 
+  const weakKeys = Object.entries(data)
+    .filter(([key, d]) => key !== 'SPACE' && d.total > 5 && (d.errors / d.total > 0.1 || (d.totalMs || 0) / d.total > 300))
+    .map(([key]) => key);
+
   return (
     <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 mb-8 overflow-x-auto custom-scrollbar">
       <div className="flex justify-between items-center mb-6">
@@ -108,6 +137,14 @@ function KeyboardHeatmap({ data }: { data: Record<string, { total: number; error
           <Keyboard size={16} /> Finger Heatmap
         </h3>
         <div className="flex gap-2">
+          {onStartWeaknessDrill && weakKeys.length > 0 && (
+            <button 
+              onClick={() => onStartWeaknessDrill(generateWeaknessDrillText(weakKeys))}
+              className="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all flex items-center gap-1.5"
+            >
+              <Zap size={12} /> Drill Weak Keys
+            </button>
+          )}
           <button 
             onClick={() => setMode('accuracy')}
             className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all ${mode === 'accuracy' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'}`}
@@ -137,14 +174,13 @@ function KeyboardHeatmap({ data }: { data: Record<string, { total: number; error
               
               if (mode === 'accuracy') {
                 intensity = maxErrorRate > 0 ? (errorRate / maxErrorRate) : 0;
-                // Minimum intensity to make it slightly red if there is any error
                 if (errorRate > 0) intensity = Math.max(0.3, intensity);
-                glowColor = `rgba(239, 68, 68, ${intensity})`; // red
+                glowColor = `rgba(239, 68, 68, ${intensity})`;
                 glowAmount = intensity * 20;
               } else {
                 intensity = maxDelay > 0 ? Math.min(avgDelay / maxDelay, 1) : 0;
                 if (avgDelay > 0) intensity = Math.max(0.2, intensity);
-                glowColor = `rgba(59, 130, 246, ${intensity})`; // blue for slow
+                glowColor = `rgba(59, 130, 246, ${intensity})`;
                 glowAmount = intensity * 15;
               }
 
@@ -165,7 +201,6 @@ function KeyboardHeatmap({ data }: { data: Record<string, { total: number; error
                 >
                   <span className="text-xs font-black">{displayChar}</span>
 
-                  {/* Tooltip */}
                   {hasData && (
                     <div className="absolute bottom-full mb-2 hidden group-hover:block w-max bg-zinc-950 border border-zinc-800 p-3 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-75 duration-200">
                       <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">{isSpace ? 'Spacebar' : `Key: ${key}`}</div>
@@ -189,7 +224,7 @@ function KeyboardHeatmap({ data }: { data: Record<string, { total: number; error
   );
 }
 
-export const StatsDashboard = memo(({ theme, testsCompleted, heatmapData, onClose }: StatsDashboardProps) => {
+export const StatsDashboard = memo(({ theme, testsCompleted, heatmapData, onClose, onStartWeaknessDrill }: StatsDashboardProps) => {
   const history = useMemo(() => loadHistory(), []);
   const pbs = useMemo(() => loadPersonalBests(), []);
   const quests = useMemo(() => readLocalProgress().quests?.active || [], []);
@@ -200,10 +235,10 @@ export const StatsDashboard = memo(({ theme, testsCompleted, heatmapData, onClos
 
   const bestWpm = history.length ? Math.max(...history.map(h => h.wpm)) : 0;
   const last10 = history.slice(-10);
-  const avgWpm = last10.length ? Math.round(last10.reduce((a, h) => a + h.wpm, 0) / last10.length) : 0;
-  const avgAcc = last10.length ? Math.round(last10.reduce((a, h) => a + h.acc, 0) / last10.length) : 0;
+  const avgWpm = last10.length ? Math.round(last10.reduce((a: number, h: HistoryEntry) => a + h.wpm, 0) / last10.length) : 0;
+  const avgAcc = last10.length ? Math.round(last10.reduce((a: number, h: HistoryEntry) => a + h.acc, 0) / last10.length) : 0;
   // Rough time-typed estimate: words tests ≈ size words at the run's wpm; timed tests are exact.
-  const minutesTyped = Math.round(history.reduce((a, h) =>
+  const minutesTyped = Math.round(history.reduce((a: number, h: HistoryEntry) =>
     a + (h.mode === 'time' ? h.size / 60 : (h.wpm > 0 ? h.size / h.wpm : 0)), 0));
 
   const tiles: Array<[string, string | number, React.ComponentType<{ size?: number; className?: string }>]> = [
@@ -297,7 +332,7 @@ export const StatsDashboard = memo(({ theme, testsCompleted, heatmapData, onClos
 
         {/* Keyboard Heatmap */}
         {Object.keys(heatmapData).length > 0 && (
-          <KeyboardHeatmap data={heatmapData} />
+          <KeyboardHeatmap data={heatmapData} onStartWeaknessDrill={onStartWeaknessDrill} />
         )}
 
         {/* Personal bests */}

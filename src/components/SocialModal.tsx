@@ -1,16 +1,26 @@
 import { useState } from 'react';
-import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck } from 'lucide-react';
+import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, User } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { useFriends } from '@/hooks/useFriends';
+import { ProfileCard } from './ProfileCard';
+import type { UserSkillStats } from '@/data/titles';
 
 interface SocialModalProps {
   theme: Theme;
   onClose: () => void;
   friendsState: ReturnType<typeof useFriends>;
+  profileStats?: {
+    username: string;
+    level: number;
+    xp: number;
+    currentLevelProgress: number;
+    xpNeeded: number;
+    skillStats: UserSkillStats;
+  };
 }
 
-export const SocialModal = ({ theme, onClose, friendsState }: SocialModalProps) => {
-  const [tab, setTab] = useState<'friends' | 'add' | 'inbox'>('friends');
+export const SocialModal = ({ theme, onClose, friendsState, profileStats }: SocialModalProps) => {
+  const [tab, setTab] = useState<'friends' | 'add' | 'inbox' | 'profile'>('friends');
   const [searchInput, setSearchInput] = useState('');
   const [isClosing, setIsClosing] = useState(false);
 
@@ -114,10 +124,32 @@ export const SocialModal = ({ theme, onClose, friendsState }: SocialModalProps) 
               </span>
             )}
           </button>
+          {profileStats && (
+            <button
+              onClick={() => setTab('profile')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${
+                tab === 'profile' 
+                  ? 'bg-purple-500/15 border border-purple-500/30 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.15)]' 
+                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+              }`}
+            >
+              <User size={13} /> Profile
+            </button>
+          )}
         </div>
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-0 relative z-10 transform-gpu font-mono">
+          {tab === 'profile' && profileStats && (
+            <ProfileCard
+              username={profileStats.username}
+              level={profileStats.level}
+              xp={profileStats.xp}
+              currentLevelProgress={profileStats.currentLevelProgress}
+              xpNeeded={profileStats.xpNeeded}
+              skillStats={profileStats.skillStats}
+            />
+          )}
           {tab === 'friends' && (
             <div className="flex flex-col gap-2 min-h-[180px] transition-opacity duration-150">
               {friendsState.friends.length === 0 ? (

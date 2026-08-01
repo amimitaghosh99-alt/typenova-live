@@ -65,6 +65,8 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     const sb = supabase;
     if (!sb || !session) {
       syncedForUser.current = null;
+      setUsername('');
+      setStatus('idle');
       return;
     }
 
@@ -124,6 +126,9 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
       if (/duplicate|unique/i.test(error.message)) return { ok: false, error: 'That name is taken' };
       return { ok: false, error: 'Could not save name' };
     }
+    
+    // H8: Also insert a default row into public_profiles so others don't see 'PLAYER NOT FOUND'
+    await sb.from('public_profiles').insert({ username: name });
     syncedForUser.current = uid;
     setUsername(name);
     setStatus('synced');

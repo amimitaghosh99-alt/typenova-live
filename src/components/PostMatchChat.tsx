@@ -44,7 +44,11 @@ export function PostMatchChat({
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+      if (isNearBottom || messages.length <= 1) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
     }
   }, [messages]);
 
@@ -52,7 +56,7 @@ export function PostMatchChat({
   const getSenderColor = useCallback(
     (senderName: string, senderIdStr?: string) => {
       let idx = players.findIndex(
-        (p) => (senderIdStr && p.id === senderIdStr) || p.name.toLowerCase() === senderName.toLowerCase()
+        (p) => (senderIdStr && p.id === senderIdStr) || p.name?.toLowerCase() === senderName?.toLowerCase()
       );
       if (idx < 0) idx = 0;
       return PLAYER_COLORS[idx % PLAYER_COLORS.length];
@@ -70,12 +74,15 @@ export function PostMatchChat({
 
     channel
       .on('broadcast', { event: 'chat' }, ({ payload }: { payload: ChatMessage }) => {
-        setMessages((prev) => [...prev, payload]);
+        // Skip self-echoed messages — we already added them optimistically (C5 dedup)
+        if (payload.senderId === selfId) return;
+        // Deduplicate by id in case of retransmits
+        setMessages((prev) => prev.some(m => m.id === payload.id) ? prev : [...prev, payload]);
       })
       .subscribe();
 
     return () => {
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
       channelRef.current = null;
     };
   }, [supabase, lobbyId]);
@@ -149,7 +156,7 @@ export function PostMatchChat({
           </div>
         ) : (
           messages.map((msg) => {
-            const isSelf = msg.senderId === selfId || msg.sender.toLowerCase() === username.toLowerCase();
+            const isSelf = msg.senderId === selfId || msg.sender?.toLowerCase() === username?.toLowerCase();
             const colorObj = getSenderColor(msg.sender, msg.senderId);
 
             return (
@@ -188,7 +195,8 @@ export function PostMatchChat({
           <button
             key={preset}
             onClick={() => sendMessage(preset)}
-            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/5 hover:bg-cyan-500/20 text-zinc-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/40 transition-all shrink-0 active:scale-95"
+            disabled={!lobbyId}
+            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/5 hover:bg-cyan-500/20 text-zinc-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/40 transition-all shrink-0 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {preset}
           </button>
@@ -202,12 +210,13 @@ export function PostMatchChat({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Send a post-match message..."
-          className="flex-1 bg-slate-950/80 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/50 transition-colors"
+          disabled={!lobbyId}
+          className="flex-1 bg-slate-950/80 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           maxLength={150}
         />
         <button
           type="submit"
-          disabled={!inputText.trim()}
+          disabled={!inputText.trim() || !lobbyId}
           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black text-xs tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 disabled:hover:scale-100 hover:scale-105 active:scale-100 shadow-[0_0_12px_rgba(6,182,212,0.3)]"
         >
           <Send size={13} />

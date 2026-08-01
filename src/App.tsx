@@ -256,6 +256,29 @@ function MainApp() {
     },
   });
 
+  // H10: Memoize localRPGStats to prevent infinite re-renders in PlayerProfileModal
+  // which lists it as a dependency in its useEffect.
+  const localRPGStatsMemo = useMemo(() => {
+    if (!cloud.username || !selectedProfileUsername) return undefined;
+    if (selectedProfileUsername.toLowerCase() !== cloud.username.toLowerCase()) return undefined;
+    
+    const h: HistoryEntry[] = loadHistory();
+    return {
+      level: rpg.userLevel,
+      xp: rpg.xp,
+      currentLevelProgress: rpg.currentLevelProgress,
+      xpNeeded: rpg.xpNeeded,
+      skillStats: {
+        maxWpm: h.length ? Math.max(...h.map((e) => e.wpm)) : 0,
+        avgAccuracy: h.slice(-20).length ? Math.round(h.slice(-20).reduce((a, e) => a + e.acc, 0) / h.slice(-20).length) : 0,
+        dailyStreak,
+        testsCompleted: rpg.testsCompleted,
+        racesWon: 0,
+        totalWordsTyped: h.reduce((a, e) => a + e.size, 0),
+      }
+    };
+  }, [cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, dailyStreak]);
+
   const handleChallengeFriend = (
     friendUsername: string,
     config?: { mode?: Level; words?: number; language?: CodeLanguage }
@@ -505,6 +528,13 @@ function MainApp() {
   useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);
   useEffect(() => { if (boardTab === 'friends') fetchFriendsBoard(); }, [boardTab, fetchFriendsBoard]);
 
+  const [activeTitle, setActiveTitle] = useState(getActiveTitleId());
+  useEffect(() => {
+    const handleTitleChange = () => setActiveTitle(getActiveTitleId());
+    window.addEventListener('titleChanged', handleTitleChange);
+    return () => window.removeEventListener('titleChanged', handleTitleChange);
+  }, []);
+
   // ─── Cloud Sync push ─────────────────────────────────────────────
   // Once synced, mirror progress back to the cloud whenever it changes
   // (debounced in the hook). A finished test always bumps testsCompleted, so
@@ -519,7 +549,7 @@ function MainApp() {
         racesWon: 0,
         totalWordsTyped: (() => { const h: HistoryEntry[] = loadHistory(); return h.reduce((a: number, e: HistoryEntry) => a + e.size, 0); })(),
       };
-      const activeId = getActiveTitleId();
+      const activeId = activeTitle;
       const unlocked = TITLE_BADGES.filter((b) => b.isUnlocked(stats)).map((b) => b.id);
 
       cloud.pushProgress({
@@ -532,7 +562,7 @@ function MainApp() {
         testsCompleted: stats.testsCompleted,
       });
     }
-  }, [rpg.xp, rpg.userLevel, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status, cloud.pushProgress, cloud.username]);
+  }, [rpg.xp, rpg.userLevel, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status, cloud.pushProgress, cloud.username, activeTitle]);
 
   // Prefill the first-login "choose a name" prompt from the Google profile.
   useEffect(() => {
@@ -2070,20 +2100,7 @@ function MainApp() {
           supabase={supabase}
           localUsername={cloud.username}
           theme={theme}
-          localRPGStats={cloud.username && selectedProfileUsername.toLowerCase() === cloud.username.toLowerCase() ? {
-            level: rpg.userLevel,
-            xp: rpg.xp,
-            currentLevelProgress: rpg.currentLevelProgress,
-            xpNeeded: rpg.xpNeeded,
-            skillStats: {
-              maxWpm: (() => { const h: HistoryEntry[] = loadHistory(); return h.length ? Math.max(...h.map((e: HistoryEntry) => e.wpm)) : 0; })(),
-              avgAccuracy: (() => { const h: HistoryEntry[] = loadHistory().slice(-20); return h.length ? Math.round(h.reduce((a: number, e: HistoryEntry) => a + e.acc, 0) / h.length) : 0; })(),
-              dailyStreak,
-              testsCompleted: rpg.testsCompleted,
-              racesWon: 0,
-              totalWordsTyped: (() => { const h: HistoryEntry[] = loadHistory(); return h.reduce((a: number, e: HistoryEntry) => a + e.size, 0); })(),
-            }
-          } : undefined}
+          localRPGStats={localRPGStatsMemo}
         />
       )}
 

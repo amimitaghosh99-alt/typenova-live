@@ -117,7 +117,7 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
           >
             <Inbox size={13} /> Inbox
             {friendsState.incomingRequests.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 ml-1">
+              <span className="px-1.5 py-[2px] rounded-full text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 ml-1">
                 {friendsState.incomingRequests.length}
               </span>
             )}
@@ -158,7 +158,7 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                   </div>
 
                   {/* Words Selector */}
-                  {challengeMode !== 'QUOTES' && (
+                  {challengeMode !== 'QUOTES' && challengeMode !== 'CODE' && (
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Test Length</span>
                       <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
@@ -247,7 +247,7 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                         <span className="text-[10px] text-zinc-400 tracking-wider">Elo {friend.elo}</span>
                       </div>
                     </button>
-                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <div className="flex items-center gap-1.5 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                       {/* Challenge Button */}
                       {onChallengeFriend && (
                         <button
@@ -309,10 +309,16 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                   {friendsState.outgoingRequests.map((u: string) => (
                     <div key={u} className="flex justify-between items-center bg-slate-900/40 border border-white/10 p-2.5 rounded-xl">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 font-bold uppercase text-xs">
-                          {u.substring(0, 1)}
-                        </div>
-                        <span className="text-xs font-mono text-zinc-300">{u}</span>
+                        <button
+                          onClick={() => onOpenProfile?.(u)}
+                          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+                          title={`View ${u}'s Profile`}
+                        >
+                          <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 font-bold uppercase text-xs">
+                            {u.substring(0, 1)}
+                          </div>
+                          <span className="text-xs font-mono text-zinc-300 hover:underline">{u}</span>
+                        </button>
                       </div>
                       <button 
                         onClick={() => friendsState.removeFriend(u, false)}
@@ -340,10 +346,16 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                 friendsState.incomingRequests.map((u: string) => (
                   <div key={u} className="flex justify-between items-center bg-slate-900/50 border border-white/10 p-3 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-300 font-bold uppercase text-xs">
-                        {u.substring(0, 1)}
-                      </div>
-                      <span className="text-xs font-mono font-bold text-white">{u}</span>
+                      <button
+                        onClick={() => onOpenProfile?.(u)}
+                        className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                        title={`View ${u}'s Profile`}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-300 font-bold uppercase text-xs">
+                          {u.substring(0, 1)}
+                        </div>
+                        <span className="text-xs font-mono font-bold text-white hover:underline">{u}</span>
+                      </button>
                     </div>
                     <div className="flex gap-1.5">
                       <button 

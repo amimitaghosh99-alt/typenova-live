@@ -198,6 +198,8 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     setPlayers(next);
 
     // race is over when everyone still present has finished
+    // Guard: skip this check during 'lobby' to prevent stale presence from
+    // triggering an instant finish after a rematch.
     if (statusRef.current === 'racing' && next.length > 0 && next.every(p => p.finished)) {
       setStatus('finished');
     }
@@ -238,6 +240,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       onStartRef.current(payload.text as string, localStartAt);
     });
     ch.on('broadcast', { event: 'progress' }, ({ payload }) => {
+      if (statusRef.current === 'lobby') return;
       // Self is intentionally recorded too, so our own bar matches what others see.
       if (!payload?.id) return;
       progressRef.current[payload.id] = { progress: payload.progress, wpm: payload.wpm };
@@ -248,6 +251,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       rebuildPlayers();
     });
     ch.on('broadcast', { event: 'finish' }, ({ payload }) => {
+      if (statusRef.current === 'lobby') return;
       if (!payload?.id) return;
       finishRef.current[payload.id] = { wpm: payload.wpm, acc: payload.acc, ms: payload.ms, rawWpm: payload.rawWpm, consistency: payload.consistency, heatmapData: payload.heatmapData, errorCount: payload.errorCount, backspaceCount: payload.backspaceCount };
       rebuildPlayers();
@@ -256,9 +260,14 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
       progressRef.current = {};
       finishRef.current = {};
       timelinesRef.current = {};
+      metaRef.current = {};
       finishSentRef.current = false;
       startAtRef.current = null;
+      lastProgressSendRef.current = 0;
+      textRef.current = '';
+      setRaceId(crypto.randomUUID());
       setStatus('lobby');
+      rebuildPlayers();
 
       if (selfIdRef.current && channelRef.current) {
         try {
@@ -268,14 +277,14 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
             await channelRef.current.track({
               ...metas[0],
               finished: false,
-              finishWpm: undefined,
-              finishAcc: undefined,
-              finishMs: undefined,
-              rawWpm: undefined,
-              consistency: undefined,
-              heatmapData: undefined,
-              errorCount: undefined,
-              backspaceCount: undefined,
+              finishWpm: 0,
+              finishAcc: 0,
+              finishMs: 0,
+              rawWpm: 0,
+              consistency: 0,
+              heatmapData: null,
+              errorCount: 0,
+              backspaceCount: 0,
             });
           }
         } catch {
@@ -304,7 +313,11 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
           }, 800);
           roomTimeoutsRef.current.push(t1);
         }
-        setStatus('lobby');
+        // Only transition to lobby from idle/joining — a WebSocket reconnect
+        // during a live race must NOT reset status and abort the match (C2).
+        if (statusRef.current === 'idle' || statusRef.current === 'joining') {
+          setStatus('lobby');
+        }
         if (!asHost) {
           // If no host shows up in presence shortly, the room doesn't exist.
           const t2 = setTimeout(() => {
@@ -402,12 +415,18 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
   const rematch = useCallback(async () => {
     if (!channelRef.current) return;
 
+    // C1: Clear ALL refs including metaRef to prevent stale finished state
     progressRef.current = {};
     finishRef.current = {};
     timelinesRef.current = {};
+    metaRef.current = {};
     finishSentRef.current = false;
     startAtRef.current = null;
+    lastProgressSendRef.current = 0;
+    textRef.current = '';
+    setRaceId(crypto.randomUUID());
     setStatus('lobby');
+    rebuildPlayers();
 
     channelRef.current.send({
       type: 'broadcast',
@@ -420,17 +439,18 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
         const state = channelRef.current.presenceState();
         const metas = state[selfIdRef.current] || [];
         if (metas[0]) {
+          // Use explicit 0/null sentinels — undefined is stripped by JSON.stringify
           await channelRef.current.track({
             ...metas[0],
             finished: false,
-            finishWpm: undefined,
-            finishAcc: undefined,
-            finishMs: undefined,
-            rawWpm: undefined,
-            consistency: undefined,
-            heatmapData: undefined,
-            errorCount: undefined,
-            backspaceCount: undefined,
+            finishWpm: 0,
+            finishAcc: 0,
+            finishMs: 0,
+            rawWpm: 0,
+            consistency: 0,
+            heatmapData: null,
+            errorCount: 0,
+            backspaceCount: 0,
           });
         }
       } catch {

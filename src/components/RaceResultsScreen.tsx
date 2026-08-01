@@ -40,6 +40,7 @@ export function RaceResultsScreen({
   );
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(selfId);
+  const fallbackLobbyId = useMemo(() => crypto.randomUUID(), []);
 
   const myRank = ranking.findIndex(p => p.id === selfId);
   const allFinished = players.length > 0 && players.every(p => p.finished);
@@ -79,6 +80,7 @@ export function RaceResultsScreen({
   }, [isRanked, meFinished, opponentPresent]);
 
   useEffect(() => {
+    let isMounted = true;
     if (!isRanked || rpcCalled.current) return;
     const me = players.find(p => p.id === selfId);
     const op = players.find(p => p.id !== selfId) ?? opponentRef.current;
@@ -88,9 +90,8 @@ export function RaceResultsScreen({
     // dropped, writing two mirrored rows and showing "+X ELO" to both players.
     if (!op.finished && !waitExpired) return;
 
-    rpcCalled.current = true;
-
     if (participantsRef.current.size > 2) {
+      rpcCalled.current = true;
       setEloNote('ELO NOT APPLIED — MORE THAN 2 RACERS');
       return;
     }
@@ -99,9 +100,12 @@ export function RaceResultsScreen({
     const myStartElo = me.elo ?? 1000;
 
     if (!supabase || !myUserId) {
-      setEloNote('ELO NOT APPLIED — SIGN IN REQUIRED');
+      // Do NOT set rpcCalled here — supabase/userId may arrive on a later
+      // render cycle. Locking the flag now would permanently block Elo (C3).
       return;
     }
+
+    rpcCalled.current = true;
 
     const wpmMe = me.finishWpm ?? 0, wpmOp = op.finishWpm ?? 0;
     const msMe = me.finishMs ?? Infinity, msOp = op.finishMs ?? Infinity;
@@ -116,12 +120,15 @@ export function RaceResultsScreen({
     // anywhere between 1 and ~96, so the old hardcoded ±25 was almost always wrong.
     const syncElo = async (attempts: number) => {
       for (let i = 0; i < attempts; i++) {
+        if (!isMounted) return false;
         const { data } = await supabase.from('profiles').select('elo').eq('id', myUserId).maybeSingle();
         const value = (data as { elo?: number } | null)?.elo;
         if (typeof value === 'number' && value !== myStartElo) {
-          onUpdateElo?.(() => value);
-          const diff = value - myStartElo;
-          setEloTransfer({ amount: Math.abs(diff), direction: diff >= 0 ? 'up' : 'down' });
+          if (isMounted) {
+            onUpdateElo?.(() => value);
+            const diff = value - myStartElo;
+            setEloTransfer({ amount: Math.abs(diff), direction: diff >= 0 ? 'up' : 'down' });
+          }
           return true;
         }
         await new Promise(r => setTimeout(r, 1500));
@@ -152,19 +159,25 @@ export function RaceResultsScreen({
         }
 
         if (!error && typeof data === 'number') {
-          setEloTransfer({ amount: data, direction: 'up' });
-          onUpdateElo?.(prev => prev + data);
+          if (isMounted) {
+            setEloTransfer({ amount: data, direction: 'up' });
+            onUpdateElo?.(prev => prev + data);
+          }
           return;
         }
         // Duplicate submission, or a rejected anti-cheat check. Never invent a
         // delta here — take whatever the server actually recorded.
         if (error) console.error('Ranked duel RPC failed:', error.message);
-        if (!(await syncElo(4))) setEloNote('ELO UNCHANGED — MATCH NOT COUNTED');
+        if (!(await syncElo(4)) && isMounted) setEloNote('ELO UNCHANGED — MATCH NOT COUNTED');
       })();
     } else {
       // The winner's client writes both sides of the transfer; wait for it.
-      syncElo(6).then(ok => { if (!ok) setEloNote('ELO SYNC PENDING'); });
+      syncElo(6).then(ok => { if (!ok && isMounted) setEloNote('ELO SYNC PENDING'); });
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [isRanked, players, selfId, supabase, waitExpired, raceId, resultsProps.keystrokeLog, resultsProps.durationMs, onUpdateElo]);
 
   // ── AWARDS LOGIC ──
@@ -255,7 +268,7 @@ export function RaceResultsScreen({
       consistency: selectedPlayer.consistency ?? 0,
       durationMs: selectedPlayer.finishMs ?? resultsProps.durationMs,
       heatmapData: selectedPlayer.heatmapData ?? {},
-      errorTimes: new Array(selectedPlayer.errorCount ?? 0).fill(0), // Fake error times just for the count
+      errorTimes: new Array(Math.max(0, selectedPlayer.errorCount ?? 0)).fill(0), // Fake error times just for the count
     };
   }, [isSelfSelected, selectedPlayer, resultsProps]);
 
@@ -387,7 +400,7 @@ export function RaceResultsScreen({
         {/* ── SELECTED PLAYER DETAILED STATS ─────────────────────────── */}
         <div className="border-t border-zinc-800/50 pt-10 pb-8 animate-in fade-in slide-in-from-bottom-8">
           <h2 className="text-center text-zinc-500 text-[11px] font-black tracking-[0.4em] uppercase mb-8">
-            {isSelfSelected ? 'YOUR DETAILED STATS' : `${selectedPlayer?.name}'S DETAILED STATS`}
+            {isSelfSelected ? 'YOUR DETAILED STATS' : `${selectedPlayer?.name || 'PLAYER'}'S DETAILED STATS`}
           </h2>
           <ResultsScreen
             {...displayProps}
@@ -401,7 +414,7 @@ export function RaceResultsScreen({
         <div className="border-t border-zinc-800/50 pt-8 pb-4 animate-in fade-in slide-in-from-bottom-8">
           <PostMatchChat
             supabase={supabase || null}
-            lobbyId={raceId || 'vs-race-lobby'}
+            lobbyId={raceId || fallbackLobbyId}
             username={players.find(p => p.id === selfId)?.name || 'Typist'}
             selfId={selfId}
             players={players}
@@ -412,7 +425,7 @@ export function RaceResultsScreen({
         <div className="flex flex-wrap items-center justify-center gap-4 mt-6 pb-12 font-mono">
           {isHost ? (
             <button
-              onClick={onRematch}
+              onClick={() => onRematch?.()}
               className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black tracking-wider text-sm shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-105 active:scale-100 transition-all cursor-pointer"
             >
               <RotateCcw size={18} /> REMATCH

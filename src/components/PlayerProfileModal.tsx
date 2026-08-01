@@ -54,7 +54,9 @@ export function PlayerProfileModal({
   useEffect(() => {
     if (!targetUsername) return;
 
-    // If it's our own profile and localRPGStats are available, initialize immediately
+    // C6: If it's our own profile and localRPGStats are available, use them
+    // directly and skip the Supabase fetch to prevent stale cloud data from
+    // overwriting fresh local stats.
     if (isOwnProfile && localRPGStats) {
       const activeId = getActiveTitleId();
       setEquippedTitleId(activeId);
@@ -69,13 +71,15 @@ export function PlayerProfileModal({
         tests_completed: localRPGStats.skillStats.testsCompleted,
       });
       setLoading(false);
+      setNotFound(false);
+      return; // own profile uses local truth — no cloud fetch needed
     }
 
-    // Always fetch latest public profile record from Supabase
+    // For other players, fetch from Supabase public_profiles
     let active = true;
     (async () => {
       if (!supabase) {
-        if (!isOwnProfile) setNotFound(true);
+        setNotFound(true);
         setLoading(false);
         return;
       }
@@ -87,15 +91,13 @@ export function PlayerProfileModal({
         const { data, error } = await supabase
           .from('public_profiles')
           .select('*')
-          .eq('username', targetUsername)
+          .ilike('username', targetUsername)
           .maybeSingle();
 
         if (!active) return;
 
         if (error || !data) {
-          if (!isOwnProfile) {
-            setNotFound(true);
-          }
+          setNotFound(true);
         } else {
           const row = data as PublicProfileData;
           setProfileData(row);
@@ -103,7 +105,7 @@ export function PlayerProfileModal({
         }
       } catch (err) {
         console.error('Error fetching public profile:', err);
-        if (!isOwnProfile) setNotFound(true);
+        setNotFound(true);
       } finally {
         if (active) setLoading(false);
       }
@@ -130,18 +132,22 @@ export function PlayerProfileModal({
     if (profileData) {
       setProfileData({ ...profileData, equipped_title: titleId });
     }
+    
+    // L3: Dispatch event so App.tsx auto-sync effect triggers and updates public_profiles 
+    // with the latest equipped title immediately across sessions.
+    window.dispatchEvent(new Event('titleChanged'));
 
     // Upsert updated title to Supabase public_profiles table
     if (supabase && localUsername) {
       try {
-        await supabase.from('public_profiles').upsert(
-          {
-            username: localUsername,
+        // H9: Use update() instead of upsert() to avoid wiping existing RPG stats 
+        // with NULLs when the unique constraint fails or row exists.
+        await supabase.from('public_profiles')
+          .update({
             equipped_title: titleId,
             updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'username' }
-        );
+          })
+          .eq('username', localUsername);
       } catch (e) {
         console.error('Failed to update equipped title on cloud:', e);
       }
@@ -154,8 +160,8 @@ export function PlayerProfileModal({
     TITLE_BADGES.find((b) => b.id === equippedTitleId) || TITLE_BADGES[0];
 
   // Calculate level progress
-  const displayLevel = profileData?.level || (isOwnProfile ? localRPGStats?.level : 1) || 1;
-  const displayXp = profileData?.xp || (isOwnProfile ? localRPGStats?.xp : 0) || 0;
+  const displayLevel = profileData?.level ?? (isOwnProfile ? localRPGStats?.level : undefined) ?? 1;
+  const displayXp = profileData?.xp ?? (isOwnProfile ? localRPGStats?.xp : undefined) ?? 0;
   const nextLevelXp = Math.pow(displayLevel, 2) * 100;
   const prevLevelXp = Math.pow(displayLevel - 1, 2) * 100;
   const levelProgressPct = Math.min(

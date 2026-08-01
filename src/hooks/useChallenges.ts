@@ -2,11 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
+import type { Level, CodeLanguage } from '@/data/constants';
+
 export interface PendingChallenge {
   from: string;
   roomCode: string;
   fromElo: number;
   expiresAt: number;
+  mode?: Level;
+  words?: number;
+  language?: CodeLanguage;
 }
 
 interface UseChallengesOptions {
@@ -41,6 +46,9 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
           roomCode: payload.roomCode,
           fromElo: payload.fromElo,
           expiresAt: Date.now() + 30_000,
+          mode: payload.mode,
+          words: payload.words,
+          language: payload.language,
         };
         setPendingChallenge(challenge);
 
@@ -70,14 +78,27 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
   }, [supabase, username]);
 
   // Send a challenge to a friend
-  const sendChallenge = useCallback(async (friendUsername: string, roomCode: string, fromElo: number) => {
+  const sendChallenge = useCallback(async (
+    friendUsername: string,
+    roomCode: string,
+    fromElo: number,
+    config?: { mode?: Level; words?: number; language?: CodeLanguage }
+  ) => {
     if (!supabase || !username) return;
     const targetChannel = supabase.channel(`challenge:${friendUsername}`);
     await targetChannel.subscribe();
     await targetChannel.send({
       type: 'broadcast',
       event: 'challenge_invite',
-      payload: { from: username, roomCode, fromElo, expiresAt: Date.now() + 30_000 },
+      payload: {
+        from: username,
+        roomCode,
+        fromElo,
+        expiresAt: Date.now() + 30_000,
+        mode: config?.mode || 'NOVICE',
+        words: config?.words || 25,
+        language: config?.language,
+      },
     });
     // Unsubscribe sender's temp channel after a delay
     setTimeout(() => targetChannel.unsubscribe(), 1000);

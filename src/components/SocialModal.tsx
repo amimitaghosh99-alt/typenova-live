@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, User, Swords } from 'lucide-react';
-import type { Theme } from '@/data/constants';
+import type { Theme, Level, CodeLanguage } from '@/data/constants';
 import type { useFriends } from '@/hooks/useFriends';
 import { ProfileCard } from './ProfileCard';
 import type { UserSkillStats } from '@/data/titles';
+import { SegmentedControl } from '@/components/SegmentedControl';
 
 interface SocialModalProps {
   theme: Theme;
   onClose: () => void;
   friendsState: ReturnType<typeof useFriends>;
-  onChallengeFriend?: (username: string) => void;
+  onChallengeFriend?: (username: string, config?: { mode?: Level; words?: number; language?: CodeLanguage }) => void;
   sentChallengeTo?: string | null;
   profileStats?: {
     username: string;
@@ -25,6 +26,10 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChal
   const [tab, setTab] = useState<'friends' | 'add' | 'inbox' | 'profile'>('friends');
   const [searchInput, setSearchInput] = useState('');
   const [isClosing, setIsClosing] = useState(false);
+  const [challengingUser, setChallengingUser] = useState<string | null>(null);
+  const [challengeMode, setChallengeMode] = useState<Level>('NOVICE');
+  const [challengeWords, setChallengeWords] = useState<number>(25);
+  const [challengeLang, setChallengeLang] = useState<CodeLanguage>('JavaScript/TypeScript');
 
   const handleClose = () => {
     if (isClosing) return;
@@ -154,6 +159,85 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChal
           )}
           {tab === 'friends' && (
             <div className="flex flex-col gap-2 min-h-[180px] transition-opacity duration-150">
+              {/* Inline Challenge Configuration Panel */}
+              {challengingUser && (
+                <div className="mb-3 p-4 rounded-xl bg-slate-900/90 border border-rose-500/40 font-mono flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 shadow-lg shadow-rose-950/20">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Swords size={15} className="text-rose-400 animate-pulse" />
+                      CONFIGURE CHALLENGE FOR <span className="text-cyan-300 font-extrabold">{challengingUser}</span>
+                    </span>
+                    <button
+                      onClick={() => setChallengingUser(null)}
+                      className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-white/10"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  {/* Mode Selector */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Difficulty / Mode</span>
+                    <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
+                      <SegmentedControl
+                        options={(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => ({ label: l, value: l }))}
+                        value={challengeMode}
+                        onChange={setChallengeMode}
+                        themeTextClass={theme.text}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Words Selector */}
+                  {challengeMode !== 'QUOTES' && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Test Length</span>
+                      <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
+                        <SegmentedControl
+                          options={[10, 25, 50, 100].map(w => ({ label: `${w} words`, value: w }))}
+                          value={challengeWords}
+                          onChange={setChallengeWords}
+                          themeTextClass={theme.text}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Language Selector (CODE mode) */}
+                  {challengeMode === 'CODE' && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Language</span>
+                      <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
+                        <SegmentedControl
+                          options={(['JavaScript/TypeScript', 'Python', 'Rust', 'C++'] as CodeLanguage[]).map(lang => ({
+                            label: lang.split('/')[0].toUpperCase(),
+                            value: lang
+                          }))}
+                          value={challengeLang}
+                          onChange={setChallengeLang}
+                          themeTextClass={theme.text}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      onChallengeFriend?.(challengingUser, {
+                        mode: challengeMode,
+                        words: challengeWords,
+                        language: challengeMode === 'CODE' ? challengeLang : undefined
+                      });
+                      setChallengingUser(null);
+                    }}
+                    className="w-full mt-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 text-white font-black text-xs tracking-wider shadow-[0_0_15px_rgba(244,63,94,0.3)] hover:scale-[1.02] active:scale-100 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Swords size={15} />
+                    SEND CHALLENGE ⚔️
+                  </button>
+                </div>
+              )}
+
               {friendsState.friends.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-44 text-zinc-500 font-mono">
                   <Users size={40} className="mb-3 text-zinc-600 opacity-40" />
@@ -192,7 +276,7 @@ export const SocialModal = ({ theme, onClose, friendsState, profileStats, onChal
                       {/* Challenge Button */}
                       {onChallengeFriend && (
                         <button
-                          onClick={() => friend.isOnline && onChallengeFriend(friend.username)}
+                          onClick={() => friend.isOnline && setChallengingUser(friend.username)}
                           disabled={!friend.isOnline || sentChallengeTo === friend.username}
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold font-mono transition-all ${
                             !friend.isOnline

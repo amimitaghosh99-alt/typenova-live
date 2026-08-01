@@ -94,6 +94,16 @@ export function ChallengeNotification({ challenge, onAccept, onReject }: Challen
             </div>
           </div>
 
+          {/* Challenge Mode Info */}
+          <div className="flex items-center justify-between mb-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs font-bold font-mono">
+            <span className="text-zinc-400 text-[10px]">RACE MODE:</span>
+            <span className="text-cyan-300 font-extrabold text-[11px] flex items-center gap-1">
+              {challenge.mode || 'NOVICE'}
+              {challenge.mode !== 'QUOTES' && challenge.mode !== 'CODE' && ` (${challenge.words || 25}w)`}
+              {challenge.mode === 'CODE' && challenge.language && ` [${challenge.language.split('/')[0]}]`}
+            </span>
+          </div>
+
           {/* ELO info */}
           <div className="flex items-center justify-between mb-4 px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs font-bold">
             <span className="flex items-center gap-1.5 text-zinc-300">

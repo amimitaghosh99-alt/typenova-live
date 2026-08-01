@@ -254,13 +254,19 @@ function MainApp() {
     },
   });
 
-  const handleChallengeFriend = (friendUsername: string) => {
+  const handleChallengeFriend = (
+    friendUsername: string,
+    config?: { mode?: Level; words?: number; language?: CodeLanguage }
+  ) => {
     if (!cloud.username) return;
-    // Pre-generate room code so it can be sent in the challenge immediately
     const roomCode = makeRoomCode();
     race.createRoom(cloud.username, 2, undefined, cloud.elo, roomCode, auth.user?.id, false);
-    challenges.sendChallenge(friendUsername, roomCode, cloud.elo);
-    toast.success(`Challenge sent to ${friendUsername}! Waiting…`, { icon: '⚔️' });
+    if (config) {
+      race.updateLobbyConfig(config);
+    }
+    challenges.sendChallenge(friendUsername, roomCode, cloud.elo, config);
+    const modeLabel = config ? `${config.mode}${config.words ? ` (${config.words}w)` : ''}` : '';
+    toast.success(`Challenge ${modeLabel} sent to ${friendUsername}! Waiting…`, { icon: '⚔️' });
     setShowSocialModal(false);
     setShowRace(true);
   };

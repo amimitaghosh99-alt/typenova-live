@@ -1490,39 +1490,39 @@ function MainApp() {
             <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono">
               <button
                 onClick={() => cloud.username && setSelectedProfileUsername(cloud.username)}
-                className="flex items-center px-2.5 py-1.5 hover:bg-white/5 rounded-xl transition-all cursor-pointer text-left gap-3"
+                className="flex items-center px-3.5 py-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer text-left gap-3.5"
                 title="View / Edit your Player Profile"
               >
                 {/* User Avatar */}
                 <div className="relative hidden sm:block shrink-0">
-                  <div className={`w-8 h-8 rounded-full bg-black/20 border flex items-center justify-center font-bold uppercase text-xs ${theme.borderHalf} ${theme.vividText}`}>
+                  <div className={`w-10 h-10 rounded-full bg-black/20 border flex items-center justify-center font-bold uppercase text-sm ${theme.borderHalf} ${theme.vividText}`}>
                     {(cloud.username || 'G').substring(0, 1)}
                   </div>
                   {isLoggedIn && (
-                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-950 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
                   )}
                 </div>
                 
                 <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-white">
-                      {cloud.username || 'GUEST'} <span className="text-zinc-500 font-bold ml-1 text-[9px]">LVL {rpg.userLevel}</span>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[13px] font-black uppercase tracking-widest text-white">
+                      {cloud.username || 'GUEST'} <span className="text-zinc-500 font-bold ml-1.5 text-[10px]">LVL {rpg.userLevel}</span>
                     </span>
                     {(() => {
                       const activeId = activeTitle;
                       const badge = TITLE_BADGES.find(b => b.id === activeId);
                       return badge ? (
-                        <span className={`text-[8px] px-1.5 py-[1px] rounded border font-mono tracking-wider ${badge.color}`} title={badge.description}>
+                        <span className={`text-[9px] px-2 py-0.5 rounded border font-mono tracking-wider ${badge.color}`} title={badge.description}>
                           {badge.icon} {badge.name}
                         </span>
                       ) : null;
                     })()}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-28 h-1.5 bg-zinc-800 rounded-full overflow-hidden border border-zinc-800/50">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-36 h-2 bg-zinc-800 rounded-full overflow-hidden border border-zinc-800/50">
                       <div className={`h-full ${theme.solid} transition-all duration-500`} style={{ width: `${(rpg.currentLevelProgress / rpg.xpNeeded) * 100}%` }} />
                     </div>
-                    <span className="text-[8px] font-mono text-zinc-500 w-10 leading-none">{rpg.xp} XP</span>
+                    <span className="text-[9px] font-mono text-zinc-500 w-12 leading-none">{rpg.xp} XP</span>
                   </div>
                 </div>
               </button>

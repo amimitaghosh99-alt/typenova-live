@@ -1490,17 +1490,7 @@ function MainApp() {
 
           {/* HUD Controls & Actions (Right) */}
           <div className="flex flex-wrap justify-center xl:justify-end items-center gap-4 text-zinc-400 w-full xl:w-auto pb-2 xl:pb-0">
-            {/* Mode Toggles */}
-            <div className="grid grid-cols-4 lg:grid-cols-8 gap-1 glass-panel shrink-0 rounded-2xl p-1">
-              <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${suddenDeath ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="1HP: One mistake ends it"><Skull size={18} /></button>
-              <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={18} /></button>
-              <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Focus"><Focus size={18} /></button>
-              <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Blind"><Brain size={18} /></button>
-              <button onClick={toggleMirror} className={`p-2 rounded-xl transition-all flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Mirror"><FlipHorizontal size={18} /></button>
-              <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Fog"><CloudFog size={18} /></button>
-              <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Sticky Keys"><Magnet size={18} /></button>
-              <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${overclockedMode ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="Overclocked"><Timer size={18} /></button>
-            </div>
+
 
             {/* Profile & Actions */}
             <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono shrink-0">
@@ -1782,6 +1772,23 @@ function MainApp() {
 
             {/* Typing Area */}
             <div className="w-full relative flex flex-col items-center mb-12">
+              {/* Attached Mode Toggles */}
+              {!shouldHideClutter && (
+                <div 
+                  className={`absolute -top-5 left-8 xl:left-[calc(50%-560px)] z-[100] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 scale-95 -translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}
+                >
+                  <div className="grid grid-cols-4 lg:grid-cols-8 gap-1 glass-panel shrink-0 rounded-2xl p-1 shadow-[0_10px_40px_rgba(0,0,0,0.4)]">
+                    <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${suddenDeath ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="1HP: One mistake ends it"><Skull size={18} /></button>
+                    <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={18} /></button>
+                    <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Focus"><Focus size={18} /></button>
+                    <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Blind"><Brain size={18} /></button>
+                    <button onClick={toggleMirror} className={`p-2 rounded-xl transition-all flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Mirror"><FlipHorizontal size={18} /></button>
+                    <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Fog"><CloudFog size={18} /></button>
+                    <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/5'}`} title="Sticky Keys"><Magnet size={18} /></button>
+                    <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${overclockedMode ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="Overclocked"><Timer size={18} /></button>
+                  </div>
+                </div>
+              )}
               <TypingArea
                 targetText={typing.targetText}
                 input={typing.input}

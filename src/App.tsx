@@ -1489,7 +1489,7 @@ function MainApp() {
             </div>
 
           {/* HUD Controls & Actions (Right) */}
-          <div className="flex flex-col xl:flex-row items-center gap-4 text-zinc-400 w-full xl:w-auto overflow-x-auto pb-2 xl:pb-0 hide-scrollbar">
+          <div className="flex flex-wrap justify-center xl:justify-end items-center gap-4 text-zinc-400 w-full xl:w-auto pb-2 xl:pb-0">
             {/* Mode Toggles */}
             <div className="grid grid-cols-4 lg:grid-cols-8 gap-1 glass-panel shrink-0 rounded-2xl p-1">
               <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-xl transition-all flex justify-center items-center ${suddenDeath ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/5'}`} title="1HP: One mistake ends it"><Skull size={18} /></button>

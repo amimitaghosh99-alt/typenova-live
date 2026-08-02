@@ -1685,6 +1685,7 @@ function MainApp() {
                 </div>
               </div>
             </div>
+            </div>
 
             {/* Account: Google login */}
             <AccountMenu

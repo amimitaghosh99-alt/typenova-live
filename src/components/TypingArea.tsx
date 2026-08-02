@@ -141,14 +141,13 @@ interface TypingAreaProps {
   isCodeMode?: boolean;
   racePlayers?: RacerState[];
   isCrossfading?: boolean;
-  modeToggles?: React.ReactNode;
 }
 
 export const TypingArea = ({
   targetText, input, phase, theme, blindMode, focusMode,
   fogMode, startTime, shake, capsLock, stickyPenalty,
   particles, ghostPacer, combo, zenMode = false, pbGhost = null,
-  isCodeMode = false, racePlayers, isCrossfading = false, modeToggles
+  isCodeMode = false, racePlayers, isCrossfading = false
 }: TypingAreaProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -218,13 +217,6 @@ export const TypingArea = ({
         } as React.CSSProperties}
       >
         <div className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 blur-md translate-y-8 scale-95' : 'opacity-100 blur-0 translate-y-0 scale-100'} w-full flex flex-col items-center`}>
-          {/* Integrated Mode Toggles Slot */}
-          {modeToggles && (
-            <div className="absolute top-3 left-3 md:top-4 md:left-4 z-20">
-              {modeToggles}
-            </div>
-          )}
-
           {capsLock && (
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-lg animate-bounce z-50">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -272,7 +264,7 @@ export const TypingArea = ({
           <div
             id="typing-text-container"
             ref={containerRef}
-            className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto pb-4 ${modeToggles ? 'pt-16 lg:pt-14' : 'pt-2'} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-700`}
+            className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto pb-4 pt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-700`}
             style={{
               fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace",
               filter: !startTime && !zenMode ? 'blur(12px)' : 'none',

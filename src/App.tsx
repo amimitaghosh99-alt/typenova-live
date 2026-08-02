@@ -6,7 +6,7 @@ import {
   X, Code, Star, Trophy, Terminal, Zap, Lock, Check, Users,
   Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
   Swords, Sword, Sparkles, Orbit, Unlock,
-  Hash, Clock, BarChart2, CalendarCheck, Hourglass
+  Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight
 } from 'lucide-react';
 // Note: Swords is used both for the ACHIEVEMENT_ICONS map and the race button.
 import type { LucideIcon } from 'lucide-react';
@@ -1490,7 +1490,7 @@ function MainApp() {
             <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono">
               <button
                 onClick={() => cloud.username && setSelectedProfileUsername(cloud.username)}
-                className="flex items-center px-3.5 py-2 hover:bg-white/5 rounded-xl transition-all cursor-pointer text-left gap-3.5"
+                className="group flex items-center px-3.5 py-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/20 rounded-xl transition-all cursor-pointer text-left gap-3.5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
                 title="View / Edit your Player Profile"
               >
                 {/* User Avatar */}
@@ -1525,6 +1525,8 @@ function MainApp() {
                     <span className="text-[9px] font-mono text-zinc-500 w-12 leading-none">{rpg.xp} XP</span>
                   </div>
                 </div>
+                
+                <ChevronRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-0.5 transition-all ml-1" />
               </button>
 
               <button

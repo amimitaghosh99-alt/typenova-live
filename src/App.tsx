@@ -1772,6 +1772,24 @@ function MainApp() {
 
             {/* Typing Area */}
             <div className="w-full relative flex flex-col items-center mb-12">
+              {/* Mode toggles — bare icons in the open space above the card,
+                  left-aligned to its edge. No surface of their own, so they
+                  don't read as a second tile stacked on the card. */}
+              {!shouldHideClutter && (
+                <div className={`w-full flex justify-start pl-2 md:pl-3 mb-3 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
+                  <div className="flex flex-wrap items-center gap-0.5 text-zinc-500">
+                    <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${suddenDeath ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="1HP: One mistake ends it"><Skull size={17} /></button>
+                    <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={17} /></button>
+                    <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Focus"><Focus size={17} /></button>
+                    <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Blind"><Brain size={17} /></button>
+                    <button onClick={toggleMirror} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Mirror"><FlipHorizontal size={17} /></button>
+                    <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Fog"><CloudFog size={17} /></button>
+                    <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Sticky Keys"><Magnet size={17} /></button>
+                    <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${overclockedMode ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="Overclocked"><Timer size={17} /></button>
+                  </div>
+                </div>
+              )}
+
               <TypingArea
                 targetText={typing.targetText}
                 input={typing.input}
@@ -1792,20 +1810,6 @@ function MainApp() {
                 isCodeMode={level === 'CODE'}
                 racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
                 isCrossfading={isCrossfading}
-                modeToggles={
-                  !shouldHideClutter ? (
-                    <div className="flex flex-wrap items-center gap-0.5 text-zinc-500">
-                      <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${suddenDeath ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="1HP: One mistake ends it"><Skull size={17} /></button>
-                      <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={17} /></button>
-                      <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Focus"><Focus size={17} /></button>
-                      <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Blind"><Brain size={17} /></button>
-                      <button onClick={toggleMirror} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Mirror"><FlipHorizontal size={17} /></button>
-                      <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Fog"><CloudFog size={17} /></button>
-                      <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Sticky Keys"><Magnet size={17} /></button>
-                      <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${overclockedMode ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="Overclocked"><Timer size={17} /></button>
-                    </div>
-                  ) : undefined
-                }
               />
 
               {/* Attached Spacebar Prompt */}

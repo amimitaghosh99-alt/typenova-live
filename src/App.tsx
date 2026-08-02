@@ -1614,91 +1614,8 @@ function MainApp() {
               )}
             
 
-            {/* Theme & Sound */}
-            <div className="flex glass-panel rounded-full p-1 items-center relative z-50 shrink-0">
-              <div className="relative" ref={themeMenuRef}>
-                <button 
-                  onClick={() => setShowThemeMenu(!showThemeMenu)} 
-                  className={`p-2 rounded-xl hover:bg-white/5 ${theme.vividText} flex justify-center items-center transition-all`} 
-                  title={`Theme: ${theme.name.toUpperCase()}`}
-                >
-                  <Palette size={16} />
-                </button>
-                {/* Theme Dropdown Menu */}
-                <div 
-                  className={`!absolute top-full mt-2 right-0 w-56 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
-                >
-                  <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
-                    {THEME_KEYS.map((key, idx) => {
-                       const t = THEMES[key];
-                       const isActive = idx === themeIndex;
-                       return (
-                         <button
-                           key={key}
-                           onClick={() => selectTheme(idx)}
-                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${t.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
-                         >
-                           <div className="flex items-center gap-3">
-                             <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${t.solid}`} />
-                             {t.name}
-                           </div>
-                           {isActive && <Check size={14} className={t.vividText} />}
-                         </button>
-                       );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-px h-4 bg-white/10 mx-1"></div>
-              
-              <div className="relative" ref={soundMenuRef}>
-                <button 
-                  onClick={() => setShowSoundMenu(!showSoundMenu)} 
-                  className={`p-2 rounded-xl hover:bg-white/5 text-zinc-300 flex justify-center items-center transition-all`} 
-                  title={`Sound Profile: ${soundProfile.toUpperCase()}`}
-                >
-                  {soundProfile === 'silent' ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                </button>
-                {/* Sound Dropdown Menu */}
-                <div 
-                  className={`!absolute top-full mt-2 right-0 w-48 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
-                >
-                  <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
-                    {SOUND_KEYS.map((key) => {
-                       const isActive = key === soundProfile;
-                       return (
-                         <button
-                           key={key}
-                           onClick={() => selectSoundProfile(key)}
-                           className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${theme.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
-                         >
-                           <div className="flex items-center gap-3">
-                             <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${isActive ? theme.solid : 'bg-zinc-600'}`} />
-                             {key}
-                           </div>
-                           {isActive && <Check size={14} className={theme.vividText} />}
-                         </button>
-                       );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
             </div>
 
-            {/* Account: Google login */}
-            <AccountMenu
-              theme={theme}
-              loggedIn={!!cloud.username}
-              displayName={cloud.username}
-              avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
-                ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
-              status={cloud.status}
-              elo={cloud.elo}
-              onSignIn={() => { void auth.signInWithGoogle(); }}
-              onSignOut={() => { void auth.signOut(); }}
-            />
           </div>
         </header>
 
@@ -1989,6 +1906,95 @@ function MainApp() {
           </aside>
         </main>
       </div>
+
+      {/* Floating Bottom-Right Controls */}
+      {!shouldHideClutter && (
+        <div className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+          {/* Theme & Sound */}
+          <div className="flex glass-panel rounded-full p-1 items-center relative shadow-xl backdrop-blur-md">
+            <div className="relative" ref={themeMenuRef}>
+              <button 
+                onClick={() => setShowThemeMenu(!showThemeMenu)} 
+                className={`p-2 rounded-xl hover:bg-white/5 ${theme.vividText} flex justify-center items-center transition-all`} 
+                title={`Theme: ${theme.name.toUpperCase()}`}
+              >
+                <Palette size={16} />
+              </button>
+              {/* Theme Dropdown Menu */}
+              <div 
+                className={`!absolute top-full mt-2 right-0 w-56 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+              >
+                <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
+                  {THEME_KEYS.map((key, idx) => {
+                     const t = THEMES[key];
+                     const isActive = idx === themeIndex;
+                     return (
+                       <button
+                         key={key}
+                         onClick={() => selectTheme(idx)}
+                         className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${t.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                       >
+                         <div className="flex items-center gap-3">
+                           <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${t.solid}`} />
+                           {t.name}
+                         </div>
+                         {isActive && <Check size={14} className={t.vividText} />}
+                       </button>
+                     );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="w-px h-4 bg-white/10 mx-1"></div>
+            
+            <div className="relative" ref={soundMenuRef}>
+              <button 
+                onClick={() => setShowSoundMenu(!showSoundMenu)} 
+                className={`p-2 rounded-xl hover:bg-white/5 text-zinc-300 flex justify-center items-center transition-all`} 
+                title={`Sound Profile: ${soundProfile.toUpperCase()}`}
+              >
+                {soundProfile === 'silent' ? <VolumeX size={16} /> : <Volume2 size={16} />}
+              </button>
+              {/* Sound Dropdown Menu */}
+              <div 
+                className={`!absolute top-full mt-2 right-0 w-48 glass-panel rounded-2xl overflow-hidden origin-top-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-4 pointer-events-none'}`}
+              >
+                <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
+                  {SOUND_KEYS.map((key) => {
+                     const isActive = key === soundProfile;
+                     return (
+                       <button
+                         key={key}
+                         onClick={() => selectSoundProfile(key)}
+                         className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${theme.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+                       >
+                         <div className="flex items-center gap-3">
+                           <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${isActive ? theme.solid : 'bg-zinc-600'}`} />
+                           {key}
+                         </div>
+                         {isActive && <Check size={14} className={theme.vividText} />}
+                       </button>
+                     );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Account: Google login */}
+          <AccountMenu
+            theme={theme}
+            loggedIn={!!cloud.username}
+            displayName={cloud.username}
+            avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
+              ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
+            status={cloud.status}
+            elo={cloud.elo}
+            onSignIn={() => { void auth.signInWithGoogle(); }}
+            onSignOut={() => { void auth.signOut(); }}
+          />
+        </div>
+      )}
 
       {/* Floating Bottom-Left Version/Changelog Badge */}
       {!shouldHideClutter && (

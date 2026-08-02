@@ -1913,20 +1913,24 @@ function MainApp() {
 
       {/* Floating Bottom-Right Controls */}
       {!shouldHideClutter && (
-        <div className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-          {/* Theme & Sound */}
-          <div className="flex glass-panel rounded-full p-1 items-center relative shadow-xl backdrop-blur-md">
-            <div className="relative" ref={themeMenuRef}>
-              <button 
-                onClick={() => setShowThemeMenu(!showThemeMenu)} 
-                className={`p-2 rounded-xl hover:bg-white/5 ${theme.vividText} flex justify-center items-center transition-all`} 
+        <div className="fixed bottom-6 right-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+          {/* One bar: theme · sound · account. Single glass surface with
+              hairline dividers rather than separate stacked pills. */}
+          <div className="flex items-center gap-1 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.75)]">
+            {/* Not `relative`: the flyout anchors to the bar (.glass-panel is
+                position:relative) so it clears the whole bar, not just this
+                button. The ref only scopes the click-outside handler. */}
+            <div ref={themeMenuRef}>
+              <button
+                onClick={() => setShowThemeMenu(!showThemeMenu)}
+                className={`p-2.5 rounded-full ${showThemeMenu ? 'bg-white/[0.08]' : 'hover:bg-white/[0.06]'} ${theme.vividText} flex justify-center items-center transition-colors`}
                 title={`Theme: ${theme.name.toUpperCase()}`}
               >
                 <Palette size={16} />
               </button>
-              {/* Theme Dropdown Menu */}
-              <div 
-                className={`!absolute bottom-full mb-2 right-0 w-56 glass-panel rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}`}
+              {/* Theme Dropdown Menu — flies out to the left of the bar */}
+              <div
+                className={`!absolute right-full bottom-0 mr-3 w-56 glass-panel rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-x-0 pointer-events-auto' : 'opacity-0 scale-95 translate-x-4 pointer-events-none'}`}
               >
                 <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
                   {THEME_KEYS.map((key, idx) => {
@@ -1950,19 +1954,17 @@ function MainApp() {
               </div>
             </div>
 
-            <div className="w-px h-4 bg-white/10 mx-1"></div>
-            
-            <div className="relative" ref={soundMenuRef}>
-              <button 
-                onClick={() => setShowSoundMenu(!showSoundMenu)} 
-                className={`p-2 rounded-xl hover:bg-white/5 text-zinc-300 flex justify-center items-center transition-all`} 
+            <div ref={soundMenuRef}>
+              <button
+                onClick={() => setShowSoundMenu(!showSoundMenu)}
+                className={`p-2.5 rounded-full ${showSoundMenu ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
                 title={`Sound Profile: ${soundProfile.toUpperCase()}`}
               >
                 {soundProfile === 'silent' ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </button>
-              {/* Sound Dropdown Menu */}
-              <div 
-                className={`!absolute bottom-full mb-2 right-0 w-48 glass-panel rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}`}
+              {/* Sound Dropdown Menu — flies out to the left of the bar */}
+              <div
+                className={`!absolute right-full bottom-0 mr-3 w-48 glass-panel rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-x-0 pointer-events-auto' : 'opacity-0 scale-95 translate-x-4 pointer-events-none'}`}
               >
                 <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
                   {SOUND_KEYS.map((key) => {
@@ -1984,19 +1986,22 @@ function MainApp() {
                 </div>
               </div>
             </div>
+
+            <div className="w-px h-5 bg-white/10 mx-1" />
+
+            {/* Account: Google login */}
+            <AccountMenu
+              theme={theme}
+              loggedIn={!!cloud.username}
+              displayName={cloud.username}
+              avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
+                ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
+              status={cloud.status}
+              elo={cloud.elo}
+              onSignIn={() => { void auth.signInWithGoogle(); }}
+              onSignOut={() => { void auth.signOut(); }}
+            />
           </div>
-          {/* Account: Google login */}
-          <AccountMenu
-            theme={theme}
-            loggedIn={!!cloud.username}
-            displayName={cloud.username}
-            avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
-              ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
-            status={cloud.status}
-            elo={cloud.elo}
-            onSignIn={() => { void auth.signInWithGoogle(); }}
-            onSignOut={() => { void auth.signOut(); }}
-          />
         </div>
       )}
 

@@ -65,7 +65,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
           if (chunkData) profilesList.push(...chunkData);
         }
 
-        const profileMap: Record<string, { username: string, isOnline: boolean, elo: number }> = {};
+        const profileMap: Record<string, FriendData> = {};
         const now = new Date().getTime();
         profilesList.forEach(p => { 
           const lastSeenTime = p.last_seen ? new Date(p.last_seen).getTime() : 0;

@@ -50,14 +50,7 @@ export function CommsModal({ supabase, userId, friends, onClose }: CommsModalPro
     );
   }, [messages, userId, activeFriendId]);
 
-  const lastMessagesByFriend = useMemo(() => {
-    const map: Record<string, string> = {};
-    messages.forEach(m => {
-      const friendId = m.sender_id === userId ? m.receiver_id : m.sender_id;
-      map[friendId] = m.content;
-    });
-    return map;
-  }, [messages, userId]);
+
 
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 p-8">

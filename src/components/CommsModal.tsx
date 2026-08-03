@@ -60,154 +60,181 @@ export function CommsModal({ supabase, userId, friends, onClose }: CommsModalPro
   }, [messages, userId]);
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 p-4">
-      {/* Modal Container */}
-      <div className="w-full max-w-5xl h-[80vh] bg-slate-950/80 backdrop-blur-xl border border-cyan-500/30 rounded-3xl shadow-[0_0_50px_rgba(34,211,238,0.15)] flex overflow-hidden lucid-scale">
-        
-        {/* Left Panel - Friends Roster */}
-        <div className="w-1/3 border-r border-cyan-500/20 bg-black/40 flex flex-col">
-          <div className="px-6 py-5 border-b border-cyan-500/20 flex items-center justify-between bg-cyan-950/20">
-            <h2 className="text-cyan-400 font-black tracking-widest uppercase text-sm flex items-center gap-2 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">
-              <MessageSquare size={16} />
-              Communications
-            </h2>
-          </div>
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-300 p-8">
+      
+      {/* Outer HUD Container */}
+      <div className="relative w-full max-w-5xl h-[85vh] lucid-scale">
+        <div className="hud-panel-border" />
+        <div className="hud-panel w-full h-full flex overflow-hidden">
           
-          <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
-            {friends.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-cyan-600/50 text-xs font-bold tracking-wider uppercase gap-3">
-                <Sparkles size={20} className="opacity-40" />
-                <span>No Comms Links</span>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {friends.map(friend => {
-                  const lastMessage = lastMessagesByFriend[friend.id] || null;
+          {/* Left Panel - Friends Roster */}
+          <div className="w-[320px] shrink-0 border-r border-cyan-500/20 bg-cyan-950/20 flex flex-col relative z-10 shadow-[20px_0_30px_-10px_rgba(0,0,0,0.5)]">
+            <div className="px-6 py-5 border-b border-cyan-500/20 flex items-center gap-3">
+              <MessageSquare size={16} className="text-cyan-400" />
+              <h2 className="text-cyan-50 font-black tracking-widest uppercase text-sm drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">
+                Communications
+              </h2>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-3">
+              {friends.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-cyan-600/50 text-xs font-bold tracking-wider uppercase gap-3">
+                  <Sparkles size={20} className="opacity-40" />
+                  <span>No Comms Links</span>
+                </div>
+              ) : (
+                friends.map(friend => {
                   const isActive = friend.id === activeFriendId;
                   
                   return (
                     <button
                       key={friend.id}
                       onClick={() => setActiveFriendId(friend.id)}
-                      className={`flex items-center justify-between w-full p-4 cursor-pointer transition-all group text-left rounded-r-xl ${
-                        isActive 
-                          ? 'bg-gradient-to-r from-cyan-500/20 to-transparent border-l-2 border-cyan-400 shadow-[inset_0_0_20px_rgba(34,211,238,0.1)]' 
-                          : 'hover:bg-white/5 border-l-2 border-transparent'
+                      className={`relative flex items-center justify-between w-full p-3 cursor-pointer transition-all text-left ${
+                        isActive ? 'hud-tab-active' : 'hud-tab-inactive hover:bg-white/5'
                       }`}
                     >
                       <div className="flex items-center gap-4 overflow-hidden">
-                        <div className={`relative w-12 h-12 rounded-full flex flex-shrink-0 items-center justify-center font-black text-lg uppercase transition-all ${
+                        
+                        {/* Avatar */}
+                        <div className={`relative w-11 h-11 rounded-full flex flex-shrink-0 items-center justify-center font-black text-lg uppercase transition-all ${
                           isActive 
-                            ? 'bg-cyan-950/80 border border-cyan-400 text-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.4)]' 
-                            : 'bg-black/60 border border-zinc-700 text-white/80 group-hover:border-cyan-500/40'
+                            ? 'bg-transparent border-2 border-cyan-400 text-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.4)]' 
+                            : 'bg-black/60 border border-cyan-900 text-cyan-100/50'
                         }`}>
                           {friend.username.charAt(0)}
-                          <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 transition-colors ${
-                            friend.isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-zinc-600'
+                          
+                          {/* Inner glowing ring for active state */}
+                          {isActive && <div className="absolute inset-1 rounded-full border border-cyan-400/50 shadow-[inset_0_0_10px_rgba(34,211,238,0.5)]" />}
+                          
+                          {/* Status Dot */}
+                          <div className={`absolute top-0 right-0 w-2.5 h-2.5 rounded-full border border-black transition-colors ${
+                            friend.isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,1)]' : 'bg-cyan-800'
                           }`} />
                         </div>
+                        
                         <div className="flex flex-col min-w-0">
                           <span className={`font-black text-sm tracking-widest uppercase truncate transition-colors ${
-                            isActive ? 'text-cyan-100 drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]' : 'text-zinc-300 group-hover:text-white'
+                            isActive ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'text-cyan-100/60'
                           }`}>{friend.username}</span>
-                          {lastMessage && (
-                            <span className={`text-[11px] font-medium truncate mt-1 ${isActive ? 'text-cyan-400/80' : 'text-zinc-500'}`}>{lastMessage}</span>
-                          )}
                         </div>
                       </div>
+                      
                       {unreadCounts[friend.id] > 0 && (
-                        <span className="flex-shrink-0 flex items-center justify-center min-w-[24px] h-6 px-2 bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.8)] text-white text-[11px] font-black rounded-full ml-2">
+                        <span className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)] text-cyan-950 text-[10px] font-black rounded-full ml-2">
                           {unreadCounts[friend.id]}
                         </span>
                       )}
                     </button>
                   );
-                })}
+                })
+              )}
+            </div>
+          </div>
+  
+          {/* Right Panel - Chat Feed */}
+          <div className="flex-1 flex flex-col relative bg-transparent z-10">
+            
+            {/* Close Button overlay */}
+            <div className="absolute top-4 right-4 z-50">
+              <button
+                onClick={onClose}
+                className="w-8 h-8 flex items-center justify-center bg-cyan-950/60 border border-cyan-500/30 rounded-full text-cyan-400 hover:bg-cyan-400 hover:text-cyan-950 hover:shadow-[0_0_15px_rgba(34,211,238,0.6)] transition-all"
+              >
+                <X size={16} strokeWidth={3} />
+              </button>
+            </div>
+  
+            {!activeFriendId ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-cyan-600/30 gap-4">
+                <MessageSquare size={64} className="opacity-20" />
+                <span className="text-xs text-cyan-500/40 font-black tracking-widest uppercase shadow-sm">Select a comms link to begin</span>
               </div>
+            ) : (
+              <>
+                {/* Chat Header */}
+                <div className="px-8 py-5 flex items-center gap-3 border-b border-cyan-500/20 bg-cyan-950/40">
+                  <div className={`w-2 h-2 rounded-full ${activeFriend?.isOnline ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,1)]' : 'bg-cyan-800'}`} />
+                  <h3 className="text-xl font-black tracking-widest uppercase text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
+                    {activeFriend?.username}
+                  </h3>
+                </div>
+  
+                {/* Chat Feed */}
+                <div className="flex-1 relative overflow-hidden">
+                  
+                  {/* Faint background text */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                    <span className="text-[10px] text-cyan-500/10 font-black tracking-[0.2em] uppercase">
+                      Establish Comms Link With {activeFriend?.username}
+                    </span>
+                  </div>
+
+                  <div ref={chatContainerRef} className="absolute inset-0 overflow-y-auto p-8 flex flex-col gap-6 custom-scrollbar z-10">
+                    {activeMessages.length === 0 ? null : (
+                      activeMessages.map(msg => {
+                        const isSelf = msg.sender_id === userId;
+                        const timeString = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        return (
+                          <div key={msg.id} className={`flex w-full gap-4 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                            
+                            {/* Avatar for received messages */}
+                            {!isSelf && (
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full border border-cyan-500/50 flex items-center justify-center font-black text-xs text-cyan-200 bg-cyan-950 shadow-[0_0_10px_rgba(34,211,238,0.2)] mt-1">
+                                {activeFriend?.username.charAt(0)}
+                              </div>
+                            )}
+
+                            <div className={`flex flex-col max-w-[70%] ${isSelf ? 'items-end' : 'items-start'}`}>
+                              <div className={`px-5 py-3 text-[13px] font-medium leading-relaxed break-words shadow-lg ${
+                                isSelf ? 'hud-bubble-self text-cyan-50' : 'hud-bubble-other text-cyan-100/90'
+                              }`}>
+                                {isSelf && <div className="hud-bubble-self-border" />}
+                                {!isSelf && <div className="hud-bubble-other-border" />}
+                                <span className="relative z-10">{msg.content}</span>
+                              </div>
+                              
+                              <span className="text-[9px] font-black tracking-widest mt-1.5 text-cyan-500/60 uppercase">
+                                {timeString} {isSelf && (msg.read ? '✔✔' : '✔')}
+                              </span>
+                            </div>
+
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+  
+                {/* Input Area */}
+                <div className="p-6 pb-8 border-t border-cyan-500/20 bg-cyan-950/20 z-20 flex justify-center">
+                  
+                  <div className="relative w-full max-w-3xl flex items-center gap-3">
+                    <form onSubmit={handleSend} className="flex-1 hud-input-wrapper flex items-center">
+                      <div className="hud-input-wrapper-border" />
+                      <input
+                        type="text"
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        placeholder="Transmit message..."
+                        className="w-full bg-transparent text-cyan-100 placeholder:text-cyan-700 font-medium text-sm px-6 py-4 focus:outline-none relative z-10"
+                      />
+                    </form>
+                    
+                    <button
+                      type="submit"
+                      disabled={!inputText.trim()}
+                      onClick={handleSend}
+                      className="flex-shrink-0 w-12 h-12 rounded-full border border-cyan-400 bg-cyan-950/50 text-cyan-400 flex items-center justify-center hover:bg-cyan-400 hover:text-cyan-950 hover:shadow-[0_0_20px_rgba(34,211,238,0.8)] transition-all disabled:opacity-30 disabled:hover:bg-cyan-950/50 disabled:hover:text-cyan-400 disabled:hover:shadow-none disabled:cursor-not-allowed shadow-[0_0_10px_rgba(34,211,238,0.3)] group"
+                    >
+                      <Send size={18} className="transform translate-x-[1px] -translate-y-[1px] group-hover:scale-110 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
-        </div>
-
-        {/* Right Panel - Chat Feed */}
-        <div className="w-2/3 flex flex-col relative bg-transparent">
-          <div className="absolute top-5 right-5 z-10">
-            <button
-              onClick={onClose}
-              className="p-2 rounded-xl bg-black/20 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition-colors border border-transparent hover:border-red-500/30"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {!activeFriendId ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-cyan-600/30 gap-4">
-              <MessageSquare size={48} className="opacity-50" />
-              <span className="font-black tracking-widest uppercase text-sm">Select a comms link to begin</span>
-            </div>
-          ) : (
-            <>
-              {/* Chat Header */}
-              <div className="px-8 py-6 border-b border-cyan-500/20 bg-cyan-950/10 shadow-[0_4px_20px_-4px_rgba(34,211,238,0.05)]">
-                <h3 className="text-2xl font-black tracking-widest uppercase text-white flex items-center gap-3 drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
-                  <div className={`w-3 h-3 rounded-full ${activeFriend?.isOnline ? 'bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.8)]' : 'bg-zinc-600'}`} />
-                  {activeFriend?.username}
-                </h3>
-              </div>
-
-              {/* Chat Feed */}
-              <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 custom-scrollbar bg-black/20">
-                {activeMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-4">
-                    <span className="text-5xl animate-pulse">👋</span>
-                    <span className="text-sm font-black tracking-widest uppercase text-cyan-500/60 drop-shadow-[0_0_8px_rgba(34,211,238,0.2)]">Establish comms link with {activeFriend?.username}</span>
-                  </div>
-                ) : (
-                  activeMessages.map(msg => {
-                    const isSelf = msg.sender_id === userId;
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col max-w-[75%] px-5 py-4 text-[14px] shadow-sm font-medium ${
-                          isSelf 
-                            ? 'self-end bg-cyan-950/40 border border-cyan-500/40 text-cyan-50 rounded-2xl rounded-tr-sm shadow-[0_0_15px_rgba(34,211,238,0.08)]' 
-                            : 'self-start bg-black/60 border border-zinc-700/60 text-zinc-300 rounded-2xl rounded-tl-sm'
-                        }`}
-                      >
-                        <p className="leading-relaxed break-words">{msg.content}</p>
-                        <span className={`text-[10px] font-black tracking-wider mt-2 self-end uppercase ${isSelf ? 'text-cyan-400 opacity-80' : 'text-zinc-500'}`}>
-                          {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Input Area */}
-              <form onSubmit={handleSend} className="p-6 bg-black/40 border-t border-cyan-500/20 flex gap-4 backdrop-blur-md">
-                <div className="flex-1 relative">
-                  {/* Futuristic HUD brackets for input */}
-                  <div className="absolute left-0 top-0 bottom-0 w-2 border-l-2 border-y-2 border-cyan-500/30 rounded-l-lg pointer-events-none"></div>
-                  <div className="absolute right-0 top-0 bottom-0 w-2 border-r-2 border-y-2 border-cyan-500/30 rounded-r-lg pointer-events-none"></div>
-                  
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Transmit message..."
-                    className="w-full h-full bg-cyan-950/10 border border-cyan-500/20 rounded-lg px-6 py-4 text-sm font-medium text-cyan-100 placeholder:text-cyan-800/60 focus:outline-none focus:border-cyan-400 focus:bg-cyan-950/30 focus:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={!inputText.trim()}
-                  className="w-14 h-14 shrink-0 rounded-lg bg-cyan-950/50 text-cyan-400 flex items-center justify-center hover:bg-cyan-900/80 hover:scale-105 transition-all disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed border border-cyan-500/40 hover:border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.15)]"
-                >
-                  <Send size={20} className="-ml-1" />
-                </button>
-              </form>
-            </>
-          )}
         </div>
       </div>
     </div>

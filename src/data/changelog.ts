@@ -18,6 +18,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.6.3',
+    date: 'August 3, 2026',
+    title: 'Direct Messages & UI Fixes 💬',
+    changes: [
+      { type: 'feature', description: 'Direct Messages: Added the foundation for real-time direct messaging with a new Comms modal.' },
+      { type: 'fix', description: 'UI Tweaks: Fixed undefined property references and duplicate class warnings in the core typing engine UI.' }
+    ],
+    impact: { fixes: 2, tweaks: 1, linesChanged: 300, perfGain: 'Cleaner DOM' },
+  },
+  {
     version: 'v1.6.2',
     date: 'August 2, 2026',
     title: 'The Great Bug Sweep & Stability Update 🛡️',

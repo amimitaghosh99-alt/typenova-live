@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Settings, Skull, Ghost, Focus, Brain, FlipHorizontal, CloudFog, Magnet, Timer, EyeOff, LayoutGrid, Palette, Volume2, Check } from 'lucide-react';
+import { useState } from 'react';
+import { X, Settings, Skull, Ghost, Brain, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check } from 'lucide-react';
 import { THEMES, THEME_KEYS, SOUND_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
 
@@ -11,8 +11,8 @@ interface SettingsModalProps {
   setSuddenDeath: (val: boolean) => void;
   ghostPacer: boolean;
   setGhostPacer: (val: boolean) => void;
-  focusMode: boolean;
-  setFocusMode: (val: boolean) => void;
+  focusMode?: boolean;
+  setFocusMode?: (val: boolean) => void;
   blindMode: boolean;
   setBlindMode: (val: boolean) => void;
   mirroredMode: boolean;
@@ -23,8 +23,8 @@ interface SettingsModalProps {
   setStickyKeysMode: (val: boolean) => void;
   overclockedMode: boolean;
   setOverclockedMode: (val: boolean) => void;
-  zenMode: boolean;
-  setZenMode: (val: boolean) => void;
+  zenMode?: boolean;
+  setZenMode?: (val: boolean) => void;
   themeIndex: number;
   selectTheme: (idx: number) => void;
   soundProfile: string;
@@ -36,13 +36,11 @@ export function SettingsModal({
   onClose,
   suddenDeath, setSuddenDeath,
   ghostPacer, setGhostPacer,
-  focusMode, setFocusMode,
   blindMode, setBlindMode,
   mirroredMode, toggleMirror,
   fogMode, setFogMode,
   stickyKeysMode, setStickyKeysMode,
   overclockedMode, setOverclockedMode,
-  zenMode, setZenMode,
   themeIndex, selectTheme,
   soundProfile, selectSoundProfile
 }: SettingsModalProps) {

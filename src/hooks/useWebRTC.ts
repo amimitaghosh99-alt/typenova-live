@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -18,12 +18,12 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const signalingChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const signalingChannel = useRef<any>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
 
   // Initialize WebRTC and Signaling Channel
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !supabase) return;
 
     // Listen on personal signaling channel
     const channelName = `webrtc:${userId}`;
@@ -83,6 +83,7 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
   }, [userId, callState]);
 
   const sendSignal = (targetId: string, type: string, data: any) => {
+    if (!supabase) return;
     supabase.channel(`webrtc:${targetId}`).send({
       type: 'broadcast',
       event: 'call-signal',

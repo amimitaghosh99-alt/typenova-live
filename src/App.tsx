@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Keyboard, Activity, Target, RotateCcw, Skull, Ghost,
-  Focus, Brain, Volume2, VolumeX, Palette,
+  Focus, Brain, Palette,
   Award, FlipHorizontal, CloudFog, Magnet, Timer,
-  X, Code, Star, Trophy, Terminal, Zap, Lock, Check, Users,
+  X, Code, Star, Trophy, Terminal, Zap, Lock, Users,
   Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
   Swords, Sword, Sparkles, Orbit, Unlock,
   Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight, MessageSquare, Settings
@@ -12,7 +12,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 import {
-  THEMES, THEME_KEYS, SOUND_KEYS, ACHIEVEMENTS,
+  THEMES, THEME_KEYS, ACHIEVEMENTS,
   NOVICE_SENTENCES, ADEPT_SENTENCES,
   CODE_LANGUAGES, type CodeLanguage,
   generateText

@@ -226,17 +226,10 @@ export const THEMES: Record<string, Theme> = {
   sunset: makeTheme('sunset', 'bg-[#1a0a00]', 'text-orange-400', 'orange'),
   monochrome: makeTheme('monochrome', 'bg-[#0a0a0a]', 'text-zinc-200', 'zinc'),
   nord: makeTheme('nord', 'bg-[#1e222a]', 'text-sky-300', 'sky'),
-  amber: makeTheme('amber', 'bg-[#120a00]', 'text-amber-400', 'amber'),
   vaporwave: makeTheme('vaporwave', 'bg-[#0a001a]', 'text-pink-400', 'pink'),
-  
-  // Custom Dual-Color Themes
-  spiderman: makeTheme('spiderman', 'bg-zinc-950', 'text-red-500', 'red', 'bg-blue-600', '239, 68, 68', '37, 99, 235'),
-  ironman: makeTheme('ironman', 'bg-zinc-950', 'text-red-500', 'red', 'bg-amber-400', '239, 68, 68', '245, 158, 11'),
-  captain: makeTheme('captain', 'bg-[#000a1a]', 'text-blue-400', 'blue', 'bg-blue-400'),
-  madrid: makeTheme('madrid', 'bg-zinc-950', 'text-zinc-200', 'white', 'bg-amber-300', '255, 255, 255', '245, 158, 11'),
-  barca: makeTheme('barca', 'bg-zinc-950', 'text-blue-500', 'blue', 'bg-blue-600', '37, 99, 235', '220, 38, 38'),
+  dracula: makeTheme('dracula', 'bg-[#1a0a1a]', 'text-purple-400', 'fuchsia'),
 
-  // Creative Galaxy Theme (Gradient Text & Bar)
+  // Creative Themes
   galaxy: {
     name: 'galaxy',
     bg: 'bg-[#050014]',
@@ -276,25 +269,7 @@ export const THEMES: Record<string, Theme> = {
     toastGlow: 'shadow-[0_0_30px_rgba(255,0,80,0.4)]',
     glowPrimary: '255, 0, 80',
     glowSecondary: '0, 255, 255'
-  },
-  
-  // NEW VIVID THEMES
-  synthwave: makeTheme('synthwave', 'bg-[#0d0221]', 'text-cyan-300', 'fuchsia'), 
-  matcha: makeTheme('matcha', 'bg-[#0a120a]', 'text-lime-100', 'lime'), 
-  bloodmoon: makeTheme('bloodmoon', 'bg-[#0a0000]', 'text-rose-100', 'red', 'bg-red-600'), 
-  aurora: makeTheme('aurora', 'bg-[#001214]', 'text-white', 'teal'), 
-  goldrush: makeTheme('goldrush', 'bg-[#0f0a00]', 'text-amber-100', 'amber'), 
-  bubblegum: makeTheme('bubblegum', 'bg-[#1a0a14]', 'text-pink-200', 'sky'), 
-  void: makeTheme('void', 'bg-[#000000]', 'text-zinc-200', 'zinc'), 
-  hacker: makeTheme('hacker', 'bg-[#020a02]', 'text-lime-400', 'lime'),
-  
-  sakura: makeTheme('sakura', 'bg-[#1a0a10]', 'text-pink-300', 'pink'),
-  ocean: makeTheme('ocean', 'bg-[#000a1a]', 'text-cyan-300', 'cyan'),
-  dracula: makeTheme('dracula', 'bg-[#1a0a1a]', 'text-purple-400', 'fuchsia'),
-  tokyo: makeTheme('tokyo', 'bg-[#0a0a1a]', 'text-indigo-400', 'blue'),
-  forest: makeTheme('forest', 'bg-[#051a0a]', 'text-emerald-300', 'emerald'),
-  obsidian: makeTheme('obsidian', 'bg-[#0f0f0f]', 'text-orange-500', 'orange'),
-  glacier: makeTheme('glacier', 'bg-[#0a121a]', 'text-sky-200', 'sky')
+  }
 };
 
 export const THEME_KEYS = Object.keys(THEMES);

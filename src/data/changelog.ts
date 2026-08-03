@@ -18,6 +18,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.6.4',
+    date: 'August 4, 2026',
+    title: 'Video Calling & Global Settings 📹⚙️',
+    changes: [
+      { type: 'feature', description: 'Video Calling: Added WebRTC-based video call overlays so you can see your friends while racing.' },
+      { type: 'feature', description: 'Settings Modal: Centralized settings management with a new dedicated modal and contexts.' },
+      { type: 'fix', description: 'Daily Scores: Fixed an issue with database casting for daily score entries.' }
+    ],
+    impact: { fixes: 1, tweaks: 2, linesChanged: 500, perfGain: 'New features added' },
+  },
+  {
     version: 'v1.6.3',
     date: 'August 3, 2026',
     title: 'Direct Messages & UI Fixes 💬',

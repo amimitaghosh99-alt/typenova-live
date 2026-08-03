@@ -6,7 +6,7 @@ import {
   X, Code, Star, Trophy, Terminal, Zap, Lock, Check, Users,
   Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
   Swords, Sword, Sparkles, Orbit, Unlock,
-  Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight, MessageSquare
+  Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight, MessageSquare, Settings
 } from 'lucide-react';
 // Note: Swords is used both for the ACHIEVEMENT_ICONS map and the race button.
 import type { LucideIcon } from 'lucide-react';
@@ -56,6 +56,9 @@ import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { ChangelogModal } from '@/components/ChangelogModal';
 import { CHANGELOG } from '@/data/changelog';
+import { SettingsModal } from './components/SettingsModal';
+import { VideoCallProvider } from '@/contexts/VideoCallContext';
+import { VideoCallOverlay } from '@/components/VideoCallOverlay';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
 // stay import-free — tailwind.config.js loads it via jiti) to lucide
@@ -202,6 +205,7 @@ function MainApp() {
   const [showSocialModal, setShowSocialModal] = useState(false);
   const [showCommsModal, setShowCommsModal] = useState(false);
   const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
@@ -387,6 +391,7 @@ function MainApp() {
     showRace,
     showSocialModal,
     showCommsModal,
+    showSettingsModal,
     showChangelog,
     raceActive,
     theme,
@@ -428,6 +433,7 @@ function MainApp() {
       showRace,
       showSocialModal,
       showCommsModal,
+      showSettingsModal,
       showChangelog,
       raceActive,
       theme,
@@ -846,7 +852,7 @@ function MainApp() {
       const { typing, audio, rpg, handleReset, exitMicroDrill, particles } = actionsRef.current;
 
       // Modal escape handling
-      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showSoundMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showCommsModal || s.showChangelog) {
+      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showSoundMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showCommsModal || s.showSettingsModal || s.showChangelog) {
         if (e.key === 'Escape') {
           setShowTrophyRoom(false);
           setShowGodMode(false);
@@ -858,6 +864,7 @@ function MainApp() {
           setShowRace(false);
           setShowSocialModal(false);
           setShowCommsModal(false);
+          setShowSettingsModal(false);
           setShowChangelog(false);
         }
         return;
@@ -1181,7 +1188,7 @@ function MainApp() {
 
     if (raceActive) {
       return (
-        <>
+        <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
           <RaceResultsScreen
             {...resultsProps}
             players={race.players}
@@ -1204,12 +1211,13 @@ function MainApp() {
               onClose={() => setShowReplay(false)}
             />
           )}
-        </>
+          <VideoCallOverlay />
+        </VideoCallProvider>
       );
     }
 
     return (
-      <>
+      <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
         <ResultsScreen {...resultsProps} />
         {showReplay && (
           <ReplayModal
@@ -1219,12 +1227,14 @@ function MainApp() {
             onClose={() => setShowReplay(false)}
           />
         )}
-      </>
+        <VideoCallOverlay />
+      </VideoCallProvider>
     );
   }
 
   return (
-    <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
+    <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
+      <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
 
       {/* Global Liquid-Glass SVG filter — rendered once, referenced by every
           .glass-refract panel via backdrop-filter: url(#glass-distortion)
@@ -1947,75 +1957,13 @@ function MainApp() {
           {/* One bar: theme · sound · account. Single glass surface with
               hairline dividers rather than separate stacked pills. */}
           <div className="flex items-center gap-1 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.75)]">
-            {/* Not `relative`: the flyout anchors to the bar (.glass-panel is
-                position:relative) so it clears the whole bar, not just this
-                button. The ref only scopes the click-outside handler. */}
-            <div ref={themeMenuRef}>
-              <button
-                onClick={() => setShowThemeMenu(!showThemeMenu)}
-                className={`p-2.5 rounded-full ${showThemeMenu ? 'bg-white/[0.08]' : 'hover:bg-white/[0.06]'} ${theme.vividText} flex justify-center items-center transition-colors`}
-                title={`Theme: ${theme.name.toUpperCase()}`}
-              >
-                <Palette size={16} />
-              </button>
-              {/* Theme Dropdown Menu — flies out to the left of the bar */}
-              <div
-                className={`!absolute right-full bottom-0 mr-3 w-56 glass-panel rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showThemeMenu ? 'opacity-100 scale-100 translate-x-0 pointer-events-auto' : 'opacity-0 scale-95 translate-x-4 pointer-events-none'}`}
-              >
-                <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
-                  {THEME_KEYS.map((key, idx) => {
-                     const t = THEMES[key];
-                     const isActive = idx === themeIndex;
-                     return (
-                       <button
-                         key={key}
-                         onClick={() => selectTheme(idx)}
-                         className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${t.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
-                       >
-                         <div className="flex items-center gap-3">
-                           <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${t.solid}`} />
-                           {t.name}
-                         </div>
-                         {isActive && <Check size={14} className={t.vividText} />}
-                       </button>
-                     );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div ref={soundMenuRef}>
-              <button
-                onClick={() => setShowSoundMenu(!showSoundMenu)}
-                className={`p-2.5 rounded-full ${showSoundMenu ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
-                title={`Sound Profile: ${soundProfile.toUpperCase()}`}
-              >
-                {soundProfile === 'silent' ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              </button>
-              {/* Sound Dropdown Menu — flies out to the left of the bar */}
-              <div
-                className={`!absolute right-full bottom-0 mr-3 w-48 glass-panel rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[1000] ${showSoundMenu ? 'opacity-100 scale-100 translate-x-0 pointer-events-auto' : 'opacity-0 scale-95 translate-x-4 pointer-events-none'}`}
-              >
-                <div className="max-h-64 overflow-y-auto p-2 flex flex-col gap-1">
-                  {SOUND_KEYS.map((key) => {
-                     const isActive = key === soundProfile;
-                     return (
-                       <button
-                         key={key}
-                         onClick={() => selectSoundProfile(key)}
-                         className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${theme.vividText}` : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
-                       >
-                         <div className="flex items-center gap-3">
-                           <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${isActive ? theme.solid : 'bg-zinc-600'}`} />
-                           {key}
-                         </div>
-                         {isActive && <Check size={14} className={theme.vividText} />}
-                       </button>
-                     );
-                  })}
-                </div>
-              </div>
-            </div>
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className={`p-2.5 rounded-full ${showSettingsModal ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
+              title="Settings"
+            >
+              <Settings size={16} />
+            </button>
 
             <div className="w-px h-5 bg-white/10 mx-1" />
 
@@ -2188,7 +2136,27 @@ function MainApp() {
           onReject={() => challenges.rejectChallenge()}
         />
       )}
+
+      {showSettingsModal && (
+        <SettingsModal
+          theme={theme}
+          onClose={() => setShowSettingsModal(false)}
+          suddenDeath={suddenDeath} setSuddenDeath={setSuddenDeath}
+          ghostPacer={ghostPacer} setGhostPacer={setGhostPacer}
+          focusMode={focusMode} setFocusMode={setFocusMode}
+          blindMode={blindMode} setBlindMode={setBlindMode}
+          mirroredMode={mirroredMode} toggleMirror={toggleMirror}
+          fogMode={fogMode} setFogMode={setFogMode}
+          stickyKeysMode={stickyKeysMode} setStickyKeysMode={setStickyKeysMode}
+          overclockedMode={overclockedMode} setOverclockedMode={setOverclockedMode}
+          zenMode={zenMode} setZenMode={setZenMode}
+          themeIndex={themeIndex} selectTheme={selectTheme}
+          soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
+        />
+      )}
+      <VideoCallOverlay />
     </div>
+    </VideoCallProvider>
   );
 }
 

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { X, Send, Sparkles, MessageSquare } from 'lucide-react';
+import { X, Send, Sparkles, MessageSquare, Video } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FriendData } from '@/hooks/useFriends';
 import { useMessages } from '@/hooks/useMessages';
+import { useVideoCall } from '@/contexts/VideoCallContext';
 
 interface CommsModalProps {
   supabase: SupabaseClient | null;
@@ -15,6 +16,7 @@ export function CommsModal({ supabase, userId, friends, onClose }: CommsModalPro
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const { callUser } = useVideoCall();
 
   const { messages, unreadCounts, sendMessage, markAsRead } = useMessages({ supabase, userId });
 
@@ -152,7 +154,16 @@ export function CommsModal({ supabase, userId, friends, onClose }: CommsModalPro
                     {activeFriend?.username}
                   </h3>
                 </div>
-  
+                {activeFriend?.isOnline && (
+                  <button
+                    onClick={() => callUser(activeFriend.id, activeFriend.username)}
+                    className="ml-auto w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950 hover:shadow-[0_0_15px_rgba(52,211,153,0.6)] transition-all"
+                    title={`Video call ${activeFriend.username}`}
+                  >
+                    <Video size={18} />
+                  </button>
+                )}
+                
                 {/* Chat Feed */}
                 <div className="flex-1 relative overflow-hidden">
                   

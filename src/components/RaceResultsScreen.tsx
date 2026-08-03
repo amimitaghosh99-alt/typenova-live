@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Trophy, LogOut, RotateCcw } from 'lucide-react';
+import { Trophy, LogOut, RotateCcw, Video } from 'lucide-react';
+import { useVideoCall } from '@/contexts/VideoCallContext';
 import type { RacerState } from '@/hooks/useRace';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
@@ -26,9 +27,21 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
 }
 
 export function RaceResultsScreen({
-  players, selfId, roomSize, timelines, isRanked, supabase, raceId, isHost, onRematch, onLeaveRace, onUpdateElo, theme,
+  theme,
+  players,
+  selfId,
+  roomSize,
+  timelines,
+  isRanked,
+  supabase,
+  raceId,
+  isHost,
+  onRematch,
+  onLeaveRace,
+  onUpdateElo,
   ...resultsProps
 }: RaceResultsScreenProps) {
+  const { callUser } = useVideoCall();
   const ranking = useMemo(() =>
     [...players]
       .filter(p => p.finished)
@@ -378,6 +391,15 @@ export function RaceResultsScreen({
                     </span>
                     {isSelf && (
                       <span className="ml-1 text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-full bg-white/10 border border-white/20">YOU</span>
+                    )}
+                    {!isSelf && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); callUser(player.id, player.name); }}
+                        className="ml-auto w-7 h-7 flex items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-emerald-500/20 hover:text-emerald-400 transition-all z-20"
+                        title="Video Call"
+                      >
+                        <Video size={14} />
+                      </button>
                     )}
                   </div>
                   <div className="flex justify-between items-baseline mt-2">

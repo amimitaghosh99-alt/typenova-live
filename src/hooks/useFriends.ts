@@ -8,6 +8,7 @@ export interface UseFriendsOptions {
 }
 
 export interface FriendData {
+  id: string;
   username: string;
   isOnline: boolean;
   elo: number;
@@ -70,7 +71,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
           const lastSeenTime = p.last_seen ? new Date(p.last_seen).getTime() : 0;
           // Online if last_seen was within the last 2 minutes (120,000 ms)
           const isOnline = (now - lastSeenTime) < 120000;
-          profileMap[p.id] = { username: p.username, isOnline, elo: p.elo ?? 1000 }; 
+          profileMap[p.id] = { id: p.id, username: p.username, isOnline, elo: p.elo ?? 1000 }; 
         });
 
         const acc: FriendData[] = [];

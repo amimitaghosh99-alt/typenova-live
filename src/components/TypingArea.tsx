@@ -205,8 +205,8 @@ export const TypingArea = ({
       <div
         className={
           zenMode
-            ? 'relative w-full max-w-4xl z-10 px-4'
-            : `relative w-full rounded-[2rem] glass-panel glass-refract theme-transition z-10 p-3 md:p-6 ${phase === 'TYPING' ? 'typing-active' : ''}`
+            ? 'relative w-full max-w-4xl z-20 px-4'
+            : `relative w-full rounded-[2rem] !rounded-tl-none z-20 glass-panel modifier-attached glass-refract theme-transition p-3 md:p-6 ${phase === 'TYPING' ? 'typing-active' : ''}`
         }
         style={{
           '--combo-glow': combo > 60 ? `0 0 120px rgba(${theme.glowPrimary},0.6)`

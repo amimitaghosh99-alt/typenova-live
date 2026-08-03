@@ -6,7 +6,7 @@ import {
   X, Code, Star, Trophy, Terminal, Zap, Lock, Check, Users,
   Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
   Swords, Sword, Sparkles, Orbit, Unlock,
-  Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight
+  Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight, MessageSquare
 } from 'lucide-react';
 // Note: Swords is used both for the ACHIEVEMENT_ICONS map and the race button.
 import type { LucideIcon } from 'lucide-react';
@@ -40,6 +40,7 @@ import { SocialModal } from '@/components/SocialModal';
 import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
 import { ChallengeNotification } from '@/components/ChallengeNotification';
 import { PlayerProfileModal } from '@/components/PlayerProfileModal';
+import { CommsModal } from '@/components/CommsModal';
 import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
 import { useChallenges } from '@/hooks/useChallenges';
 import { useRace, makeRoomCode } from '@/hooks/useRace';
@@ -199,6 +200,7 @@ function MainApp() {
   const [showReplay, setShowReplay] = useState(false);
   const [showRace, setShowRace] = useState(false);
   const [showSocialModal, setShowSocialModal] = useState(false);
+  const [showCommsModal, setShowCommsModal] = useState(false);
   const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
@@ -1398,7 +1400,17 @@ function MainApp() {
         </div>
       )}
 
-      {/* Trophy Room Modal */}
+      {/* Comms Modal */}
+      {showCommsModal && isLoggedIn && (
+        <CommsModal
+          supabase={supabase}
+          userId={auth.session?.user.id}
+          friends={friendsState.friends}
+          onClose={() => setShowCommsModal(false)}
+        />
+      )}
+
+      {/* Active Race / Multiplayer Lobby modal overlay */}
       {showTrophyRoom && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setShowTrophyRoom(false)}>
           <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
@@ -1592,6 +1604,17 @@ function MainApp() {
                 {isLoggedIn ? <Users size={16} /> : <Lock size={16} />}
               </button>
 
+              <button 
+                onClick={() => isLoggedIn ? setShowCommsModal(true) : toast.error("Sign in to use Comms!", { icon: <Lock size={14} /> })} 
+                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
+                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
+                  : 'border-white/10 text-zinc-500 hover:text-white'
+                }`} 
+                title={isLoggedIn ? "Communications Terminal" : "Sign in to use Comms"}
+              >
+                {isLoggedIn ? <MessageSquare size={16} /> : <Lock size={16} />}
+              </button>
+
               
               {dailyStreak > 0 && (
                 <>
@@ -1776,8 +1799,8 @@ function MainApp() {
                   left-aligned to its edge. No surface of their own, so they
                   don't read as a second tile stacked on the card. */}
               {!shouldHideClutter && (
-                <div className={`w-full flex justify-start pl-2 md:pl-3 mb-3 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
-                  <div className="flex flex-wrap items-center gap-0.5 text-zinc-500">
+                <div className={`w-full flex justify-start transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
+                  <div className="modifier-tab flex items-center gap-1 px-4 py-2 bg-zinc-900/40 border border-zinc-800/80 border-b-0 backdrop-blur-md rounded-t-2xl z-30 translate-y-[1px] text-zinc-500">
                     <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${suddenDeath ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="1HP: One mistake ends it"><Skull size={17} /></button>
                     <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={17} /></button>
                     <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Focus"><Focus size={17} /></button>

@@ -844,7 +844,7 @@ function MainApp() {
       const { typing, audio, rpg, handleReset, exitMicroDrill, particles } = actionsRef.current;
 
       // Modal escape handling
-      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showSoundMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showChangelog) {
+      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showSoundMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showCommsModal || s.showChangelog) {
         if (e.key === 'Escape') {
           setShowTrophyRoom(false);
           setShowGodMode(false);
@@ -855,6 +855,7 @@ function MainApp() {
           setShowReplay(false);
           setShowRace(false);
           setShowSocialModal(false);
+          setShowCommsModal(false);
           setShowChangelog(false);
         }
         return;

@@ -41,7 +41,8 @@ export const useRPGSystem = () => {
     localStorage.setItem(STORAGE_KEYS.xp, xp.toString());
     localStorage.setItem(STORAGE_KEYS.tests, testsCompleted.toString());
     localStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(unlockedAchievements));
-  }, [xp, testsCompleted, unlockedAchievements]);
+    localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(heatmapData));
+  }, [xp, testsCompleted, unlockedAchievements, heatmapData]);
 
   // Achievement toast auto-dismiss
   useEffect(() => {
@@ -79,8 +80,8 @@ export const useRPGSystem = () => {
 
       const char = k.expected === ' ' ? 'SPACE' : k.expected === '\n' ? 'ENTER' : k.expected.toUpperCase();
       if (!updatedHeatmap[char]) updatedHeatmap[char] = { total: 0, errors: 0, totalMs: 0 };
-      updatedHeatmap[char] = { 
-        total: updatedHeatmap[char].total + 1, 
+      updatedHeatmap[char] = {
+        total: updatedHeatmap[char].total + 1,
         errors: updatedHeatmap[char].errors + (k.isError ? 1 : 0),
         totalMs: (updatedHeatmap[char].totalMs || 0) + delay
       };
@@ -149,7 +150,10 @@ export const useRPGSystem = () => {
     const totalSet = new Set([...unlockedAchievements, ...newlyUnlocked]);
     if (check('cyber_ninja') && totalSet.has('speed_demon') && totalSet.has('jedi_senses')) unlock('cyber_ninja');
     if (check('perfectionist') && totalSet.has('sniper') && totalSet.has('unbreakable')) unlock('perfectionist');
-    if (check('type_nova') && totalSet.size >= ACHIEVEMENTS.length) unlock('type_nova');
+    // BUG FIX: type_nova is itself in ACHIEVEMENTS, so totalSet can never reach
+    // ACHIEVEMENTS.length without type_nova already being unlocked. Subtract 1
+    // to check if all OTHER achievements are unlocked.
+    if (check('type_nova') && totalSet.size >= ACHIEVEMENTS.length - 1) unlock('type_nova');
 
     if (newlyUnlocked.length > 0) {
       setUnlockedAchievements(prev => [...prev, ...newlyUnlocked]);
@@ -167,8 +171,7 @@ export const useRPGSystem = () => {
 
   // Replace in-memory progress with a merged snapshot (used by cloud sync on
   // login). localStorage is written separately by the progress layer; this
-  // just refreshes the React state that the UI reads. Heatmap is set directly
-  // (the persist effect above only covers xp/tests/achievements).
+  // just refreshes the React state that the UI reads.
   const hydrate = useCallback((snapshot: {
     xp: number;
     tests: number;
@@ -186,10 +189,12 @@ export const useRPGSystem = () => {
     setAchievementQueue(prev => [...prev, { id: 'cheat', title: 'GOD MODE: All Unlocked!', desc: '', icon: 'unlock', category: 'SUPER' }]);
   }, []);
 
+  // BUG FIX: Also reset heatmapData and clear it from localStorage.
   const resetAllProgress = useCallback(() => {
     setUnlockedAchievements([]);
     setXp(0);
     setTestsCompleted(0);
+    setHeatmapData({});
     setAchievementQueue(prev => [...prev, { id: 'reset', title: 'All Progress Reset', desc: '', icon: 'rotate-ccw', category: 'SUPER' }]);
   }, []);
 

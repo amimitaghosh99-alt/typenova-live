@@ -116,7 +116,13 @@ export const useTypingEngine = () => {
     if (curStreak > localMaxStreak) localMaxStreak = curStreak;
 
     const rawCalc = minutes > 0 ? Math.round((totalTyped / 5) / minutes) : 0;
-    const netCalc = minutes > 0 ? Math.max(0, Math.round(((currentInput.length - errorCount) / 5) / minutes)) : 0;
+    // BUG FIX: Use totalTyped (all non-backspace keystrokes) instead of
+    // currentInput.length (final input length) for net WPM. The old formula
+    // subtracted errorCount (which includes corrected errors) from
+    // currentInput.length (which excludes backspaced characters), creating an
+    // inconsistency that artificially deflated net WPM when users corrected
+    // mistakes. The standard net WPM formula is (totalTyped - errorCount) / 5.
+    const netCalc = minutes > 0 ? Math.max(0, Math.round(((totalTyped - errorCount) / 5) / minutes)) : 0;
     const currentAcc = totalTyped > 0 ? Math.min(Math.max(Math.round(((totalTyped - errorCount) / totalTyped) * 100), 0), 100) : 100;
 
     const intervals = Math.max(1, Math.floor(totalTimeMs / 1000));
@@ -140,8 +146,8 @@ export const useTypingEngine = () => {
 
       const calcWpm = Math.round((runningChars / 5) / ((step * i) / 60000));
       const calcRaw = Math.round((runningRawChars / 5) / ((step * i) / 60000));
-      timeline.push({ 
-        t: step * i, 
+      timeline.push({
+        t: step * i,
         wpm: isNaN(calcWpm) ? 0 : calcWpm,
         rawWpm: isNaN(calcRaw) ? 0 : calcRaw
       });
@@ -198,15 +204,15 @@ export const useTypingEngine = () => {
   // Countdown timer effect
   useEffect(() => {
     if (phase !== 'COUNTDOWN') return;
-      const timer = setTimeout(() => {
-        if (countdownTimer === 1) {
-          setPhase('TYPING');
-          setStartTime(Date.now());
-        } else {
-          setCountdownTimer(prev => prev - 1);
-        }
-      }, 1000);
-      return () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+      if (countdownTimer === 1) {
+        setPhase('TYPING');
+        setStartTime(Date.now());
+      } else {
+        setCountdownTimer(prev => prev - 1);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [phase, countdownTimer]);
 
   // Live stats update during typing.

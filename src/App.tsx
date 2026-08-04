@@ -179,7 +179,7 @@ function MainApp() {
   type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'profile' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | null;
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const showReplay = activeModal === 'replay';
-  
+
   // Aliases for backward compatibility during refactor
   const setShowTrophyRoom = (b: boolean) => setActiveModal(b ? 'trophy' : null);
   const setShowGodMode = (b: boolean) => setActiveModal(b ? 'godMode' : null);
@@ -192,7 +192,7 @@ function MainApp() {
   const setShowDailyQuestsModal = (b: boolean) => setActiveModal(b ? 'quests' : null);
   const setShowSettingsModal = (b: boolean) => setActiveModal(b ? 'settings' : null);
   const setShowChangelog = (b: boolean) => setActiveModal(b ? 'changelog' : null);
-  
+
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
@@ -204,7 +204,7 @@ function MainApp() {
     wpm: number;
     accuracy: number;
   }
-  
+
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [dailyBoard, setDailyBoard] = useState<LeaderboardRow[]>([]);
   const [friendsBoard, setFriendsBoard] = useState<LeaderboardRow[]>([]);
@@ -234,7 +234,7 @@ function MainApp() {
     level?: Level; wordCount?: number; mirrored?: boolean;
     testMode?: 'words' | 'time'; duration?: number;
     numbers?: boolean; punctuation?: boolean; codeLanguage?: CodeLanguage; daily?: boolean;
-  }) => void>(() => {});
+  }) => void>(() => { });
 
   const game = useGameConfig((overrides) => handleResetRef.current(overrides));
 
@@ -304,7 +304,7 @@ function MainApp() {
   // ─── Online Heartbeat ────────────────────────────────────────────
   useEffect(() => {
     if (!supabase || !auth.session?.user.id) return;
-    
+
     const pingPresence = () => {
       supabase?.from('profiles')
         .update({ last_seen: new Date().toISOString() })
@@ -326,7 +326,7 @@ function MainApp() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const room = params.get('race');
-    if (room && room.length === 5) {
+    if (room && room.length === 6) {
       setInitialRaceCode(room.toUpperCase());
       setShowRace(true);
       // Clean up URL so it doesn't linger
@@ -426,7 +426,7 @@ function MainApp() {
       if (error) { fetchError = error; break; }
       if (chunkData) data.push(...chunkData);
     }
-    
+
     if (!fetchError && data) {
       const sortedData = [...data].sort((a, b) => b.wpm - a.wpm);
       const existing = new Map();
@@ -436,7 +436,7 @@ function MainApp() {
           existing.set(lower, row);
         }
       }
-      
+
       const seen = new Set<string>();
       const combined = [];
       for (const uname of usernames) {
@@ -671,7 +671,7 @@ function MainApp() {
         });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typing.phase]);
 
   // Reset the auto-save guard when a new test starts
@@ -791,7 +791,7 @@ function MainApp() {
 
   useEffect(() => {
     if (!game.overclockedMode || typing.phase !== 'TYPING') return;
-    
+
     const interval = setInterval(() => {
       const cur = penaltyTypingRef.current;
       if (cur.accuracy < 95 && cur.input.length > 5 && cur.phase === 'TYPING') {
@@ -811,13 +811,11 @@ function MainApp() {
   const mutatable = game.level === 'NOVICE' || game.level === 'ADEPT';
 
   // IMPORTANT FIX: Removed hardcoded overflow-hidden and added it conditionally, and added z-[200]
-  const topHudClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] origin-top flex flex-col md:flex-row justify-between items-center gap-6 relative z-[200] ${
-    shouldHideClutter ? 'opacity-0 blur-2xl -translate-y-12 max-h-0 pointer-events-none !mb-0 overflow-hidden' : 'opacity-100 blur-none translate-y-0 max-h-none mb-8 overflow-visible'
-  }`;
+  const topHudClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] origin-top flex flex-col md:flex-row justify-between items-center gap-6 relative z-[200] ${shouldHideClutter ? 'opacity-0 blur-2xl -translate-y-12 max-h-0 pointer-events-none !mb-0 overflow-hidden' : 'opacity-100 blur-none translate-y-0 max-h-none mb-8 overflow-visible'
+    }`;
 
-  const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${
-    shouldHideClutter ? 'w-0 opacity-0 blur-2xl translate-x-32 pointer-events-none p-0 border-transparent m-0' : 'w-full xl:w-[400px] p-8 opacity-100 blur-none translate-x-0'
-  }`;
+  const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${shouldHideClutter ? 'w-0 opacity-0 blur-2xl translate-x-32 pointer-events-none p-0 border-transparent m-0' : 'w-full xl:w-[400px] p-8 opacity-100 blur-none translate-x-0'
+    }`;
 
   // ─── Render ──────────────────────────────────────────────────────
   if (typing.phase === 'FINISHED') {
@@ -893,7 +891,7 @@ function MainApp() {
 
   return (
     <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
-      <TypingController 
+      <TypingController
         typing={typing}
         audio={audio}
         rpg={rpg}
@@ -910,922 +908,915 @@ function MainApp() {
       />
       <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
 
-      {/* Global Liquid-Glass SVG filter — rendered once, referenced by every
+        {/* Global Liquid-Glass SVG filter — rendered once, referenced by every
           .glass-refract panel via backdrop-filter: url(#glass-distortion)
           (Chromium only, gated by :root.svg-backdrop — see useGlassPointer).
           The whole frosted-glass chain lives INSIDE the filter: blur the
           backdrop first, THEN displace it, so the refraction ripples stay
           crisp instead of being smeared by a post-blur. Static (no animated
           attributes): a fixed lens texture, not a moving liquid. */}
-      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true" focusable="false">
-        <defs>
-          <filter id="glass-distortion" x="-30%" y="-30%" width="160%" height="160%" primitiveUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves={2} seed={7} stitchTiles="stitch" result="noise" />
-            <feGaussianBlur in="noise" stdDeviation="2" result="map" />
-            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="frost" />
-            <feDisplacementMap in="frost" in2="map" scale="46" xChannelSelector="R" yChannelSelector="G" result="refracted" />
-            <feColorMatrix in="refracted" type="saturate" values="1.6" />
-          </filter>
-        </defs>
-      </svg>
+        <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true" focusable="false">
+          <defs>
+            <filter id="glass-distortion" x="-30%" y="-30%" width="160%" height="160%" primitiveUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves={2} seed={7} stitchTiles="stitch" result="noise" />
+              <feGaussianBlur in="noise" stdDeviation="2" result="map" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="frost" />
+              <feDisplacementMap in="frost" in2="map" scale="46" xChannelSelector="R" yChannelSelector="G" result="refracted" />
+              <feColorMatrix in="refracted" type="saturate" values="1.6" />
+            </filter>
+          </defs>
+        </svg>
 
-      {/* Subtle Noise Texture Overlay for realism */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.15] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+        {/* Subtle Noise Texture Overlay for realism */}
+        <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.15] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
 
-      {/* ═══ ANIMATED DUAL-COLOR CONTRAST ORBS ═══ */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 mix-blend-screen opacity-80">
-        {/* PRIMARY vivid orb — top-left, large */}
-        <div
-          className="absolute rounded-full blur-[100px] orb-drift-1"
-          style={{
-            width: '50vw', height: '50vw', top: '-20%', left: '-15%',
-            background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.55) 0%, rgba(${theme.glowPrimary},0.15) 50%, transparent 70%)`,
-          }}
-        />
-        {/* SECONDARY contrast orb — right side, large */}
-        <div
-          className="absolute rounded-full blur-[120px] orb-drift-2"
-          style={{
-            width: '55vw', height: '55vw', top: '20%', right: '-20%',
-            background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.50) 0%, rgba(${theme.glowSecondary},0.12) 50%, transparent 70%)`,
-          }}
-        />
-        {/* PRIMARY accent — bottom, medium */}
-        <div
-          className="absolute rounded-full blur-[90px] orb-drift-3"
-          style={{
-            width: '40vw', height: '40vw', bottom: '-15%', left: '25%',
-            background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.40) 0%, rgba(${theme.glowPrimary},0.08) 50%, transparent 70%)`,
-          }}
-        />
-        {/* SECONDARY small vivid — center area */}
-        <div
-          className="absolute rounded-full blur-[70px] orb-drift-4"
-          style={{
-            width: '30vw', height: '30vw', top: '45%', left: '35%',
-            background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.45) 0%, rgba(${theme.glowSecondary},0.10) 50%, transparent 70%)`,
-          }}
-        />
-        {/* Mixed glow — top-right sweep */}
-        <div
-          className="absolute rounded-full blur-[140px] orb-drift-5"
-          style={{
-            width: '50vw', height: '50vw', top: '-25%', right: '5%',
-            background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.35) 0%, rgba(${theme.glowSecondary},0.20) 40%, transparent 65%)`,
-          }}
-        />
-      </div>
-      <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-
-      {/* Progress Bar — char-based for word tests, clock-based for timed */}
-      {typing.phase === 'TYPING' && game.testMode === 'time' && typing.startTime ? (
-        <TimedHud startTime={typing.startTime} duration={game.duration} theme={theme} />
-      ) : (
-        <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
-          <div className={`h-full ${theme.solid} transition-all duration-200 ease-out ${theme.glow}`} style={{ width: `${progressPercent}%` }} />
+        {/* ═══ ANIMATED DUAL-COLOR CONTRAST ORBS ═══ */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 mix-blend-screen opacity-80">
+          {/* PRIMARY vivid orb — top-left, large */}
+          <div
+            className="absolute rounded-full blur-[100px] orb-drift-1"
+            style={{
+              width: '50vw', height: '50vw', top: '-20%', left: '-15%',
+              background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.55) 0%, rgba(${theme.glowPrimary},0.15) 50%, transparent 70%)`,
+            }}
+          />
+          {/* SECONDARY contrast orb — right side, large */}
+          <div
+            className="absolute rounded-full blur-[120px] orb-drift-2"
+            style={{
+              width: '55vw', height: '55vw', top: '20%', right: '-20%',
+              background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.50) 0%, rgba(${theme.glowSecondary},0.12) 50%, transparent 70%)`,
+            }}
+          />
+          {/* PRIMARY accent — bottom, medium */}
+          <div
+            className="absolute rounded-full blur-[90px] orb-drift-3"
+            style={{
+              width: '40vw', height: '40vw', bottom: '-15%', left: '25%',
+              background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.40) 0%, rgba(${theme.glowPrimary},0.08) 50%, transparent 70%)`,
+            }}
+          />
+          {/* SECONDARY small vivid — center area */}
+          <div
+            className="absolute rounded-full blur-[70px] orb-drift-4"
+            style={{
+              width: '30vw', height: '30vw', top: '45%', left: '35%',
+              background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.45) 0%, rgba(${theme.glowSecondary},0.10) 50%, transparent 70%)`,
+            }}
+          />
+          {/* Mixed glow — top-right sweep */}
+          <div
+            className="absolute rounded-full blur-[140px] orb-drift-5"
+            style={{
+              width: '50vw', height: '50vw', top: '-25%', right: '5%',
+              background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.35) 0%, rgba(${theme.glowSecondary},0.20) 40%, transparent 65%)`,
+            }}
+          />
         </div>
-      )}
+        <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
-      {/* Zen Mode Ambient */}
-      {game.zenMode && (
-        <div className="fixed inset-0 flex items-center justify-center pointer-events-none opacity-20 z-0 animate-in fade-in zoom-in duration-1000 ease-out">
-          <div className={`w-[80vw] h-[80vw] ${theme.solid} rounded-full blur-[250px] animate-pulse`} style={{ animationDuration: '6s' }} />
-        </div>
-      )}
+        {/* Progress Bar — char-based for word tests, clock-based for timed */}
+        {typing.phase === 'TYPING' && game.testMode === 'time' && typing.startTime ? (
+          <TimedHud startTime={typing.startTime} duration={game.duration} theme={theme} />
+        ) : (
+          <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
+            <div className={`h-full ${theme.solid} transition-all duration-200 ease-out ${theme.glow}`} style={{ width: `${progressPercent}%` }} />
+          </div>
+        )}
 
-      {/* ═══ OVERLAY MODALS ═══ */}
-      {/* Ready Modal */}
-      {typing.phase === 'READY' && (
-        <div key="ready-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl flex flex-col gap-6 w-full max-w-md lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
-            <div className="flex justify-center mb-2"><Keyboard className={theme.text} size={48} /></div>
-            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
-              <span className="text-white font-black tracking-widest text-sm">NORMAL MODE</span>
-              <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
-            </div>
-            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { game.setZenMode(true); typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
-              <span className="text-white font-black tracking-widest text-sm">ZEN MODE</span>
-              <div className="flex gap-2">
-                <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">SHIFT</span>
-                <span className="text-zinc-600 font-black text-xs self-center">+</span>
+        {/* Zen Mode Ambient */}
+        {game.zenMode && (
+          <div className="fixed inset-0 flex items-center justify-center pointer-events-none opacity-20 z-0 animate-in fade-in zoom-in duration-1000 ease-out">
+            <div className={`w-[80vw] h-[80vw] ${theme.solid} rounded-full blur-[250px] animate-pulse`} style={{ animationDuration: '6s' }} />
+          </div>
+        )}
+
+        {/* ═══ OVERLAY MODALS ═══ */}
+        {/* Ready Modal */}
+        {typing.phase === 'READY' && (
+          <div key="ready-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl flex flex-col gap-6 w-full max-w-md lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
+              <div className="flex justify-center mb-2"><Keyboard className={theme.text} size={48} /></div>
+              <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
+                <span className="text-white font-black tracking-widest text-sm">NORMAL MODE</span>
                 <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
               </div>
+              <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { game.setZenMode(true); typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
+                <span className="text-white font-black tracking-widest text-sm">ZEN MODE</span>
+                <div className="flex gap-2">
+                  <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">SHIFT</span>
+                  <span className="text-zinc-600 font-black text-xs self-center">+</span>
+                  <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
+                </div>
+              </div>
+              <p className="text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Press ESC to configure</p>
             </div>
-            <p className="text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Press ESC to configure</p>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Countdown */}
-      {typing.phase === 'COUNTDOWN' && (
-        <div key="countdown-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
-          <span className={`text-[12rem] font-black ${theme.text} caret-lucid drop-shadow-2xl`}>{typing.countdownTimer}</span>
-        </div>
-      )}
+        {/* Countdown */}
+        {typing.phase === 'COUNTDOWN' && (
+          <div key="countdown-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
+            <span className={`text-[12rem] font-black ${theme.text} caret-lucid drop-shadow-2xl`}>{typing.countdownTimer}</span>
+          </div>
+        )}
 
-      {/* Achievement Toast */}
-      {rpg.achievementQueue.length > 0 && (() => {
-        const ToastIcon = ACHIEVEMENT_ICONS[rpg.achievementQueue[0].icon] ?? Trophy;
-        return (
-          <div className="fixed top-6 right-6 z-[600] animate-in slide-in-from-top fade-in duration-300">
-            <div className={`bg-zinc-950/90 backdrop-blur-md border ${theme.borderHalf} rounded-2xl p-4 ${theme.toastGlow} flex items-center gap-4 min-w-[300px] lucid-slide`} style={{ '--delay': '0ms' } as React.CSSProperties}>
-              {/* color via glowPrimary, not theme.text — galaxy's gradient-clip
+        {/* Achievement Toast */}
+        {rpg.achievementQueue.length > 0 && (() => {
+          const ToastIcon = ACHIEVEMENT_ICONS[rpg.achievementQueue[0].icon] ?? Trophy;
+          return (
+            <div className="fixed top-6 right-6 z-[600] animate-in slide-in-from-top fade-in duration-300">
+              <div className={`bg-zinc-950/90 backdrop-blur-md border ${theme.borderHalf} rounded-2xl p-4 ${theme.toastGlow} flex items-center gap-4 min-w-[300px] lucid-slide`} style={{ '--delay': '0ms' } as React.CSSProperties}>
+                {/* color via glowPrimary, not theme.text — galaxy's gradient-clip
                   text class would render an SVG stroke transparent */}
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/10" style={{ color: `rgb(${theme.glowPrimary})` }}>
-                <ToastIcon size={26} className={theme.drop} />
-              </div>
-              <div>
-                <div className={`text-[10px] font-black uppercase tracking-widest ${theme.text}`}>Achievement Unlocked</div>
-                <div className="text-white font-bold text-lg">{rpg.achievementQueue[0].title}</div>
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10" style={{ color: `rgb(${theme.glowPrimary})` }}>
+                  <ToastIcon size={26} className={theme.drop} />
+                </div>
+                <div>
+                  <div className={`text-[10px] font-black uppercase tracking-widest ${theme.text}`}>Achievement Unlocked</div>
+                  <div className="text-white font-bold text-lg">{rpg.achievementQueue[0].title}</div>
+                </div>
               </div>
             </div>
+          );
+        })()}
+
+
+
+        {/* First-login: choose a leaderboard display name */}
+        {cloud.status === 'needs-username' && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-10 w-full max-w-md shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
+              <div className="flex justify-center mb-4"><Trophy className={theme.text} size={40} /></div>
+              <h2 className="text-2xl font-black text-white text-center tracking-widest uppercase mb-2">Choose your name</h2>
+              <p className="text-center text-zinc-500 text-xs font-bold mb-6">This is how you'll appear on the leaderboard. Progress on this device will sync to your account.</p>
+              <input
+                type="text"
+                value={nameInput}
+                onChange={e => { setNameInput(e.target.value); setNameErr(''); }}
+                onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' && !savingName) submitUsername(); }}
+                placeholder="ENTER NAME..."
+                maxLength={12}
+                autoFocus
+                className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-6 py-4 text-white font-black text-xl uppercase text-center focus:outline-none focus:border-white/30 placeholder:text-zinc-600"
+              />
+              {nameErr && <p className="text-red-400 text-xs font-black tracking-widest text-center mt-3 uppercase">{nameErr}</p>}
+              <button
+                onClick={submitUsername}
+                disabled={savingName}
+                className={`w-full mt-5 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-black tracking-widest rounded-2xl transition-all disabled:opacity-50 ${theme.text}`}
+              >
+                {savingName ? 'SAVING…' : 'CONTINUE'}
+              </button>
+              <button
+                onClick={() => { void auth.signOut(); }}
+                className="w-full mt-2 px-4 py-2 text-zinc-500 hover:text-zinc-300 text-[10px] font-black tracking-widest uppercase transition-colors"
+              >
+                Cancel & sign out
+              </button>
+            </div>
           </div>
-        );
-      })()}
+        )}
 
+        {/* ═══ MAIN CONTENT ═══ */}
+        <div className={`relative w-full px-2 md:px-4 py-4 flex flex-col z-10 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}>
 
-
-      {/* First-login: choose a leaderboard display name */}
-      {cloud.status === 'needs-username' && (
-        <div className="fixed inset-0 z-[700] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-10 w-full max-w-md shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
-            <div className="flex justify-center mb-4"><Trophy className={theme.text} size={40} /></div>
-            <h2 className="text-2xl font-black text-white text-center tracking-widest uppercase mb-2">Choose your name</h2>
-            <p className="text-center text-zinc-500 text-xs font-bold mb-6">This is how you'll appear on the leaderboard. Progress on this device will sync to your account.</p>
-            <input
-              type="text"
-              value={nameInput}
-              onChange={e => { setNameInput(e.target.value); setNameErr(''); }}
-              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' && !savingName) submitUsername(); }}
-              placeholder="ENTER NAME..."
-              maxLength={12}
-              autoFocus
-              className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-6 py-4 text-white font-black text-xl uppercase text-center focus:outline-none focus:border-white/30 placeholder:text-zinc-600"
-            />
-            {nameErr && <p className="text-red-400 text-xs font-black tracking-widest text-center mt-3 uppercase">{nameErr}</p>}
-            <button
-              onClick={submitUsername}
-              disabled={savingName}
-              className={`w-full mt-5 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-black tracking-widest rounded-2xl transition-all disabled:opacity-50 ${theme.text}`}
-            >
-              {savingName ? 'SAVING…' : 'CONTINUE'}
-            </button>
-            <button
-              onClick={() => { void auth.signOut(); }}
-              className="w-full mt-2 px-4 py-2 text-zinc-500 hover:text-zinc-300 text-[10px] font-black tracking-widest uppercase transition-colors"
-            >
-              Cancel & sign out
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ MAIN CONTENT ═══ */}
-      <div className={`relative w-full px-2 md:px-4 py-4 flex flex-col z-10 transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}>
-
-        {/* Header */}
-        <header className={topHudClass}>
-          {/* Logo (Left) */}
-          <div className={`flex items-center space-x-3 ${theme.vividText}`}>
+          {/* Header */}
+          <header className={topHudClass}>
+            {/* Logo (Left) */}
+            <div className={`flex items-center space-x-3 ${theme.vividText}`}>
               <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
               <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
             </div>
 
-          {/* HUD Controls & Actions (Right) */}
-          <div className="flex flex-wrap justify-center xl:justify-end items-center gap-4 text-zinc-400 w-full xl:w-auto pb-2 xl:pb-0">
+            {/* HUD Controls & Actions (Right) */}
+            <div className="flex flex-wrap justify-center xl:justify-end items-center gap-4 text-zinc-400 w-full xl:w-auto pb-2 xl:pb-0">
 
 
-            {/* Profile & Actions */}
-            <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono shrink-0">
-              <button
-                onClick={() => cloud.username && setSelectedProfileUsername(cloud.username)}
-                className="group flex items-center px-3.5 py-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/20 rounded-xl transition-all cursor-pointer text-left gap-3.5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
-                title="View / Edit your Player Profile"
-              >
-                {/* User Avatar */}
-                <div className="relative hidden sm:block shrink-0">
-                  <div className={`w-10 h-10 rounded-full bg-black/20 border flex items-center justify-center font-bold uppercase text-sm ${theme.borderHalf} ${theme.vividText}`}>
-                    {(cloud.username || 'G').substring(0, 1)}
-                  </div>
-                  {showReplay && (
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-                  )}
-                </div>
-                
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[13px] font-black uppercase tracking-widest text-white">
-                      {cloud.username || 'GUEST'} <span className="text-zinc-500 font-bold ml-1.5 text-[10px]">LVL {rpg.userLevel}</span>
-                    </span>
-                    {(() => {
-                      const activeId = activeTitle;
-                      const badge = TITLE_BADGES.find(b => b.id === activeId);
-                      return badge ? (
-                        <span className={`text-[9px] px-2 py-0.5 rounded border font-mono tracking-wider ${badge.color}`} title={badge.description}>
-                          {badge.icon} {badge.name}
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-36 h-2 bg-zinc-800 rounded-full overflow-hidden border border-zinc-800/50">
-                      <div className={`h-full ${theme.solid} transition-all duration-500`} style={{ width: `${(rpg.currentLevelProgress / rpg.xpNeeded) * 100}%` }} />
+              {/* Profile & Actions */}
+              <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono shrink-0">
+                <button
+                  onClick={() => cloud.username && setSelectedProfileUsername(cloud.username)}
+                  className="group flex items-center px-3.5 py-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/20 rounded-xl transition-all cursor-pointer text-left gap-3.5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
+                  title="View / Edit your Player Profile"
+                >
+                  {/* User Avatar */}
+                  <div className="relative hidden sm:block shrink-0">
+                    <div className={`w-10 h-10 rounded-full bg-black/20 border flex items-center justify-center font-bold uppercase text-sm ${theme.borderHalf} ${theme.vividText}`}>
+                      {(cloud.username || 'G').substring(0, 1)}
                     </div>
-                    <span className="text-[9px] font-mono text-zinc-500 w-12 leading-none">{rpg.xp} XP</span>
+                    {showReplay && (
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                    )}
                   </div>
-                </div>
-                
-                <ChevronRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-0.5 transition-all ml-1" />
-              </button>
 
-              <button
-                onClick={() => setShowDailyQuestsModal(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 text-xs font-mono font-bold transition-all ml-1 shadow-[0_0_10px_rgba(249,115,22,0.15)] hover:scale-105"
-                title="View Daily Quests & Streak Multipliers"
-              >
-                <Flame size={13} className="text-orange-400 animate-pulse" />
-                <span>{dailyStreak}d</span>
-              </button>
-
-              <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
-              
-              <button 
-                onClick={() => isLoggedIn ? setShowTrophyRoom(true) : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })} 
-                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
-                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
-                  : rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.vividText} ${theme.glow} ${theme.bgHover}` 
-                  : 'border-white/10 text-zinc-500 hover:text-white'
-                }`} 
-                title={isLoggedIn ? "View Trophies" : "Sign in to unlock Trophies"}
-              >
-                {isLoggedIn ? <Trophy size={16} /> : <Lock size={16} />}
-              </button>
-              
-              <button 
-                onClick={() => isLoggedIn ? setShowStatsDashboard(true) : toast.error("Sign in to unlock detailed Stats!", { icon: <Lock size={14} /> })} 
-                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
-                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
-                  : 'border-white/10 text-zinc-500 hover:text-white'
-                }`} 
-                title={isLoggedIn ? "Your Stats" : "Sign in to unlock Stats"}
-              >
-                {isLoggedIn ? <BarChart2 size={16} /> : <Lock size={16} />}
-              </button>
-              
-              <button 
-                onClick={() => isLoggedIn ? setShowRace(true) : toast.error("Sign in to race with friends!", { icon: <Lock size={14} /> })} 
-                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
-                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
-                  : 'border-white/10 text-zinc-500 hover:text-white'
-                }`} 
-                title={isLoggedIn ? "Race a friend" : "Sign in to race with friends"}
-              >
-                {isLoggedIn ? <Swords size={16} /> : <Lock size={16} />}
-              </button>
-
-              <button 
-                onClick={() => isLoggedIn ? setShowSocialModal(true) : toast.error("Sign in to manage friends!", { icon: <Lock size={14} /> })} 
-                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
-                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
-                  : (friendsState.incomingRequests.length > 0) ? `${theme.borderHalf} text-emerald-400 ${theme.glow} ${theme.bgHover}`
-                  : 'border-white/10 text-zinc-500 hover:text-white'
-                }`} 
-                title={isLoggedIn ? "Manage Friends" : "Sign in to manage friends"}
-              >
-                {isLoggedIn ? <Users size={16} /> : <Lock size={16} />}
-              </button>
-
-              <button 
-                onClick={() => isLoggedIn ? setShowCommsModal(true) : toast.error("Sign in to use Comms!", { icon: <Lock size={14} /> })} 
-                className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${
-                  !isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400' 
-                  : 'border-white/10 text-zinc-500 hover:text-white'
-                }`} 
-                title={isLoggedIn ? "Communications Terminal" : "Sign in to use Comms"}
-              >
-                {isLoggedIn ? <MessageSquare size={16} /> : <Lock size={16} />}
-              </button>
-
-              
-              {dailyStreak > 0 && (
-                <>
-                  <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
-                  <div className="flex items-center pr-2" title={`Daily Challenge streak: ${dailyStreak} day${dailyStreak === 1 ? '' : 's'}`}>
-                    <Flame size={15} className="text-orange-400 mr-1" />
-                    <span className="text-xs font-black text-white">{dailyStreak}</span>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[13px] font-black uppercase tracking-widest text-white">
+                        {cloud.username || 'GUEST'} <span className="text-zinc-500 font-bold ml-1.5 text-[10px]">LVL {rpg.userLevel}</span>
+                      </span>
+                      {(() => {
+                        const activeId = activeTitle;
+                        const badge = TITLE_BADGES.find(b => b.id === activeId);
+                        return badge ? (
+                          <span className={`text-[9px] px-2 py-0.5 rounded border font-mono tracking-wider ${badge.color}`} title={badge.description}>
+                            {badge.icon} {badge.name}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-36 h-2 bg-zinc-800 rounded-full overflow-hidden border border-zinc-800/50">
+                        <div className={`h-full ${theme.solid} transition-all duration-500`} style={{ width: `${(rpg.currentLevelProgress / rpg.xpNeeded) * 100}%` }} />
+                      </div>
+                      <span className="text-[9px] font-mono text-zinc-500 w-12 leading-none">{rpg.xp} XP</span>
+                    </div>
                   </div>
-                </>
-              )}
-            
+
+                  <ChevronRight size={16} className="text-zinc-600 group-hover:text-white group-hover:translate-x-0.5 transition-all ml-1" />
+                </button>
+
+                <button
+                  onClick={() => setShowDailyQuestsModal(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 text-xs font-mono font-bold transition-all ml-1 shadow-[0_0_10px_rgba(249,115,22,0.15)] hover:scale-105"
+                  title="View Daily Quests & Streak Multipliers"
+                >
+                  <Flame size={13} className="text-orange-400 animate-pulse" />
+                  <span>{dailyStreak}d</span>
+                </button>
+
+                <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
+
+                <button
+                  onClick={() => isLoggedIn ? setShowTrophyRoom(true) : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })}
+                  className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${!isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400'
+                      : rpg.unlockedAchievements.length > 0 ? `${theme.borderHalf} ${theme.vividText} ${theme.glow} ${theme.bgHover}`
+                        : 'border-white/10 text-zinc-500 hover:text-white'
+                    }`}
+                  title={isLoggedIn ? "View Trophies" : "Sign in to unlock Trophies"}
+                >
+                  {isLoggedIn ? <Trophy size={16} /> : <Lock size={16} />}
+                </button>
+
+                <button
+                  onClick={() => isLoggedIn ? setShowStatsDashboard(true) : toast.error("Sign in to unlock detailed Stats!", { icon: <Lock size={14} /> })}
+                  className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${!isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400'
+                      : 'border-white/10 text-zinc-500 hover:text-white'
+                    }`}
+                  title={isLoggedIn ? "Your Stats" : "Sign in to unlock Stats"}
+                >
+                  {isLoggedIn ? <BarChart2 size={16} /> : <Lock size={16} />}
+                </button>
+
+                <button
+                  onClick={() => isLoggedIn ? setShowRace(true) : toast.error("Sign in to race with friends!", { icon: <Lock size={14} /> })}
+                  className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${!isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400'
+                      : 'border-white/10 text-zinc-500 hover:text-white'
+                    }`}
+                  title={isLoggedIn ? "Race a friend" : "Sign in to race with friends"}
+                >
+                  {isLoggedIn ? <Swords size={16} /> : <Lock size={16} />}
+                </button>
+
+                <button
+                  onClick={() => isLoggedIn ? setShowSocialModal(true) : toast.error("Sign in to manage friends!", { icon: <Lock size={14} /> })}
+                  className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${!isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400'
+                      : (friendsState.incomingRequests.length > 0) ? `${theme.borderHalf} text-emerald-400 ${theme.glow} ${theme.bgHover}`
+                        : 'border-white/10 text-zinc-500 hover:text-white'
+                    }`}
+                  title={isLoggedIn ? "Manage Friends" : "Sign in to manage friends"}
+                >
+                  {isLoggedIn ? <Users size={16} /> : <Lock size={16} />}
+                </button>
+
+                <button
+                  onClick={() => isLoggedIn ? setShowCommsModal(true) : toast.error("Sign in to use Comms!", { icon: <Lock size={14} /> })}
+                  className={`p-2 rounded-xl bg-black/20 border transition-all ml-1 ${!isLoggedIn ? 'border-white/5 text-zinc-600 hover:text-zinc-400'
+                      : 'border-white/10 text-zinc-500 hover:text-white'
+                    }`}
+                  title={isLoggedIn ? "Communications Terminal" : "Sign in to use Comms"}
+                >
+                  {isLoggedIn ? <MessageSquare size={16} /> : <Lock size={16} />}
+                </button>
+
+
+                {dailyStreak > 0 && (
+                  <>
+                    <div className="w-px h-6 bg-zinc-800/50 mx-2"></div>
+                    <div className="flex items-center pr-2" title={`Daily Challenge streak: ${dailyStreak} day${dailyStreak === 1 ? '' : 's'}`}>
+                      <Flame size={15} className="text-orange-400 mr-1" />
+                      <span className="text-xs font-black text-white">{dailyStreak}</span>
+                    </div>
+                  </>
+                )}
+
+
+              </div>
 
             </div>
+          </header>
 
-          </div>
-        </header>
+          <main className={`relative z-10 flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
+            <div className="flex-1 w-full flex flex-col gap-6">
 
-        <main className={`relative z-10 flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
-          <div className="flex-1 w-full flex flex-col gap-6">
-
-            {/* Difficulty & Length/Time & Daily */}
-            <div className={`flex flex-col md:flex-row flex-wrap gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
-              <div className={`flex flex-col gap-2 transition-opacity ${game.dailyActive ? 'opacity-30' : 'opacity-100'}`}>
-                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
-                <div className="flex glass-panel rounded-full">
-                  <SegmentedControl
-                    options={(["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM"] as Level[]).map(l => ({
-                      label: l,
-                      value: l,
-                      locked: !isLoggedIn && (l === "CODE" || l === "CUSTOM")
-                    }))}
-                    value={game.level}
-                    onChange={(l) => game.changeLevel(l)}
-                    onLockedClick={(l) => {
-                      const modeName = l === "CODE" ? "Code" : "Custom";
-                      toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
-                    }}
-                    themeTextClass={theme.text}
-                  />
+              {/* Difficulty & Length/Time & Daily */}
+              <div className={`flex flex-col md:flex-row flex-wrap gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
+                <div className={`flex flex-col gap-2 transition-opacity ${game.dailyActive ? 'opacity-30' : 'opacity-100'}`}>
+                  <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
+                  <div className="flex glass-panel rounded-full">
+                    <SegmentedControl
+                      options={(["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM"] as Level[]).map(l => ({
+                        label: l,
+                        value: l,
+                        locked: !isLoggedIn && (l === "CODE" || l === "CUSTOM")
+                      }))}
+                      value={game.level}
+                      onChange={(l) => game.changeLevel(l)}
+                      onLockedClick={(l) => {
+                        const modeName = l === "CODE" ? "Code" : "Custom";
+                        toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
+                      }}
+                      themeTextClass={theme.text}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className={`flex flex-col gap-2 transition-opacity ${lengthLocked || game.dailyActive ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
-                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
-                  {game.testMode === 'time' ? <Clock size={10} className="mr-1.5" /> : <Activity size={10} className="mr-1.5" />}
-                  {game.testMode === 'time' ? 'SECONDS' : 'WORDS'}
-                </span>
-                <div className="flex glass-panel p-1.5 rounded-full items-center">
-                  {/* words / time segment */}
-                  <button
-                    onClick={() => game.changeTestMode('words')}
-                    disabled={lengthLocked}
-                    className={`p-2.5 rounded-full transition-all ${game.testMode === 'words' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
-                    title="Word-count mode"
-                  ><Hash size={13} /></button>
-                  <button
-                    onClick={() => game.changeTestMode('time')}
-                    disabled={lengthLocked}
-                    className={`p-2.5 rounded-full transition-all ${game.testMode === 'time' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
-                    title="Timed mode"
-                  ><Clock size={13} /></button>
-                  <div className="w-px h-4 bg-white/10 mx-1.5"></div>
-                  <SegmentedControl
-                    options={(game.testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => ({
-                      label: String(v),
-                      value: v
-                    }))}
-                    value={game.testMode === 'time' ? game.duration : game.wordCount}
-                    onChange={(v) => game.testMode === 'time' ? game.changeDuration(v) : game.changeWordCount(v)}
-                    disabled={lengthLocked}
-                    themeTextClass={theme.text}
-                    className="!p-0"
-                  />
-                  {mutatable && (
-                    <>
-                      <div className="w-px h-4 bg-white/10 mx-1.5"></div>
-                      <button
-                        onClick={game.toggleNumbers}
-                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${game.withNumbers ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
-                        title="Mix in numbers"
-                      >123</button>
-                      <button
-                        onClick={game.togglePunctuation}
-                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${game.withPunctuation ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
-                        title="Mix in punctuation"
-                      >!?</button>
-                    </>
-                  )}
+                <div className={`flex flex-col gap-2 transition-opacity ${lengthLocked || game.dailyActive ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                  <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                    {game.testMode === 'time' ? <Clock size={10} className="mr-1.5" /> : <Activity size={10} className="mr-1.5" />}
+                    {game.testMode === 'time' ? 'SECONDS' : 'WORDS'}
+                  </span>
+                  <div className="flex glass-panel p-1.5 rounded-full items-center">
+                    {/* words / time segment */}
+                    <button
+                      onClick={() => game.changeTestMode('words')}
+                      disabled={lengthLocked}
+                      className={`p-2.5 rounded-full transition-all ${game.testMode === 'words' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                      title="Word-count mode"
+                    ><Hash size={13} /></button>
+                    <button
+                      onClick={() => game.changeTestMode('time')}
+                      disabled={lengthLocked}
+                      className={`p-2.5 rounded-full transition-all ${game.testMode === 'time' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                      title="Timed mode"
+                    ><Clock size={13} /></button>
+                    <div className="w-px h-4 bg-white/10 mx-1.5"></div>
+                    <SegmentedControl
+                      options={(game.testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => ({
+                        label: String(v),
+                        value: v
+                      }))}
+                      value={game.testMode === 'time' ? game.duration : game.wordCount}
+                      onChange={(v) => game.testMode === 'time' ? game.changeDuration(v) : game.changeWordCount(v)}
+                      disabled={lengthLocked}
+                      themeTextClass={theme.text}
+                      className="!p-0"
+                    />
+                    {mutatable && (
+                      <>
+                        <div className="w-px h-4 bg-white/10 mx-1.5"></div>
+                        <button
+                          onClick={game.toggleNumbers}
+                          className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${game.withNumbers ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                          title="Mix in numbers"
+                        >123</button>
+                        <button
+                          onClick={game.togglePunctuation}
+                          className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${game.withPunctuation ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                          title="Mix in punctuation"
+                        >!?</button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-2">
-                <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><CalendarCheck size={10} className="mr-1.5" /> CHALLENGE</span>
-                <div className="flex glass-panel p-1.5 rounded-full">
-                  <button
-                    onClick={game.toggleDaily}
-                    className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all flex items-center gap-2 ${game.dailyActive ? `bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)]` : 'text-amber-400/70 hover:text-amber-400 border border-transparent'}`}
-                    title="Same seeded 50-word ADEPT text for everyone, every day"
-                  >
-                    <CalendarCheck size={12} /> DAILY
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><CalendarCheck size={10} className="mr-1.5" /> CHALLENGE</span>
+                  <div className="flex glass-panel p-1.5 rounded-full">
+                    <button
+                      onClick={game.toggleDaily}
+                      className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all flex items-center gap-2 ${game.dailyActive ? `bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)]` : 'text-amber-400/70 hover:text-amber-400 border border-transparent'}`}
+                      title="Same seeded 50-word ADEPT text for everyone, every day"
+                    >
+                      <CalendarCheck size={12} /> DAILY
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Language Selector for Code Mode */}
-              <div 
-                className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${
-                  game.level === 'CODE' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
-                }`}
-              >
-                <div className="overflow-hidden min-w-0">
-                  <div className="flex flex-col gap-2 w-max">
-                    <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
-                      <Code size={10} className="mr-1.5" /> LANGUAGE
-                    </span>
-                    <div className="flex glass-panel rounded-full">
-                      <SegmentedControl
-                        options={CODE_LANGUAGES.map(lang => ({
-                          label: lang.toUpperCase(),
-                          value: lang
-                        }))}
-                        value={game.codeLanguage}
-                        onChange={(lang) => game.changeCodeLanguage(lang)}
-                        themeTextClass={theme.text}
-                        pillClassName="bg-white/10 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                {/* Language Selector for Code Mode */}
+                <div
+                  className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${game.level === 'CODE' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
+                    }`}
+                >
+                  <div className="overflow-hidden min-w-0">
+                    <div className="flex flex-col gap-2 w-max">
+                      <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                        <Code size={10} className="mr-1.5" /> LANGUAGE
+                      </span>
+                      <div className="flex glass-panel rounded-full">
+                        <SegmentedControl
+                          options={CODE_LANGUAGES.map(lang => ({
+                            label: lang.toUpperCase(),
+                            value: lang
+                          }))}
+                          value={game.codeLanguage}
+                          onChange={(lang) => game.changeCodeLanguage(lang)}
+                          themeTextClass={theme.text}
+                          pillClassName="bg-white/10 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Custom Text Area */}
+                <div
+                  className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${game.level === 'CUSTOM' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
+                    }`}
+                >
+                  <div className="overflow-hidden min-w-0">
+                    <div className="flex flex-col gap-2 min-w-[300px] max-w-xl">
+                      <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
+                        <Code size={10} className="mr-1.5" /> YOUR TEXT
+                      </span>
+                      <textarea
+                        value={game.customText}
+                        onChange={(e) => {
+                          const newText = e.target.value;
+                          game.setCustomText(newText);
+                          if (game.level === 'CUSTOM') {
+                            const final = game.mirroredMode
+                              ? newText.trim().split(' ').reverse().join(' ')
+                              : newText.trim();
+                            typing.setTargetText(final || 'Type your custom text above...');
+                          }
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Paste your custom text here to practice..."
+                        className="w-full h-24 bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-zinc-300 text-sm font-mono focus:outline-none focus:border-white/30 focus:bg-white/[0.06] resize-none transition-all"
+                        spellCheck={false}
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Custom Text Area */}
-              <div 
-                className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${
-                  game.level === 'CUSTOM' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
-                }`}
-              >
-                <div className="overflow-hidden min-w-0">
-                  <div className="flex flex-col gap-2 min-w-[300px] max-w-xl">
-                    <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
-                      <Code size={10} className="mr-1.5" /> YOUR TEXT
-                    </span>
-                    <textarea
-                      value={game.customText}
-                      onChange={(e) => {
-                        const newText = e.target.value;
-                        game.setCustomText(newText);
-                        if (game.level === 'CUSTOM') {
-                          const final = game.mirroredMode
-                            ? newText.trim().split(' ').reverse().join(' ')
-                            : newText.trim();
-                          typing.setTargetText(final || 'Type your custom text above...');
-                        }
-                      }}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      placeholder="Paste your custom text here to practice..."
-                      className="w-full h-24 bg-white/[0.04] border border-white/10 rounded-2xl p-4 text-zinc-300 text-sm font-mono focus:outline-none focus:border-white/30 focus:bg-white/[0.06] resize-none transition-all"
-                      spellCheck={false}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats HUD — hidden in zen mode */}
-            {!game.zenMode && (
-              <StatsPanel
-                wpm={typing.wpm}
-                accuracy={typing.accuracy}
-                consistency={typing.consistency}
-                combo={typing.combo}
-                themeText={theme.text}
-                timelinePoints={typing.timelinePoints}
-                keystrokeLogLength={typing.keystrokeLog.current.length}
-                isIdle={typing.phase === 'CONFIGURING'}
-              />
-            )}
-
-            {/* Typing Area */}
-            <div className="w-full relative flex flex-col items-center mb-12">
-              {/* Mode toggles — bare icons in the open space above the card,
-                  left-aligned to its edge. No surface of their own, so they
-                  don't read as a second tile stacked on the card. */}
-              {!shouldHideClutter && (
-                <div className={`w-full flex justify-start transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
-                  <div className="modifier-tab flex items-center gap-1 px-4 py-2 bg-zinc-900/40 border border-zinc-800/80 border-b-0 backdrop-blur-md rounded-t-2xl z-30 translate-y-[1px] text-zinc-500">
-                    <button onClick={() => game.setSuddenDeath(!game.suddenDeath)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.suddenDeath ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="1HP: One mistake ends it"><Skull size={17} /></button>
-                    <button onClick={() => game.setGhostPacer(!game.ghostPacer)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={17} /></button>
-                    <button onClick={() => game.setFocusMode(!game.focusMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Focus"><Focus size={17} /></button>
-                    <button onClick={() => game.setBlindMode(!game.blindMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Blind"><Brain size={17} /></button>
-                    <button onClick={game.toggleMirror} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Mirror"><FlipHorizontal size={17} /></button>
-                    <button onClick={() => game.setFogMode(!game.fogMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Fog"><CloudFog size={17} /></button>
-                    <button onClick={() => game.setStickyKeysMode(!game.stickyKeysMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Sticky Keys"><Magnet size={17} /></button>
-                    <button onClick={() => game.setOverclockedMode(!game.overclockedMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.overclockedMode ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="Overclocked"><Timer size={17} /></button>
-                  </div>
-                </div>
+              {/* Stats HUD — hidden in zen mode */}
+              {!game.zenMode && (
+                <StatsPanel
+                  wpm={typing.wpm}
+                  accuracy={typing.accuracy}
+                  consistency={typing.consistency}
+                  combo={typing.combo}
+                  themeText={theme.text}
+                  timelinePoints={typing.timelinePoints}
+                  keystrokeLogLength={typing.keystrokeLog.current.length}
+                  isIdle={typing.phase === 'CONFIGURING'}
+                />
               )}
 
-              <TypingArea
-                targetText={typing.targetText}
-                input={typing.input}
-                phase={typing.phase}
-                theme={theme}
-                blindMode={game.blindMode}
-                focusMode={game.focusMode}
-                fogMode={game.fogMode}
-                startTime={typing.startTime}
-                shake={typing.shake}
-                capsLock={typing.capsLock}
-                stickyPenalty={game.stickyPenalty}
-                particles={particles.particles}
-                ghostPacer={game.ghostPacer}
-                combo={typing.combo}
-                zenMode={game.zenMode}
-                pbGhost={pbGhost}
-                isCodeMode={game.level === 'CODE'}
-                racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
-                isCrossfading={isCrossfading}
-              />
+              {/* Typing Area */}
+              <div className="w-full relative flex flex-col items-center mb-12">
+                {/* Mode toggles — bare icons in the open space above the card,
+                  left-aligned to its edge. No surface of their own, so they
+                  don't read as a second tile stacked on the card. */}
+                {!shouldHideClutter && (
+                  <div className={`w-full flex justify-start transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
+                    <div className="modifier-tab flex items-center gap-1 px-4 py-2 bg-zinc-900/40 border border-zinc-800/80 border-b-0 backdrop-blur-md rounded-t-2xl z-30 translate-y-[1px] text-zinc-500">
+                      <button onClick={() => game.setSuddenDeath(!game.suddenDeath)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.suddenDeath ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="1HP: One mistake ends it"><Skull size={17} /></button>
+                      <button onClick={() => game.setGhostPacer(!game.ghostPacer)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={17} /></button>
+                      <button onClick={() => game.setFocusMode(!game.focusMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Focus"><Focus size={17} /></button>
+                      <button onClick={() => game.setBlindMode(!game.blindMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Blind"><Brain size={17} /></button>
+                      <button onClick={game.toggleMirror} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Mirror"><FlipHorizontal size={17} /></button>
+                      <button onClick={() => game.setFogMode(!game.fogMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Fog"><CloudFog size={17} /></button>
+                      <button onClick={() => game.setStickyKeysMode(!game.stickyKeysMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Sticky Keys"><Magnet size={17} /></button>
+                      <button onClick={() => game.setOverclockedMode(!game.overclockedMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.overclockedMode ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="Overclocked"><Timer size={17} /></button>
+                    </div>
+                  </div>
+                )}
 
-              {/* Attached Spacebar Prompt */}
-              {typing.phase === 'CONFIGURING' && (
-                <div className={`absolute -bottom-6 left-1/2 -translate-x-1/2 z-[100] flex justify-center pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
-                  <button
-                    onClick={() => { typing.setPhase('READY'); typing.setInput(''); }}
-                    className={`px-8 py-3 bg-zinc-950/95 backdrop-blur-xl border ${theme.borderHalf} hover:${theme.border} rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.6)] flex items-center gap-4 text-white cursor-pointer hover:bg-zinc-900 transition-all duration-300 hover:scale-105 active:scale-95 group pointer-events-auto`}
-                  >
-                    <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">PRESS</span>
-                    <div className={`px-4 py-1.5 rounded-lg bg-zinc-800 font-black text-sm ${theme.text} ${theme.glow} group-hover:scale-110 transition-transform shadow-inner`}>SPACE</div>
-                    <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">TO READY UP</span>
+                <TypingArea
+                  targetText={typing.targetText}
+                  input={typing.input}
+                  phase={typing.phase}
+                  theme={theme}
+                  blindMode={game.blindMode}
+                  focusMode={game.focusMode}
+                  fogMode={game.fogMode}
+                  startTime={typing.startTime}
+                  shake={typing.shake}
+                  capsLock={typing.capsLock}
+                  stickyPenalty={game.stickyPenalty}
+                  particles={particles.particles}
+                  ghostPacer={game.ghostPacer}
+                  combo={typing.combo}
+                  zenMode={game.zenMode}
+                  pbGhost={pbGhost}
+                  isCodeMode={game.level === 'CODE'}
+                  racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
+                  isCrossfading={isCrossfading}
+                />
+
+                {/* Attached Spacebar Prompt */}
+                {typing.phase === 'CONFIGURING' && (
+                  <div className={`absolute -bottom-6 left-1/2 -translate-x-1/2 z-[100] flex justify-center pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+                    <button
+                      onClick={() => { typing.setPhase('READY'); typing.setInput(''); }}
+                      className={`px-8 py-3 bg-zinc-950/95 backdrop-blur-xl border ${theme.borderHalf} hover:${theme.border} rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.6)] flex items-center gap-4 text-white cursor-pointer hover:bg-zinc-900 transition-all duration-300 hover:scale-105 active:scale-95 group pointer-events-auto`}
+                    >
+                      <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">PRESS</span>
+                      <div className={`px-4 py-1.5 rounded-lg bg-zinc-800 font-black text-sm ${theme.text} ${theme.glow} group-hover:scale-110 transition-transform shadow-inner`}>SPACE</div>
+                      <span className="text-zinc-500 font-bold tracking-widest text-xs uppercase group-hover:text-zinc-300 transition-colors">TO READY UP</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Abort Button (only during active test, NOT on finished) */}
+              {(typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
+                <div className="mt-4 flex justify-center w-full z-10 relative">
+                  <button onClick={() => handleReset()} className="flex items-center space-x-3 px-8 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md">
+                    <RotateCcw size={16} /> <span>ABORT & CONFIGURE (ESC)</span>
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Abort Button (only during active test, NOT on finished) */}
-            {(typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
-              <div className="mt-4 flex justify-center w-full z-10 relative">
-                <button onClick={() => handleReset()} className="flex items-center space-x-3 px-8 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md">
-                  <RotateCcw size={16} /> <span>ABORT & CONFIGURE (ESC)</span>
-                </button>
+            {/* Leaderboard Sidebar */}
+            <aside className={leaderboardClass}>
+              <div className="flex items-center justify-between text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
+                <div className="flex items-center">
+                  <Award size={20} className={`mr-3 ${theme.text}`} />
+                  <span className="whitespace-nowrap">{boardTab === 'today' ? 'DAILY 5' : boardTab === 'friends' ? 'FRIENDS' : 'TOP 5'}</span>
+                </div>
+                <div className="flex gap-1 bg-black/20 rounded-full p-1 border border-white/10">
+                  <button onClick={() => setBoardTab('alltime')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'alltime' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>ALL</button>
+                  <button onClick={() => { setBoardTab('today'); fetchDailyBoard(); }} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'today' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>TODAY</button>
+                  <button onClick={() => setBoardTab('friends')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'friends' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>FRIENDS</button>
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Leaderboard Sidebar */}
-          <aside className={leaderboardClass}>
-            <div className="flex items-center justify-between text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
-              <div className="flex items-center">
-                <Award size={20} className={`mr-3 ${theme.text}`} />
-                <span className="whitespace-nowrap">{boardTab === 'today' ? 'DAILY 5' : boardTab === 'friends' ? 'FRIENDS' : 'TOP 5'}</span>
-              </div>
-              <div className="flex gap-1 bg-black/20 rounded-full p-1 border border-white/10">
-                <button onClick={() => setBoardTab('alltime')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'alltime' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>ALL</button>
-                <button onClick={() => { setBoardTab('today'); fetchDailyBoard(); }} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'today' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>TODAY</button>
-                <button onClick={() => setBoardTab('friends')} className={`px-3 py-1.5 rounded-full text-[9px] font-black tracking-widest transition-all ${boardTab === 'friends' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}>FRIENDS</button>
-              </div>
-            </div>
+              {boardTab === 'friends' && !isLoggedIn && (
+                <div className="flex flex-col items-center justify-center py-10 text-center opacity-70">
+                  <Lock size={32} className="text-zinc-600 mb-4" />
+                  <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest max-w-[180px]">
+                    Sign in to connect and compete with friends.
+                  </p>
+                </div>
+              )}
 
-            {boardTab === 'friends' && !isLoggedIn && (
-              <div className="flex flex-col items-center justify-center py-10 text-center opacity-70">
-                <Lock size={32} className="text-zinc-600 mb-4" />
-                <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest max-w-[180px]">
-                  Sign in to connect and compete with friends.
+
+              {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).length === 0 ? (
+                <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">
+                  {boardTab === 'friends' ? (cloud.username ? 'No friends yet. Follow someone!' : 'Log in to use friends.') : boardTab === 'today' ? 'No daily scores yet. Run the DAILY challenge!' : 'No scores yet. Be the first!'}
                 </p>
-              </div>
-            )}
-
-
-            {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).length === 0 ? (
-              <p className="text-zinc-500 text-sm text-center py-8 font-bold whitespace-nowrap">
-                {boardTab === 'friends' ? (cloud.username ? 'No friends yet. Follow someone!' : 'Log in to use friends.') : boardTab === 'today' ? 'No daily scores yet. Run the DAILY challenge!' : 'No scores yet. Be the first!'}
-              </p>
-            ) : (
-              <div className="space-y-6 w-full">
-                {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).map((entry, idx) => (
-                  <div key={idx} className="flex justify-between items-center group p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 w-full border border-transparent hover:border-white/5 hover:translate-x-1 relative">
-                    <div className="flex items-center space-x-6">
-                      <span className={`font-black text-xl ${idx === 0 ? theme.text : 'text-zinc-500'}`}>#{idx + 1}</span>
-                      <button
-                        onClick={() => {
-                          setSelectedProfileUsername(entry.username);
-                          setShowProfile(true);
-                        }}
-                        className="font-black text-white hover:text-cyan-300 tracking-widest uppercase text-lg whitespace-nowrap hover:underline transition-colors text-left"
-                        title={`View ${entry.username}'s Profile`}
-                      >
-                        {entry.username}
-                      </button>
-                    </div>
-                    <div className="flex flex-col items-end mr-4 group-hover:mr-10 transition-all">
-                      <span className={`font-black text-3xl ${theme.text}`}>{entry.wpm}</span>
-                      <span className="text-[10px] text-zinc-400 font-bold tracking-widest whitespace-nowrap">{entry.accuracy}% ACC</span>
-                    </div>
-                    {boardTab === 'friends' && entry.username !== cloud.username && (
-                      <div className="absolute right-3 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all bg-black/40 rounded-full p-1 border border-white/5">
-                        <button 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            race.createRoom(cloud.username || 'Player', 2, undefined, cloud.elo, undefined, auth.user?.id);
-                            setRaceActive(true);
-                            setShowRace(true);
+              ) : (
+                <div className="space-y-6 w-full">
+                  {(boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard).map((entry, idx) => (
+                    <div key={idx} className="flex justify-between items-center group p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 w-full border border-transparent hover:border-white/5 hover:translate-x-1 relative">
+                      <div className="flex items-center space-x-6">
+                        <span className={`font-black text-xl ${idx === 0 ? theme.text : 'text-zinc-500'}`}>#{idx + 1}</span>
+                        <button
+                          onClick={() => {
+                            setSelectedProfileUsername(entry.username);
+                            setShowProfile(true);
                           }}
-                          className="p-2 text-zinc-400 hover:text-amber-400 transition-all rounded-full"
-                          title="Challenge to Race"
+                          className="font-black text-white hover:text-cyan-300 tracking-widest uppercase text-lg whitespace-nowrap hover:underline transition-colors text-left"
+                          title={`View ${entry.username}'s Profile`}
                         >
-                          <Swords size={14} />
-                        </button>
-                        <div className="w-px h-4 bg-white/10"></div>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); friendsState.removeFriend(entry.username); }}
-                          className="p-2 text-zinc-400 hover:text-red-400 transition-all rounded-full"
-                          title="Unfollow"
-                        >
-                          <X size={14} />
+                          {entry.username}
                         </button>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </aside>
-        </main>
-      </div>
-
-      {/* Floating Bottom-Right Controls */}
-      {!shouldHideClutter && (
-        <div className="fixed bottom-6 right-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-          {/* One bar: theme · sound · account. Single glass surface with
-              hairline dividers rather than separate stacked pills. */}
-          <div className="flex items-center gap-1 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.75)]">
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className={`p-2.5 rounded-full ${activeModal === 'settings' ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
-              title="Settings"
-            >
-              <Settings size={16} />
-            </button>
-
-            <div className="w-px h-5 bg-white/10 mx-1" />
-
-            {/* Account: Google login */}
-            <AccountMenu
-              theme={theme}
-              loggedIn={!!cloud.username}
-              displayName={cloud.username}
-              avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
-                ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
-              status={cloud.status}
-              elo={cloud.elo}
-              onSignIn={() => { void auth.signInWithGoogle(); }}
-              onSignOut={() => { void auth.signOut(); }}
-            />
-          </div>
+                      <div className="flex flex-col items-end mr-4 group-hover:mr-10 transition-all">
+                        <span className={`font-black text-3xl ${theme.text}`}>{entry.wpm}</span>
+                        <span className="text-[10px] text-zinc-400 font-bold tracking-widest whitespace-nowrap">{entry.accuracy}% ACC</span>
+                      </div>
+                      {boardTab === 'friends' && entry.username !== cloud.username && (
+                        <div className="absolute right-3 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all bg-black/40 rounded-full p-1 border border-white/5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              race.createRoom(cloud.username || 'Player', 2, undefined, cloud.elo, undefined, auth.user?.id);
+                              setRaceActive(true);
+                              setShowRace(true);
+                            }}
+                            className="p-2 text-zinc-400 hover:text-amber-400 transition-all rounded-full"
+                            title="Challenge to Race"
+                          >
+                            <Swords size={14} />
+                          </button>
+                          <div className="w-px h-4 bg-white/10"></div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); friendsState.removeFriend(entry.username); }}
+                            className="p-2 text-zinc-400 hover:text-red-400 transition-all rounded-full"
+                            title="Unfollow"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </aside>
+          </main>
         </div>
-      )}
 
-      {/* Floating Bottom-Left Version/Changelog Badge */}
-      {!shouldHideClutter && (
-        <button
-          onClick={() => setShowChangelog(true)}
-          className="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-950/40 hover:bg-zinc-900/80 backdrop-blur border border-white/5 hover:border-white/20 text-zinc-500 hover:text-white transition-all group"
-          title="Update Log & Features"
-        >
-          <Sparkles size={12} className={theme.text} />
-          <span className="text-[10px] font-black uppercase tracking-widest">{CHANGELOG[0].version}</span>
-          <span className="text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 px-2 py-0.5 rounded ml-1 hidden md:block">What's New</span>
-        </button>
-      )}
+        {/* Floating Bottom-Right Controls */}
+        {!shouldHideClutter && (
+          <div className="fixed bottom-6 right-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+            {/* One bar: theme · sound · account. Single glass surface with
+              hairline dividers rather than separate stacked pills. */}
+            <div className="flex items-center gap-1 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.75)]">
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className={`p-2.5 rounded-full ${activeModal === 'settings' ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
+                title="Settings"
+              >
+                <Settings size={16} />
+              </button>
 
+              <div className="w-px h-5 bg-white/10 mx-1" />
 
-      {/* ─── MODAL LAYER ─── */}
-      {(() => {
-        if (!activeModal) return null;
-        switch (activeModal) {
-          case 'expandedGraph': return (
-            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setActiveModal(null)}>
-              <div className="bg-zinc-900/95 p-8 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className={`text-2xl font-black ${theme.text}`}>PACING TIMELINE</h3>
-                  <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
-                </div>
-                <svg viewBox="0 0 800 240" className="w-full h-64 bg-zinc-950/50 rounded-2xl p-4 border border-zinc-800">
-                  {[0, 20, 40, 60, 80, 100].map((x) => (
-                    <line key={`grid-v-${x}`} x1={x * 8} y1="0" x2={x * 8} y2="200" stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
-                  ))}
-                  {[0, 50, 100, 150, 200].map((y) => (
-                    <line key={`grid-h-${y}`} x1="0" y1={y} x2="800" y2={y} stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
-                  ))}
-                  {(() => {
-                    const pts = typing.timelinePoints.length ? typing.timelinePoints : [];
-                    if (pts.length === 0) return null;
-                    const maxW = Math.max(...pts.map(p => p.wpm).concat([typing.wpm || 1, 10]));
-                    const poly = pts.map((p, i) => {
-                      const x = ((i + 1) / pts.length) * 760 + 20;
-                      const y = 200 - Math.min(200, (p.wpm / Math.max(maxW, 10)) * 160);
-                      return `${x},${y}`;
-                    }).join(' ');
-                    return <polyline fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />;
-                  })()}
-                </svg>
-                <div className="grid grid-cols-5 gap-2 mt-6">
-                  {typing.timelinePoints.map((p, i) => (
-                    <div key={i} className="bg-zinc-800/50 p-3 rounded-lg text-center border border-zinc-700">
-                      <div className={`font-black text-lg ${theme.text}`}>{p.wpm} wpm</div>
-                      <div className="text-[10px] text-zinc-500 font-black">+{Math.round((p.t) / 1000)}s</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 text-center text-sm text-zinc-500 font-black">Click outside to close</div>
-              </div>
+              {/* Account: Google login */}
+              <AccountMenu
+                theme={theme}
+                loggedIn={!!cloud.username}
+                displayName={cloud.username}
+                avatarUrl={(auth.user?.user_metadata as { avatar_url?: string; picture?: string } | undefined)?.avatar_url
+                  ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
+                status={cloud.status}
+                elo={cloud.elo}
+                onSignIn={() => { void auth.signInWithGoogle(); }}
+                onSignOut={() => { void auth.signOut(); }}
+              />
             </div>
-          );
+          </div>
+        )}
 
-          case 'stats': return (
-            <StatsDashboard
-              theme={theme}
-              testsCompleted={rpg.testsCompleted}
-              heatmapData={rpg.heatmapData}
-              onClose={() => setActiveModal(null)}
-              onStartWeaknessDrill={(drillText) => {
-                typing.setTargetText(drillText);
-                setActiveModal(null);
-                typing.resetEngine();
-                toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
-              }}
-            />
-          );
+        {/* Floating Bottom-Left Version/Changelog Badge */}
+        {!shouldHideClutter && (
+          <button
+            onClick={() => setShowChangelog(true)}
+            className="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-950/40 hover:bg-zinc-900/80 backdrop-blur border border-white/5 hover:border-white/20 text-zinc-500 hover:text-white transition-all group"
+            title="Update Log & Features"
+          >
+            <Sparkles size={12} className={theme.text} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{CHANGELOG[0].version}</span>
+            <span className="text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 px-2 py-0.5 rounded ml-1 hidden md:block">What's New</span>
+          </button>
+        )}
 
-          case 'quests': return (
-            <DailyQuestsPanel
-              questsState={quests.questsState}
-              dailyStreak={dailyStreak}
-              onClose={() => setActiveModal(null)}
-            />
-          );
 
-          case 'race': return (
-            <RaceModal
-              status={race.status}
-              code={race.code}
-              initialCode={initialRaceCode}
-              isHost={race.isHost}
-              players={race.players}
-              error={race.error}
-              selfId={race.selfId ?? ''}
-              theme={theme}
-              roomSize={race.roomSize}
-              lobbyConfig={race.lobbyConfig}
-              elo={cloud.elo}
-              username={cloud.username || ''}
-              supabase={supabase}
-              updateLobbyConfig={race.updateLobbyConfig}
-              isRankedRoom={isRankedMatch}
-              onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked); }}
-              onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked); }}
-              onStart={(text) => race.startRace(text)}
-              onLeave={() => { race.leave(); setRaceActive(false); setActiveModal(null); setIsRankedMatch(false); }}
-              onClose={() => setActiveModal(null)}
-            />
-          );
-
-          case 'social': return (
-            <SocialModal
-              theme={theme}
-              onClose={() => setActiveModal(null)}
-              friendsState={friendsState}
-              onChallengeFriend={handleChallengeFriend}
-              sentChallengeTo={challenges.sentChallengeTo}
-              onOpenProfile={(name) => {
-                setSelectedProfileUsername(name);
-                setShowProfile(true);
-              }}
-            />
-          );
-
-          case 'changelog': return (
-            <ChangelogModal
-              theme={theme}
-              onClose={() => setActiveModal(null)}
-            />
-          );
-
-          case 'settings': return (
-            <SettingsModal
-              theme={theme}
-              onClose={() => setActiveModal(null)}
-              suddenDeath={game.suddenDeath} setSuddenDeath={game.setSuddenDeath}
-              ghostPacer={game.ghostPacer} setGhostPacer={game.setGhostPacer}
-              focusMode={game.focusMode} setFocusMode={game.setFocusMode}
-              blindMode={game.blindMode} setBlindMode={game.setBlindMode}
-              mirroredMode={game.mirroredMode} toggleMirror={game.toggleMirror}
-              fogMode={game.fogMode} setFogMode={game.setFogMode}
-              stickyKeysMode={game.stickyKeysMode} setStickyKeysMode={game.setStickyKeysMode}
-              overclockedMode={game.overclockedMode} setOverclockedMode={game.setOverclockedMode}
-              zenMode={game.zenMode} setZenMode={game.setZenMode}
-              themeIndex={themeIndex} selectTheme={selectTheme}
-              soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
-            />
-          );
-
-          case 'profile': return (
-            <PlayerProfileModal
-              targetUsername={selectedProfileUsername}
-              onClose={() => setActiveModal(null)}
-              supabase={supabase}
-              localUsername={cloud.username}
-              theme={theme}
-              localRPGStats={localRPGStatsMemo}
-            />
-          );
-
-          case 'godMode': return (
-            <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={() => setActiveModal(null)}>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-6">
-                  <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Terminal className="mr-4 text-emerald-400" size={32} /> God Mode</h2>
-                  <button onClick={() => setActiveModal(null)} className="p-3 bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-zinc-400 transition-all duration-200 border border-zinc-700 hover:border-red-500/50"><X size={24} /></button>
-                </div>
-                <div className="flex flex-col gap-6">
-                  <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 shadow-inner">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-2xl ${tetrisEffect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                        <Zap size={20} />
+        {/* ─── MODAL LAYER ─── */}
+        {(() => {
+          if (!activeModal) return null;
+          switch (activeModal) {
+            case 'expandedGraph': return (
+              <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setActiveModal(null)}>
+                <div className="bg-zinc-900/95 p-8 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className={`text-2xl font-black ${theme.text}`}>PACING TIMELINE</h3>
+                    <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
+                  </div>
+                  <svg viewBox="0 0 800 240" className="w-full h-64 bg-zinc-950/50 rounded-2xl p-4 border border-zinc-800">
+                    {[0, 20, 40, 60, 80, 100].map((x) => (
+                      <line key={`grid-v-${x}`} x1={x * 8} y1="0" x2={x * 8} y2="200" stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
+                    ))}
+                    {[0, 50, 100, 150, 200].map((y) => (
+                      <line key={`grid-h-${y}`} x1="0" y1={y} x2="800" y2={y} stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
+                    ))}
+                    {(() => {
+                      const pts = typing.timelinePoints.length ? typing.timelinePoints : [];
+                      if (pts.length === 0) return null;
+                      const maxW = Math.max(...pts.map(p => p.wpm).concat([typing.wpm || 1, 10]));
+                      const poly = pts.map((p, i) => {
+                        const x = ((i + 1) / pts.length) * 760 + 20;
+                        const y = 200 - Math.min(200, (p.wpm / Math.max(maxW, 10)) * 160);
+                        return `${x},${y}`;
+                      }).join(' ');
+                      return <polyline fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />;
+                    })()}
+                  </svg>
+                  <div className="grid grid-cols-5 gap-2 mt-6">
+                    {typing.timelinePoints.map((p, i) => (
+                      <div key={i} className="bg-zinc-800/50 p-3 rounded-lg text-center border border-zinc-700">
+                        <div className={`font-black text-lg ${theme.text}`}>{p.wpm} wpm</div>
+                        <div className="text-[10px] text-zinc-500 font-black">+{Math.round((p.t) / 1000)}s</div>
                       </div>
-                      <div>
-                        <h4 className="text-white font-bold tracking-widest uppercase mb-1">Tetris Effect Particles</h4>
-                        <p className="text-xs text-zinc-500 font-bold">Auto-unlocks at 50 combo. Toggle here to test early.</p>
-                      </div>
-                    </div>
-                    <button onClick={() => setTetrisEffect(!tetrisEffect)} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 ${tetrisEffect ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-                      {tetrisEffect ? 'ON ✓' : 'OFF'}
-                    </button>
+                    ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <button onClick={() => { rpg.unlockAllAchievements(); setActiveModal(null); }} className="p-6 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all flex flex-col items-center text-center text-xs">
-                      <Trophy size={24} className="mb-2" /> Unlock All Achievements
-                    </button>
-                    <button onClick={() => { rpg.setXp(250000); setActiveModal(null); }} className="p-6 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(14,165,233,0.1)] transition-all flex flex-col items-center text-center text-xs">
-                      <Star size={24} className="mb-2" /> Set Level to Max (50+)
-                    </button>
-                  </div>
-                  <div className="mt-4 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
-                    <h4 className="text-red-400 font-bold tracking-widest uppercase mb-3 text-xs flex items-center gap-2">
-                      <RotateCcw size={16} /> DANGER ZONE
-                    </h4>
-                    <button onClick={() => { rpg.resetAllProgress(); setActiveModal(null); }} className="w-full p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 text-xs hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-                      <RotateCcw size={18} /> Reset All Progress (Level, XP, Achievements, Themes)
-                    </button>
-                  </div>
+                  <div className="mt-6 text-center text-sm text-zinc-500 font-black">Click outside to close</div>
                 </div>
               </div>
-            </div>
-          );
+            );
 
-          case 'comms': return isLoggedIn ? (
-            <CommsModal
-              supabase={supabase}
-              userId={auth.session?.user.id}
-              friends={friendsState.friends}
-              onClose={() => setActiveModal(null)}
-            />
-          ) : null;
+            case 'stats': return (
+              <StatsDashboard
+                theme={theme}
+                testsCompleted={rpg.testsCompleted}
+                heatmapData={rpg.heatmapData}
+                onClose={() => setActiveModal(null)}
+                onStartWeaknessDrill={(drillText) => {
+                  typing.setTargetText(drillText);
+                  setActiveModal(null);
+                  typing.resetEngine();
+                  toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+                }}
+              />
+            );
 
-          case 'trophy': return (
-            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setActiveModal(null)}>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10">
-                  <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Trophy className="mr-4 text-amber-400" size={32} /> Hall of Legends</h2>
-                  <button onClick={() => setActiveModal(null)} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
-                </div>
-                <div className="flex flex-col gap-12">
-                  {(['SKILL', 'HARDCORE', 'GRIND', 'SUPER'] as const).map(category => {
-                    const categoryAchievements = ACHIEVEMENTS.filter(a => a.category === category);
-                    return (
-                      <div key={category}>
-                        <h3 className={`text-sm font-black uppercase tracking-widest mb-6 ${category === 'SUPER' ? theme.text : 'text-zinc-500'}`}>{category} BADGES</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          {categoryAchievements.map(ach => {
-                            const isUnlocked = rpg.unlockedAchievements.includes(ach.id);
-                            const AchIcon = ACHIEVEMENT_ICONS[ach.icon] ?? Trophy;
-                            return (
-                              <div key={ach.id} className={`p-5 rounded-3xl border transition-all flex flex-col items-center text-center ${isUnlocked ? `bg-zinc-900 ${theme.borderHalf} ${theme.auraLow} hover:-translate-y-1` : 'bg-zinc-950 border-zinc-800/50 opacity-60 grayscale'}`}>
-                                <div className="relative mb-4">
-                                  {/* color via glowPrimary, not theme.text — galaxy's
-                                      gradient-clip class would make SVG strokes transparent */}
-                                  <AchIcon
-                                    size={34}
-                                    className={isUnlocked ? theme.drop : 'text-zinc-600'}
-                                    style={isUnlocked ? { color: `rgb(${theme.glowPrimary})` } : undefined}
-                                  />
-                                  {!isUnlocked && <div className="absolute -bottom-2 -right-2 bg-zinc-800 rounded-full p-1"><Lock size={12} className="text-zinc-400" /></div>}
-                                </div>
-                                <h4 className={`font-bold mb-2 ${isUnlocked ? 'text-white' : 'text-zinc-500'}`}>{ach.title}</h4>
-                                <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">{ach.desc}</p>
-                              </div>
-                            );
-                          })}
+            case 'quests': return (
+              <DailyQuestsPanel
+                questsState={quests.questsState}
+                dailyStreak={dailyStreak}
+                onClose={() => setActiveModal(null)}
+              />
+            );
+
+            case 'race': return (
+              <RaceModal
+                status={race.status}
+                code={race.code}
+                initialCode={initialRaceCode}
+                isHost={race.isHost}
+                players={race.players}
+                error={race.error}
+                selfId={race.selfId ?? ''}
+                theme={theme}
+                roomSize={race.roomSize}
+                lobbyConfig={race.lobbyConfig}
+                elo={cloud.elo}
+                username={cloud.username || ''}
+                supabase={supabase}
+                updateLobbyConfig={race.updateLobbyConfig}
+                isRankedRoom={isRankedMatch}
+                onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked); }}
+                onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked); }}
+                onStart={(text) => race.startRace(text)}
+                onLeave={() => { race.leave(); setRaceActive(false); setActiveModal(null); setIsRankedMatch(false); }}
+                onClose={() => setActiveModal(null)}
+              />
+            );
+
+            case 'social': return (
+              <SocialModal
+                theme={theme}
+                onClose={() => setActiveModal(null)}
+                friendsState={friendsState}
+                onChallengeFriend={handleChallengeFriend}
+                sentChallengeTo={challenges.sentChallengeTo}
+                onOpenProfile={(name) => {
+                  setSelectedProfileUsername(name);
+                  setShowProfile(true);
+                }}
+              />
+            );
+
+            case 'changelog': return (
+              <ChangelogModal
+                theme={theme}
+                onClose={() => setActiveModal(null)}
+              />
+            );
+
+            case 'settings': return (
+              <SettingsModal
+                theme={theme}
+                onClose={() => setActiveModal(null)}
+                suddenDeath={game.suddenDeath} setSuddenDeath={game.setSuddenDeath}
+                ghostPacer={game.ghostPacer} setGhostPacer={game.setGhostPacer}
+                focusMode={game.focusMode} setFocusMode={game.setFocusMode}
+                blindMode={game.blindMode} setBlindMode={game.setBlindMode}
+                mirroredMode={game.mirroredMode} toggleMirror={game.toggleMirror}
+                fogMode={game.fogMode} setFogMode={game.setFogMode}
+                stickyKeysMode={game.stickyKeysMode} setStickyKeysMode={game.setStickyKeysMode}
+                overclockedMode={game.overclockedMode} setOverclockedMode={game.setOverclockedMode}
+                zenMode={game.zenMode} setZenMode={game.setZenMode}
+                themeIndex={themeIndex} selectTheme={selectTheme}
+                soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
+              />
+            );
+
+            case 'profile': return (
+              <PlayerProfileModal
+                targetUsername={selectedProfileUsername}
+                onClose={() => setActiveModal(null)}
+                supabase={supabase}
+                localUsername={cloud.username}
+                theme={theme}
+                localRPGStats={localRPGStatsMemo}
+              />
+            );
+
+            case 'godMode': return (
+              <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={() => setActiveModal(null)}>
+                <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-6">
+                    <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Terminal className="mr-4 text-emerald-400" size={32} /> God Mode</h2>
+                    <button onClick={() => setActiveModal(null)} className="p-3 bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-zinc-400 transition-all duration-200 border border-zinc-700 hover:border-red-500/50"><X size={24} /></button>
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 shadow-inner">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-2xl ${tetrisEffect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                          <Zap size={20} />
+                        </div>
+                        <div>
+                          <h4 className="text-white font-bold tracking-widest uppercase mb-1">Tetris Effect Particles</h4>
+                          <p className="text-xs text-zinc-500 font-bold">Auto-unlocks at 50 combo. Toggle here to test early.</p>
                         </div>
                       </div>
-                    );
-                  })}
+                      <button onClick={() => setTetrisEffect(!tetrisEffect)} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 ${tetrisEffect ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+                        {tetrisEffect ? 'ON ✓' : 'OFF'}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <button onClick={() => { rpg.unlockAllAchievements(); setActiveModal(null); }} className="p-6 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all flex flex-col items-center text-center text-xs">
+                        <Trophy size={24} className="mb-2" /> Unlock All Achievements
+                      </button>
+                      <button onClick={() => { rpg.setXp(250000); setActiveModal(null); }} className="p-6 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(14,165,233,0.1)] transition-all flex flex-col items-center text-center text-xs">
+                        <Star size={24} className="mb-2" /> Set Level to Max (50+)
+                      </button>
+                    </div>
+                    <div className="mt-4 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
+                      <h4 className="text-red-400 font-bold tracking-widest uppercase mb-3 text-xs flex items-center gap-2">
+                        <RotateCcw size={16} /> DANGER ZONE
+                      </h4>
+                      <button onClick={() => { rpg.resetAllProgress(); setActiveModal(null); }} className="w-full p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 text-xs hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                        <RotateCcw size={18} /> Reset All Progress (Level, XP, Achievements, Themes)
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
+            );
 
-          default: return null;
-        }
-      })()}
-      <VideoCallOverlay />
-    </div>
+            case 'comms': return isLoggedIn ? (
+              <CommsModal
+                supabase={supabase}
+                userId={auth.session?.user.id}
+                friends={friendsState.friends}
+                onClose={() => setActiveModal(null)}
+              />
+            ) : null;
+
+            case 'trophy': return (
+              <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setActiveModal(null)}>
+                <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10">
+                    <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Trophy className="mr-4 text-amber-400" size={32} /> Hall of Legends</h2>
+                    <button onClick={() => setActiveModal(null)} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
+                  </div>
+                  <div className="flex flex-col gap-12">
+                    {(['SKILL', 'HARDCORE', 'GRIND', 'SUPER'] as const).map(category => {
+                      const categoryAchievements = ACHIEVEMENTS.filter(a => a.category === category);
+                      return (
+                        <div key={category}>
+                          <h3 className={`text-sm font-black uppercase tracking-widest mb-6 ${category === 'SUPER' ? theme.text : 'text-zinc-500'}`}>{category} BADGES</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {categoryAchievements.map(ach => {
+                              const isUnlocked = rpg.unlockedAchievements.includes(ach.id);
+                              const AchIcon = ACHIEVEMENT_ICONS[ach.icon] ?? Trophy;
+                              return (
+                                <div key={ach.id} className={`p-5 rounded-3xl border transition-all flex flex-col items-center text-center ${isUnlocked ? `bg-zinc-900 ${theme.borderHalf} ${theme.auraLow} hover:-translate-y-1` : 'bg-zinc-950 border-zinc-800/50 opacity-60 grayscale'}`}>
+                                  <div className="relative mb-4">
+                                    {/* color via glowPrimary, not theme.text — galaxy's
+                                      gradient-clip class would make SVG strokes transparent */}
+                                    <AchIcon
+                                      size={34}
+                                      className={isUnlocked ? theme.drop : 'text-zinc-600'}
+                                      style={isUnlocked ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+                                    />
+                                    {!isUnlocked && <div className="absolute -bottom-2 -right-2 bg-zinc-800 rounded-full p-1"><Lock size={12} className="text-zinc-400" /></div>}
+                                  </div>
+                                  <h4 className={`font-bold mb-2 ${isUnlocked ? 'text-white' : 'text-zinc-500'}`}>{ach.title}</h4>
+                                  <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">{ach.desc}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+
+            default: return null;
+          }
+        })()}
+        <VideoCallOverlay />
+      </div>
     </VideoCallProvider>
   );
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, authReady } = useAuth();
-  
+
   if (!authReady) {
     return (
       <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-zinc-500 font-black tracking-widest text-xs">
@@ -1833,13 +1824,13 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   const isGuest = localStorage.getItem('guestMode') === 'true';
-  
+
   if (!session && !isGuest) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 }
 

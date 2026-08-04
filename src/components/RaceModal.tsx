@@ -21,6 +21,7 @@ interface RaceModalProps {
   selfId: string;
   theme: Theme;
   roomSize: number;
+  countdown?: number | null;
   lobbyConfig?: RaceConfig;
   updateLobbyConfig?: (config: Partial<RaceConfig>) => void;
   onCreate: (name: string, size: number, isRanked?: boolean, roomCode?: string) => void;
@@ -31,14 +32,14 @@ interface RaceModalProps {
   initialCode?: string;
   elo: number;
   username: string;
-  supabase: SupabaseClient | null;
+  supabase?: SupabaseClient | null;
 }
 
 export const RaceModal = ({
-  status, code, isHost, isRankedRoom, players, error, selfId, theme, roomSize,
+  status, code, isHost, isRankedRoom, players, error, selfId, theme, roomSize, countdown,
   lobbyConfig, updateLobbyConfig,
   onCreate, onJoin, onStart, onLeave, onClose, initialCode,
-  elo, username, supabase
+  elo, username, supabase = null
 }: RaceModalProps) => {
   const [name, setName] = useState(username || '');
   const [joinCode, setJoinCode] = useState(initialCode || '');
@@ -270,14 +271,14 @@ export const RaceModal = ({
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.stopPropagation()}
                     placeholder="CODE"
-                    maxLength={5}
+                    maxLength={6}
                     className="w-32 bg-slate-900/60 border border-white/15 rounded-xl px-3 py-2.5 text-center text-sm font-bold tracking-[0.2em] text-white uppercase placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/40"
                   />
                   <button
-                    onClick={() => canAct && joinCode.trim().length === 5 && onJoin(joinCode, name.trim())}
-                    disabled={!canAct || joinCode.trim().length !== 5 || status === 'joining'}
+                    onClick={() => canAct && joinCode.trim().length >= 5 && onJoin(joinCode, name.trim())}
+                    disabled={!canAct || joinCode.trim().length < 5 || status === 'joining'}
                     className={`flex-1 py-2.5 rounded-xl font-bold text-xs tracking-wider border transition-all ${
-                      canAct && joinCode.trim().length === 5
+                      canAct && joinCode.trim().length >= 5
                         ? 'bg-slate-900/80 border-cyan-500/30 text-cyan-300 hover:bg-slate-800'
                         : 'bg-slate-900/40 border-white/5 text-zinc-600 cursor-not-allowed'
                     }`}

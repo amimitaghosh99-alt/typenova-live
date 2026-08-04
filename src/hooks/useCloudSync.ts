@@ -150,6 +150,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
       if (extraData && username) {
         sb.from('public_profiles')
           .upsert({
+            id: uid,
             username,
             level: extraData.level || 1,
             xp: extraData.xp || 0,
@@ -159,7 +160,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
             avg_acc: extraData.avgAcc || 0,
             tests_completed: extraData.testsCompleted || 0,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'username' })
+          }, { onConflict: 'id' })
           .then(undefined, () => {});
       }
     }, PUSH_DEBOUNCE_MS);

@@ -1,32 +1,31 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { getSocket, connectSocket, disconnectSocket } from '../lib/socket';
 import type { Level, CodeLanguage } from '../data/constants';
 
-// Multiplayer race rooms over Supabase Realtime channels (broadcast +
-// presence only — no database tables involved). The host generates the text
-// and carries it in their presence meta; a 'start' broadcast synchronizes
-// the countdown; 250ms-throttled 'progress' broadcasts drive the live
-// opponent bars; 'finish' broadcasts build the final ranking.
-
 export type RaceStatus = 'idle' | 'joining' | 'lobby' | 'racing' | 'finished';
+
+export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const makeRoomCode = () =>
+  Array.from({ length: 6 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join('');
 
 export interface RacerState {
   id: string;
   name: string;
-  userId?: string;
   isHost: boolean;
   progress: number; // 0-100
   wpm: number;
+  accuracy?: number;
+  keystrokes?: number;
   finished: boolean;
   finishWpm?: number;
   finishAcc?: number;
   finishMs?: number;
+  rank?: number;
   rawWpm?: number;
   consistency?: number;
   heatmapData?: Record<string, { total: number; errors: number }>;
   errorCount?: number;
   backspaceCount?: number;
-  elo?: number;
 }
 
 export interface RaceConfig {
@@ -35,434 +34,284 @@ export interface RaceConfig {
   language?: CodeLanguage;
 }
 
-export const ROOM_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I/L
-export const makeRoomCode = () =>
-  Array.from({ length: 5 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join('');
+export interface SocketRoomState {
+  roomId: string;
+  hostId: string;
+  status: 'waiting' | 'countdown' | 'in_progress' | 'finished';
+  textSnippet?: string;
+  startTime?: number | null;
+  countdown?: number | null;
+  playerCount: number;
+  maxPlayers: number;
+  players: Array<{
+    id: string;
+    username: string;
+    isHost: boolean;
+    progress: number;
+    keystrokes: number;
+    wpm: number;
+    accuracy: number;
+    completed: boolean;
+    finishTime: number | null;
+    rank: number | null;
+  }>;
+  chatHistory: Array<{
+    id: string;
+    sender: string;
+    text: string;
+    timestamp: string;
+  }>;
+}
 
 interface UseRaceOptions {
-  supabase: SupabaseClient | null;
-  /** Fired on every client (host included) when the race starts. */
+  /** Callback fired when server starts race with snippet text and start timestamp */
   onStart: (text: string, startAt: number) => void;
 }
 
-export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
+export const useRace = ({ onStart }: UseRaceOptions) => {
   const [status, setStatus] = useState<RaceStatus>('idle');
   const [code, setCode] = useState('');
   const [isHost, setIsHost] = useState(false);
   const [players, setPlayers] = useState<RacerState[]>([]);
   const [error, setError] = useState('');
-  /** Host-minted id for the current race, shared by every client in the room. */
   const [raceId, setRaceId] = useState<string | null>(null);
-  const [roomSize, setRoomSize] = useState(2);
+  const [roomSize, setRoomSize] = useState(4);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [lobbyConfig, setLobbyConfig] = useState<RaceConfig>({ mode: 'NOVICE', words: 25 });
-  const lobbyConfigRef = useRef<RaceConfig>({ mode: 'NOVICE', words: 25 });
+  const [selfId, setSelfId] = useState<string | null>(null);
+  const [timelines, setTimelines] = useState<any[]>([]);
 
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const roomTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const [selfId] = useState(() => crypto.randomUUID());
-  const selfIdRef = useRef(selfId);
-  /** Our Supabase auth id (distinct from the presence key), needed to survive host migration. */
-  const selfUserIdRef = useRef<string | undefined>(undefined);
-  const progressRef = useRef<Record<string, { progress: number; wpm: number }>>({});
-  const finishRef = useRef<Record<string, { wpm: number; acc: number; ms: number; rawWpm?: number; consistency?: number; heatmapData?: Record<string, { total: number; errors: number }>; errorCount?: number; backspaceCount?: number }>>({});
-  const timelinesRef = useRef<Record<string, Array<{ t: number; wpm: number }>>>({});
-  const metaRef = useRef<Record<string, any>>({});
-  const startAtRef = useRef<number | null>(null);
-  const textRef = useRef('');
-  const statusRef = useRef<RaceStatus>('idle');
-  const roomSizeRef = useRef(2);
   const lastProgressSendRef = useRef(0);
   const finishSentRef = useRef(false);
   const onStartRef = useRef(onStart);
-  useEffect(() => { onStartRef.current = onStart; });
-  useEffect(() => { statusRef.current = status; });
+  const codeRef = useRef(code);
 
+  useEffect(() => { onStartRef.current = onStart; }, [onStart]);
+  useEffect(() => { codeRef.current = code; }, [code]);
+
+  /** Clean up socket listeners & state */
   const teardown = useCallback(() => {
-    roomTimeoutsRef.current.forEach(t => clearTimeout(t));
-    roomTimeoutsRef.current = [];
-    if (channelRef.current && supabase) supabase.removeChannel(channelRef.current);
-    channelRef.current = null;
-    progressRef.current = {};
-    finishRef.current = {};
-    timelinesRef.current = {};
-    metaRef.current = {};
-    startAtRef.current = null;
-    textRef.current = '';
-    finishSentRef.current = false;
-    roomSizeRef.current = 2;
-  }, [supabase]);
+    const socket = getSocket();
+    socket.off('lobby_state_update');
+    socket.off('race_started');
+    socket.off('countdown_tick');
+    socket.off('error');
 
+    finishSentRef.current = false;
+    lastProgressSendRef.current = 0;
+    setCountdown(null);
+  }, []);
+
+  /** Leave lobby and disconnect socket cleanly */
   const leave = useCallback(() => {
+    const socket = getSocket();
+    if (socket.connected && codeRef.current) {
+      socket.emit('leave_lobby');
+    }
     teardown();
+    disconnectSocket();
+
     setStatus('idle');
     setPlayers([]);
     setCode('');
     setIsHost(false);
     setError('');
-    setRoomSize(2);
+    setRoomSize(4);
     setRaceId(null);
+    setCountdown(null);
+    setSelfId(null);
+    setTimelines([]);
   }, [teardown]);
 
-  // Rebuild the player list from presence + latest progress/finish payloads.
-  const rebuildPlayers = useCallback(() => {
-    const ch = channelRef.current;
-    if (!ch) return;
-    const state = ch.presenceState() as Record<string, Array<any>>;
-    
-    // Update meta cache for active players
-    for (const [key, metas] of Object.entries(state)) {
-      if (metas[0]) metaRef.current[key] = metas[0];
-    }
+  /** Setup Socket.io Listeners */
+  const attachSocketListeners = useCallback(() => {
+    const socket = connectSocket();
 
-    // --- Memory Leak Cleanup ---
-    // Remove data for players who have disconnected, UNLESS they have finished the race
-    if (statusRef.current === 'lobby' || statusRef.current === 'racing') {
-      const activeIds = new Set(Object.keys(state));
-      [progressRef, finishRef, timelinesRef, metaRef].forEach(ref => {
-        Object.keys(ref.current).forEach(id => {
-          if (!activeIds.has(id) && !finishRef.current[id]) {
-            delete ref.current[id];
-          }
-        });
-      });
-    }
+    // Remove any legacy listeners before re-attaching
+    socket.off('lobby_state_update');
+    socket.off('race_started');
+    socket.off('countdown_tick');
+    socket.off('error');
 
-    const next: RacerState[] = [];
-    let hostFound = false;
-    
-    const allKnownIds = new Set([...Object.keys(state), ...Object.keys(finishRef.current)]);
+    // Listener 1: lobby_state_update
+    socket.on('lobby_state_update', (roomState: SocketRoomState) => {
+      if (!roomState) return;
 
-    for (const key of allKnownIds) {
-      const meta = state[key]?.[0] || metaRef.current[key];
-      if (!meta?.name) continue;
-      
-      if (meta.isHost) hostFound = true;
-      
-      // Only update local lobby/room state from presence if it's coming from someone else (the host)
-      // If we are the host, our local state is the source of truth; overwriting it with delayed presence state causes rubberbanding.
-      if (key !== selfIdRef.current) {
-        if (meta.isHost && meta.lobbyConfig) {
-          lobbyConfigRef.current = meta.lobbyConfig;
-          setLobbyConfig(meta.lobbyConfig);
+      setCode(roomState.roomId);
+      setIsHost(roomState.hostId === socket.id);
+      setRoomSize(roomState.maxPlayers || 4);
+      setSelfId(socket.id || null);
+
+      // Map remote players list to RacerState interface
+      const mappedPlayers: RacerState[] = roomState.players.map((p) => ({
+        id: p.id,
+        name: p.username,
+        isHost: p.isHost,
+        progress: p.progress || 0,
+        wpm: p.wpm || 0,
+        accuracy: p.accuracy || 100,
+        keystrokes: p.keystrokes || 0,
+        finished: p.completed || false,
+        finishWpm: p.wpm,
+        finishAcc: p.accuracy,
+        finishMs: p.finishTime ? p.finishTime * 1000 : undefined,
+        rank: p.rank || undefined,
+      }));
+
+      setPlayers(mappedPlayers);
+
+      // Map room status
+      if (roomState.status === 'waiting') {
+        setStatus('lobby');
+      } else if (roomState.status === 'countdown') {
+        setStatus('lobby');
+        if (typeof roomState.countdown === 'number') {
+          setCountdown(roomState.countdown);
         }
-        if (meta.text) textRef.current = meta.text;
-        if (meta.roomSize) { 
-          roomSizeRef.current = meta.roomSize; 
-          setRoomSize(meta.roomSize); 
-        }
+      } else if (roomState.status === 'in_progress') {
+        setStatus('racing');
+      } else if (roomState.status === 'finished') {
+        setStatus('finished');
       }
-      const prg = progressRef.current[key];
-      const fin = finishRef.current[key] || (meta.finished ? { wpm: meta.finishWpm, acc: meta.finishAcc, ms: meta.finishMs, rawWpm: meta.rawWpm, consistency: meta.consistency, heatmapData: meta.heatmapData, errorCount: meta.errorCount, backspaceCount: meta.backspaceCount } : undefined);
-      next.push({
-        id: key,
-        name: meta.name,
-        userId: meta.userId,
-        isHost: !!meta.isHost,
-        elo: meta.elo,
-        progress: fin ? 100 : (prg ? prg.progress : 0),
-        wpm: fin ? fin.wpm : (prg ? prg.wpm : 0),
-        finished: !!fin || !!meta.finished,
-        finishWpm: fin?.wpm ?? meta.finishWpm,
-        finishAcc: fin?.acc ?? meta.finishAcc,
-        finishMs: fin?.ms ?? meta.finishMs,
-        rawWpm: fin?.rawWpm ?? meta.rawWpm,
-        consistency: fin?.consistency ?? meta.consistency,
-        heatmapData: fin?.heatmapData ?? meta.heatmapData,
-        errorCount: fin?.errorCount ?? meta.errorCount,
-        backspaceCount: fin?.backspaceCount ?? meta.backspaceCount,
-      });
-    }
-    // host first, then by name — stable lobby order
-    next.sort((a, b) => Number(b.isHost) - Number(a.isHost) || a.id.localeCompare(b.id));
+    });
 
-    // --- Host Migration ---
-    if (!hostFound && next.length > 0 && (statusRef.current === 'lobby' || statusRef.current === 'racing')) {
-      next[0].isHost = true; // alphabetically first player inherits host
-        if (next[0].id === selfIdRef.current) {
-          setIsHost(true);
-          ch.track({
-            name: next[0].name,
-            isHost: true,
-            text: textRef.current,
-            roomSize: roomSizeRef.current,
-            lobbyConfig: lobbyConfigRef.current,
-            elo: next[0].elo,
-            // Dropping userId here used to orphan the ranked result: the
-            // opponent would resolve the duel against our presence key
-            // (a random UUID) instead of our auth id.
-            userId: selfUserIdRef.current,
-          });
-        }
-    }
+    // Listener 2: countdown_tick
+    socket.on('countdown_tick', (data: { secondsRemaining: number }) => {
+      setCountdown(data.secondsRemaining);
+    });
 
-    setPlayers(next);
+    // Listener 3: race_started
+    socket.on('race_started', (data: { roomId: string; snippet: string; startTime: number }) => {
+      setStatus('racing');
+      setCountdown(null);
+      setRaceId(data.roomId);
+      if (data.snippet) {
+        onStartRef.current(data.snippet, data.startTime || Date.now());
+      }
+    });
 
-    // race is over when everyone still present has finished
-    // Guard: skip this check during 'lobby' to prevent stale presence from
-    // triggering an instant finish after a rematch.
-    if (statusRef.current === 'racing' && next.length > 0 && next.every(p => p.finished)) {
-      setStatus('finished');
-    }
+    // Listener 4: error
+    socket.on('error', (data: { message: string }) => {
+      setError(data.message || 'Multiplayer socket error occurred');
+      setStatus((prev) => (prev === 'joining' ? 'idle' : prev));
+    });
   }, []);
 
-  const join = useCallback((roomCode: string, name: string, asHost: boolean, text?: string, size?: number, elo?: number, userId?: string, ranked?: boolean) => {
-    if (!supabase) { setError('No connection to Supabase'); return; }
+  /** Create a new room via Socket.io */
+  const createRoom = useCallback((name: string, size?: number, config?: any, elo?: number, roomCode?: string, userId?: string, isRanked?: boolean) => {
     teardown();
     setError('');
     setStatus('joining');
-    setCode(roomCode);
-    setIsHost(asHost);
-    selfUserIdRef.current = userId;
-    if (asHost && text) textRef.current = text;
-    if (asHost && size) { roomSizeRef.current = size; setRoomSize(size); }
 
-    // Ranked rooms live in their own channel namespace. Sharing the 5-char code
-    // space with private rooms meant anyone typing a ranked code into the JOIN
-    // box could walk into a live duel and void both players' Elo.
-    const ch = supabase.channel(ranked ? `ranked-${roomCode}` : `race-${roomCode}`, {
-      config: { presence: { key: selfIdRef.current }, broadcast: { self: true } },
+    attachSocketListeners();
+    const socket = connectSocket();
+
+    socket.emit('create_lobby', { 
+      username: name || 'Racer',
+      maxPlayers: size,
+      elo,
+      roomId: roomCode,
+      userId,
+      isRanked 
     });
-    channelRef.current = ch;
+  }, [teardown, attachSocketListeners]);
 
-    ch.on('presence', { event: 'sync' }, rebuildPlayers);
-    ch.on('broadcast', { event: 'start' }, ({ payload }) => {
-      if (!payload?.text || statusRef.current === 'racing') return;
-      setStatus('racing');
-      // Anchor the countdown to a *relative* lead time on our own clock. The
-      // host's absolute `startAt` is worthless here: a client whose system
-      // clock is a few seconds fast would clamp to 1s and start early.
-      const lead = typeof payload.leadMs === 'number' ? payload.leadMs : (payload.startAt as number) - Date.now();
-      const localStartAt = Date.now() + Math.max(1000, lead);
-      startAtRef.current = localStartAt;
-      // Every client in the room agrees on this id; it's what lets the server
-      // reject a second attempt to resolve the same duel.
-      if (payload.raceId) setRaceId(payload.raceId as string);
-      onStartRef.current(payload.text as string, localStartAt);
+  /** Join an existing room via Socket.io */
+  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string, isRanked?: boolean) => {
+    const formattedCode = roomCode.trim().toUpperCase();
+    if (!formattedCode) {
+      setError('Please enter a room code.');
+      return;
+    }
+
+    teardown();
+    setError('');
+    setStatus('joining');
+    setCode(formattedCode);
+
+    attachSocketListeners();
+    const socket = connectSocket();
+
+    socket.emit('join_lobby', { 
+      roomId: formattedCode, 
+      username: name || 'Racer',
+      elo,
+      userId,
+      isRanked 
     });
-    ch.on('broadcast', { event: 'progress' }, ({ payload }) => {
-      if (statusRef.current === 'lobby') return;
-      // Self is intentionally recorded too, so our own bar matches what others see.
-      if (!payload?.id) return;
-      progressRef.current[payload.id] = { progress: payload.progress, wpm: payload.wpm };
-      if (startAtRef.current) {
-        if (!timelinesRef.current[payload.id]) timelinesRef.current[payload.id] = [];
-        timelinesRef.current[payload.id].push({ t: Math.max(0, Date.now() - startAtRef.current), wpm: payload.wpm });
-      }
-      rebuildPlayers();
-    });
-    ch.on('broadcast', { event: 'finish' }, ({ payload }) => {
-      if (statusRef.current === 'lobby') return;
-      if (!payload?.id) return;
-      finishRef.current[payload.id] = { wpm: payload.wpm, acc: payload.acc, ms: payload.ms, rawWpm: payload.rawWpm, consistency: payload.consistency, heatmapData: payload.heatmapData, errorCount: payload.errorCount, backspaceCount: payload.backspaceCount };
-      rebuildPlayers();
-    });
-    ch.on('broadcast', { event: 'rematch' }, async () => {
-      progressRef.current = {};
-      finishRef.current = {};
-      timelinesRef.current = {};
-      metaRef.current = {};
-      finishSentRef.current = false;
-      startAtRef.current = null;
-      lastProgressSendRef.current = 0;
-      textRef.current = '';
-      setRaceId(crypto.randomUUID());
-      setStatus('lobby');
-      rebuildPlayers();
+  }, [teardown, attachSocketListeners]);
 
-      if (selfIdRef.current && channelRef.current) {
-        try {
-          const state = channelRef.current.presenceState();
-          const metas = state[selfIdRef.current] || [];
-          if (metas[0]) {
-            await channelRef.current.track({
-              ...metas[0],
-              finished: false,
-              finishWpm: 0,
-              finishAcc: 0,
-              finishMs: 0,
-              rawWpm: 0,
-              consistency: 0,
-              heatmapData: null,
-              errorCount: 0,
-              backspaceCount: 0,
-            });
-          }
-        } catch {
-          // ignore track error
-        }
-      }
-    });
+  /** Host starts the race */
+  const startRace = useCallback((text?: string) => {
+    const socket = getSocket();
+    const currentCode = codeRef.current;
+    if (socket.connected && currentCode) {
+      socket.emit('start_race', { roomId: currentCode, text });
+    }
+  }, []);
 
-    ch.subscribe(async (s) => {
-      if (s === 'SUBSCRIBED') {
-        await ch.track({ name, isHost: asHost, text: asHost ? text : undefined, roomSize: asHost ? size : undefined, lobbyConfig: asHost ? lobbyConfigRef.current : undefined, elo, userId });
-        // Player cap check for non-hosts
-        if (!asHost) {
-          const t1 = setTimeout(() => {
-            if (channelRef.current !== ch) return;
-            const pState = ch.presenceState() as Record<string, Array<{ isHost?: boolean; roomSize?: number }>>;
-            const count = Object.keys(pState).length;
-            // Safely read roomSize from host's presence directly to avoid race conditions
-            const hostMeta = Object.values(pState).find(metas => metas[0]?.isHost)?.[0];
-            const cap = hostMeta?.roomSize ?? 4;
-            if (count > cap) {
-              setError(`Room is full (${cap}/${cap})`);
-              leave();
-              return;
-            }
-          }, 800);
-          roomTimeoutsRef.current.push(t1);
-        }
-        // Only transition to lobby from idle/joining — a WebSocket reconnect
-        // during a live race must NOT reset status and abort the match (C2).
-        if (statusRef.current === 'idle' || statusRef.current === 'joining') {
-          setStatus('lobby');
-        }
-        if (!asHost) {
-          // If no host shows up in presence shortly, the room doesn't exist.
-          const t2 = setTimeout(() => {
-            if (channelRef.current !== ch) return;
-            const state = ch.presenceState() as Record<string, Array<{ isHost?: boolean }>>;
-            const hostThere = Object.values(state).some(metas => metas[0]?.isHost);
-            if (!hostThere && statusRef.current === 'lobby') {
-              setError(`Room ${roomCode} not found`);
-              leave();
-            }
-          }, 2500);
-          roomTimeoutsRef.current.push(t2);
-        }
-      } else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') {
-        setError('Realtime connection failed');
-        setStatus('idle');
-      }
-    });
-  }, [supabase, teardown, rebuildPlayers, leave]);
+  /** Send real-time typing progress (throttled to ~100ms) */
+  const sendProgress = useCallback((progress: number, wpm: number, keystrokes: number = 0, accuracy: number = 100) => {
+    const socket = getSocket();
+    const currentCode = codeRef.current;
+    if (!socket.connected || !currentCode) return;
 
-  const createRoom = useCallback((name: string, size: number = 2, text?: string, elo?: number, roomCode?: string, userId?: string, ranked?: boolean) => {
-    join(roomCode || makeRoomCode(), name, true, text, size, elo, userId, ranked);
-  }, [join]);
+    const now = Date.now();
+    if (now - lastProgressSendRef.current < 100 && progress < 100) return;
+    lastProgressSendRef.current = now;
 
-  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string, ranked?: boolean) => {
-    join(roomCode.toUpperCase(), name, false, undefined, undefined, elo, userId, ranked);
-  }, [join]);
-
-  /** Host only: synchronize the start. Everyone (incl. host, via self:true
-      broadcast) receives it and begins the same countdown. */
-  const startRace = useCallback((finalText?: string) => {
-    const textToUse = finalText || textRef.current;
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'start',
-      // leadMs is what receivers actually use; startAt is kept for older clients.
-      payload: { text: textToUse, startAt: Date.now() + 4000, leadMs: 4000, raceId: crypto.randomUUID() },
+    socket.emit('player_progress', {
+      roomId: currentCode,
+      progress: Math.round(progress),
+      keystrokes,
+      wpm: Math.round(wpm),
+      accuracy: Math.round(accuracy),
+      completed: false,
     });
   }, []);
 
-  const sendProgress = useCallback((progress: number, wpm: number) => {
-    const now = Date.now();
-    if (now - lastProgressSendRef.current < 250 && progress < 100) return;
-    lastProgressSendRef.current = now;
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'progress',
-      payload: { id: selfId, progress: Math.round(progress), wpm },
-    });
-  }, [selfId]);
-
-  const sendFinish = useCallback(async (wpm: number, acc: number, ms: number, rawWpm?: number, consistency?: number, heatmapData?: Record<string, { total: number; errors: number }>, errorCount?: number, backspaceCount?: number) => {
+  /** Send race completion event */
+  const sendFinish = useCallback((wpm: number, acc: number, timeMs: number, rawWpm: number, consistency: number, heatmap: any, errCount: number, backspaceCount: number) => {
+    const socket = getSocket();
+    const currentCode = codeRef.current;
     if (finishSentRef.current) return;
     finishSentRef.current = true;
-    
-    // Explicitly update our own finish state locally immediately! 
-    // This guarantees the UI triggers the match-end/Elo logic without relying on the network echoing the broadcast back to us.
-    finishRef.current[selfIdRef.current] = { wpm, acc, ms, rawWpm, consistency, heatmapData, errorCount, backspaceCount };
-    rebuildPlayers();
 
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'finish',
-      payload: { id: selfIdRef.current, wpm, acc, ms, rawWpm, consistency, heatmapData, errorCount, backspaceCount },
-    });
-    
-    // Fallback: also store finish state in presence in case broadcast is dropped
-    try {
-      const state = channelRef.current?.presenceState() || {};
-      const metas = state[selfIdRef.current] || [];
-      const currentMeta = metas[0];
-      if (currentMeta) {
-        await channelRef.current?.track({ ...currentMeta, finished: true, finishWpm: wpm, finishAcc: acc, finishMs: ms, rawWpm, consistency, heatmapData, errorCount, backspaceCount });
-      }
-    } catch {
-      // ignore track errors
-    }
-  }, [rebuildPlayers]);
-
-  const updateLobbyConfig = useCallback(async (newConfig: Partial<RaceConfig>) => {
-    const next = { ...lobbyConfigRef.current, ...newConfig };
-    lobbyConfigRef.current = next;
-    setLobbyConfig(next);
-
-    if (channelRef.current && selfIdRef.current) {
-      const state = channelRef.current.presenceState();
-      const metas = state[selfIdRef.current] || [];
-      if (metas[0]) {
-        // Optimistically track the newly merged config immediately
-        await channelRef.current.track({ ...metas[0], lobbyConfig: next });
-      }
+    if (socket.connected && currentCode) {
+      socket.emit('player_progress', {
+        roomId: currentCode,
+        progress: 100,
+        keystrokes: errCount + backspaceCount, // fallback
+        wpm: Math.round(wpm),
+        accuracy: Math.round(acc),
+        timeMs,
+        rawWpm,
+        consistency,
+        heatmap,
+        errCount,
+        backspaceCount,
+        completed: true,
+      });
     }
   }, []);
 
-  const rematch = useCallback(async () => {
-    if (!channelRef.current) return;
-
-    // C1: Clear ALL refs including metaRef to prevent stale finished state
-    progressRef.current = {};
-    finishRef.current = {};
-    timelinesRef.current = {};
-    metaRef.current = {};
-    finishSentRef.current = false;
-    startAtRef.current = null;
-    lastProgressSendRef.current = 0;
-    textRef.current = '';
-    setRaceId(crypto.randomUUID());
-    setStatus('lobby');
-    rebuildPlayers();
-
-    channelRef.current.send({
-      type: 'broadcast',
-      event: 'rematch',
-      payload: { by: selfIdRef.current },
-    });
-
-    if (selfIdRef.current && channelRef.current) {
-      try {
-        const state = channelRef.current.presenceState();
-        const metas = state[selfIdRef.current] || [];
-        if (metas[0]) {
-          // Use explicit 0/null sentinels — undefined is stripped by JSON.stringify
-          await channelRef.current.track({
-            ...metas[0],
-            finished: false,
-            finishWpm: 0,
-            finishAcc: 0,
-            finishMs: 0,
-            rawWpm: 0,
-            consistency: 0,
-            heatmapData: null,
-            errorCount: 0,
-            backspaceCount: 0,
-          });
-        }
-      } catch {
-        // ignore track error
-      }
-    }
+  /** Update local lobby config */
+  const updateLobbyConfig = useCallback((newConfig: Partial<RaceConfig>) => {
+    setLobbyConfig((prev) => ({ ...prev, ...newConfig }));
   }, []);
 
-  // Clean up the channel on unmount
-  useEffect(() => teardown, [teardown]);
+  /** Rematch / reset race status */
+  const rematch = useCallback(() => {
+    startRace();
+  }, [startRace]);
 
-  const getTimelines = useCallback(() => timelinesRef.current, []);
+  // Clean up on component unmount
+  useEffect(() => {
+    return () => {
+      teardown();
+      disconnectSocket();
+    };
+  }, [teardown]);
 
   return {
     status,
@@ -471,8 +320,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     isHost,
     players,
     error,
-    selfId,
-    getTimelines,
+    countdown,
     roomSize,
     lobbyConfig,
     createRoom,
@@ -483,5 +331,7 @@ export const useRace = ({ supabase, onStart }: UseRaceOptions) => {
     rematch,
     leave,
     updateLobbyConfig,
+    selfId,
+    timelines,
   };
 };

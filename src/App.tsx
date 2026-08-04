@@ -25,6 +25,8 @@ import type { Keystroke } from '@/hooks/useTypingEngine';
 import { useRPGSystem } from '@/hooks/useRPGSystem';
 import { useParticles } from '@/hooks/useParticles';
 import { useQuests } from '@/hooks/useQuests';
+import { useGameConfig } from '@/hooks/useGameConfig';
+import { TypingController } from '@/components/TypingController';
 
 import { TypingArea } from '@/components/TypingArea';
 import type { PaceSample } from '@/components/TypingArea';
@@ -164,30 +166,10 @@ function TimedHud({ startTime, duration, theme }: { startTime: number; duration:
 
 function MainApp() {
   // ─── Mode State ──────────────────────────────────────────────────
-  const [zenMode, setZenMode] = useState(false);
-  const [suddenDeath, setSuddenDeath] = useState(false);
-  const [ghostPacer, setGhostPacer] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
-  const [blindMode, setBlindMode] = useState(false);
-  const [mirroredMode, setMirroredMode] = useState(false);
-  const [codeLanguage, setCodeLanguage] = useState<CodeLanguage>('JavaScript/TypeScript');
-  const [fogMode, setFogMode] = useState(false);
-  const [stickyKeysMode, setStickyKeysMode] = useState(false);
-  const [overclockedMode, setOverclockedMode] = useState(false);
-  const [stickyPenalty, setStickyPenalty] = useState(0);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
 
-  const [level, setLevel] = useState<Level>('NOVICE');
-  const [wordCount, setWordCount] = useState(25);
-  const [testMode, setTestMode] = useState<'words' | 'time'>('words');
-  const [duration, setDuration] = useState(30);
-  const [withNumbers, setWithNumbers] = useState(false);
-  const [withPunctuation, setWithPunctuation] = useState(false);
-  const [dailyActive, setDailyActive] = useState(false);
   const [dailyStreak, setDailyStreak] = useState(loadDailyStreak);
-  const [customText, setCustomText] = useState('');
-  const [microDrillActive, setMicroDrillActive] = useState(false);
   const [isCrossfading, setIsCrossfading] = useState(false);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -195,18 +177,23 @@ function MainApp() {
   const [soundProfile, setSoundProfileState] = useState('thocky');
   const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
 
-  const [showTrophyRoom, setShowTrophyRoom] = useState(false);
-  const [showGodMode, setShowGodMode] = useState(false);
+  type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | null;
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
+  
+  // Aliases for backward compatibility during refactor
+  const setShowTrophyRoom = (b: boolean) => setActiveModal(b ? 'trophy' : null);
+  const setShowGodMode = (b: boolean) => setActiveModal(b ? 'godMode' : null);
+  const setShowExpandedGraph = (b: boolean) => setActiveModal(b ? 'expandedGraph' : null);
+  const setShowStatsDashboard = (b: boolean) => setActiveModal(b ? 'stats' : null);
+  const setShowReplay = (b: boolean) => setActiveModal(b ? 'replay' : null);
+  const setShowRace = (b: boolean) => setActiveModal(b ? 'race' : null);
+  const setShowSocialModal = (b: boolean) => setActiveModal(b ? 'social' : null);
+  const setShowCommsModal = (b: boolean) => setActiveModal(b ? 'comms' : null);
+  const setShowDailyQuestsModal = (b: boolean) => setActiveModal(b ? 'quests' : null);
+  const setShowSettingsModal = (b: boolean) => setActiveModal(b ? 'settings' : null);
+  const setShowChangelog = (b: boolean) => setActiveModal(b ? 'changelog' : null);
+  
   const [tetrisEffect, setTetrisEffect] = useState(false);
-  const [showExpandedGraph, setShowExpandedGraph] = useState(false);
-  const [showStatsDashboard, setShowStatsDashboard] = useState(false);
-  const [showReplay, setShowReplay] = useState(false);
-  const [showRace, setShowRace] = useState(false);
-  const [showSocialModal, setShowSocialModal] = useState(false);
-  const [showCommsModal, setShowCommsModal] = useState(false);
-  const [showDailyQuestsModal, setShowDailyQuestsModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showChangelog, setShowChangelog] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
   const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
@@ -239,6 +226,19 @@ function MainApp() {
   const quests = useQuests((gained) => rpg.setXp((prev: number) => prev + gained));
   const particles = useParticles();
   useGlassPointer();
+
+  // Ref-based callback to break the dependency cycle between
+  // handleReset (which lives in App.tsx) and the change handlers
+  // that now live inside useGameConfig.
+  const handleResetRef = useRef<(overrides: {
+    level?: Level; wordCount?: number; mirrored?: boolean;
+    testMode?: 'words' | 'time'; duration?: number;
+    numbers?: boolean; punctuation?: boolean; codeLanguage?: CodeLanguage; daily?: boolean;
+  }) => void>(() => {});
+
+  const game = useGameConfig((overrides) => handleResetRef.current(overrides));
+
+
 
   // Account + cloud progress sync. On login, cloud progress is merged into
   // this browser's localStorage and pushed back into the RPG state; after
@@ -339,16 +339,15 @@ function MainApp() {
   // into a synced countdown on the same text. We reuse the whole typing
   // engine — the race just supplies the text and a shared start moment.
   const race = useRace({
-    supabase,
     onStart: (text, startAt) => {
       setShowRace(false);
       setRaceActive(true);
       // Reset engine but keep raceActive; disable modifier modes for fairness
       typing.resetEngine();
       typing.setTargetText(text);
-      setZenMode(false); setMirroredMode(false); setDailyActive(false);
-      setSuddenDeath(false); setBlindMode(false); setFogMode(false);
-      setStickyKeysMode(false); setOverclockedMode(false);
+      game.setZenMode(false); game.setMirroredMode(false); game.setDailyActive(false);
+      game.setSuddenDeath(false); game.setBlindMode(false); game.setFogMode(false);
+      game.setStickyKeysMode(false); game.setOverclockedMode(false);
       // Sync the countdown to the host's clock so everyone starts together
       const secsLeft = Math.max(1, Math.ceil((startAt - Date.now()) / 1000));
       typing.setPhase('COUNTDOWN');
@@ -370,89 +369,7 @@ function MainApp() {
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const soundMenuRef = useRef<HTMLDivElement>(null);
 
-  // ─── Refs for Keydown Handler ────────────────────────────────────
-  const stateRef = useRef({
-    phase: typing.phase,
-    input: typing.input,
-    targetText: typing.targetText,
-    combo: typing.combo,
-    maxCombo: typing.maxCombo,
-    suddenDeath,
-    stickyKeysMode,
-    stickyPenalty,
-    timePenalty: typing.timePenalty,
-    showTrophyRoom,
-    showGodMode,
-    showExpandedGraph,
-    showThemeMenu,
-    showSoundMenu,
-    showStatsDashboard,
-    showReplay,
-    showRace,
-    showSocialModal,
-    showCommsModal,
-    showSettingsModal,
-    showChangelog,
-    raceActive,
-    theme,
-    tetrisEffect,
-    mirroredMode,
-    level,
-    wordCount,
-    testMode,
-    duration,
-    withNumbers,
-    withPunctuation,
-    codeLanguage,
-    dailyActive,
-    customText,
-    microDrillActive,
-    startTime: typing.startTime,
-    zenMode,
-  });
-
-  // Keep stateRef in sync on every render
-  useEffect(() => {
-    Object.assign(stateRef.current, {
-      phase: typing.phase,
-      input: typing.input,
-      targetText: typing.targetText,
-      combo: typing.combo,
-      maxCombo: typing.maxCombo,
-      suddenDeath,
-      stickyKeysMode,
-      stickyPenalty,
-      timePenalty: typing.timePenalty,
-      showTrophyRoom,
-      showGodMode,
-      showExpandedGraph,
-      showThemeMenu,
-      showSoundMenu,
-      showStatsDashboard,
-      showReplay,
-      showRace,
-      showSocialModal,
-      showCommsModal,
-      showSettingsModal,
-      showChangelog,
-      raceActive,
-      theme,
-      tetrisEffect,
-      mirroredMode,
-      level,
-      wordCount,
-      testMode,
-      duration,
-      withNumbers,
-      withPunctuation,
-      codeLanguage,
-      dailyActive,
-      customText,
-      microDrillActive,
-      startTime: typing.startTime,
-      zenMode,
-    });
-  });
+  // Removed stateRef (now encapsulated in TypingController)
 
   // Keep audio engine in sync
   useEffect(() => { audio.setSoundProfile(soundProfile); }, [soundProfile, audio]);
@@ -590,17 +507,17 @@ function MainApp() {
     testMode?: 'words' | 'time'; duration?: number;
     numbers?: boolean; punctuation?: boolean; codeLanguage?: CodeLanguage; daily?: boolean;
   } = {}) => {
-    const s = stateRef.current;
-    const nextLevel = overrides.level ?? s.level;
-    const nextCount = overrides.wordCount ?? s.wordCount;
-    const nextMirror = overrides.mirrored ?? s.mirroredMode;
-    const nextMode = overrides.testMode ?? s.testMode;
-    const nextDuration = overrides.duration ?? s.duration;
-    const nextNumbers = overrides.numbers ?? s.withNumbers;
-    const nextPunct = overrides.punctuation ?? s.withPunctuation;
-    const nextCodeLanguage = overrides.codeLanguage ?? s.codeLanguage;
-    const nextDaily = overrides.daily ?? s.dailyActive;
-    const nextCustom = s.customText;
+    const cfg = game.configRef.current;
+    const nextLevel = overrides.level ?? cfg.level;
+    const nextCount = overrides.wordCount ?? cfg.wordCount;
+    const nextMirror = overrides.mirrored ?? cfg.mirroredMode;
+    const nextMode = overrides.testMode ?? cfg.testMode;
+    const nextDuration = overrides.duration ?? cfg.duration;
+    const nextNumbers = overrides.numbers ?? cfg.withNumbers;
+    const nextPunct = overrides.punctuation ?? cfg.withPunctuation;
+    const nextCodeLanguage = overrides.codeLanguage ?? cfg.codeLanguage;
+    const nextDaily = overrides.daily ?? cfg.dailyActive;
+    const nextCustom = cfg.customText;
 
     // Timed tests need a deep word buffer (240 words for 60s ≈ 240 WPM ceiling)
     const length = nextMode === 'time' ? nextDuration * 4 : nextCount;
@@ -620,93 +537,19 @@ function MainApp() {
       setIsCrossfading(false);
     }, 300);
 
-    setZenMode(false);
+    game.setZenMode(false);
     setSaveStatus('');
-    if (stateRef.current.raceActive) {
+    if (raceActive) {
       race.leave();
       setRaceActive(false);
     }
     rpg.resetRPGFlags();
     particles.clearAll();
-  }, [typing, rpg, particles, race]);
+  }, [typing, rpg, particles, race, game.configRef, raceActive]);
 
-  const changeLevel = (newLevel: Level) => {
-    setLevel(newLevel);
-    setDailyActive(false);
-    // Fixed-text levels have no meaningful word/time budget
-    const locked = newLevel === 'CODE' || newLevel === 'CUSTOM' || newLevel === 'QUOTES';
-    if (locked && testMode === 'time') {
-      setTestMode('words');
-      handleReset({ level: newLevel, testMode: 'words', daily: false });
-    } else {
-      handleReset({ level: newLevel, daily: false });
-    }
-  };
-
-  const changeWordCount = (count: number) => {
-    setWordCount(count);
-    setDailyActive(false);
-    handleReset({ wordCount: count, daily: false });
-  };
-
-  const changeCodeLanguage = (lang: CodeLanguage) => {
-    setCodeLanguage(lang);
-    setDailyActive(false);
-    handleReset({ codeLanguage: lang, daily: false });
-  };
-
-  const changeTestMode = (mode: 'words' | 'time') => {
-    setTestMode(mode);
-    setDailyActive(false);
-    handleReset({ testMode: mode, daily: false });
-  };
-
-  const changeDuration = (secs: number) => {
-    setDuration(secs);
-    setDailyActive(false);
-    handleReset({ duration: secs, daily: false });
-  };
-
-  const toggleNumbers = () => {
-    const next = !withNumbers;
-    setWithNumbers(next);
-    setDailyActive(false);
-    handleReset({ numbers: next, daily: false });
-  };
-
-  const togglePunctuation = () => {
-    const next = !withPunctuation;
-    setWithPunctuation(next);
-    setDailyActive(false);
-    handleReset({ punctuation: next, daily: false });
-  };
-
-  const toggleDaily = () => {
-    const next = !dailyActive;
-    setDailyActive(next);
-    if (next) {
-      // Daily runs a fixed, comparable config with today's seeded text
-      setLevel('ADEPT');
-      setWordCount(50);
-      setTestMode('words');
-      setMirroredMode(false);
-      setWithNumbers(false);
-      setWithPunctuation(false);
-      handleReset({ daily: true, level: 'ADEPT', wordCount: 50, testMode: 'words', mirrored: false, numbers: false, punctuation: false });
-    } else {
-      handleReset({ daily: false });
-    }
-  };
-
-  const toggleMirror = () => {
-    setMirroredMode(prev => {
-      const next = !prev;
-      setDailyActive(false);
-      handleReset({ mirrored: next, daily: false });
-      return next;
-    });
-  };
-
+  useEffect(() => {
+    handleResetRef.current = handleReset;
+  }, [handleReset]);
   // ─── Save Score ──────────────────────────────────────────────────
   // First-login: claim a display name (creates the profile row).
   const submitUsername = async () => {
@@ -721,7 +564,7 @@ function MainApp() {
 
   // ─── Drills (single-key micro + heatmap smart) ───────────────────
   const launchDrill = (text: string) => {
-    setMicroDrillActive(true);
+    game.setMicroDrillActive(true);
     typing.setTargetText(text);
     typing.setInputSync('');
     typing.setStartTime(null);
@@ -752,14 +595,14 @@ function MainApp() {
   };
 
   const exitMicroDrill = () => {
-    const s = stateRef.current;
-    setMicroDrillActive(false);
-    const length = s.testMode === 'time' ? s.duration * 4 : s.wordCount;
-    typing.setTargetText(generateText(s.level, length, s.customText, s.mirroredMode, {
-      numbers: s.withNumbers,
-      punctuation: s.withPunctuation,
-      rng: s.dailyActive ? mulberry32(daySeed()) : undefined,
-      codeLanguage: s.codeLanguage,
+    const cfg = game.configRef.current;
+    game.setMicroDrillActive(false);
+    const length = cfg.testMode === 'time' ? cfg.duration * 4 : cfg.wordCount;
+    typing.setTargetText(generateText(cfg.level, length, cfg.customText, cfg.mirroredMode, {
+      numbers: cfg.withNumbers,
+      punctuation: cfg.withPunctuation,
+      rng: cfg.dailyActive ? mulberry32(daySeed()) : undefined,
+      codeLanguage: cfg.codeLanguage,
     }));
     typing.resetKeystrokes();
     // Go back to CONFIGURING instead of FINISHED to avoid triggering RPG
@@ -768,13 +611,13 @@ function MainApp() {
   };
 
   // ─── Personal Best (ghost pacer data) ────────────────────────────
-  const pbStorageKey = `typezen_pb:${level}:${testMode === 'time' ? 't' + duration : 'w' + wordCount}`;
+  const pbStorageKey = `typezen_pb:${game.level}:${game.testMode === 'time' ? 't' + game.duration : 'w' + game.wordCount}`;
   const pbGhost = useMemo((): { wpm: number; samples: PaceSample[] } | null => {
-    if (level === 'CUSTOM' || mirroredMode || dailyActive) return null;
+    if (game.level === 'CUSTOM' || game.mirroredMode || game.dailyActive) return null;
     try { return JSON.parse(localStorage.getItem(pbStorageKey) || 'null'); } catch { return null; }
     // typing.phase is a deliberate extra dep: reload the PB after each finish
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pbStorageKey, level, mirroredMode, dailyActive, typing.phase]);
+  }, [pbStorageKey, game.level, game.mirroredMode, game.dailyActive, typing.phase]);
 
   // ─── Theme / Sound Cycles ────────────────────────────────────────
   const selectTheme = (index: number) => {
@@ -803,7 +646,7 @@ function MainApp() {
   // ─── Auto-Save ──────────────
   const hasAutoSavedRef = useRef(false);
   useEffect(() => {
-    if (typing.phase !== 'FINISHED' || hasAutoSavedRef.current || microDrillActive) return;
+    if (typing.phase !== 'FINISHED' || hasAutoSavedRef.current || game.microDrillActive) return;
     hasAutoSavedRef.current = true;
 
     // Auto-save if logged in
@@ -817,14 +660,14 @@ function MainApp() {
           p_accuracy: accVal,
           p_time_ms: finishDurationMs + typing.timePenalty,
           p_log: typing.keystrokeLog.current,
-          p_daily: dailyActive,
+          p_daily: game.dailyActive,
           p_day: todayKey(),
         }).then(({ error }) => {
           if (error) setSaveStatus(`Error: ${error.message}`);
           else {
             setSaveStatus('SCORE SAVED!');
             fetchLeaderboard();
-            if (dailyActive) fetchDailyBoard();
+            if (game.dailyActive) fetchDailyBoard();
           }
         });
       }
@@ -839,190 +682,7 @@ function MainApp() {
     }
   }, [typing.phase]);
 
-  // ─── LATEST REF PATTERN ──────────────────────────────────────────
-  const actionsRef = useRef({ typing, audio, rpg, handleReset, exitMicroDrill, particles });
-  useEffect(() => {
-    Object.assign(actionsRef.current, { typing, audio, rpg, handleReset, exitMicroDrill, particles });
-  });
-
-  // ─── KEYBOARD HANDLER (THE CORE) ─────────────────────────────────
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const s = stateRef.current;
-      const { typing, audio, rpg, handleReset, exitMicroDrill, particles } = actionsRef.current;
-
-      // Modal escape handling
-      if (s.showTrophyRoom || s.showGodMode || s.showExpandedGraph || s.showThemeMenu || s.showSoundMenu || s.showStatsDashboard || s.showReplay || s.showRace || s.showSocialModal || s.showCommsModal || s.showSettingsModal || s.showChangelog) {
-        if (e.key === 'Escape') {
-          setShowTrophyRoom(false);
-          setShowGodMode(false);
-          setShowExpandedGraph(false);
-          setShowThemeMenu(false);
-          setShowSoundMenu(false);
-          setShowStatsDashboard(false);
-          setShowReplay(false);
-          setShowRace(false);
-          setShowSocialModal(false);
-          setShowCommsModal(false);
-          setShowSettingsModal(false);
-          setShowChangelog(false);
-        }
-        return;
-      }
-
-      // During an active multiplayer race, swallow ESC so a mid-race abort
-      // can't desync the room; typing still flows through below.
-      if (s.raceActive && e.key === 'Escape') { e.preventDefault(); return; }
-
-      // Caps lock detection
-      if (e.getModifierState && e.getModifierState('CapsLock')) typing.setCapsLock(true);
-      else typing.setCapsLock(false);
-
-      // ─── CONFIGURING ───
-      if (s.phase === 'CONFIGURING') {
-        if (!e.ctrlKey && !e.metaKey && e.key.length === 1 && e.key !== ' ') {
-          const currentInput = typing.inputRef.current;
-          const nextInput = (currentInput + e.key).toLowerCase();
-
-          if ('iamnova'.startsWith(nextInput)) {
-            typing.setInputSync(nextInput);
-            if (nextInput === 'iamnova') {
-              rpg.unlockAllAchievements();
-              typing.setInputSync('');
-            }
-            return;
-          } else if ('godmode'.startsWith(nextInput)) {
-            typing.setInputSync(nextInput);
-            if (nextInput === 'godmode') {
-              setShowGodMode(true);
-              typing.setInputSync('');
-            }
-            return;
-          } else {
-            typing.setInputSync('');
-          }
-        }
-
-        if (e.key === ' ') {
-          e.preventDefault();
-          typing.setPhase('READY');
-          typing.setInputSync('');
-          return;
-        }
-        return;
-      }
-
-      // ─── READY ───
-      if (s.phase === 'READY') {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          setZenMode(e.shiftKey);
-          typing.setPhase('COUNTDOWN');
-          typing.setCountdownTimer(5);
-        } else if (e.key === 'Escape') {
-          typing.setPhase('CONFIGURING');
-        }
-        return;
-      }
-
-      // ─── COUNTDOWN / TYPING / FINISHED ───
-      if (s.phase === 'COUNTDOWN' || s.phase === 'TYPING' || s.phase === 'FINISHED') {
-        if (e.key === 'Escape') {
-          if (s.microDrillActive) { exitMicroDrill(); }
-          else { handleReset(); }
-          return;
-        }
-      }
-
-      // ─── TYPING ONLY ───
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || s.phase !== 'TYPING') return;
-      if (e.ctrlKey || e.metaKey || e.altKey || (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace')) return;
-      if (e.key === 'Shift') return;
-
-      // Backspace
-      if (e.key === 'Backspace') {
-        if (s.raceActive) {
-          e.preventDefault();
-          return;
-        }
-
-        const currentInput = typing.inputRef.current;
-        if (currentInput.length === 0) {
-          e.preventDefault();
-          return;
-        }
-
-        if (currentInput.length > 0) {
-          if (s.stickyKeysMode && s.stickyPenalty > 0) {
-            setStickyPenalty(p => Math.max(0, p - 1));
-            audio.playSound('error');
-            return;
-          }
-          typing.setInputSync(prev => prev.slice(0, -1));
-          // Log the (real) backspace so replay / PB ghost can reconstruct
-          // input-over-time. Excluded from all stats via isBackspace.
-          typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
-          audio.playSound('click');
-          typing.setCombo(0);
-          typing.comboRef.current = 0;
-        }
-        return;
-      }
-
-      if (e.key === ' ' || e.key === 'Enter') e.preventDefault();
-
-      const currentInput = typing.inputRef.current;
-      if (currentInput.length < s.targetText.length) {
-        const now = Date.now();
-        let typedChar = e.key;
-        if (typedChar === 'Enter') typedChar = '\n';
-
-        const expectedChar = s.targetText[currentInput.length];
-        const isError = typedChar !== expectedChar;
-        const nextInput = currentInput + typedChar;
-
-        typing.setInputSync(prev => prev + typedChar);
-        typing.keystrokeLog.current.push({ key: typedChar, expected: expectedChar, time: now, isError });
-
-        if (isError) {
-          audio.playSound('error');
-          typing.setCombo(0);
-          typing.comboRef.current = 0;
-          typing.setShake(true);
-          setTimeout(() => typing.setShake(false), 200);
-          if (s.stickyKeysMode) setStickyPenalty(3);
-          if (s.suddenDeath) {
-            typing.finishTest(now, nextInput);
-            return;
-          }
-        } else {
-          const nextCombo = s.combo + 1;
-          typing.comboRef.current = nextCombo;
-          typing.setCombo(nextCombo);
-          if (nextCombo > s.maxCombo) typing.setMaxCombo(nextCombo);
-          audio.playSound('key');
-
-          // Tetris particles at 50+ combo or when tetrisEffect is forced on
-          if (s.tetrisEffect || nextCombo >= 50) {
-            particles.spawnParticles(
-              currentInput.length,
-              expectedChar,
-              s.theme.text,
-              Math.floor(Math.random() * 3) + 2
-            );
-          }
-        }
-
-        // Completion check
-        if (nextInput.length === s.targetText.length) {
-          typing.finishTest(now, nextInput);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []); // ← Empty deps: everything accessed via stateRef
+  // Removed actionsRef and handleKeyDown (now encapsulated in TypingController)
 
   // ─── RPG Processing on Test Finish ───────────────────────────────
   useEffect(() => {
@@ -1033,9 +693,9 @@ function MainApp() {
 
     // Timed tests are rewarded/judged by what was actually typed, not the
     // oversized text buffer they run against.
-    const isTimed = testMode === 'time';
+    const isTimed = game.testMode === 'time';
     const typedWords = statsInput.trim() ? statsInput.trim().split(/\s+/).length : 0;
-    const effWordCount = isTimed ? typedWords : wordCount;
+    const effWordCount = isTimed ? typedWords : game.wordCount;
     const effLength = isTimed ? statsInput.length : typing.targetText.length;
 
     // Quest Progression
@@ -1048,13 +708,13 @@ function MainApp() {
     const result = rpg.processRPG(
       stats.currentWpm, stats.currentAcc, typing.maxCombo,
       effWordCount, effLength,
-      microDrillActive, typing.keystrokeLog.current,
+      game.microDrillActive, typing.keystrokeLog.current,
       () => audio.playSound('levelup')
     );
 
     // Daily Challenge streak
     let streakNow = dailyStreak;
-    if (dailyActive && !microDrillActive) {
+    if (game.dailyActive && !game.microDrillActive) {
       const today = todayKey();
       let prevDaily: { lastDay: string; streak: number } | null = null;
       try { prevDaily = JSON.parse(localStorage.getItem('typezen_daily') || 'null'); } catch { /* corrupt — treat as fresh */ }
@@ -1071,13 +731,13 @@ function MainApp() {
       appendHistory({
         d: new Date().toISOString(),
         wpm: stats.currentWpm, acc: stats.currentAcc, cons: stats.consistency,
-        level, mode: isTimed ? 'time' : 'words',
-        size: isTimed ? duration : wordCount,
+        level: game.level, mode: isTimed ? 'time' : 'words',
+        size: isTimed ? game.duration : game.wordCount,
       });
     }
 
     // Personal-best pace recording for the ghost pacer
-    if (!microDrillActive && level !== 'CUSTOM' && !mirroredMode && !dailyActive && stats.currentWpm > 0) {
+    if (!game.microDrillActive && game.level !== 'CUSTOM' && !game.mirroredMode && !game.dailyActive && stats.currentWpm > 0) {
       try {
         const existing = JSON.parse(localStorage.getItem(pbStorageKey) || 'null');
         if (!existing || stats.currentWpm > existing.wpm) {
@@ -1092,7 +752,7 @@ function MainApp() {
     rpg.checkAchievements(
       stats.currentWpm, stats.currentAcc, typing.maxCombo,
       result.newXp, effWordCount,
-      suddenDeath, blindMode, fogMode, overclockedMode,
+      game.suddenDeath, game.blindMode, game.fogMode, game.overclockedMode,
       result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length,
       isTimed, streakNow
     );
@@ -1116,22 +776,22 @@ function MainApp() {
 
   // ─── Timed Mode Countdown ────────────────────────────────────────
   useEffect(() => {
-    if (typing.phase !== 'TYPING' || testMode !== 'time' || !typing.startTime) return;
+    if (typing.phase !== 'TYPING' || game.testMode !== 'time' || !typing.startTime) return;
     const interval = setInterval(() => {
-      const finalTs = typing.startTime! + duration * 1000;
+      const finalTs = typing.startTime! + game.duration * 1000;
       if (Date.now() >= finalTs) {
         typing.finishTest(finalTs);
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [typing.phase, typing.startTime, testMode, duration, typing]);
+  }, [typing.phase, typing.startTime, game.testMode, game.duration, typing]);
 
   // ─── Overclocked Penalty ─────────────────────────────────────────
   const penaltyTypingRef = useRef(typing);
   useEffect(() => { penaltyTypingRef.current = typing; });
 
   useEffect(() => {
-    if (!overclockedMode || typing.phase !== 'TYPING') return;
+    if (!game.overclockedMode || typing.phase !== 'TYPING') return;
     
     const interval = setInterval(() => {
       const cur = penaltyTypingRef.current;
@@ -1140,16 +800,16 @@ function MainApp() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [overclockedMode, typing.phase]);
+  }, [game.overclockedMode, typing.phase]);
 
   // ─── UI Derived State ────────────────────────────────────────────
   const isTypingOrCountdown = typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN';
-  const shouldHideClutter = zenMode || isTypingOrCountdown;
+  const shouldHideClutter = game.zenMode || isTypingOrCountdown;
   const progressPercent = typing.targetText.length > 0 ? (typing.input.length / typing.targetText.length) * 100 : 0;
   // Fixed-text levels have no meaningful word/time budget
-  const lengthLocked = level === 'CODE' || level === 'CUSTOM' || level === 'QUOTES';
+  const lengthLocked = game.level === 'CODE' || game.level === 'CUSTOM' || game.level === 'QUOTES';
   // Number/punctuation mixing only applies to the plain word pools
-  const mutatable = level === 'NOVICE' || level === 'ADEPT';
+  const mutatable = game.level === 'NOVICE' || game.level === 'ADEPT';
 
   // IMPORTANT FIX: Removed hardcoded overflow-hidden and added it conditionally, and added z-[200]
   const topHudClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] origin-top flex flex-col md:flex-row justify-between items-center gap-6 relative z-[200] ${
@@ -1194,7 +854,7 @@ function MainApp() {
             players={race.players}
             selfId={race.selfId}
             roomSize={race.roomSize}
-            timelines={race.getTimelines()}
+            timelines={race.timelines || []}
             isRanked={isRankedMatch}
             supabase={supabase}
             raceId={race.raceId}
@@ -1203,12 +863,12 @@ function MainApp() {
             onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
             onUpdateElo={(elo) => cloud.setElo(elo)}
           />
-          {showReplay && (
+          {activeModal === 'replay' && (
             <ReplayModal
               targetText={typing.targetText}
               log={typing.keystrokeLog.current}
               theme={theme}
-              onClose={() => setShowReplay(false)}
+              onClose={() => setActiveModal(null)}
             />
           )}
           <VideoCallOverlay />
@@ -1219,12 +879,12 @@ function MainApp() {
     return (
       <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
         <ResultsScreen {...resultsProps} />
-        {showReplay && (
+        {activeModal === 'replay' && (
           <ReplayModal
             targetText={typing.targetText}
             log={typing.keystrokeLog.current}
             theme={theme}
-            onClose={() => setShowReplay(false)}
+            onClose={() => setActiveModal(null)}
           />
         )}
         <VideoCallOverlay />
@@ -1234,6 +894,21 @@ function MainApp() {
 
   return (
     <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
+      <TypingController 
+        typing={typing}
+        audio={audio}
+        rpg={rpg}
+        particles={particles}
+        gameConfig={game.configRef.current}
+        gameActions={game}
+        activeModal={activeModal}
+        raceActive={raceActive}
+        theme={theme}
+        tetrisEffect={tetrisEffect}
+        onUnlockGodMode={() => setShowGodMode(true)}
+        onReset={handleReset}
+        onExitMicroDrill={exitMicroDrill}
+      />
       <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
 
       {/* Global Liquid-Glass SVG filter — rendered once, referenced by every
@@ -1304,8 +979,8 @@ function MainApp() {
       <div className="absolute inset-0 z-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
       {/* Progress Bar — char-based for word tests, clock-based for timed */}
-      {typing.phase === 'TYPING' && testMode === 'time' && typing.startTime ? (
-        <TimedHud startTime={typing.startTime} duration={duration} theme={theme} />
+      {typing.phase === 'TYPING' && game.testMode === 'time' && typing.startTime ? (
+        <TimedHud startTime={typing.startTime} duration={game.duration} theme={theme} />
       ) : (
         <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
           <div className={`h-full ${theme.solid} transition-all duration-200 ease-out ${theme.glow}`} style={{ width: `${progressPercent}%` }} />
@@ -1313,7 +988,7 @@ function MainApp() {
       )}
 
       {/* Zen Mode Ambient */}
-      {zenMode && (
+      {game.zenMode && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none opacity-20 z-0 animate-in fade-in zoom-in duration-1000 ease-out">
           <div className={`w-[80vw] h-[80vw] ${theme.solid} rounded-full blur-[250px] animate-pulse`} style={{ animationDuration: '6s' }} />
         </div>
@@ -1329,7 +1004,7 @@ function MainApp() {
               <span className="text-white font-black tracking-widest text-sm">NORMAL MODE</span>
               <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
             </div>
-            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { setZenMode(true); typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
+            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { game.setZenMode(true); typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
               <span className="text-white font-black tracking-widest text-sm">ZEN MODE</span>
               <div className="flex gap-2">
                 <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">SHIFT</span>
@@ -1369,103 +1044,7 @@ function MainApp() {
         );
       })()}
 
-      {/* God Mode Modal */}
-      {showGodMode && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={() => setShowGodMode(false)}>
-          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-6">
-              <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Terminal className="mr-4 text-emerald-400" size={32} /> God Mode</h2>
-              <button onClick={() => setShowGodMode(false)} className="p-3 bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-zinc-400 transition-all duration-200 border border-zinc-700 hover:border-red-500/50"><X size={24} /></button>
-            </div>
-            <div className="flex flex-col gap-6">
-              <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 shadow-inner">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-2xl ${tetrisEffect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                    <Zap size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-white font-bold tracking-widest uppercase mb-1">Tetris Effect Particles</h4>
-                    <p className="text-xs text-zinc-500 font-bold">Auto-unlocks at 50 combo. Toggle here to test early.</p>
-                  </div>
-                </div>
-                <button onClick={() => setTetrisEffect(!tetrisEffect)} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 ${tetrisEffect ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-                  {tetrisEffect ? 'ON ✓' : 'OFF'}
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <button onClick={() => { rpg.unlockAllAchievements(); setShowGodMode(false); }} className="p-6 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all flex flex-col items-center text-center text-xs">
-                  <Trophy size={24} className="mb-2" /> Unlock All Achievements
-                </button>
-                <button onClick={() => { rpg.setXp(250000); setShowGodMode(false); }} className="p-6 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(14,165,233,0.1)] transition-all flex flex-col items-center text-center text-xs">
-                  <Star size={24} className="mb-2" /> Set Level to Max (50+)
-                </button>
-              </div>
-              <div className="mt-4 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
-                <h4 className="text-red-400 font-bold tracking-widest uppercase mb-3 text-xs flex items-center gap-2">
-                  <RotateCcw size={16} /> DANGER ZONE
-                </h4>
-                <button onClick={() => { rpg.resetAllProgress(); setShowGodMode(false); }} className="w-full p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 text-xs hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-                  <RotateCcw size={18} /> Reset All Progress (Level, XP, Achievements, Themes)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Comms Modal */}
-      {showCommsModal && isLoggedIn && (
-        <CommsModal
-          supabase={supabase}
-          userId={auth.session?.user.id}
-          friends={friendsState.friends}
-          onClose={() => setShowCommsModal(false)}
-        />
-      )}
-
-      {/* Active Race / Multiplayer Lobby modal overlay */}
-      {showTrophyRoom && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setShowTrophyRoom(false)}>
-          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10">
-              <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Trophy className="mr-4 text-amber-400" size={32} /> Hall of Legends</h2>
-              <button onClick={() => setShowTrophyRoom(false)} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
-            </div>
-            <div className="flex flex-col gap-12">
-              {(['SKILL', 'HARDCORE', 'GRIND', 'SUPER'] as const).map(category => {
-                const categoryAchievements = ACHIEVEMENTS.filter(a => a.category === category);
-                return (
-                  <div key={category}>
-                    <h3 className={`text-sm font-black uppercase tracking-widest mb-6 ${category === 'SUPER' ? theme.text : 'text-zinc-500'}`}>{category} BADGES</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {categoryAchievements.map(ach => {
-                        const isUnlocked = rpg.unlockedAchievements.includes(ach.id);
-                        const AchIcon = ACHIEVEMENT_ICONS[ach.icon] ?? Trophy;
-                        return (
-                          <div key={ach.id} className={`p-5 rounded-3xl border transition-all flex flex-col items-center text-center ${isUnlocked ? `bg-zinc-900 ${theme.borderHalf} ${theme.auraLow} hover:-translate-y-1` : 'bg-zinc-950 border-zinc-800/50 opacity-60 grayscale'}`}>
-                            <div className="relative mb-4">
-                              {/* color via glowPrimary, not theme.text — galaxy's
-                                  gradient-clip class would make SVG strokes transparent */}
-                              <AchIcon
-                                size={34}
-                                className={isUnlocked ? theme.drop : 'text-zinc-600'}
-                                style={isUnlocked ? { color: `rgb(${theme.glowPrimary})` } : undefined}
-                              />
-                              {!isUnlocked && <div className="absolute -bottom-2 -right-2 bg-zinc-800 rounded-full p-1"><Lock size={12} className="text-zinc-400" /></div>}
-                            </div>
-                            <h4 className={`font-bold mb-2 ${isUnlocked ? 'text-white' : 'text-zinc-500'}`}>{ach.title}</h4>
-                            <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">{ach.desc}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* First-login: choose a leaderboard display name */}
       {cloud.status === 'needs-username' && (
@@ -1529,7 +1108,7 @@ function MainApp() {
                   <div className={`w-10 h-10 rounded-full bg-black/20 border flex items-center justify-center font-bold uppercase text-sm ${theme.borderHalf} ${theme.vividText}`}>
                     {(cloud.username || 'G').substring(0, 1)}
                   </div>
-                  {isLoggedIn && (
+                  {showReplay && (
                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
                   )}
                 </div>
@@ -1650,7 +1229,7 @@ function MainApp() {
 
             {/* Difficulty & Length/Time & Daily */}
             <div className={`flex flex-col md:flex-row flex-wrap gap-8 items-start transition-all duration-1000 ${shouldHideClutter ? 'hidden opacity-0' : 'flex opacity-100'}`}>
-              <div className={`flex flex-col gap-2 transition-opacity ${dailyActive ? 'opacity-30' : 'opacity-100'}`}>
+              <div className={`flex flex-col gap-2 transition-opacity ${game.dailyActive ? 'opacity-30' : 'opacity-100'}`}>
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
                 <div className="flex glass-panel rounded-full">
                   <SegmentedControl
@@ -1659,8 +1238,8 @@ function MainApp() {
                       value: l,
                       locked: !isLoggedIn && (l === "CODE" || l === "CUSTOM")
                     }))}
-                    value={level}
-                    onChange={(l) => changeLevel(l)}
+                    value={game.level}
+                    onChange={(l) => game.changeLevel(l)}
                     onLockedClick={(l) => {
                       const modeName = l === "CODE" ? "Code" : "Custom";
                       toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
@@ -1670,33 +1249,33 @@ function MainApp() {
                 </div>
               </div>
 
-              <div className={`flex flex-col gap-2 transition-opacity ${lengthLocked || dailyActive ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+              <div className={`flex flex-col gap-2 transition-opacity ${lengthLocked || game.dailyActive ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2">
-                  {testMode === 'time' ? <Clock size={10} className="mr-1.5" /> : <Activity size={10} className="mr-1.5" />}
-                  {testMode === 'time' ? 'SECONDS' : 'WORDS'}
+                  {game.testMode === 'time' ? <Clock size={10} className="mr-1.5" /> : <Activity size={10} className="mr-1.5" />}
+                  {game.testMode === 'time' ? 'SECONDS' : 'WORDS'}
                 </span>
                 <div className="flex glass-panel p-1.5 rounded-full items-center">
                   {/* words / time segment */}
                   <button
-                    onClick={() => changeTestMode('words')}
+                    onClick={() => game.changeTestMode('words')}
                     disabled={lengthLocked}
-                    className={`p-2.5 rounded-full transition-all ${testMode === 'words' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                    className={`p-2.5 rounded-full transition-all ${game.testMode === 'words' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
                     title="Word-count mode"
                   ><Hash size={13} /></button>
                   <button
-                    onClick={() => changeTestMode('time')}
+                    onClick={() => game.changeTestMode('time')}
                     disabled={lengthLocked}
-                    className={`p-2.5 rounded-full transition-all ${testMode === 'time' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                    className={`p-2.5 rounded-full transition-all ${game.testMode === 'time' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
                     title="Timed mode"
                   ><Clock size={13} /></button>
                   <div className="w-px h-4 bg-white/10 mx-1.5"></div>
                   <SegmentedControl
-                    options={(testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => ({
+                    options={(game.testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => ({
                       label: String(v),
                       value: v
                     }))}
-                    value={testMode === 'time' ? duration : wordCount}
-                    onChange={(v) => testMode === 'time' ? changeDuration(v) : changeWordCount(v)}
+                    value={game.testMode === 'time' ? game.duration : game.wordCount}
+                    onChange={(v) => game.testMode === 'time' ? game.changeDuration(v) : game.changeWordCount(v)}
                     disabled={lengthLocked}
                     themeTextClass={theme.text}
                     className="!p-0"
@@ -1705,13 +1284,13 @@ function MainApp() {
                     <>
                       <div className="w-px h-4 bg-white/10 mx-1.5"></div>
                       <button
-                        onClick={toggleNumbers}
-                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${withNumbers ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                        onClick={game.toggleNumbers}
+                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${game.withNumbers ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
                         title="Mix in numbers"
                       >123</button>
                       <button
-                        onClick={togglePunctuation}
-                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${withPunctuation ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
+                        onClick={game.togglePunctuation}
+                        className={`px-2.5 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${game.withPunctuation ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-white'}`}
                         title="Mix in punctuation"
                       >!?</button>
                     </>
@@ -1723,8 +1302,8 @@ function MainApp() {
                 <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><CalendarCheck size={10} className="mr-1.5" /> CHALLENGE</span>
                 <div className="flex glass-panel p-1.5 rounded-full">
                   <button
-                    onClick={toggleDaily}
-                    className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all flex items-center gap-2 ${dailyActive ? `bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)]` : 'text-amber-400/70 hover:text-amber-400 border border-transparent'}`}
+                    onClick={game.toggleDaily}
+                    className={`px-4 md:px-6 py-2.5 rounded-full text-[11px] font-black tracking-widest transition-all flex items-center gap-2 ${game.dailyActive ? `bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.4)]` : 'text-amber-400/70 hover:text-amber-400 border border-transparent'}`}
                     title="Same seeded 50-word ADEPT text for everyone, every day"
                   >
                     <CalendarCheck size={12} /> DAILY
@@ -1735,7 +1314,7 @@ function MainApp() {
               {/* Language Selector for Code Mode */}
               <div 
                 className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${
-                  level === 'CODE' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
+                  game.level === 'CODE' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
                 }`}
               >
                 <div className="overflow-hidden min-w-0">
@@ -1749,8 +1328,8 @@ function MainApp() {
                           label: lang.toUpperCase(),
                           value: lang
                         }))}
-                        value={codeLanguage}
-                        onChange={(lang) => changeCodeLanguage(lang)}
+                        value={game.codeLanguage}
+                        onChange={(lang) => game.changeCodeLanguage(lang)}
                         themeTextClass={theme.text}
                         pillClassName="bg-white/10 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                       />
@@ -1762,7 +1341,7 @@ function MainApp() {
               {/* Custom Text Area */}
               <div 
                 className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] grid ${
-                  level === 'CUSTOM' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
+                  game.level === 'CUSTOM' ? 'grid-cols-[1fr] opacity-100 mr-0' : 'grid-cols-[0fr] opacity-0 -mr-8 pointer-events-none'
                 }`}
               >
                 <div className="overflow-hidden min-w-0">
@@ -1771,12 +1350,12 @@ function MainApp() {
                       <Code size={10} className="mr-1.5" /> YOUR TEXT
                     </span>
                     <textarea
-                      value={customText}
+                      value={game.customText}
                       onChange={(e) => {
                         const newText = e.target.value;
-                        setCustomText(newText);
-                        if (level === 'CUSTOM') {
-                          const final = mirroredMode
+                        game.setCustomText(newText);
+                        if (game.level === 'CUSTOM') {
+                          const final = game.mirroredMode
                             ? newText.trim().split(' ').reverse().join(' ')
                             : newText.trim();
                           typing.setTargetText(final || 'Type your custom text above...');
@@ -1793,7 +1372,7 @@ function MainApp() {
             </div>
 
             {/* Stats HUD — hidden in zen mode */}
-            {!zenMode && (
+            {!game.zenMode && (
               <StatsPanel
                 wpm={typing.wpm}
                 accuracy={typing.accuracy}
@@ -1814,14 +1393,14 @@ function MainApp() {
               {!shouldHideClutter && (
                 <div className={`w-full flex justify-start transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCrossfading ? 'opacity-0 -translate-y-3' : 'opacity-100 translate-y-0'}`}>
                   <div className="modifier-tab flex items-center gap-1 px-4 py-2 bg-zinc-900/40 border border-zinc-800/80 border-b-0 backdrop-blur-md rounded-t-2xl z-30 translate-y-[1px] text-zinc-500">
-                    <button onClick={() => setSuddenDeath(!suddenDeath)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${suddenDeath ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="1HP: One mistake ends it"><Skull size={17} /></button>
-                    <button onClick={() => setGhostPacer(!ghostPacer)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={17} /></button>
-                    <button onClick={() => setFocusMode(!focusMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Focus"><Focus size={17} /></button>
-                    <button onClick={() => setBlindMode(!blindMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Blind"><Brain size={17} /></button>
-                    <button onClick={toggleMirror} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Mirror"><FlipHorizontal size={17} /></button>
-                    <button onClick={() => setFogMode(!fogMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Fog"><CloudFog size={17} /></button>
-                    <button onClick={() => setStickyKeysMode(!stickyKeysMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Sticky Keys"><Magnet size={17} /></button>
-                    <button onClick={() => setOverclockedMode(!overclockedMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${overclockedMode ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="Overclocked"><Timer size={17} /></button>
+                    <button onClick={() => game.setSuddenDeath(!game.suddenDeath)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.suddenDeath ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="1HP: One mistake ends it"><Skull size={17} /></button>
+                    <button onClick={() => game.setGhostPacer(!game.ghostPacer)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title={pbGhost ? `Ghost: race your best (${pbGhost.wpm} WPM)` : 'Ghost: 60 WPM pace'}><Ghost size={17} /></button>
+                    <button onClick={() => game.setFocusMode(!game.focusMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Focus"><Focus size={17} /></button>
+                    <button onClick={() => game.setBlindMode(!game.blindMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Blind"><Brain size={17} /></button>
+                    <button onClick={game.toggleMirror} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Mirror"><FlipHorizontal size={17} /></button>
+                    <button onClick={() => game.setFogMode(!game.fogMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Fog"><CloudFog size={17} /></button>
+                    <button onClick={() => game.setStickyKeysMode(!game.stickyKeysMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/[0.06]'}`} title="Sticky Keys"><Magnet size={17} /></button>
+                    <button onClick={() => game.setOverclockedMode(!game.overclockedMode)} className={`p-2 rounded-lg transition-colors flex justify-center items-center ${game.overclockedMode ? 'bg-red-500/15 text-red-400' : 'hover:text-white hover:bg-white/[0.06]'}`} title="Overclocked"><Timer size={17} /></button>
                   </div>
                 </div>
               )}
@@ -1831,19 +1410,19 @@ function MainApp() {
                 input={typing.input}
                 phase={typing.phase}
                 theme={theme}
-                blindMode={blindMode}
-                focusMode={focusMode}
-                fogMode={fogMode}
+                blindMode={game.blindMode}
+                focusMode={game.focusMode}
+                fogMode={game.fogMode}
                 startTime={typing.startTime}
                 shake={typing.shake}
                 capsLock={typing.capsLock}
-                stickyPenalty={stickyPenalty}
+                stickyPenalty={game.stickyPenalty}
                 particles={particles.particles}
-                ghostPacer={ghostPacer}
+                ghostPacer={game.ghostPacer}
                 combo={typing.combo}
-                zenMode={zenMode}
+                zenMode={game.zenMode}
                 pbGhost={pbGhost}
-                isCodeMode={level === 'CODE'}
+                isCodeMode={game.level === 'CODE'}
                 racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
                 isCrossfading={isCrossfading}
               />
@@ -1959,7 +1538,7 @@ function MainApp() {
           <div className="flex items-center gap-1 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.75)]">
             <button
               onClick={() => setShowSettingsModal(true)}
-              className={`p-2.5 rounded-full ${showSettingsModal ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
+              className={`p-2.5 rounded-full ${activeModal === 'settings' ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
               title="Settings"
             >
               <Settings size={16} />
@@ -1997,163 +1576,231 @@ function MainApp() {
       )}
 
 
-      {/* Expanded Graph Overlay */}
-      {showExpandedGraph && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setShowExpandedGraph(false)}>
-          <div className="bg-zinc-900/95 p-8 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className={`text-2xl font-black ${theme.text}`}>PACING TIMELINE</h3>
-              <button onClick={() => setShowExpandedGraph(false)} className="text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
-            </div>
-            <svg viewBox="0 0 800 240" className="w-full h-64 bg-zinc-950/50 rounded-2xl p-4 border border-zinc-800">
-              {[0, 20, 40, 60, 80, 100].map((x) => (
-                <line key={`grid-v-${x}`} x1={x * 8} y1="0" x2={x * 8} y2="200" stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
-              ))}
-              {[0, 50, 100, 150, 200].map((y) => (
-                <line key={`grid-h-${y}`} x1="0" y1={y} x2="800" y2={y} stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
-              ))}
-              {(() => {
-                const pts = typing.timelinePoints.length ? typing.timelinePoints : [];
-                if (pts.length === 0) return null;
-                const maxW = Math.max(...pts.map(p => p.wpm).concat([typing.wpm || 1, 10]));
-                const poly = pts.map((p, i) => {
-                  const x = ((i + 1) / pts.length) * 760 + 20;
-                  const y = 200 - Math.min(200, (p.wpm / Math.max(maxW, 10)) * 160);
-                  return `${x},${y}`;
-                }).join(' ');
-                return <polyline fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />;
-              })()}
-            </svg>
-            <div className="grid grid-cols-5 gap-2 mt-6">
-              {typing.timelinePoints.map((p, i) => (
-                <div key={i} className="bg-zinc-800/50 p-3 rounded-lg text-center border border-zinc-700">
-                  <div className={`font-black text-lg ${theme.text}`}>{p.wpm} wpm</div>
-                  <div className="text-[10px] text-zinc-500 font-black">+{Math.round((p.t) / 1000)}s</div>
+      {/* ─── MODAL LAYER ─── */}
+      {(() => {
+        if (!activeModal) return null;
+        switch (activeModal) {
+          case 'expandedGraph': return (
+            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setActiveModal(null)}>
+              <div className="bg-zinc-900/95 p-8 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className={`text-2xl font-black ${theme.text}`}>PACING TIMELINE</h3>
+                  <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
                 </div>
-              ))}
+                <svg viewBox="0 0 800 240" className="w-full h-64 bg-zinc-950/50 rounded-2xl p-4 border border-zinc-800">
+                  {[0, 20, 40, 60, 80, 100].map((x) => (
+                    <line key={`grid-v-${x}`} x1={x * 8} y1="0" x2={x * 8} y2="200" stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
+                  ))}
+                  {[0, 50, 100, 150, 200].map((y) => (
+                    <line key={`grid-h-${y}`} x1="0" y1={y} x2="800" y2={y} stroke="rgba(113, 113, 122, 0.1)" strokeWidth="1" />
+                  ))}
+                  {(() => {
+                    const pts = typing.timelinePoints.length ? typing.timelinePoints : [];
+                    if (pts.length === 0) return null;
+                    const maxW = Math.max(...pts.map(p => p.wpm).concat([typing.wpm || 1, 10]));
+                    const poly = pts.map((p, i) => {
+                      const x = ((i + 1) / pts.length) * 760 + 20;
+                      const y = 200 - Math.min(200, (p.wpm / Math.max(maxW, 10)) * 160);
+                      return `${x},${y}`;
+                    }).join(' ');
+                    return <polyline fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={poly} className={theme.text} />;
+                  })()}
+                </svg>
+                <div className="grid grid-cols-5 gap-2 mt-6">
+                  {typing.timelinePoints.map((p, i) => (
+                    <div key={i} className="bg-zinc-800/50 p-3 rounded-lg text-center border border-zinc-700">
+                      <div className={`font-black text-lg ${theme.text}`}>{p.wpm} wpm</div>
+                      <div className="text-[10px] text-zinc-500 font-black">+{Math.round((p.t) / 1000)}s</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 text-center text-sm text-zinc-500 font-black">Click outside to close</div>
+              </div>
             </div>
-            <div className="mt-6 text-center text-sm text-zinc-500 font-black">Click outside to close</div>
-          </div>
-        </div>
-      )}
+          );
 
-      {/* Stats Dashboard */}
-      {showStatsDashboard && (
-        <StatsDashboard
-          theme={theme}
-          testsCompleted={rpg.testsCompleted}
-          heatmapData={rpg.heatmapData}
-          onClose={() => setShowStatsDashboard(false)}
-          onStartWeaknessDrill={(drillText) => {
-            typing.setTargetText(drillText);
-            setShowStatsDashboard(false);
-            typing.resetEngine();
-            toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
-          }}
-        />
-      )}
+          case 'stats': return (
+            <StatsDashboard
+              theme={theme}
+              testsCompleted={rpg.testsCompleted}
+              heatmapData={rpg.heatmapData}
+              onClose={() => setActiveModal(null)}
+              onStartWeaknessDrill={(drillText) => {
+                typing.setTargetText(drillText);
+                setActiveModal(null);
+                typing.resetEngine();
+                toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+              }}
+            />
+          );
 
-      {/* Daily Quests Modal */}
-      {showDailyQuestsModal && (
-        <DailyQuestsPanel
-          questsState={quests.questsState}
-          dailyStreak={dailyStreak}
-          onClose={() => setShowDailyQuestsModal(false)}
-        />
-      )}
+          case 'quests': return (
+            <DailyQuestsPanel
+              questsState={quests.questsState}
+              dailyStreak={dailyStreak}
+              onClose={() => setActiveModal(null)}
+            />
+          );
 
+          case 'race': return (
+            <RaceModal
+              status={race.status}
+              code={race.code}
+              initialCode={initialRaceCode}
+              isHost={race.isHost}
+              players={race.players}
+              error={race.error}
+              selfId={race.selfId}
+              theme={theme}
+              roomSize={race.roomSize}
+              lobbyConfig={race.lobbyConfig}
+              elo={cloud.elo}
+              username={cloud.username || ''}
+              supabase={supabase}
+              updateLobbyConfig={race.updateLobbyConfig}
+              isRankedRoom={isRankedMatch}
+              onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked); }}
+              onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked); }}
+              onStart={(text) => race.startRace(text)}
+              onLeave={() => { race.leave(); setRaceActive(false); setActiveModal(null); setIsRankedMatch(false); }}
+              onClose={() => setActiveModal(null)}
+            />
+          );
 
-      {/* Multiplayer Race */}
-      {showRace && (
-        <RaceModal
-          status={race.status}
-          code={race.code}
-          initialCode={initialRaceCode}
-          isHost={race.isHost}
-          players={race.players}
-          error={race.error}
-          selfId={race.selfId}
-          theme={theme}
-          roomSize={race.roomSize}
-          lobbyConfig={race.lobbyConfig}
-          elo={cloud.elo}
-          username={cloud.username || ''}
-          supabase={supabase}
-          updateLobbyConfig={race.updateLobbyConfig}
-          isRankedRoom={isRankedMatch}
-          onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked); }}
-          onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked); }}
-          onStart={(text) => race.startRace(text)}
-          onLeave={() => { race.leave(); setRaceActive(false); setShowRace(false); setIsRankedMatch(false); }}
-          onClose={() => setShowRace(false)}
-        />
-      )}
+          case 'social': return (
+            <SocialModal
+              theme={theme}
+              onClose={() => setActiveModal(null)}
+              friendsState={friendsState}
+              onChallengeFriend={handleChallengeFriend}
+              sentChallengeTo={challenges.sentChallengeTo}
+              onOpenProfile={(name) => setSelectedProfileUsername(name)}
+            />
+          );
 
-      {/* Social Modal */}
-      {showSocialModal && (
-        <SocialModal
-          theme={theme}
-          onClose={() => setShowSocialModal(false)}
-          friendsState={friendsState}
-          onChallengeFriend={handleChallengeFriend}
-          sentChallengeTo={challenges.sentChallengeTo}
-          onOpenProfile={(name) => setSelectedProfileUsername(name)}
-        />
-      )}
+          case 'changelog': return (
+            <ChangelogModal
+              theme={theme}
+              onClose={() => setActiveModal(null)}
+            />
+          );
 
-      {/* Public Player Profile Modal */}
-      {selectedProfileUsername && (
-        <PlayerProfileModal
-          targetUsername={selectedProfileUsername}
-          onClose={() => setSelectedProfileUsername(null)}
-          supabase={supabase}
-          localUsername={cloud.username}
-          theme={theme}
-          localRPGStats={localRPGStatsMemo}
-        />
-      )}
+          case 'settings': return (
+            <SettingsModal
+              theme={theme}
+              onClose={() => setActiveModal(null)}
+              suddenDeath={game.suddenDeath} setSuddenDeath={game.setSuddenDeath}
+              ghostPacer={game.ghostPacer} setGhostPacer={game.setGhostPacer}
+              focusMode={game.focusMode} setFocusMode={game.setFocusMode}
+              blindMode={game.blindMode} setBlindMode={game.setBlindMode}
+              mirroredMode={game.mirroredMode} toggleMirror={game.toggleMirror}
+              fogMode={game.fogMode} setFogMode={game.setFogMode}
+              stickyKeysMode={game.stickyKeysMode} setStickyKeysMode={game.setStickyKeysMode}
+              overclockedMode={game.overclockedMode} setOverclockedMode={game.setOverclockedMode}
+              zenMode={game.zenMode} setZenMode={game.setZenMode}
+              themeIndex={themeIndex} selectTheme={selectTheme}
+              soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
+            />
+          );
 
-      {/* Changelog Modal */}
-      {showChangelog && (
-        <ChangelogModal
-          theme={theme}
-          onClose={() => setShowChangelog(false)}
-        />
-      )}
+          case 'godMode': return (
+            <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={() => setActiveModal(null)}>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-6">
+                  <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Terminal className="mr-4 text-emerald-400" size={32} /> God Mode</h2>
+                  <button onClick={() => setActiveModal(null)} className="p-3 bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-zinc-400 transition-all duration-200 border border-zinc-700 hover:border-red-500/50"><X size={24} /></button>
+                </div>
+                <div className="flex flex-col gap-6">
+                  <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 shadow-inner">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-2xl ${tetrisEffect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                        <Zap size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-bold tracking-widest uppercase mb-1">Tetris Effect Particles</h4>
+                        <p className="text-xs text-zinc-500 font-bold">Auto-unlocks at 50 combo. Toggle here to test early.</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setTetrisEffect(!tetrisEffect)} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 ${tetrisEffect ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+                      {tetrisEffect ? 'ON ✓' : 'OFF'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <button onClick={() => { rpg.unlockAllAchievements(); setActiveModal(null); }} className="p-6 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all flex flex-col items-center text-center text-xs">
+                      <Trophy size={24} className="mb-2" /> Unlock All Achievements
+                    </button>
+                    <button onClick={() => { rpg.setXp(250000); setActiveModal(null); }} className="p-6 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(14,165,233,0.1)] transition-all flex flex-col items-center text-center text-xs">
+                      <Star size={24} className="mb-2" /> Set Level to Max (50+)
+                    </button>
+                  </div>
+                  <div className="mt-4 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
+                    <h4 className="text-red-400 font-bold tracking-widest uppercase mb-3 text-xs flex items-center gap-2">
+                      <RotateCcw size={16} /> DANGER ZONE
+                    </h4>
+                    <button onClick={() => { rpg.resetAllProgress(); setActiveModal(null); }} className="w-full p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 text-xs hover:shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                      <RotateCcw size={18} /> Reset All Progress (Level, XP, Achievements, Themes)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
 
-      {/* Incoming Challenge Notification */}
-      {challenges.pendingChallenge && (
-        <ChallengeNotification
-          challenge={challenges.pendingChallenge}
-          onAccept={async () => {
-            const roomCode = await challenges.acceptChallenge();
-            if (roomCode && cloud.username) {
-              race.joinRoom(roomCode, cloud.username, cloud.elo, auth.user?.id, false);
-              setShowSocialModal(false);
-              setShowRace(true);
-            }
-          }}
-          onReject={() => challenges.rejectChallenge()}
-        />
-      )}
+          case 'comms': return isLoggedIn ? (
+            <CommsModal
+              supabase={supabase}
+              userId={auth.session?.user.id}
+              friends={friendsState.friends}
+              onClose={() => setActiveModal(null)}
+            />
+          ) : null;
 
-      {showSettingsModal && (
-        <SettingsModal
-          theme={theme}
-          onClose={() => setShowSettingsModal(false)}
-          suddenDeath={suddenDeath} setSuddenDeath={setSuddenDeath}
-          ghostPacer={ghostPacer} setGhostPacer={setGhostPacer}
-          focusMode={focusMode} setFocusMode={setFocusMode}
-          blindMode={blindMode} setBlindMode={setBlindMode}
-          mirroredMode={mirroredMode} toggleMirror={toggleMirror}
-          fogMode={fogMode} setFogMode={setFogMode}
-          stickyKeysMode={stickyKeysMode} setStickyKeysMode={setStickyKeysMode}
-          overclockedMode={overclockedMode} setOverclockedMode={setOverclockedMode}
-          zenMode={zenMode} setZenMode={setZenMode}
-          themeIndex={themeIndex} selectTheme={selectTheme}
-          soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
-        />
-      )}
+          case 'trophy': return (
+            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setActiveModal(null)}>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10">
+                  <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Trophy className="mr-4 text-amber-400" size={32} /> Hall of Legends</h2>
+                  <button onClick={() => setActiveModal(null)} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors"><X size={24} /></button>
+                </div>
+                <div className="flex flex-col gap-12">
+                  {(['SKILL', 'HARDCORE', 'GRIND', 'SUPER'] as const).map(category => {
+                    const categoryAchievements = ACHIEVEMENTS.filter(a => a.category === category);
+                    return (
+                      <div key={category}>
+                        <h3 className={`text-sm font-black uppercase tracking-widest mb-6 ${category === 'SUPER' ? theme.text : 'text-zinc-500'}`}>{category} BADGES</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {categoryAchievements.map(ach => {
+                            const isUnlocked = rpg.unlockedAchievements.includes(ach.id);
+                            const AchIcon = ACHIEVEMENT_ICONS[ach.icon] ?? Trophy;
+                            return (
+                              <div key={ach.id} className={`p-5 rounded-3xl border transition-all flex flex-col items-center text-center ${isUnlocked ? `bg-zinc-900 ${theme.borderHalf} ${theme.auraLow} hover:-translate-y-1` : 'bg-zinc-950 border-zinc-800/50 opacity-60 grayscale'}`}>
+                                <div className="relative mb-4">
+                                  {/* color via glowPrimary, not theme.text — galaxy's
+                                      gradient-clip class would make SVG strokes transparent */}
+                                  <AchIcon
+                                    size={34}
+                                    className={isUnlocked ? theme.drop : 'text-zinc-600'}
+                                    style={isUnlocked ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+                                  />
+                                  {!isUnlocked && <div className="absolute -bottom-2 -right-2 bg-zinc-800 rounded-full p-1"><Lock size={12} className="text-zinc-400" /></div>}
+                                </div>
+                                <h4 className={`font-bold mb-2 ${isUnlocked ? 'text-white' : 'text-zinc-500'}`}>{ach.title}</h4>
+                                <p className="text-[10px] text-zinc-400 leading-relaxed font-semibold">{ach.desc}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+
+          default: return null;
+        }
+      })()}
       <VideoCallOverlay />
     </div>
     </VideoCallProvider>

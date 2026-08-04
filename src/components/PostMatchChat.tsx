@@ -1,22 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, MessageSquare, Sparkles } from 'lucide-react';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RacerState } from '@/hooks/useRace';
+import { getSocket } from '../lib/socket';
+import type { RacerState } from '../hooks/useRace';
 
 export interface ChatMessage {
   id: string;
   sender: string;
-  senderId: string;
-  message: string;
-  timestamp: number;
+  text: string;
+  timestamp: string | number;
   color?: string;
 }
 
 interface PostMatchChatProps {
-  supabase: SupabaseClient | null;
   lobbyId: string;
   username: string;
-  selfId: string;
+  selfId?: string;
   players?: RacerState[];
 }
 
@@ -30,16 +28,13 @@ const PLAYER_COLORS = [
 ];
 
 export function PostMatchChat({
-  supabase,
   lobbyId,
   username,
-  selfId,
   players = [],
 }: PostMatchChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<ReturnType<NonNullable<SupabaseClient>['channel']> | null>(null);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -52,11 +47,11 @@ export function PostMatchChat({
     }
   }, [messages]);
 
-  // Determine sender color based on player position/index in room
+  // Determine sender color based on player position in room
   const getSenderColor = useCallback(
-    (senderName: string, senderIdStr?: string) => {
+    (senderName: string) => {
       let idx = players.findIndex(
-        (p) => (senderIdStr && p.id === senderIdStr) || p.name?.toLowerCase() === senderName?.toLowerCase()
+        (p) => p.name?.toLowerCase() === senderName?.toLowerCase()
       );
       if (idx < 0) idx = 0;
       return PLAYER_COLORS[idx % PLAYER_COLORS.length];
@@ -64,58 +59,53 @@ export function PostMatchChat({
     [players]
   );
 
-  // Subscribe to Supabase Realtime broadcast channel
+  // Listen to Socket.io `chat_message` events
   useEffect(() => {
-    if (!supabase || !lobbyId) return;
+    if (!lobbyId) return;
+    const socket = getSocket();
 
-    const channelName = `post-match:${lobbyId}`;
-    const channel = supabase.channel(channelName);
-    channelRef.current = channel;
-
-    channel
-      .on('broadcast', { event: 'chat' }, ({ payload }: { payload: ChatMessage }) => {
-        // Skip self-echoed messages — we already added them optimistically (C5 dedup)
-        if (payload.senderId === selfId) return;
-        // Deduplicate by id in case of retransmits
-        setMessages((prev) => prev.some(m => m.id === payload.id) ? prev : [...prev, payload]);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-  }, [supabase, lobbyId]);
-
-  // Send message function
-  const sendMessage = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || !channelRef.current) return;
-
-      const senderColorObj = getSenderColor(username, selfId);
-      const msg: ChatMessage = {
-        id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        sender: username || 'Typist',
-        senderId: selfId,
-        message: trimmed,
-        timestamp: Date.now(),
-        color: senderColorObj.text,
+    const handleChatMessage = (msgPayload: { id: string; sender: string; text: string; timestamp: string }) => {
+      const colorObj = getSenderColor(msgPayload.sender);
+      const newMsg: ChatMessage = {
+        id: msgPayload.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        sender: msgPayload.sender,
+        text: msgPayload.text,
+        timestamp: msgPayload.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        color: colorObj.text,
       };
 
-      // Optimistically add to local state
-      setMessages((prev) => [...prev, msg]);
-
-      // Broadcast to all participants in lobby
-      await channelRef.current.send({
-        type: 'broadcast',
-        event: 'chat',
-        payload: msg,
+      setMessages((prev) => {
+        // Prevent duplicate messages
+        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
       });
+    };
+
+    socket.on('chat_message', handleChatMessage);
+
+    return () => {
+      socket.off('chat_message', handleChatMessage);
+    };
+  }, [lobbyId, getSenderColor]);
+
+  // Send message function via Socket.io `send_message`
+  const sendMessage = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || !lobbyId) return;
+
+      const socket = getSocket();
+      if (socket.connected) {
+        socket.emit('send_message', {
+          roomId: lobbyId,
+          message: trimmed,
+          sender: username || 'Racer',
+        });
+      }
 
       setInputText('');
     },
-    [username, selfId, getSenderColor]
+    [lobbyId, username]
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -124,7 +114,7 @@ export function PostMatchChat({
   };
 
   return (
-    <div className="glass-panel relative w-full max-w-3xl mx-auto rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-white/10 p-4 md:p-5 font-mono shadow-2xl overflow-hidden lucid-scale">
+    <div className="glass-panel relative w-full max-w-3xl mx-auto rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-white/10 p-4 md:p-5 font-mono shadow-2xl overflow-hidden">
       {/* Subtle Glow Header Accent */}
       <div className="absolute -top-16 -right-16 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -135,9 +125,9 @@ export function PostMatchChat({
             <MessageSquare size={14} />
           </div>
           <h3 className="text-xs font-bold text-white tracking-wider uppercase flex items-center gap-2">
-            Post-Match Chat
+            Comms Terminal
             <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold">
-              LIVE BROADCAST
+              SOCKET LIVE
             </span>
           </h3>
         </div>
@@ -152,12 +142,12 @@ export function PostMatchChat({
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-xs font-bold gap-1 py-6 opacity-60">
             <Sparkles size={18} className="text-zinc-600 mb-1 animate-pulse" />
-            <span>Say "gg" or send a quick chat below!</span>
+            <span>Say "gg" or send a quick chat message below!</span>
           </div>
         ) : (
           messages.map((msg) => {
-            const isSelf = msg.senderId === selfId || msg.sender?.toLowerCase() === username?.toLowerCase();
-            const colorObj = getSenderColor(msg.sender, msg.senderId);
+            const isSelf = msg.sender?.toLowerCase() === username?.toLowerCase();
+            const colorObj = getSenderColor(msg.sender);
 
             return (
               <div
@@ -174,11 +164,11 @@ export function PostMatchChat({
                     {msg.sender} {isSelf && <span className="text-[9px] text-zinc-400 font-normal">(YOU)</span>}
                   </span>
                   <span className="text-[9px] text-zinc-500">
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    {msg.timestamp}
                   </span>
                 </div>
                 <p className="text-zinc-200 break-words leading-relaxed text-[11px] font-medium">
-                  {msg.message}
+                  {msg.text}
                 </p>
               </div>
             );
@@ -209,7 +199,7 @@ export function PostMatchChat({
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Send a post-match message..."
+          placeholder="Send a message to lobby..."
           disabled={!lobbyId}
           className="flex-1 bg-slate-950/80 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           maxLength={150}

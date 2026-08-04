@@ -27,16 +27,16 @@ export function VideoCallOverlay() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
+    if (localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
     }
-  }, [localStream]);
+  }, [localStream, callState]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
+    if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
-  }, [remoteStream]);
+  }, [remoteStream, callState]);
 
   // Handle Dragging
   const onMouseDown = (e: React.MouseEvent) => {

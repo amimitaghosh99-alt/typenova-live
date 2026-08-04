@@ -153,16 +153,16 @@ export function CommsModal({ supabase, userId, friends, onClose }: CommsModalPro
                   <h3 className="text-xl font-black tracking-widest uppercase text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
                     {activeFriend?.username}
                   </h3>
+                  {activeFriend?.isOnline && (
+                    <button
+                      onClick={() => activeFriend && callUser(activeFriend.id, activeFriend.username)}
+                      className="ml-auto mr-10 w-9 h-9 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950 hover:shadow-[0_0_15px_rgba(52,211,153,0.6)] transition-all cursor-pointer z-50"
+                      title={`Video call ${activeFriend.username}`}
+                    >
+                      <Video size={18} />
+                    </button>
+                  )}
                 </div>
-                {activeFriend?.isOnline && (
-                  <button
-                    onClick={() => callUser(activeFriend.id, activeFriend.username)}
-                    className="ml-auto w-10 h-10 flex items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 hover:bg-emerald-400 hover:text-emerald-950 hover:shadow-[0_0_15px_rgba(52,211,153,0.6)] transition-all"
-                    title={`Video call ${activeFriend.username}`}
-                  >
-                    <Video size={18} />
-                  </button>
-                )}
                 
                 {/* Chat Feed */}
                 <div className="flex-1 relative overflow-hidden">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSocket } from '@/lib/socket';
 import { toast } from 'sonner';
 
 export type CallState = 'IDLE' | 'CALLING' | 'INCOMING' | 'CONNECTED';
@@ -21,21 +21,25 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
   const signalingChannel = useRef<any>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
 
-  // Initialize WebRTC and Signaling Channel
+  // Initialize WebRTC and Signaling Channel via Socket.io
   useEffect(() => {
-    if (!userId || !supabase) return;
+    if (!userId) return;
 
-    // Listen on personal signaling channel
-    const channelName = `webrtc:${userId}`;
-    const channel = supabase.channel(channelName);
+    const socket = getSocket();
+    if (!socket.connected) {
+      socket.connect();
+    }
 
-    channel.on('broadcast', { event: 'call-signal' }, async (payload) => {
-      const { type, from, fromName, data } = payload.payload;
+    // Register this user for global peer-to-peer signaling routing
+    socket.emit('register_user', { userId });
+
+    const handleSignal = async (payload: any) => {
+      const { type, from, fromName, data } = payload;
 
       switch (type) {
         case 'offer':
-          if (callState !== 'IDLE') {
-            // Already in a call, reject automatically
+          if (peerConnection.current !== null) {
+            // Already in a call or incoming call, reject automatically
             sendSignal(from, 'reject', { reason: 'busy' });
             return;
           }
@@ -71,28 +75,32 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
           toast.info('Call ended.');
           break;
       }
+    };
+
+    socket.on('webrtc_signal_receive', handleSignal);
+    
+    socket.on('webrtc_error', (err: any) => {
+      cleanupCall();
+      toast.error(err.message || 'Call failed: user unavailable');
     });
 
-    channel.subscribe();
-    signalingChannel.current = channel;
-
     return () => {
-      channel.unsubscribe();
+      socket.off('webrtc_signal_receive', handleSignal);
+      socket.off('webrtc_error');
       cleanupCall();
     };
-  }, [userId, callState]);
+  }, [userId]); // Intentionally omitting username to prevent unnecessary re-subscriptions
 
   const sendSignal = (targetId: string, type: string, data: any) => {
-    if (!supabase) return;
-    supabase.channel(`webrtc:${targetId}`).send({
-      type: 'broadcast',
-      event: 'call-signal',
-      payload: {
-        type,
-        from: userId,
-        fromName: username,
-        data,
-      },
+    const socket = getSocket();
+    if (!socket.connected) return;
+    
+    socket.emit('webrtc_signal', {
+      targetId,
+      type,
+      from: userId,
+      fromName: username,
+      payload: data,
     });
   };
 
@@ -139,17 +147,26 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
 
   const startLocalVideo = async () => {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Camera & Microphone access requires a secure connection (HTTPS) or localhost.');
+        return null;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       setLocalStream(stream);
       return stream;
-    } catch (err) {
-      toast.error('Could not access camera or microphone.');
+    } catch (err: any) {
+      console.error('getUserMedia error:', err);
+      toast.error(`Media error: ${err?.message || 'Camera/mic access denied.'}`);
       return null;
     }
   };
 
   const callUser = async (targetId: string, targetName: string) => {
+    if (!userId) {
+      toast.error('You must be logged in to start a video call.');
+      return;
+    }
     if (callState !== 'IDLE') return;
     
     setCallState('CALLING');

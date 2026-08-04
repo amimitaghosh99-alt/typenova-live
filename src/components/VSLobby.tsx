@@ -223,7 +223,7 @@ export function VSLobby({
                         </div>
                         <div>
                           <div className="text-xs font-bold flex items-center gap-1.5">
-                            {p.isHost && <Crown size={14} className="text-amber-400" title="Lobby Host" />}
+                            {p.isHost && <Crown size={14} className="text-amber-400" />}
                             {p.name}
                           </div>
                           <div className="text-[10px] text-zinc-500">

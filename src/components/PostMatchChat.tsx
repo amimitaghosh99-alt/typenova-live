@@ -16,6 +16,7 @@ interface PostMatchChatProps {
   username: string;
   selfId?: string;
   players?: RacerState[];
+  supabase?: import('@supabase/supabase-js').SupabaseClient | null;
 }
 
 const PRESET_MESSAGES = ['gg', 'Rematch?', 'So close!', 'My keyboard lagged!'] as const;

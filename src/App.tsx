@@ -40,9 +40,8 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { RaceModal } from '@/components/RaceModal';
 import { SocialModal } from '@/components/SocialModal';
 import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
-import { ChallengeNotification } from '@/components/ChallengeNotification';
-import { PlayerProfileModal } from '@/components/PlayerProfileModal';
 import { CommsModal } from '@/components/CommsModal';
+import { PlayerProfileModal } from '@/components/PlayerProfileModal';
 import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
 import { useChallenges } from '@/hooks/useChallenges';
 import { useRace, makeRoomCode } from '@/hooks/useRace';
@@ -177,16 +176,17 @@ function MainApp() {
   const [soundProfile, setSoundProfileState] = useState('thocky');
   const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
 
-  type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | null;
+  type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'profile' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | null;
   const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const showReplay = activeModal === 'replay';
   
   // Aliases for backward compatibility during refactor
   const setShowTrophyRoom = (b: boolean) => setActiveModal(b ? 'trophy' : null);
   const setShowGodMode = (b: boolean) => setActiveModal(b ? 'godMode' : null);
-  const setShowExpandedGraph = (b: boolean) => setActiveModal(b ? 'expandedGraph' : null);
   const setShowStatsDashboard = (b: boolean) => setActiveModal(b ? 'stats' : null);
   const setShowReplay = (b: boolean) => setActiveModal(b ? 'replay' : null);
   const setShowRace = (b: boolean) => setActiveModal(b ? 'race' : null);
+  const setShowProfile = (b: boolean) => setActiveModal(b ? 'profile' : null);
   const setShowSocialModal = (b: boolean) => setActiveModal(b ? 'social' : null);
   const setShowCommsModal = (b: boolean) => setActiveModal(b ? 'comms' : null);
   const setShowDailyQuestsModal = (b: boolean) => setActiveModal(b ? 'quests' : null);
@@ -267,7 +267,6 @@ function MainApp() {
   const localRPGStatsMemo = useMemo(() => {
     if (!cloud.username || !selectedProfileUsername) return undefined;
     if (selectedProfileUsername.toLowerCase() !== cloud.username.toLowerCase()) return undefined;
-    
     const h: HistoryEntry[] = loadHistory();
     return {
       level: rpg.userLevel,
@@ -727,7 +726,7 @@ function MainApp() {
     }
 
     // Result history for the stats dashboard (drills excluded)
-    if (!microDrillActive) {
+    if (!game.microDrillActive) {
       appendHistory({
         d: new Date().toISOString(),
         wpm: stats.currentWpm, acc: stats.currentAcc, cons: stats.consistency,
@@ -852,9 +851,9 @@ function MainApp() {
           <RaceResultsScreen
             {...resultsProps}
             players={race.players}
-            selfId={race.selfId}
+            selfId={race.selfId ?? ''}
             roomSize={race.roomSize}
-            timelines={race.timelines || []}
+            timelines={undefined}
             isRanked={isRankedMatch}
             supabase={supabase}
             raceId={race.raceId}
@@ -1487,7 +1486,10 @@ function MainApp() {
                     <div className="flex items-center space-x-6">
                       <span className={`font-black text-xl ${idx === 0 ? theme.text : 'text-zinc-500'}`}>#{idx + 1}</span>
                       <button
-                        onClick={() => setSelectedProfileUsername(entry.username)}
+                        onClick={() => {
+                          setSelectedProfileUsername(entry.username);
+                          setShowProfile(true);
+                        }}
                         className="font-black text-white hover:text-cyan-300 tracking-widest uppercase text-lg whitespace-nowrap hover:underline transition-colors text-left"
                         title={`View ${entry.username}'s Profile`}
                       >
@@ -1650,7 +1652,7 @@ function MainApp() {
               isHost={race.isHost}
               players={race.players}
               error={race.error}
-              selfId={race.selfId}
+              selfId={race.selfId ?? ''}
               theme={theme}
               roomSize={race.roomSize}
               lobbyConfig={race.lobbyConfig}
@@ -1674,7 +1676,10 @@ function MainApp() {
               friendsState={friendsState}
               onChallengeFriend={handleChallengeFriend}
               sentChallengeTo={challenges.sentChallengeTo}
-              onOpenProfile={(name) => setSelectedProfileUsername(name)}
+              onOpenProfile={(name) => {
+                setSelectedProfileUsername(name);
+                setShowProfile(true);
+              }}
             />
           );
 
@@ -1700,6 +1705,17 @@ function MainApp() {
               zenMode={game.zenMode} setZenMode={game.setZenMode}
               themeIndex={themeIndex} selectTheme={selectTheme}
               soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
+            />
+          );
+
+          case 'profile': return (
+            <PlayerProfileModal
+              targetUsername={selectedProfileUsername}
+              onClose={() => setActiveModal(null)}
+              supabase={supabase}
+              localUsername={cloud.username}
+              theme={theme}
+              localRPGStats={localRPGStatsMemo}
             />
           );
 

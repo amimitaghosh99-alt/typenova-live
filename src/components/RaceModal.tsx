@@ -36,7 +36,7 @@ interface RaceModalProps {
 }
 
 export const RaceModal = ({
-  status, code, isHost, isRankedRoom, players, error, selfId, theme, roomSize, countdown,
+  status, code, isHost, isRankedRoom, players, error, selfId, theme, roomSize,
   lobbyConfig, updateLobbyConfig,
   onCreate, onJoin, onStart, onLeave, onClose, initialCode,
   elo, username, supabase = null

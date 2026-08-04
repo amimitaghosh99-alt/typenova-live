@@ -10,6 +10,7 @@ export const makeRoomCode = () =>
 
 export interface RacerState {
   id: string;
+  userId?: string;
   name: string;
   isHost: boolean;
   progress: number; // 0-100
@@ -21,6 +22,7 @@ export interface RacerState {
   finishAcc?: number;
   finishMs?: number;
   rank?: number;
+  elo?: number;
   rawWpm?: number;
   consistency?: number;
   heatmapData?: Record<string, { total: number; errors: number }>;
@@ -198,7 +200,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   }, []);
 
   /** Create a new room via Socket.io */
-  const createRoom = useCallback((name: string, size?: number, config?: any, elo?: number, roomCode?: string, userId?: string, isRanked?: boolean) => {
+  const createRoom = useCallback((name: string, size?: number, _config?: any, elo?: number, roomCode?: string, userId?: string, isRanked?: boolean) => {
     teardown();
     setError('');
     setStatus('joining');

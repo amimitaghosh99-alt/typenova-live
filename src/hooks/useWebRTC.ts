@@ -18,7 +18,6 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
 
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const signalingChannel = useRef<any>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
 
   // Initialize WebRTC and Signaling Channel via Socket.io

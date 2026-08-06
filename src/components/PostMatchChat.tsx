@@ -32,6 +32,7 @@ const PLAYER_COLORS = [
 export function PostMatchChat({
   lobbyId,
   username,
+  selfId,
   players = [],
 }: PostMatchChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

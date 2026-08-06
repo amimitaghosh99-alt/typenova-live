@@ -18,6 +18,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v1.6.5',
+    date: 'August 6, 2026',
+    title: 'Post-Match Chat Updates & Agents 🤖',
+    changes: [
+      { type: 'feature', description: 'AI Teams: Integrated new background agent teamwork workflows.' },
+      { type: 'fix', description: 'Post-Match Chat: Added missing identity props to fix multiplayer chat routing.' }
+    ],
+    impact: { fixes: 1, tweaks: 1, linesChanged: 3500, perfGain: 'Agent stability' },
+  },
+  {
     version: 'v1.6.4',
     date: 'August 4, 2026',
     title: 'Video Calling & Global Settings 📹⚙️',

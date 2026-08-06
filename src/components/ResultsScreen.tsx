@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Activity, TrendingUp, RotateCcw, Brain, Share2, Play
 } from 'lucide-react';
@@ -43,6 +43,13 @@ export function ResultsScreen({
   compact = false
 }: ResultsScreenProps) {
   const [shareStatus, setShareStatus] = useState('');
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const grade = (() => {
     if (wpm > 100 && accuracy > 98) return "S";
@@ -75,7 +82,8 @@ export function ResultsScreen({
     } catch {
       setShareStatus('SHARE FAILED');
     }
-    setTimeout(() => setShareStatus(''), 3000);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setShareStatus(''), 3000);
   };
 
   // Build heatmap rows

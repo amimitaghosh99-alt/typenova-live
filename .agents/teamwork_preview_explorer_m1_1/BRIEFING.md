@@ -1,37 +1,45 @@
-# BRIEFING — 2026-07-30T03:32:15Z
+# BRIEFING — 2026-08-06T00:59:25Z
 
 ## Mission
-Analyze `src/components/ChangelogModal.tsx` and `src/index.css` for Requirements R1 & R4 (Backdrop blur optimization and Entrance animation).
+Investigate R1: Timeout Memory Leaks (BUG-19, BUG-20, BUG-21).
 
 ## 🔒 My Identity
-- Archetype: explorer
-- Roles: read-only investigator, requirement analyst
+- Archetype: teamwork_preview_explorer
+- Roles: Read-only investigator / Explorer 1
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_1
-- Original parent: 2ecda20c-dd78-491a-8fd6-b3888e8f40bd
-- Milestone: M1
+- Original parent: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Milestone: m1_1
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement changes in src/
-- Investigate R1 (Zero Nested Backdrop Blurs) and R4 (Smooth Entrance using lucid-scale)
-- Document findings, audit recommendations, and code change proposals in handoff.md
+- Read-only investigation — do NOT modify target source code directly
+- Investigate BUG-19, BUG-20, BUG-21 (timeout memory leaks)
+- Output analysis to `analysis.md` and handoff report to `handoff.md` in working directory
+- Communicate via `send_message` when done
 
 ## Current Parent
-- Conversation ID: 2ecda20c-dd78-491a-8fd6-b3888e8f40bd
-- Updated: 2026-07-30T03:32:15Z
+- Conversation ID: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Updated: 2026-08-06T00:59:25Z
 
 ## Investigation State
-- **Explored paths**: `src/components/ChangelogModal.tsx`, `src/index.css`, `ORIGINAL_REQUEST.md`, `.agents/orchestrator/PROJECT.md`
+- **Explored paths**:
+  - `src/hooks/useFriends.ts`
+  - `src/components/TypingController.tsx`
+  - `src/components/RaceModal.tsx`
+  - `src/components/SocialModal.tsx`
+  - `src/components/PlayerProfileModal.tsx`
 - **Key findings**:
-  1. Identified 8 occurrences of `backdrop-blur-*` in `ChangelogModal.tsx` (lines 135, 144, 213, 294, 308, 318, 394, 425). All 7 nested instances + container backdrop-blur-2xl must be removed to meet R1.
-  2. Outer container uses `.glass-panel` which already defines Tier 2 backdrop blur in `src/index.css`.
-  3. Outer container uses `.lucid-scale` entrance animation.
-  4. Identified Tailwind animation plugin classes (`animate-in fade-in ...`) on lines 209 and 308 that must be stripped/replaced for R4 compliance.
-- **Unexplored areas**: None for R1/R4 scope.
+  - BUG-19: 4 untracked `setTimeout` calls in `useFriends.ts` (lines 127, 132, 173, 206) for error auto-dismiss.
+  - BUG-20: Untracked `setShake` timeout in `TypingController.tsx` (line 193).
+  - BUG-21: Untracked exit animation timeouts in `RaceModal.tsx` (line 86 + lines 172, 179 for clipboard copy), `SocialModal.tsx` (line 28), `PlayerProfileModal.tsx` (line 122).
+- **Unexplored areas**: None (investigation complete).
 
 ## Key Decisions Made
-- Documented clear 5-component handoff report with exact line numbers, code snippets, logic chain, caveats, conclusion, and verification commands.
+- Investigated all specified target files.
+- Documented exact line numbers, code snippets, root causes, and clean React ref-tracking + cleanup remediation patterns.
+- Created `analysis.md` and `handoff.md`.
 
 ## Artifact Index
-- ORIGINAL_REQUEST.md — Prompt request copy
-- progress.md — Heartbeat progress log
-- handoff.md — Completed 5-component investigation report
+- DISPATCH.md — Dispatch history
+- BRIEFING.md — Persistent context briefing
+- analysis.md — Detailed analysis report for BUG-19, BUG-20, BUG-21
+- handoff.md — 5-component handoff report

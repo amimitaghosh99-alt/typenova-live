@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, Swords } from 'lucide-react';
 import type { Theme, Level, CodeLanguage } from '@/data/constants';
 import type { useFriends } from '@/hooks/useFriends';
@@ -13,7 +13,7 @@ interface SocialModalProps {
   onOpenProfile?: (username: string) => void;
 }
 
-export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, sentChallengeTo, onOpenProfile }: SocialModalProps) => {
+export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallengeFriend, sentChallengeTo, onOpenProfile }: SocialModalProps) => {
   const [tab, setTab] = useState<'friends' | 'add' | 'inbox'>('friends');
   const [searchInput, setSearchInput] = useState('');
   const [isClosing, setIsClosing] = useState(false);
@@ -21,14 +21,22 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
   const [challengeMode, setChallengeMode] = useState<Level>('NOVICE');
   const [challengeWords, setChallengeWords] = useState<number>(25);
   const [challengeLang, setChallengeLang] = useState<CodeLanguage>('JavaScript/TypeScript');
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleClose = () => {
     if (isClosing) return;
     setIsClosing(true);
-    setTimeout(() => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = setTimeout(() => {
       onClose();
     }, 180);
   };
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    };
+  }, []);
   
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,28 +155,26 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                   {/* Mode Selector */}
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Difficulty / Mode</span>
-                    <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
-                      <SegmentedControl
-                        options={(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => ({ label: l, value: l }))}
-                        value={challengeMode}
-                        onChange={setChallengeMode}
-                        themeTextClass={theme.text}
-                      />
-                    </div>
+                    <SegmentedControl
+                      options={(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => ({ label: l, value: l }))}
+                      value={challengeMode}
+                      onChange={setChallengeMode}
+                      themeTextClass={theme.text}
+                      fullWidth
+                    />
                   </div>
 
                   {/* Words Selector */}
                   {challengeMode !== 'QUOTES' && challengeMode !== 'CODE' && (
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Test Length</span>
-                      <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
-                        <SegmentedControl
-                          options={[10, 25, 50, 100].map(w => ({ label: `${w} words`, value: w }))}
-                          value={challengeWords}
-                          onChange={setChallengeWords}
-                          themeTextClass={theme.text}
-                        />
-                      </div>
+                      <SegmentedControl
+                        options={[10, 25, 50, 100].map(w => ({ label: `${w} words`, value: w }))}
+                        value={challengeWords}
+                        onChange={setChallengeWords}
+                        themeTextClass={theme.text}
+                        fullWidth
+                      />
                     </div>
                   )}
 
@@ -176,17 +182,16 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                   {challengeMode === 'CODE' && (
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Language</span>
-                      <div className="flex bg-slate-950 p-1 rounded-xl border border-white/10">
-                        <SegmentedControl
-                          options={(['JavaScript/TypeScript', 'Python', 'Rust', 'C++'] as CodeLanguage[]).map(lang => ({
-                            label: lang.split('/')[0].toUpperCase(),
-                            value: lang
-                          }))}
-                          value={challengeLang}
-                          onChange={setChallengeLang}
-                          themeTextClass={theme.text}
-                        />
-                      </div>
+                      <SegmentedControl
+                        options={(['JavaScript/TypeScript', 'Python', 'Rust', 'C++'] as CodeLanguage[]).map(lang => ({
+                          label: lang.split('/')[0].toUpperCase(),
+                          value: lang
+                        }))}
+                        value={challengeLang}
+                        onChange={setChallengeLang}
+                        themeTextClass={theme.text}
+                        fullWidth
+                      />
                     </div>
                   )}
 
@@ -247,7 +252,7 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                         <span className="text-[10px] text-zinc-400 tracking-wider">Elo {friend.elo}</span>
                       </div>
                     </button>
-                    <div className="flex items-center gap-1.5 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <div className="flex items-center gap-1.5 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                       {/* Challenge Button */}
                       {onChallengeFriend && (
                         <button
@@ -271,6 +276,7 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                         disabled={friendsState.loading}
                         className="p-1.5 hover:bg-rose-500/10 text-zinc-500 hover:text-rose-400 rounded-lg transition-all disabled:opacity-50"
                         title="Remove Friend"
+                        aria-label="Remove Friend"
                       >
                         <UserMinus size={15} />
                       </button>
@@ -289,9 +295,10 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                   value={searchInput}
                   onChange={e => setSearchInput(e.target.value)}
                   placeholder="SEARCH USERNAME..."
+                  aria-label="Search username"
                   className="w-full bg-slate-900/60 border border-white/15 rounded-xl pl-10 pr-20 py-3 text-xs font-mono text-white placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/40 transition-colors"
                 />
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={15} />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={15} aria-hidden="true" />
                 <button 
                   type="submit" 
                   disabled={!searchInput.trim() || friendsState.loading}
@@ -325,6 +332,7 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
                         disabled={friendsState.loading}
                         className="p-1 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors disabled:opacity-50"
                         title="Cancel Request"
+                        aria-label="Cancel Request"
                       >
                         <X size={14} />
                       </button>
@@ -384,4 +392,4 @@ export const SocialModal = ({ theme, onClose, friendsState, onChallengeFriend, s
       </div>
     </div>
   );
-};
+});

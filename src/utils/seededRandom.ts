@@ -27,7 +27,13 @@ export function daySeed(): number {
 
 /** Is `prevKey` (YYYY-MM-DD) exactly the local day before `curKey`? */
 export function isYesterday(prevKey: string, curKey: string = todayKey()): boolean {
-  const [py, pm, pd] = prevKey.split('-').map(Number);
+  if (!prevKey || typeof prevKey !== 'string') return false;
+  const parts = prevKey.split('-');
+  if (parts.length !== 3) return false;
+  
+  const [py, pm, pd] = parts.map(Number);
+  if (isNaN(py) || isNaN(pm) || isNaN(pd)) return false;
+
   const prev = new Date(py, pm - 1, pd);
   prev.setDate(prev.getDate() + 1);
   return todayKey(prev) === curKey;

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 import { 
   X, 
   Sparkles, 
@@ -21,7 +21,7 @@ interface ChangelogModalProps {
   onClose: () => void;
 }
 
-export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
+export const ChangelogModal = memo(function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
   const [subscribed, setSubscribed] = useState(false);
   const [activeVersion, setActiveVersion] = useState<string>(CHANGELOG[0]?.version || '');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -448,4 +448,4 @@ export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
       </div>
     </div>
   );
-}
+});

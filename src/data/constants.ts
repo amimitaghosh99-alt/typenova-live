@@ -115,7 +115,7 @@ export const generateText = (level: Level, length: number, customText: string = 
       picked.push(s);
       words += s.split(' ').length;
     }
-    final = picked.join(' ');
+    final = picked.join(' ').split(' ').slice(0, length).join(' ');
 
     // Optional word-level mutations (plain word modes only)
     if (opts.numbers || opts.punctuation) {

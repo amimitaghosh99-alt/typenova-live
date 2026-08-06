@@ -26,12 +26,15 @@ function orb(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, rgb
 }
 
 export async function renderResultCard(data: ShareCardData): Promise<Blob> {
-  await document.fonts.ready; // make sure JetBrains Mono is usable on canvas
+  if (typeof document !== 'undefined' && document.fonts) {
+    await document.fonts.ready; // make sure JetBrains Mono is usable on canvas
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas 2D context not supported');
 
   // Background + glow orbs
   ctx.fillStyle = '#0a0a0c';
@@ -106,7 +109,14 @@ export async function renderResultCard(data: ShareCardData): Promise<Blob> {
 
 /** Copy the card to the clipboard; fall back to a PNG download. Returns which happened. */
 export async function shareResultCard(data: ShareCardData): Promise<'copied' | 'downloaded'> {
-  const blob = await renderResultCard(data);
+  let blob: Blob;
+  try {
+    blob = await renderResultCard(data);
+  } catch (error) {
+    console.error('Failed to render result card:', error);
+    throw error;
+  }
+
   try {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     return 'copied';

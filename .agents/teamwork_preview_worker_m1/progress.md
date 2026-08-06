@@ -1,11 +1,14 @@
-# Progress Log
+# Progress Tracker - Worker M1
 
-Last visited: 2026-07-30T03:35:55Z
+Last visited: 2026-08-06T06:36:00Z
 
-- [x] Initialized agent briefing and workspace files.
-- [x] Inspect `src/index.css` and `src/components/ChangelogModal.tsx`.
-- [x] Implement font token default in `src/index.css`.
-- [x] Implement overhaul in `src/components/ChangelogModal.tsx`.
-- [x] Run `npx tsc --noEmit` (0 errors) and `npm run build` (0 errors).
-- [x] Perform code audit checks (0 backdrop-blur, glass-panel present, lucid-scale present, JetBrains Mono set, search removed).
-- [ ] Write `handoff.md` and send completion message to parent.
+- [x] Initialized workspace and briefing
+- [x] Read Explorer 1 analysis and handoff
+- [x] Inspect target files: `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`
+- [x] Implement ref-based timeout tracking and cleanup in `useFriends.ts`
+- [x] Implement ref-based timeout tracking and cleanup in `TypingController.tsx`
+- [x] Implement ref-based timeout tracking and cleanup in `RaceModal.tsx`
+- [x] Implement ref-based timeout tracking and cleanup in `SocialModal.tsx`
+- [x] Implement ref-based timeout tracking and cleanup in `PlayerProfileModal.tsx`
+- [x] Run `npx tsc --noEmit` and verify no errors (0 errors)
+- [x] Write `handoff.md` and communicate via `send_message`

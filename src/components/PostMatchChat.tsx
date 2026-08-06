@@ -6,6 +6,7 @@ import type { RacerState } from '../hooks/useRace';
 export interface ChatMessage {
   id: string;
   sender: string;
+  senderId?: string;
   text: string;
   timestamp: string | number;
   color?: string;
@@ -50,10 +51,15 @@ export function PostMatchChat({
 
   // Determine sender color based on player position in room
   const getSenderColor = useCallback(
-    (senderName: string) => {
+    (senderName: string, senderId?: string) => {
       let idx = players.findIndex(
-        (p) => p.name?.toLowerCase() === senderName?.toLowerCase()
+        (p) => p.id === senderId
       );
+      if (idx < 0) {
+        idx = players.findIndex(
+          (p) => p.name?.toLowerCase() === senderName?.toLowerCase()
+        );
+      }
       if (idx < 0) idx = 0;
       return PLAYER_COLORS[idx % PLAYER_COLORS.length];
     },
@@ -65,11 +71,12 @@ export function PostMatchChat({
     if (!lobbyId) return;
     const socket = getSocket();
 
-    const handleChatMessage = (msgPayload: { id: string; sender: string; text: string; timestamp: string }) => {
-      const colorObj = getSenderColor(msgPayload.sender);
+    const handleChatMessage = (msgPayload: { id?: string; sender: string; senderId?: string; text: string; timestamp?: string }) => {
+      const colorObj = getSenderColor(msgPayload.sender, msgPayload.senderId);
       const newMsg: ChatMessage = {
         id: msgPayload.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         sender: msgPayload.sender,
+        senderId: msgPayload.senderId,
         text: msgPayload.text,
         timestamp: msgPayload.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         color: colorObj.text,
@@ -101,6 +108,8 @@ export function PostMatchChat({
           roomId: lobbyId,
           message: trimmed,
           sender: username || 'Racer',
+          senderId: selfId,
+          id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
         });
       }
 
@@ -147,8 +156,10 @@ export function PostMatchChat({
           </div>
         ) : (
           messages.map((msg) => {
-            const isSelf = msg.sender?.toLowerCase() === username?.toLowerCase();
-            const colorObj = getSenderColor(msg.sender);
+            const isSelf = msg.senderId && selfId 
+              ? msg.senderId === selfId 
+              : msg.sender?.toLowerCase() === username?.toLowerCase();
+            const colorObj = getSenderColor(msg.sender, msg.senderId);
 
             return (
               <div

@@ -21,6 +21,31 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fetchCount = useRef(0);
+  const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearErrorTimeout = useCallback(() => {
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
+  }, []);
+
+  const setErrorWithTimeout = useCallback((msg: string | null) => {
+    clearErrorTimeout();
+    setError(msg);
+    if (msg) {
+      errorTimeoutRef.current = setTimeout(() => {
+        setError(null);
+        errorTimeoutRef.current = null;
+      }, 3000);
+    }
+  }, [clearErrorTimeout]);
+
+  useEffect(() => {
+    return () => {
+      clearErrorTimeout();
+    };
+  }, [clearErrorTimeout]);
 
   const fetchFriends = useCallback(async (silent = false) => {
     fetchCount.current += 1;
@@ -33,6 +58,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
       return;
     }
     if (!silent) setLoading(true);
+    clearErrorTimeout();
     setError(null);
     try {
       const userId = session.user.id;
@@ -123,13 +149,11 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
     
     const lowerTarget = targetUsername.toLowerCase();
     if (friends.some(f => f.username.toLowerCase() === lowerTarget)) {
-      setError('ALREADY FRIENDS WITH THIS USER.');
-      setTimeout(() => setError(null), 3000);
+      setErrorWithTimeout('ALREADY FRIENDS WITH THIS USER.');
       return false;
     }
     if (outgoingRequests.some(f => f.toLowerCase() === lowerTarget)) {
-      setError('REQUEST ALREADY SENT.');
-      setTimeout(() => setError(null), 3000);
+      setErrorWithTimeout('REQUEST ALREADY SENT.');
       return false;
     }
 
@@ -161,6 +185,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
       
       if (err) throw err;
       
+      clearErrorTimeout();
       setError(null);
       setOutgoingRequests(prev => [...prev, profile.username]);
       return true;
@@ -169,13 +194,12 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
       if (msg.toLowerCase().includes('duplicate key') || msg.toLowerCase().includes('unique constraint')) {
         msg = 'REQUEST ALREADY SENT OR FRIENDS.';
       }
-      setError(msg.toUpperCase());
-      setTimeout(() => setError(null), 3000);
+      setErrorWithTimeout(msg.toUpperCase());
       return false;
     } finally {
       setLoading(false);
     }
-  }, [supabase, session, friends, outgoingRequests, incomingRequests, username]);
+  }, [supabase, session, friends, outgoingRequests, incomingRequests, username, setErrorWithTimeout, clearErrorTimeout]);
 
   const acceptRequest = useCallback(async (senderUsername: string) => {
     if (!supabase || !session?.user.id) return false;
@@ -202,13 +226,12 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
       // Optimistic update removed; the postgres_changes listener will instantly call fetchFriends and populate this correctly
       return true;
     } catch (err: unknown) {
-      setError((err as Error).message || 'Failed to accept request');
-      setTimeout(() => setError(null), 3000);
+      setErrorWithTimeout((err as Error).message || 'Failed to accept request');
       return false;
     } finally {
       setLoading(false);
     }
-  }, [supabase, session]);
+  }, [supabase, session, setErrorWithTimeout]);
 
   const removeFriendOrRequest = useCallback(async (targetUsername: string, isIncoming: boolean = false) => {
     if (!supabase || !session?.user.id) return false;
@@ -259,9 +282,11 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
   }, [supabase, session]);
 
   useEffect(() => {
-    setTimeout(() => fetchFriends(), 0);
+    const initTimer = setTimeout(() => fetchFriends(), 0);
 
-    if (!supabase || !session?.user.id) return;
+    if (!supabase || !session?.user.id) {
+      return () => clearTimeout(initTimer);
+    }
 
     const intervalId = setInterval(() => {
       fetchFriends(true);
@@ -287,6 +312,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
       .subscribe();
 
     return () => {
+      clearTimeout(initTimer);
       clearInterval(intervalId);
       supabase.removeChannel(channel);
     };

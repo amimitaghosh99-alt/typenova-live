@@ -1,39 +1,39 @@
-# BRIEFING — 2026-07-30T03:32:35Z
+# BRIEFING — 2026-08-06T06:30:30Z
 
 ## Mission
-Analyze ChangelogModal.tsx and index.css for R3: Aesthetic Consistency (fonts, headers, colors, glass styling, design system compliance).
+Investigate R2 (BUG-24 and BUG-25): React Effect Dependency Arrays in `App.tsx` (auto-save and rematch effects) and produce structured analysis report and handoff.
 
 ## 🔒 My Identity
-- Archetype: Teamwork explorer
-- Roles: Explorer 3 (Investigation & Synthesis)
+- Archetype: teamwork_preview_explorer
+- Roles: Explorer 3
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3
-- Original parent: 2ecda20c-dd78-491a-8fd6-b3888e8f40bd
-- Milestone: Milestone 1 - Investigation
+- Original parent: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Milestone: m1
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT modify source code files directly (only write report files in your agent directory)
-- Must inspect src/components/ChangelogModal.tsx and src/index.css
-- Must review root ORIGINAL_REQUEST.md and .agents/orchestrator/PROJECT.md
+- Read-only investigation — do NOT implement changes in source code
+- Investigate BUG-24 and BUG-25 in `src/App.tsx`
+- Write analysis to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3\analysis.md` and handoff report to `handoff.md`
 
 ## Current Parent
-- Conversation ID: 2ecda20c-dd78-491a-8fd6-b3888e8f40bd
-- Updated: 2026-07-30T03:32:35Z
+- Conversation ID: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Updated: 2026-08-06T06:30:30Z
 
 ## Investigation State
-- **Explored paths**: `src/components/ChangelogModal.tsx`, `src/index.css`, `tailwind.config.js`, `ORIGINAL_REQUEST.md`, `.agents/orchestrator/PROJECT.md`
+- **Explored paths**: `src/App.tsx` (lines 359-365 rematch effect, 647-675 auto-save effect, all 6 exhaustive-deps suppressions), `src/hooks/useTypingEngine.ts`
 - **Key findings**:
-  - `font-sans` overrides identified on lines 358 and 436 of `ChangelogModal.tsx`.
-  - Mismatched `font-black uppercase tracking-widest` header styles identified on lines 130, 239, 242, 246, 319, 400, 409, 432.
-  - Over 15 ad-hoc purple/indigo color tokens identified in `ChangelogModal.tsx` that need replacement with cyan primary tokens (`text-cyan-400`, `border-cyan-500/30`, `bg-cyan-500/10`, `text-cyan-300`) and zinc greys.
-  - Outer container inline `backdrop-blur-2xl bg-slate-950/60` needs removal to rely on `.glass-panel` from `index.css`.
-  - Proposed code changes for `ChangelogModal.tsx` and `src/index.css` produced and documented in `handoff.md`.
-- **Unexplored areas**: None. Read-only investigation for Requirement R3 complete.
+  1. `useTypingEngine()` returns an unmemoized object on every render of `App.tsx`.
+  2. BUG-24: Auto-save effect can safely list all primitive/stable dependencies `[autoSave, auth.session, cloud.username, fetchDailyBoard, fetchLeaderboard, finishDurationMs, game.dailyActive, game.microDrillActive, supabase, typing.accuracy, typing.endTime, typing.input, typing.phase, typing.timePenalty, typing.wpm]` because `hasAutoSavedRef` guards against duplicate score submissions and early returns when not `FINISHED`.
+  3. BUG-25: Rematch effect calls `typing.setPhase('CONFIGURING')`. `setPhase` is a stable `useState` setter. Dep array should be `[race.status, raceActive, typing.setPhase]`.
+  4. Audit of all 6 `eslint-disable-next-line react-hooks/exhaustive-deps` lines completed.
+- **Unexplored areas**: None (investigation complete).
 
 ## Key Decisions Made
-- Formulated concrete proposed implementation in `handoff.md` ensuring full compliance with R3, R1, R2, R4.
+- Initialized briefing and dispatch tracking
+- Completed full analysis and handoff report
 
 ## Artifact Index
-- `ORIGINAL_REQUEST.md` — Copy of dispatch task
-- `BRIEFING.md` — Working state index
-- `progress.md` — Liveness heartbeat and checklist
-- `handoff.md` — Final analysis and proposed implementation report for Requirement R3
+- DISPATCH.md — record of incoming dispatch instructions
+- BRIEFING.md — persistent working memory index
+- analysis.md — detailed analysis report for BUG-24 and BUG-25
+- handoff.md — 5-component handoff report

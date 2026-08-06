@@ -19,6 +19,17 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const iceCandidatesQueue = useRef<RTCIceCandidateInit[]>([]);
+  const usernameRef = useRef(username);
+  const userIdRef = useRef(userId);
+  const mountedRef = useRef(true);
+
+  useEffect(() => { usernameRef.current = username; }, [username]);
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
+  // Track mounted status so async operations can bail out after unmount.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Initialize WebRTC and Signaling Channel via Socket.io
   useEffect(() => {
@@ -31,8 +42,11 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
 
     // Register this user for global peer-to-peer signaling routing
     socket.emit('register_user', { userId });
+    // Re-register on every (re)connect so the user stays reachable after
+    // network blips — otherwise calls fail silently after a reconnect.
+    socket.on('connect', registerUser);
 
-    const handleSignal = async (payload: any) => {
+    const handleSignal = async (payload: { type: string; from: string; fromName: string; data: unknown }) => {
       const { type, from, fromName, data } = payload;
 
       switch (type) {
@@ -46,21 +60,23 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
           setCallState('INCOMING');
           // Store the offer to be processed when accepted
           peerConnection.current = createPeerConnection(from);
-          await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data));
+          await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
           break;
 
         case 'answer':
           if (peerConnection.current) {
-            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data));
+            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data as RTCSessionDescriptionInit));
             processIceQueue();
           }
           break;
 
         case 'ice-candidate':
-          if (peerConnection.current && peerConnection.current.remoteDescription) {
-            await peerConnection.current.addIceCandidate(new RTCIceCandidate(data));
-          } else {
-            iceCandidatesQueue.current.push(data);
+          if (peerConnection.current) {
+            if (peerConnection.current.remoteDescription) {
+              await peerConnection.current.addIceCandidate(new RTCIceCandidate(data as RTCIceCandidateInit));
+            } else {
+              iceCandidatesQueue.current.push(data as RTCIceCandidateInit);
+            }
           }
           break;
 
@@ -77,8 +93,8 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     };
 
     socket.on('webrtc_signal_receive', handleSignal);
-    
-    socket.on('webrtc_error', (err: any) => {
+
+    socket.on('webrtc_error', (err: Error) => {
       cleanupCall();
       toast.error(err.message || 'Call failed: user unavailable');
     });
@@ -86,24 +102,33 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     return () => {
       socket.off('webrtc_signal_receive', handleSignal);
       socket.off('webrtc_error');
+      socket.off('connect', registerUser);
       cleanupCall();
     };
   }, [userId]); // Intentionally omitting username to prevent unnecessary re-subscriptions
 
-  const sendSignal = (targetId: string, type: string, data: any) => {
+  function sendSignal(targetId: string, type: string, data: unknown) {
     const socket = getSocket();
     if (!socket.connected) return;
-    
+
     socket.emit('webrtc_signal', {
       targetId,
       type,
-      from: userId,
-      fromName: username,
-      payload: data,
+      from: userIdRef.current,
+      fromName: usernameRef.current,
+      data,
     });
-  };
+  }
 
-  const createPeerConnection = (targetId: string) => {
+  /** Register with signaling server, re-sending on reconnect to avoid being unreachable. */
+  function registerUser() {
+    const socket = getSocket();
+    if (socket.connected && userIdRef.current) {
+      socket.emit('register_user', { userId: userIdRef.current });
+    }
+  }
+
+  function createPeerConnection(targetId: string) {
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -132,9 +157,9 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     };
 
     return pc;
-  };
+  }
 
-  const processIceQueue = () => {
+  function processIceQueue() {
     if (!peerConnection.current) return;
     while (iceCandidatesQueue.current.length > 0) {
       const candidate = iceCandidatesQueue.current.shift();
@@ -142,7 +167,7 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
         peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
       }
     }
-  };
+  }
 
   const startLocalVideo = async () => {
     try {
@@ -151,12 +176,22 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
         return null;
       }
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // If the component unmounted while we were waiting for the user to
+      // grant camera permissions, stop all tracks immediately so the
+      // camera LED turns off. Do NOT update state on a dead component.
+      if (!mountedRef.current) {
+        stream.getTracks().forEach(t => t.stop());
+        return null;
+      }
       localStreamRef.current = stream;
       setLocalStream(stream);
       return stream;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('getUserMedia error:', err);
-      toast.error(`Media error: ${err?.message || 'Camera/mic access denied.'}`);
+      const errorMessage = err instanceof Error ? err.message : 'Camera/mic access denied.';
+      if (mountedRef.current) {
+        toast.error(`Media error: ${errorMessage}`);
+      }
       return null;
     }
   };
@@ -167,23 +202,32 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
       return;
     }
     if (callState !== 'IDLE') return;
-    
+
     setCallState('CALLING');
     setActiveCallWith({ id: targetId, username: targetName });
+
+    // Create the peer connection BEFORE the async getUserMedia call
+    // so the connection is ready when camera resolves.
+    const pc = createPeerConnection(targetId);
+    peerConnection.current = pc;
 
     const stream = await startLocalVideo();
     if (!stream) {
       cleanupCall();
       return;
     }
+    // Re-check after async boundary — call may have been
+    // cancelled/cleaned up while we waited for camera permissions.
+    if (!peerConnection.current) {
+      stream.getTracks().forEach(t => t.stop());
+      cleanupCall();
+      return;
+    }
 
-    const pc = createPeerConnection(targetId);
-    peerConnection.current = pc;
+    stream.getTracks().forEach(track => peerConnection.current!.addTrack(track, stream));
 
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+    const offer = await peerConnection.current.createOffer();
+    await peerConnection.current.setLocalDescription(offer);
 
     sendSignal(targetId, 'offer', offer);
   };
@@ -191,9 +235,17 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
   const acceptCall = async () => {
     if (!incomingCaller || !peerConnection.current) return;
 
+    const callerId = incomingCaller.id;
     const stream = await startLocalVideo();
     if (!stream) {
       rejectCall();
+      return;
+    }
+    // Re-check after async boundary — call may have been rejected or
+    // cleaned up while we were waiting for camera permissions.
+    if (!peerConnection.current) {
+      stream.getTracks().forEach(t => t.stop());
+      cleanupCall();
       return;
     }
 
@@ -202,7 +254,7 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     const answer = await peerConnection.current.createAnswer();
     await peerConnection.current.setLocalDescription(answer);
 
-    sendSignal(incomingCaller.id, 'answer', answer);
+    sendSignal(callerId, 'answer', answer);
     setActiveCallWith(incomingCaller);
     setIncomingCaller(null);
     setCallState('CONNECTED');
@@ -225,7 +277,7 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     cleanupCall();
   };
 
-  const cleanupCall = () => {
+  function cleanupCall() {
     if (peerConnection.current) {
       peerConnection.current.close();
       peerConnection.current = null;
@@ -240,7 +292,7 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     setIncomingCaller(null);
     setActiveCallWith(null);
     iceCandidatesQueue.current = [];
-  };
+  }
 
   const toggleVideo = () => {
     if (localStreamRef.current) {

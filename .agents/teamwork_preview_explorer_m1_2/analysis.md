@@ -1,236 +1,188 @@
-# Comprehensive Technical Analysis: Requirement R2 (Timeline & Scrollbar Polish)
+# Technical Analysis: Requirement R2 (BUG-23) - Inline Callback Memoization in `App.tsx`
 
 ## Executive Summary
-This report presents a thorough investigation of `src/components/ChangelogModal.tsx` and related global CSS styles in `src/index.css` for Requirement R2. Two main issues were identified and analyzed:
-1. **Left Sidebar Releases Timeline Misalignment**: The vertical node dots and vertical rail line in the left navigation sidebar are misaligned both vertically (relative to version text headers) and horizontally (relative to the connecting gradient rail line).
-2. **Right-Side Scrollbar Glass Border Overlap**: The scroll container of the main changelog list extends flush to the outer edge of the modal container (`rounded-[2.5rem]`). Consequently, native scrollbars render over top of the 40px rounded glass border stroke and specular highlight rim at the top-right and bottom-right corners.
+This investigation analyzes the inline callbacks passed to `StatsDashboard` and `ChangelogModal` in `src/App.tsx` (BUG-23). `StatsDashboard` is a memoized React component (`React.memo`), but currently receives inline arrow functions on every render of `App.tsx`, causing `React.memo` prop equality checks to fail and triggering unnecessary re-renders of `StatsDashboard`. `ChangelogModal` receives `onClose={handleCloseModal}` (which is memoized via `useCallback`), but `ChangelogModal` itself is not wrapped in `React.memo` in `src/components/ChangelogModal.tsx`.
 
-Detailed line-by-line observations, mathematical breakdown of misalignments, and step-by-step Tailwind/CSS fix proposals are provided below.
+This analysis provides:
+1. Exact line numbers and current implementation snippets for callbacks passed to `StatsDashboard` and `ChangelogModal`.
+2. Analysis of captured state variables, setters, refs, and external utilities for each callback.
+3. Recommended refactoring using `useCallback` with stable references and exact, minimal dependency arrays, plus component-level memoization recommendations.
 
 ---
 
-## 1. Timeline Alignment Analysis
+## 1. Problem Identification & Inspection of `App.tsx`
 
-### 1.1 Code Location & Observations
-- **File**: `src/components/ChangelogModal.tsx`
-- **Lines**: 312–360 (Left Vertical Timeline Sidebar Navigation)
+### 1.1 `StatsDashboard` Render Site (`src/App.tsx`, Lines 1656–1669)
 
 ```tsx
-318: <div className="relative space-y-1">
-319:   {/* Sidebar Rail Line */}
-320:   <div className="absolute top-3 bottom-3 left-4 w-0.5 bg-gradient-to-b from-purple-500/50 via-zinc-800 to-zinc-900" />
-321: 
-322:   {filteredLogs.map((entry) => {
-323:     const isActive = activeVersion === entry.version;
-324:     return (
-325:       <button
-326:         key={entry.version}
-327:         onClick={() => scrollToRelease(entry.version)}
-328:         className={`group relative w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all ${...}`}
-329:       >
-330:         {/* Node Dot */}
-331:         <div className={`relative z-10 w-2.5 h-2.5 rounded-full transition-all shrink-0 ${...}`} />
-332:         
-333:         <div className="flex-1 min-w-0">
-334:           <div className="flex items-center justify-between">
-335:             <span className={`text-xs font-mono font-bold truncate ${isActive ? 'text-purple-300' : ''}`}>
-336:               {entry.version}
-337:             </span>
-338:             {entry.version === CHANGELOG[0]?.version && (
-339:               <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
-340:                 NEW
-341:               </span>
-342:             )}
-343:           </div>
-344:           <p className="text-[10px] text-zinc-500 truncate font-sans">
-345:             {entry.date}
-346:           </p>
-347:         </div>
-348:       </button>
-349:     );
-350:   })}
-351: </div>
+1656:            case 'stats': return (
+1657:              <StatsDashboard
+1658:                theme={theme}
+1659:                testsCompleted={rpg.testsCompleted}
+1660:                heatmapData={rpg.heatmapData}
+1661:                onClose={() => setActiveModal(null)}
+1662:                onStartWeaknessDrill={(drillText) => {
+1663:                  typing.setTargetText(drillText);
+1664:                  setActiveModal(null);
+1665:                  typing.resetEngine();
+1666:                  toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+1667:                }}
+1668:              />
+1669:            );
 ```
 
-### 1.2 Root Cause Analysis of Misalignments
+#### Detailed Callback Breakdown for `StatsDashboard`:
 
-#### A. Vertical Node Dot Misalignment (Node Dot vs Version Text)
-1. **Flex Alignment Choice**: Line 328 uses `flex items-center gap-3`. The `items-center` property centers all items along the cross-axis relative to the full height of the `<button>`.
-2. **Height Breakdown of Sidebar Item**:
-   - Top padding (`py-2`): 8px
-   - Line 1 (Version header `text-xs font-mono font-bold`): ~16px height
-   - Line 2 (Date text `text-[10px] text-zinc-500`): ~15px height
-   - Bottom padding (`py-2`): 8px
-   - Total Button Height: ~47px
-3. **Vertical Center Calculation**:
-   - `items-center` calculates the vertical center of the node dot at `47px / 2 = 23.5px` from the top of the button.
-   - However, the Version number line midpoint is at `8px + 8px = 16px` from the top of the button.
-4. **Impact**: The node dot is vertically pulled down by **~7.5px**, placing it between the version string (`v1.5.3`) and the date string (`July 30, 2026`). It visually disconnects from the primary version text.
+1. **`onClose` (Line 1661)**:
+   - **Current Snippet**: `onClose={() => setActiveModal(null)}`
+   - **Type**: Inline arrow function (`() => void`).
+   - **Captured Variables**: `setActiveModal` (React state setter function from `useState<ModalType>`).
+   - **Issue**: Instantiated as a new function object on every render of `App.tsx`. Because `StatsDashboard` is wrapped in `React.memo` (`src/components/StatsDashboard.tsx` line 227), passing a new function reference forces `StatsDashboard` to re-render whenever `App` re-renders.
 
-#### B. Horizontal Rail Line vs Node Dot Center Offset
-1. **Rail Line Position**:
-   - Line 320 specifies `left-4` (`16px`) and `w-0.5` (`2px`).
-   - Center of the rail line = `16px + (2px / 2) = 17.0px`.
-2. **Node Dot Center Position**:
-   - Button padding: `px-3` (`12px` left offset inside `space-y-1` parent).
-   - Button border: `1px` (`border border-purple-500/30` or `border border-transparent`).
-   - Node dot size: `w-2.5` (`10px` width).
-   - Dot left edge = `12px + 1px = 13.0px`.
-   - Dot center = `13.0px + (10px / 2) = 18.0px`.
-3. **Impact**: There is a **1.0px horizontal offset** between the rail line center (17.0px) and the dot center (18.0px). When scaled (`scale-125` on active state), this offset becomes more noticeable.
-
-#### C. Rail Line Vertical Bounds
-1. **Hardcoded Offsets**: Line 320 sets `top-3 bottom-3`.
-2. **Impact**: The rail line extends beyond the center of the first node dot at the top and below the center of the last node dot at the bottom, looking unanchored.
+2. **`onStartWeaknessDrill` (Lines 1662–1667)**:
+   - **Current Snippet**:
+     ```tsx
+     onStartWeaknessDrill={(drillText) => {
+       typing.setTargetText(drillText);
+       setActiveModal(null);
+       typing.resetEngine();
+       toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+     }}
+     ```
+   - **Type**: Inline arrow function (`(drillText: string) => void`).
+   - **Captured Variables/Setters/Functions**:
+     - `typing.setTargetText`: React `useState` setter function returned by `useTypingEngine()`. Identity-stable across renders.
+     - `setActiveModal`: React `useState` setter function (`React.Dispatch<React.SetStateAction<ModalType>>`). Identity-stable across renders.
+     - `typing.resetEngine`: Function memoized via `useCallback` in `src/hooks/useTypingEngine.ts` (Line 243). Identity-stable across renders.
+     - `toast`: Static Toast API import from `react-hot-toast` (`import toast from 'react-hot-toast'`). Static global reference.
+   - **Issue**: Instantiated as a new function object on every render of `App.tsx`, causing `React.memo` prop comparison to fail on `onStartWeaknessDrill`.
 
 ---
 
-## 2. Scrollbar Glass Border Overlap Analysis
-
-### 2.1 Code Location & Observations
-- **File**: `src/components/ChangelogModal.tsx`
-- **Lines**: 207, 310, 363
+### 1.2 `ChangelogModal` Render Site (`src/App.tsx`, Lines 1715–1720)
 
 ```tsx
-207: <div className="glass-panel relative w-full max-w-5xl max-h-[90vh] flex flex-col rounded-[2.5rem] bg-zinc-950/90 border border-white/10 shadow-2xl shadow-purple-950/40 overflow-hidden lucid-scale">
+1715:            case 'changelog': return (
+1716:              <ChangelogModal
+1717:                theme={theme}
+1718:                onClose={handleCloseModal}
+1719:              />
+1720:            );
+```
+
+#### Detailed Callback Breakdown for `ChangelogModal`:
+
+1. **`onClose` (Line 1718)**:
+   - **Current Snippet**: `onClose={handleCloseModal}`
+   - **Handler Definition (`src/App.tsx`, Line 900)**:
+     `const handleCloseModal = useCallback(() => setActiveModal(null), []);`
+   - **Analysis**: In `App.tsx`, `onClose` is ALREADY passed the memoized `handleCloseModal` function reference.
+   - **Component-Level Observation**: In `src/components/ChangelogModal.tsx` (Line 24):
+     `export function ChangelogModal({ theme, onClose }: ChangelogModalProps)`
+     `ChangelogModal` is currently NOT wrapped in `React.memo`. Therefore, even though `onClose` receives a stable function reference, `ChangelogModal` still re-renders whenever parent `App` re-renders. Wrapping `ChangelogModal` in `React.memo` (or `memo`) completes the memoization optimization.
+
+---
+
+## 2. Analysis of Captured State, Refs, & Dependencies
+
+| Component | Prop Name | Captured Identifiers | Stability Assessment | Required Dependencies for `useCallback` |
+|---|---|---|---|---|
+| `StatsDashboard` | `onClose` | `setActiveModal` | React state setter (`useState`). Guaranteed identity-stable by React. | `[]` (reuse existing `handleCloseModal`) |
+| `StatsDashboard` | `onStartWeaknessDrill` | `typing.setTargetText`, `setActiveModal`, `typing.resetEngine`, `toast` | `typing.setTargetText`: state setter (stable)<br>`setActiveModal`: state setter (stable)<br>`typing.resetEngine`: `useCallback` (stable)<br>`toast`: module import (static) | `[typing.setTargetText, typing.resetEngine]` |
+| `ChangelogModal` | `onClose` | `setActiveModal` | `handleCloseModal` already uses `useCallback(() => setActiveModal(null), [])`. | None needed in `App.tsx` (already stable). Component wrap `memo()` needed in `ChangelogModal.tsx`. |
+
+---
+
+## 3. Recommended Refactoring Plan & Code Structure
+
+### 3.1 Step 1: Add Memoized Handler in `src/App.tsx`
+
+In `src/App.tsx`, in the existing `// ====== MEMOIZED HANDLERS FOR MODALS ======` block (around line 900):
+
+```tsx
+  // ====== MEMOIZED HANDLERS FOR MODALS ======
+  const handleCloseModal = useCallback(() => setActiveModal(null), []);
+  const handleStartWeaknessDrill = useCallback((drillText: string) => {
+    typing.setTargetText(drillText);
+    setActiveModal(null);
+    typing.resetEngine();
+    toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+  }, [typing.setTargetText, typing.resetEngine]);
+```
+
+*Rationale for Dependencies*:
+- `setActiveModal` is a React state setter and does not change across renders.
+- `toast` is an imported module reference.
+- `typing.setTargetText` and `typing.resetEngine` are the specific methods accessed on `typing`. Listing them explicitly keeps the dependency array minimal and precise without depending on the entire `typing` object wrapper.
+
+---
+
+### 3.2 Step 2: Update `StatsDashboard` Call Site in `src/App.tsx`
+
+Replace the inline callbacks at lines 1661–1667 with the memoized handlers:
+
+**Before**:
+```tsx
+            case 'stats': return (
+              <StatsDashboard
+                theme={theme}
+                testsCompleted={rpg.testsCompleted}
+                heatmapData={rpg.heatmapData}
+                onClose={() => setActiveModal(null)}
+                onStartWeaknessDrill={(drillText) => {
+                  typing.setTargetText(drillText);
+                  setActiveModal(null);
+                  typing.resetEngine();
+                  toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+                }}
+              />
+            );
+```
+
+**After**:
+```tsx
+            case 'stats': return (
+              <StatsDashboard
+                theme={theme}
+                testsCompleted={rpg.testsCompleted}
+                heatmapData={rpg.heatmapData}
+                onClose={handleCloseModal}
+                onStartWeaknessDrill={handleStartWeaknessDrill}
+              />
+            );
+```
+
+---
+
+### 3.3 Step 3: Wrap `ChangelogModal` in `React.memo` in `src/components/ChangelogModal.tsx`
+
+In `src/components/ChangelogModal.tsx`:
+
+**Before (Line 1 & Line 24)**:
+```tsx
+1: import React, { useState, useRef, useEffect } from 'react';
 ...
-310: <div className="relative z-10 flex-1 flex overflow-hidden">
+24: export function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
+```
+
+**After**:
+```tsx
+1: import React, { useState, useRef, useEffect, memo } from 'react';
 ...
-363: <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-8 custom-scrollbar">
-```
-
-- **Global Scrollbar CSS** (`src/index.css` lines 257–260):
-```css
-257: ::-webkit-scrollbar { width: 6px; }
-258: ::-webkit-scrollbar-track { background: transparent; }
-259: ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-260: ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-```
-
-### 2.2 Root Cause Analysis of Scrollbar Overlap
-1. **Glass Panel Curvature**: The outer modal container (`glass-panel`) has `rounded-[2.5rem]` (40px border radius) and `border border-white/10` with inset highlights.
-2. **Scroll Container Placement**: The right content panel `<div className="flex-1 overflow-y-auto ...">` spans edge-to-edge on the right side of the flex layout, ending directly at the rightmost boundary of the outer modal box.
-3. **Native Scrollbar Render Boundary**:
-   - WebKit and Blink render vertical scrollbars flush against the right inner border of the element (`right: 0`).
-   - Content padding (`p-5 sm:p-8`) applies to interior content children, **not** to the scrollbar itself.
-4. **Collision with Curved Corners**:
-   - At the top-right and bottom-right corners of the container, the 40px radius curves inward.
-   - The straight vertical scrollbar track extends from `top: 0` to `bottom: 0`.
-   - The scrollbar track and thumb pass over the 40px rounded corner, clipping through the 1px white border stroke (`border-white/10`) and specular highlights (`.glass-panel::after`).
-
----
-
-## 3. Step-by-Step Fix Recommendations
-
-### 3.1 Fix 1: Timeline Dot & Rail Line Alignment (`ChangelogModal.tsx`)
-
-#### Change 1.1: Vertical Alignment with Version Text
-Update line 328 on the button container from `items-center` to `items-start`, and add top margin `mt-1` (or `mt-[3.5px]`) to the node dot.
-
-**Before (Line 328 & 335)**:
-```tsx
-<button
-  key={entry.version}
-  onClick={() => scrollToRelease(entry.version)}
-  className={`group relative w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all ${
-    isActive 
-      ? 'bg-purple-500/15 border border-purple-500/30 text-white shadow-lg shadow-purple-950/30' 
-      : 'hover:bg-white/5 text-zinc-400 hover:text-zinc-200 border border-transparent'
-  }`}
->
-  <div className={`relative z-10 w-2.5 h-2.5 rounded-full transition-all shrink-0 ${
-    isActive 
-      ? 'bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)] scale-125' 
-      : 'bg-zinc-700 group-hover:bg-zinc-500'
-  }`} />
-```
-
-**After (Proposed Fix)**:
-```tsx
-<button
-  key={entry.version}
-  onClick={() => scrollToRelease(entry.version)}
-  className={`group relative w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all ${
-    isActive 
-      ? 'bg-purple-500/15 border border-purple-500/30 text-white shadow-lg shadow-purple-950/30' 
-      : 'hover:bg-white/5 text-zinc-400 hover:text-zinc-200 border border-transparent'
-  }`}
->
-  <div className={`relative z-10 w-2.5 h-2.5 rounded-full transition-all shrink-0 mt-1 ${
-    isActive 
-      ? 'bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)] scale-125' 
-      : 'bg-zinc-700 group-hover:bg-zinc-500'
-  }`} />
-```
-
-#### Change 1.2: Horizontal Centering of Rail Line & Bounds
-Update line 320 to use `left-[18px] -translate-x-1/2` and adjust top/bottom bounds (`top-4 bottom-4`).
-
-**Before (Line 320)**:
-```tsx
-<div className="absolute top-3 bottom-3 left-4 w-0.5 bg-gradient-to-b from-purple-500/50 via-zinc-800 to-zinc-900" />
-```
-
-**After (Proposed Fix)**:
-```tsx
-<div className="absolute top-4 bottom-4 left-[18px] -translate-x-1/2 w-0.5 bg-gradient-to-b from-purple-500/50 via-zinc-800 to-zinc-900" />
+24: export const ChangelogModal = memo(function ChangelogModal({ theme, onClose }: ChangelogModalProps) {
+    ...
+    });
 ```
 
 ---
 
-### 3.2 Fix 2: Scrollbar Containment & Border Isolation
+## 4. Summary of Implementation Impact
 
-#### Change 2.1: Inner Right Padding and Gutter in `ChangelogModal.tsx`
-Adjust the scroll pane container on line 363 to add right padding/margin separation, or wrap inside a gutter-padded flex container:
+1. **Elimination of Unnecessary Re-renders for `StatsDashboard`**:
+   - `StatsDashboard` is already `memo(...)`. By passing `handleCloseModal` and `handleStartWeaknessDrill` instead of inline functions, shallow equality checks for props (`prevProps.onClose === nextProps.onClose` and `prevProps.onStartWeaknessDrill === nextProps.onStartWeaknessDrill`) now evaluate to `true` during parent re-renders.
 
-**Before (Line 363)**:
-```tsx
-<div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-8 custom-scrollbar">
-```
+2. **Component-Level Memoization for `ChangelogModal`**:
+   - `ChangelogModal` receives `handleCloseModal` (already stable). Wrapping `ChangelogModal` in `memo` prevents it from re-rendering on unrelated state changes in `App.tsx`.
 
-**After (Proposed Fix)**:
-```tsx
-<div className="flex-1 overflow-y-auto p-5 sm:p-8 pr-3 sm:pr-6 space-y-8 custom-scrollbar">
-```
-*(Or set `mr-1.5` / `pr-4` with parent flex wrapper `pr-2` to guarantee internal inset).*
-
-#### Change 2.2: Enhanced Scrollbar Track Margins in `src/index.css`
-Enhance the `.custom-scrollbar` class in `src/index.css` to add vertical track margins and clip borders, preventing the thumb from touching the 40px rounded modal corners.
-
-**Add to `src/index.css`**:
-```css
-/* Custom scrollbar class for modal scroll containers */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-  margin-top: 12px;
-  margin-bottom: 12px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 9999px;
-  border: 1px solid transparent;
-  background-clip: padding-box;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-```
-
----
-
-## 4. Verification & Invalidation Criteria
-
-### Verification Steps
-1. Run local dev server (`npm run dev`) and open the Update Log modal (`ChangelogModal`).
-2. Verify left sidebar:
-   - Check that node dots align horizontally with the center of the gradient vertical rail line.
-   - Check that node dots align vertically with the middle of the version number text (`v1.5.3`, etc.).
-3. Verify scrollbar:
-   - Scroll the main changelog pane up and down.
-   - Verify that the vertical scrollbar thumb stays inside the modal content area and does NOT overlap or touch the outer `rounded-[2.5rem]` glass border.
-
-### Invalidation Criteria
-- If button padding or font sizes are altered without adjusting `mt-1` / `left-[18px]`, timeline alignment must be re-evaluated.
+3. **Zero ESLint / React Hooks Warnings**:
+   - Explicit minimal dependency array `[typing.setTargetText, typing.resetEngine]` satisfies `react-hooks/exhaustive-deps` without unnecessary triggers.

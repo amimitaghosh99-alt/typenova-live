@@ -114,12 +114,20 @@ function pickDaily(a: DailyState | null, b: DailyState | null): DailyState | nul
 function pickQuests(a: QuestsState | null, b: QuestsState | null): QuestsState | null {
   if (!a) return b;
   if (!b) return a;
+  // Different reset days: the newer day's quests replace the older completely
   if (a.lastReset > b.lastReset) return a;
   if (b.lastReset > a.lastReset) return b;
-  // If same day, take the one with more completed progress
-  const aProgress = a.active.reduce((acc, q) => acc + q.progress, 0);
-  const bProgress = b.active.reduce((acc, q) => acc + q.progress, 0);
-  return aProgress >= bProgress ? a : b;
+  // Same reset day — deep merge individual quest progress so neither device
+  // loses its specific quest updates.
+  const merged = new Map<string, Quest>();
+  for (const q of a.active) merged.set(q.id, q);
+  for (const q of b.active) {
+    const existing = merged.get(q.id);
+    if (!existing || q.progress > existing.progress) {
+      merged.set(q.id, q);
+    }
+  }
+  return { lastReset: a.lastReset, active: Array.from(merged.values()) };
 }
 
 export function mergeProgress(

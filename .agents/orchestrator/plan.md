@@ -1,30 +1,25 @@
-# Execution Plan: ChangelogModal Layout, Timeline & Aesthetic Fixes
+# Execution Plan: TypeNova Low-Severity Bug Fixes (BUG-19 to BUG-25)
 
-## Overview
-Fix all layout, clipping, visual alignment, scrollbar, and glassmorphic aesthetic issues in `ChangelogModal` so that it perfectly matches the original reference design and passes all automated verification criteria.
+## Objective
+Fix 6 low-severity memory leak and React dependency/memoization bugs in `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`, and `App.tsx`.
 
-## Phased Plan
+## Phases & Strategy
 
-### Phase 1: Exploration & Bug Analysis (Milestone 1)
-- Dispatch 3 Explorers (`teamwork_preview_explorer`):
-  - **Explorer 1 (Layout & Viewport Specialist)**: Analyze `ChangelogModal` flex/grid layout, viewport clipping, modal container bounds, header positioning (search bar, subscribe button, title), overflow properties.
-  - **Explorer 2 (Timeline & Scrollbar Specialist)**: Analyze left sidebar timeline alignment (point-to-text positioning), line connector mechanics, right-side container scrollbar behavior, and border clipping.
-  - **Explorer 3 (Glassmorphic Aesthetics & Metrics Specialist)**: Analyze impact metrics bar styling, card borders/padding, flat color removal, translucent backdrop-blur filters, and neon glow accents.
+### Phase 0: Survey & Exploration
+- Spawn 3 parallel Explorers:
+  - `explorer_1`: Investigate BUG-19, BUG-20, BUG-21 (timeout memory leaks in `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`). Identify all `setTimeout` calls, missing `clearTimeout`s, ref/effect cleanup mechanisms needed.
+  - `explorer_2`: Investigate BUG-23 (inline callbacks passed to `StatsDashboard` and `ChangelogModal` in `App.tsx`). Identify all callback props, state dependencies, and `useCallback` requirements.
+  - `explorer_3`: Investigate BUG-24 and BUG-25 (auto-save dependency arrays with `typing.input`, `auth.session`, `supabase` and rematch effect dependency on `typing` in `App.tsx`). Identify eslint suppressions, stale closure risks, ref usages, and proper dependency configurations.
 
-### Phase 2: Implementation of Layout, Timeline & Visual Fixes (Milestone 2)
-- Dispatch Worker (`teamwork_preview_worker`):
-  - Fix modal container height (`max-h-[85vh]` / `max-h-screen`, `flex flex-col`), ensuring header elements (Search, Subscribe, Title, Close) are rendered inside visible viewport bounds with Y > 0 and zero clipping.
-  - Re-align timeline nodes and line connectors with text items.
-  - Adjust scrollbar styling and padding so right-side scrollbar does not overlap outer glass border.
-  - Upgrade impact metrics bar and cards to polished glassmorphic aesthetic (frosted glass background, borders, glowing highlights, removing unstyled flat colors).
-  - Perform typecheck and build validation.
+### Phase 1: Implementation & Iteration Loop
+- Milestone 1 (M1): Fix Timeout Memory Leaks
+  - Worker updates `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`.
+  - Reviewers (2) & Challengers (2) verify leak prevention and unmount cleanups.
+- Milestone 2 (M2): Fix React Rendering & Dependency Issues
+  - Worker updates `App.tsx` (callbacks memoized, auto-save deps updated, rematch deps updated, eslint suppressions removed).
+  - Reviewers (2) & Challengers (2) verify dependency correctness and callback stability.
 
-### Phase 3: Verification, Hardening & Forensic Audit (Milestone 3)
-- Dispatch 2 Reviewers (`teamwork_preview_reviewer`): Inspect code quality, CSS/Tailwind classes, responsive structure, and design compliance.
-- Dispatch 2 Challengers (`teamwork_preview_challenger`): Run automated DOM analysis scripts (or headless browser / DOM tests) verifying all 4 acceptance criteria:
-  1. Header elements (Search, Subscribe, Close button) Y > 0 and not clipped.
-  2. Modal container height <= viewport height (`100vh`).
-  3. Scrollbar does not overlap glass border.
-  4. Impact metrics bar uses correct glassmorphic styling/colors.
-- Dispatch Forensic Auditor (`teamwork_preview_auditor`): Run integrity check ensuring clean implementation with no hardcoded bypasses or facade checks.
-- Gate check and victory report.
+### Phase 2: Verification & Forensic Audit
+- Run `npx tsc --noEmit` build verification.
+- Dispatch `teamwork_preview_auditor` for static analysis & integrity verification.
+- Synthesize final findings and deliver completion report.

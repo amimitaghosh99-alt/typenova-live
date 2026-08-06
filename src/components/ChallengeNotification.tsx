@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Swords, X, Zap, Clock } from 'lucide-react';
 import type { PendingChallenge } from '@/hooks/useChallenges';
 
@@ -11,6 +11,13 @@ interface ChallengeNotificationProps {
 export function ChallengeNotification({ challenge, onAccept, onReject }: ChallengeNotificationProps) {
   const [timeLeft, setTimeLeft] = useState(30);
   const [isExiting, setIsExiting] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const remaining = Math.ceil((challenge.expiresAt - Date.now()) / 1000);
@@ -27,12 +34,14 @@ export function ChallengeNotification({ challenge, onAccept, onReject }: Challen
 
   const handleAccept = () => {
     setIsExiting(true);
-    setTimeout(onAccept, 160);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(onAccept, 160);
   };
 
   const handleReject = () => {
     setIsExiting(true);
-    setTimeout(onReject, 160);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(onReject, 160);
   };
 
   const progressPct = (timeLeft / 30) * 100;

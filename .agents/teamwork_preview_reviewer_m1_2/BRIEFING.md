@@ -1,53 +1,48 @@
-# BRIEFING — 2026-07-30T03:39:00Z
+# BRIEFING — 2026-08-06T01:06:27Z
 
 ## Mission
-Perform an independent code review and verification of `src/components/ChangelogModal.tsx` and `src/index.css`.
+Perform an independent code review and adversarial challenge for fixes BUG-19 through BUG-25 in TypeNova v2.
 
 ## 🔒 My Identity
-- Archetype: Reviewer / Adversarial Critic
+- Archetype: reviewer & critic
 - Roles: reviewer, critic
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_reviewer_m1_2
-- Original parent: 2ecda20c-dd78-491a-8fd6-b3888e8f40bd
-- Milestone: m1_2
+- Original parent: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Milestone: m1
 - Instance: 2 of 2
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
-- Perform adversarial check for integrity violations (hardcoded tests, dummy facades, shortcuts, self-certifying work)
-- Produce evidence-based findings and verification results
-- Write handoff report to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_reviewer_m1_2\handoff.md`
-- Send final message to parent agent when done
+- Check for integrity violations (hardcoded results, dummy implementations, shortcuts, self-certifying work)
+- Produce evidence-based findings and stress-test assumptions
 
 ## Current Parent
-- Conversation ID: 2ecda20c-dd78-491a-8fd6-b3888e8f40bd
-- Updated: 2026-07-30T03:39:00Z
+- Conversation ID: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Updated: 2026-08-06T01:06:27Z
 
 ## Review Scope
-- **Files to review**: `src/components/ChangelogModal.tsx`, `src/index.css`
-- **Interface contracts**: Requirements R1, R2, R3, R4, Search Bar Removal, TypeScript & Build check
-- **Review criteria**: Integrity, correctness, conformance to design guidelines, animation correctness, search bar removal, zero build errors.
+- **BUG-19**: `src/hooks/useFriends.ts` - `errorTimeoutRef` usage, timer clearing, unmount cleanup
+- **BUG-20**: `src/components/TypingController.tsx` - `shakeTimeoutRef` usage, unmount cleanup
+- **BUG-21**: `src/components/RaceModal.tsx`, `src/components/SocialModal.tsx`, `src/components/PlayerProfileModal.tsx` - Exit animation and clipboard timeouts using refs and cleaning up on unmount
+- **BUG-23**: `src/App.tsx` & `src/components/ChangelogModal.tsx` - Callback memoization and `React.memo` wrapping
+- **BUG-24 & BUG-25**: `src/App.tsx` - Auto-save effect dependency array completeness without `eslint-disable`, and rematch effect dependency array
 
 ## Review Checklist
-- **Items reviewed**: `src/components/ChangelogModal.tsx`, `src/index.css`
+- **Items reviewed**: `src/hooks/useFriends.ts`, `src/components/TypingController.tsx`, `src/components/RaceModal.tsx`, `src/components/SocialModal.tsx`, `src/components/PlayerProfileModal.tsx`, `src/App.tsx`, `src/components/ChangelogModal.tsx`
 - **Verdict**: APPROVE
-- **Unverified claims**: None. All criteria (R1, R2, R3, R4, Search Bar Removal, TypeScript check, Production Build) independently verified.
+- **Unverified claims**: None (all verified via code inspection and `npx tsc --noEmit`)
 
 ## Attack Surface
-- **Hypotheses tested**: Checked for backdrop-blur clutter, purple/indigo residual tokens, font-sans leaks, custom Tailwind animation plugins, search query remnants, and layout overflows.
-- **Vulnerabilities found**: None. Code is clean, modular, and adheres to TypeNova design system.
-- **Untested angles**: None.
+- **Hypotheses tested**: Untracked timeouts leading to unmounted state update warnings; race conditions on fast repeated errors; missing effect dependencies leading to stale closures; missing memoization causing unnecessary re-renders.
+- **Vulnerabilities found**: None in implemented fixes. Minor consistency note on `removeFriendOrRequest` catch block in `useFriends.ts`.
+- **Untested angles**: Runtime performance under 100+ concurrent websocket messages.
 
 ## Key Decisions Made
-- Confirmed integrity verification: zero facade/dummy implementations or hardcoded shortcuts.
-- Confirmed zero `backdrop-blur-*` in `ChangelogModal.tsx` (`.glass-panel` handles frosted glass in `index.css`).
-- Confirmed compact sidebar (`w-36`), single `divide-y` change list, compact spacing/font sizes.
-- Confirmed complete font-mono & JetBrains Mono usage, zero `font-sans`, zero `purple`/`indigo` tokens, cyan accents + zinc text, zero heavy `font-black uppercase tracking-widest` headers.
-- Confirmed `lucid-scale` on outer modal, zero `animate-in` plugin classes.
-- Confirmed total removal of search input, `searchQuery` state, and filtering.
-- Confirmed zero TypeScript errors (`npx tsc --noEmit`) and successful Vite build (`npm run build`).
+- Confirmed full compliance across all 7 modified files for BUG-19 through BUG-25.
+- Verified TypeScript compilation (`npx tsc --noEmit`) exited with 0 errors.
+- Issued verdict: APPROVE.
 
 ## Artifact Index
-- `.agents/teamwork_preview_reviewer_m1_2/ORIGINAL_REQUEST.md` — Original request log
-- `.agents/teamwork_preview_reviewer_m1_2/BRIEFING.md` — Working state
-- `.agents/teamwork_preview_reviewer_m1_2/progress.md` — Liveness heartbeat
-- `.agents/teamwork_preview_reviewer_m1_2/handoff.md` — Handoff report & verdict
+- `.agents/teamwork_preview_reviewer_m1_2/DISPATCH.md` — Incoming dispatch message
+- `.agents/teamwork_preview_reviewer_m1_2/BRIEFING.md` — Working context index
+- `.agents/teamwork_preview_reviewer_m1_2/handoff.md` — Final review handoff report

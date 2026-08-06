@@ -1,48 +1,55 @@
-# BRIEFING — 2026-07-30T08:20:45Z
+# BRIEFING — 2026-08-06T06:34:40Z
 
 ## Mission
-Implement layout, clipping, timeline alignment, scrollbar containment, and glassmorphic visual fixes in `src/components/ChangelogModal.tsx` and `src/index.css` to fulfill Requirements R1, R2, and R3.
+Implement Milestone 2: Fix React Rendering & Dependency Issues (BUG-23, BUG-24, BUG-25).
 
 ## 🔒 My Identity
-- Archetype: implementer
+- Archetype: implementer/qa/specialist
 - Roles: implementer, qa, specialist
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_worker_m2
-- Original parent: 71307a51-125e-48f0-95ce-07dd254b65dc
-- Milestone: m2
+- Original parent: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Milestone: Milestone 2 (BUG-23, BUG-24, BUG-25)
 
 ## 🔒 Key Constraints
-- CODE_ONLY network mode.
-- Minimal change principle.
-- Absolute integrity mandate: genuine implementation only.
+- Edit exclusively: `src/App.tsx` and `src/components/ChangelogModal.tsx`
+- Do not cheat, hardcode test outputs, or create dummy implementations
+- Run `npx tsc --noEmit` and verify 0 TypeScript compilation errors
+- Document changes in handoff.md and send message when complete
 
 ## Current Parent
-- Conversation ID: 71307a51-125e-48f0-95ce-07dd254b65dc
-- Updated: 2026-07-30T08:20:45Z
+- Conversation ID: a46e49ea-a72d-4322-9493-1863c23e4b93
+- Updated: 2026-08-06T06:34:40Z
 
 ## Task Summary
-- **What to build**: Layout, viewport clipping, timeline alignment, scrollbar containment, and glassmorphic styling updates in `ChangelogModal.tsx` and `src/index.css`.
-- **Success criteria**: All items in R1, R2, R3 implemented accurately and verified by clean build / typecheck.
-- **Interface contracts**: PROJECT.md / Explorer reports.
-- **Code layout**: `src/components/ChangelogModal.tsx`, `src/index.css`.
+- **What to build**: Fix React memoization, callback handlers, useEffect dependency array for auto-save effect, and useEffect dependency array for rematch effect.
+- **Success criteria**: 
+  - `handleStartWeaknessDrill` memoized callback added to `App.tsx` with deps `[typing.setTargetText, typing.resetEngine]`.
+  - `StatsDashboard` in `App.tsx` receives `handleCloseModal` for `onClose` and `handleStartWeaknessDrill` for `onStartWeaknessDrill`.
+  - `ChangelogModal` export wrapped in `memo`.
+  - Auto-save effect dependencies in `App.tsx` expanded to `[autoSave, auth.session, cloud.username, fetchDailyBoard, fetchLeaderboard, finishDurationMs, game.dailyActive, game.microDrillActive, supabase, typing.accuracy, typing.endTime, typing.input, typing.phase, typing.timePenalty, typing.wpm]` and `eslint-disable` removed.
+  - Rematch effect dependencies updated to `[race.status, raceActive, typing.setPhase]`.
+  - `npx tsc --noEmit` runs cleanly with 0 errors.
 
 ## Key Decisions Made
-- Implemented R1 fixes: modal max height `max-h-[85vh] sm:max-h-[88vh]`, `my-auto`, `shrink-0` on header bar container, and `min-h-0` across intermediate flex containers.
-- Implemented R2 fixes: left sidebar button `items-start`, `mt-1` node dot, rail line at `left-[18px] -translate-x-1/2`, right content list `pr-3 sm:pr-6`, and `margin-top: 12px; margin-bottom: 12px;` in `.custom-scrollbar` track.
-- Implemented R3 fixes: translucent slate glass panels (`bg-slate-950/60 backdrop-blur-2xl`, `bg-slate-900/40 backdrop-blur-xl`), glowing cyan hover card borders, filtered positive metric pills, gradient glass status pills, and translucent glowing energy progress bars.
+- Used stable setters `typing.setTargetText` and `typing.resetEngine` for `handleStartWeaknessDrill` `useCallback` dependency array.
+- Used `memo(function ChangelogModal(...) { ... })` wrapping export to maintain named export compatibility while preventing re-renders when parent `App` re-renders.
+- Expanded auto-save effect dependency array explicitly with all required dependencies and removed `eslint-disable-next-line react-hooks/exhaustive-deps`.
+- Added `typing.setPhase` to rematch sync effect dependency array `[race.status, raceActive, typing.setPhase]`.
 
 ## Artifact Index
-- `.agents/teamwork_preview_worker_m2/handoff.md` — Final handoff report
-- `.agents/teamwork_preview_worker_m2/progress.md` — Progress tracker
+- handoff.md — Handoff report for Milestone 2 implementation
 
 ## Change Tracker
-- **Files modified**: `src/components/ChangelogModal.tsx`, `src/index.css`
-- **Build status**: PASS (both `npx tsc --noEmit` and `npm run build` succeeded cleanly)
-- **Pending issues**: None
+- **Files modified**:
+  - `src/components/ChangelogModal.tsx`: Imported `memo` and wrapped `ChangelogModal` export in `memo(...)`.
+  - `src/App.tsx`: Added `handleStartWeaknessDrill` `useCallback`, passed `handleCloseModal` and `handleStartWeaknessDrill` to `StatsDashboard`, expanded auto-save effect dependencies and removed `eslint-disable-next-line react-hooks/exhaustive-deps`, added `typing.setPhase` to rematch effect dependencies.
+- **Build status**: PASS (0 TypeScript errors via `npx tsc --noEmit`)
+- **Pending issues**: none
 
 ## Quality Status
-- **Build/test result**: PASS
-- **Lint status**: 0 errors
-- **Tests added/modified**: Static type check and production bundle build verified
+- **Build/test result**: PASS (0 TypeScript errors)
+- **Lint status**: clean
+- **Tests added/modified**: none required
 
 ## Loaded Skills
-- None
+- None requested/loaded

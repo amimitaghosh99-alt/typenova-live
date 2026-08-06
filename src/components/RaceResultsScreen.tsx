@@ -59,11 +59,12 @@ export function RaceResultsScreen({
   const allFinished = players.length > 0 && players.every(p => p.finished);
   const winner = ranking[0];
   const iWon = allFinished ? winner?.id === selfId : false; // for title logic
-  
+
   const rpcCalled = useRef(false);
+  const eloSyncDone = useRef(false);
 
   const maxRaceDurationMs = useMemo(() => {
-    return Math.max(...players.map(p => p.finishMs ?? 0), resultsProps.durationMs);
+    return Math.min(Math.max(...players.map(p => p.finishMs ?? 0), resultsProps.durationMs), 300000);
   }, [players, resultsProps.durationMs]);
 
   const [eloTransfer, setEloTransfer] = useState<{ amount: number; direction: 'up' | 'down' } | null>(null);
@@ -94,7 +95,7 @@ export function RaceResultsScreen({
 
   useEffect(() => {
     let isMounted = true;
-    if (!isRanked || rpcCalled.current) return;
+    if (!isRanked || eloSyncDone.current) return;
     const me = players.find(p => p.id === selfId);
     const op = players.find(p => p.id !== selfId) ?? opponentRef.current;
     if (!me?.finished || !op) return;
@@ -118,15 +119,13 @@ export function RaceResultsScreen({
       return;
     }
 
-    rpcCalled.current = true;
-
     const wpmMe = me.finishWpm ?? 0, wpmOp = op.finishWpm ?? 0;
     const msMe = me.finishMs ?? Infinity, msOp = op.finishMs ?? Infinity;
     const iWonNow = !op.finished
       ? true // opponent never finished — forfeit
       : wpmMe !== wpmOp ? wpmMe > wpmOp
-      : msMe !== msOp ? msMe < msOp
-      : selfId.localeCompare(op.id) < 0; // deterministic tiebreak, same on both clients
+        : msMe !== msOp ? msMe < msOp
+          : selfId.localeCompare(op.id) < 0; // deterministic tiebreak, same on both clients
 
     // Read the authoritative rating back instead of guessing a delta: the
     // server's dynamic K-factor and margin multiplier put the real number
@@ -142,12 +141,21 @@ export function RaceResultsScreen({
             const diff = value - myStartElo;
             setEloTransfer({ amount: Math.abs(diff), direction: diff >= 0 ? 'up' : 'down' });
           }
+          eloSyncDone.current = true;
           return true;
         }
         await new Promise(r => setTimeout(r, 1500));
       }
       return false;
     };
+
+    if (rpcCalled.current) {
+      // We already launched the RPC or decided we are the loser. Resume polling if needed.
+      syncElo(6).then(ok => { if (!ok && isMounted && !eloSyncDone.current) setEloNote('ELO SYNC PENDING'); });
+      return;
+    }
+
+    rpcCalled.current = true;
 
     if (iWonNow) {
       if (!op.userId) {
@@ -187,7 +195,7 @@ export function RaceResultsScreen({
       // The winner's client writes both sides of the transfer; wait for it.
       syncElo(6).then(ok => { if (!ok && isMounted) setEloNote('ELO SYNC PENDING'); });
     }
-    
+
     return () => {
       isMounted = false;
     };
@@ -196,12 +204,12 @@ export function RaceResultsScreen({
   // ── AWARDS LOGIC ──
   const awards = useMemo(() => {
     if (!allFinished || maxRaceDurationMs === 0) return {} as Record<string, { title: string; emoji: string }>;
-    
+
     // 1. Build Interval Rankings
     const intervals: TitleIntervalRanking[] = [];
     const stepMs = 1000;
     const totalSteps = Math.ceil(maxRaceDurationMs / stepMs);
-    
+
     // Helper to get interpolated WPM for any player at time t
     const getWpmAt = (pId: string, t: number) => {
       let pts = timelines?.[pId];
@@ -224,7 +232,7 @@ export function RaceResultsScreen({
         id: p.id,
         wpm: getWpmAt(p.id, t)
       })).sort((a, b) => b.wpm - a.wpm);
-      
+
       intervals.push({ t, rankings: snapshot.map(s => s.id) });
     }
 
@@ -246,7 +254,7 @@ export function RaceResultsScreen({
     for (const stats of allStats) {
       result[stats.id] = calculatePlayerTitle(stats, allStats, intervals);
     }
-    
+
     return result;
   }, [allFinished, ranking, resultsProps.timelinePoints, selfId, timelines, maxRaceDurationMs]);
 
@@ -298,7 +306,7 @@ export function RaceResultsScreen({
 
         {/* 🏆 WINNER BANNER 🏆 */}
         <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative">
-          
+
           {isRanked && !eloTransfer && eloNote && (
             <div className="flex items-center justify-center mb-8 h-16">
               <div className="text-xs font-black tracking-widest uppercase text-zinc-500 border border-zinc-800 bg-zinc-900/50 rounded-full px-5 py-3">
@@ -324,17 +332,15 @@ export function RaceResultsScreen({
             size={64}
             className={`mx-auto mb-4 ${iWon ? 'text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.6)]' : 'text-zinc-400'}`}
           />
-          <h1 className={`text-4xl md:text-6xl font-black tracking-widest uppercase mb-3 ${
-            iWon
+          <h1 className={`text-4xl md:text-6xl font-black tracking-widest uppercase mb-3 ${iWon
               ? 'text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,0.5)]'
               : 'text-white'
-          }`}>
+            }`}>
             {!allFinished ? 'WAITING FOR OTHERS...' : winner ? `${winner.name} WINS!` : 'RACE OVER'}
           </h1>
           {myRank >= 0 && (
-            <p className={`text-xl font-black tracking-[0.3em] uppercase ${
-              !allFinished ? 'text-zinc-500' : myRank === 0 ? 'text-amber-400' : myRank === 1 ? 'text-zinc-300' : myRank === 2 ? 'text-orange-400' : 'text-zinc-500'
-            }`}>
+            <p className={`text-xl font-black tracking-[0.3em] uppercase ${!allFinished ? 'text-zinc-500' : myRank === 0 ? 'text-amber-400' : myRank === 1 ? 'text-zinc-300' : myRank === 2 ? 'text-orange-400' : 'text-zinc-500'
+              }`}>
               {!allFinished ? 'RESULTS PENDING' : iWon ? '🏆 YOU WIN!' : `${placementText(myRank)}`}
             </p>
           )}
@@ -367,14 +373,13 @@ export function RaceResultsScreen({
               <button
                 key={player.id}
                 onClick={() => setSelectedPlayerId(player.id)}
-                className={`relative overflow-hidden group text-left px-6 py-4 rounded-3xl transition-all duration-300 glass-panel ${
-                  isWinner ? 'scale-105 saturate-150 shadow-2xl z-20' :
-                  isSelected ? 'scale-100 shadow-xl opacity-100 z-10' :
-                  'scale-95 opacity-50 hover:opacity-80 grayscale-[0.5] z-0'
-                }`}
+                className={`relative overflow-hidden group text-left px-6 py-4 rounded-3xl transition-all duration-300 glass-panel ${isWinner ? 'scale-105 saturate-150 shadow-2xl z-20' :
+                    isSelected ? 'scale-100 shadow-xl opacity-100 z-10' :
+                      'scale-95 opacity-50 hover:opacity-80 grayscale-[0.5] z-0'
+                  }`}
                 style={
                   isWinner ? { boxShadow: `0 0 30px ${medalStrokeColors[0]}60`, borderColor: medalStrokeColors[0] } :
-                  isSelected ? { boxShadow: `0 0 15px ${strokeColor}40`, borderColor: strokeColor } : {}
+                    isSelected ? { boxShadow: `0 0 15px ${strokeColor}40`, borderColor: strokeColor } : {}
                 }
               >
                 {isSelected && (
@@ -393,8 +398,14 @@ export function RaceResultsScreen({
                       <span className="ml-1 text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-full bg-white/10 border border-white/20">YOU</span>
                     )}
                     {!isSelf && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); callUser(player.id, player.name); }}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // WebRTC routes by Supabase UUID, not the socket id.
+                          // Fall back to the socket id only if the server didn't
+                          // attach a userId (e.g. guest racers).
+                          callUser(player.userId || player.id, player.name);
+                        }}
                         className="ml-auto w-7 h-7 flex items-center justify-center rounded-full bg-white/5 text-zinc-400 hover:bg-emerald-500/20 hover:text-emerald-400 transition-all z-20"
                         title="Video Call"
                       >

@@ -3,10 +3,13 @@ import { useCallback, useRef } from 'react';
 let globalAudioCtx: AudioContext | null = null;
 
 const getAudioContext = (): AudioContext | null => {
+  if (typeof window === 'undefined') return null;
   const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
   if (!globalAudioCtx) globalAudioCtx = new AC();
-  if (globalAudioCtx.state === 'suspended') globalAudioCtx.resume();
+  if (globalAudioCtx.state === 'suspended') {
+    globalAudioCtx.resume().catch(() => {});
+  }
   return globalAudioCtx;
 };
 
@@ -28,20 +31,25 @@ export const useAudioEngine = () => {
     const now = ctx.currentTime;
     const comboFactor = Math.min(1, comboRef.current / 60);
 
-    const createOneShot = ({ oscType = 'sine', freq = 200, duration = 0.06, gainVal = 0.2, detune = 0 }: {
-      oscType?: OscillatorType; freq?: number; duration?: number; gainVal?: number; detune?: number;
+    const createOneShot = ({ oscType = 'sine', freq = 200, duration = 0.06, gainVal = 0.2, detune = 0, startTime = 0 }: {
+      oscType?: OscillatorType; freq?: number; duration?: number; gainVal?: number; detune?: number; startTime?: number;
     }) => {
+      const startT = now + startTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = oscType;
-      osc.frequency.setValueAtTime(freq * (1 + comboFactor * 0.45), now);
+      osc.frequency.setValueAtTime(freq * (1 + comboFactor * 0.45), startT);
       osc.detune.value = detune;
-      gain.gain.setValueAtTime(gainVal + comboFactor * 0.25, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      gain.gain.setValueAtTime(gainVal + comboFactor * 0.25, startT);
+      gain.gain.exponentialRampToValueAtTime(0.001, startT + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + duration);
+      osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+      };
+      osc.start(startT);
+      osc.stop(startT + duration);
     };
 
     if (type === 'error') {
@@ -50,14 +58,14 @@ export const useAudioEngine = () => {
     }
     if (type === 'levelup') {
       createOneShot({ oscType: 'square', freq: 440, duration: 0.1, gainVal: 0.3 });
-      setTimeout(() => createOneShot({ oscType: 'square', freq: 554, duration: 0.1, gainVal: 0.3 }), 100);
-      setTimeout(() => createOneShot({ oscType: 'square', freq: 659, duration: 0.3, gainVal: 0.3 }), 200);
+      createOneShot({ oscType: 'square', freq: 554, duration: 0.1, gainVal: 0.3, startTime: 0.1 });
+      createOneShot({ oscType: 'square', freq: 659, duration: 0.3, gainVal: 0.3, startTime: 0.2 });
       return;
     }
     if (type === 'achievement') {
       createOneShot({ oscType: 'sine', freq: 523.25, duration: 0.1, gainVal: 0.4 });
-      setTimeout(() => createOneShot({ oscType: 'sine', freq: 659.25, duration: 0.1, gainVal: 0.4 }), 100);
-      setTimeout(() => createOneShot({ oscType: 'sine', freq: 783.99, duration: 0.4, gainVal: 0.4 }), 200);
+      createOneShot({ oscType: 'sine', freq: 659.25, duration: 0.1, gainVal: 0.4, startTime: 0.1 });
+      createOneShot({ oscType: 'sine', freq: 783.99, duration: 0.4, gainVal: 0.4, startTime: 0.2 });
       return;
     }
 
@@ -66,7 +74,7 @@ export const useAudioEngine = () => {
       case 'alpaca': createOneShot({ oscType: 'triangle', freq: 140 + comboFactor * 120, duration: 0.08, gainVal: 0.18 }); break;
       case 'modelm':
         createOneShot({ oscType: 'square', freq: 220 + comboFactor * 180, duration: 0.06, gainVal: 0.18, detune: comboFactor * 60 });
-        setTimeout(() => createOneShot({ oscType: 'triangle', freq: 440 + comboFactor * 360, duration: 0.06, gainVal: 0.06 }), 12);
+        createOneShot({ oscType: 'triangle', freq: 440 + comboFactor * 360, duration: 0.06, gainVal: 0.06, startTime: 0.012 });
         break;
       case 'raindrops': createOneShot({ oscType: 'sine', freq: 600 + comboFactor * 400 + (Math.random() * 400 - 200), duration: 0.05, gainVal: 0.06 + comboFactor * 0.12 }); break;
       case 'arcade': createOneShot({ oscType: 'square', freq: 320 + comboFactor * 240, duration: 0.04, gainVal: 0.14 }); break;

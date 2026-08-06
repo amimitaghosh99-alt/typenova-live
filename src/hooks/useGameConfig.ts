@@ -146,12 +146,10 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
   }, [onReset]);
 
   const toggleMirror = useCallback(() => {
-    setMirroredMode(prev => {
-      const next = !prev;
-      setDailyActive(false);
-      onReset({ mirrored: next, daily: false });
-      return next;
-    });
+    const next = !configRef.current.mirroredMode;
+    setMirroredMode(next);
+    setDailyActive(false);
+    onReset({ mirrored: next, daily: false });
   }, [onReset]);
 
   return {

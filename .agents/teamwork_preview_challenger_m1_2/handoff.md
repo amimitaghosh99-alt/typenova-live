@@ -1,160 +1,86 @@
-# Handoff Report — Empirical Verification of ChangelogModal & Build Pipeline
+# Verification & Challenge Handoff Report — Milestone M1_2 (BUG-19 to BUG-25)
 
 ## 1. Observation
 
-Direct empirical observations gathered from inspecting `src/components/ChangelogModal.tsx` and running automated test scripts / build commands:
+Empirical testing and static code inspection were conducted across all modified files specified for BUG-19 through BUG-25:
 
-### Code Inspection Observations (`src/components/ChangelogModal.tsx`)
-- **Outer modal container (Lines 195–199)**:
-  ```tsx
-  <div 
-    className="glass-panel relative w-full max-w-4xl max-h-[85vh] my-auto flex flex-col rounded-2xl border border-white/15 shadow-2xl shadow-cyan-950/30 overflow-hidden lucid-scale min-h-0"
-    style={{ '--delay': '0ms' } as React.CSSProperties}
-    onClick={(e) => e.stopPropagation()}
-  >
-  ```
-  - `glass-panel` class is present on line 196.
-  - `lucid-scale` entrance animation class is present on line 196.
-  - No `backdrop-blur-*` classes are used anywhere on the modal container or within `ChangelogModal.tsx`. Ambient glowing orbs use `blur-3xl` (lines 202, 206), which is standard CSS filter blur, not Tailwind backdrop blur.
+1. **Compilation & Build**:
+   - `npx tsc --noEmit` executed with exit code 0 (0 errors).
+   - `npm run build` executed with exit code 0 (1831 modules transformed, dist output created cleanly).
 
-- **Font Styling**:
-  - `font-mono` is used across all text elements (lines 86, 113, 117, 127, 134, 141, 148, 221, 228, 238, 270, 281, 311, 314, 320, 345, 350, 353, 359, 376, 379).
-  - Verbatim search for `font-sans` across `src/components/ChangelogModal.tsx` yielded 0 matches.
+2. **Timeout & Leak Prevention**:
+   - `src/hooks/useFriends.ts` (BUG-19):
+     - Line 24: `const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);`
+     - Lines 26-31: `clearErrorTimeout` handles clearing `errorTimeoutRef.current`.
+     - Lines 44-48: `useEffect(() => { return () => { clearErrorTimeout(); }; }, [clearErrorTimeout]);` clears error timeouts on unmount.
+     - Lines 314-318: `return () => { clearTimeout(initTimer); clearInterval(intervalId); supabase.removeChannel(channel); };` clears initial fetch timer, interval, and subscription on cleanup.
+   - `src/components/TypingController.tsx` (BUG-20):
+     - Line 44: `const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);`
+     - Lines 62-68: `useEffect(() => { return () => { if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current); }; }, []);` clears shake timeout on unmount.
+     - Lines 202-209: Clears existing timer before starting new `setTimeout`.
+   - `src/components/RaceModal.tsx` (BUG-21):
+     - Lines 58-61: `retryTimerRef`, `closeTimeoutRef`, `copyCodeTimeoutRef`, `copyLinkTimeoutRef` refs declared.
+     - Lines 116-123: `useEffect` cleanup hook clears all 4 timeout refs on unmount.
+     - Lines 166, 171: Auto-start and no-show `setTimeout` calls return `clearTimeout(t)`.
+   - `src/components/SocialModal.tsx` (BUG-21):
+     - Lines 24, 35-39: `closeTimeoutRef` tracked and cleared on unmount in `useEffect`.
+   - `src/components/PlayerProfileModal.tsx` (BUG-21):
+     - Lines 47, 55-59: `closeTimeoutRef` tracked and cleared on unmount in `useEffect`.
 
-- **Search State & Logic**:
-  - State hooks (lines 25–27):
-    ```tsx
-    const [subscribed, setSubscribed] = useState(false);
-    const [activeVersion, setActiveVersion] = useState<string>(CHANGELOG[0]?.version || '');
-    const [toastMessage, setToastMessage] = useState<string | null>(null);
-    ```
-  - Zero `searchQuery` variables, search input elements (`<input>`), or search filtering functions exist in the component.
+3. **React Memoization** (BUG-23):
+   - `src/components/ChangelogModal.tsx`:
+     - Line 24: `export const ChangelogModal = memo(function ChangelogModal({ theme, onClose }: ChangelogModalProps) { ... });`
+   - `src/components/StatsDashboard.tsx`:
+     - Line 355: `export const StatsDashboard = memo(function StatsDashboard(...) { ... });`
+   - `src/App.tsx`:
+     - Line 915: `const handleCloseModal = useCallback(() => setActiveModal(null), []);`
+     - Lines 916-921: `const handleStartWeaknessDrill = useCallback(...)` with `[typing.setTargetText, typing.resetEngine]`.
+     - Lines 1678, 1732: `StatsDashboard` and `ChangelogModal` receive these memoized callbacks.
 
-- **Sidebar Width (Line 280)**:
-  ```tsx
-  <div className="hidden md:flex flex-col w-36 shrink-0 border-r border-white/10 bg-slate-950/40 p-2 overflow-y-auto custom-scrollbar min-h-0">
-  ```
-  - Sidebar container explicitly uses `w-36`.
-
-- **Dense Change Items List Container (Line 366)**:
-  ```tsx
-  <div className="divide-y divide-white/5 bg-white/[0.02] border border-white/5 rounded-lg overflow-hidden">
-  ```
-  - Single list container uses `divide-y divide-white/5` for separating change items.
-
-### Empirical Test Script Output (`node .agents/teamwork_preview_challenger_m1_2/verify.js`)
-```
-=== EMPIRICAL VERIFICATION RESULTS ===
-[PASS] Zero backdrop-blur-* classes in ChangelogModal.tsx
-       Detail: No backdrop-blur-* classes found
-[PASS] .glass-panel class present on outer modal container
-       Detail: outer modal container uses glass-panel class
-[PASS] lucid-scale entrance animation class present on outer modal container
-       Detail: outer modal container uses lucid-scale class
-[PASS] Zero font-sans classes in ChangelogModal.tsx
-       Detail: No font-sans classes found
-[PASS] Zero searchQuery, search input, or search filter logic in ChangelogModal.tsx
-       Detail: No search state, input, or search filtering found
-[PASS] Sidebar width is w-36
-       Detail: Sidebar element specifies w-36
-[PASS] Dense change items use divide-y divide-white/5 single list container
-       Detail: Change items container has divide-y divide-white/5
-
-OVERALL: ALL TESTS PASSED
-```
-
-### TypeScript Compilation (`npx tsc --noEmit`)
-- Command: `npx tsc --noEmit`
-- Exit Code: 0
-- Output: Empty (0 errors).
-
-### Production Build Output (`npm run build`)
-- Command: `npm run build` (`tsc -b && vite build`)
-- Exit Code: 0
-- Output:
-  ```
-  > typenova@1.5.3 build
-  > tsc -b && vite build
-
-  vite v7.3.6 building client environment for production...
-  transforming...
-  ✓ 1788 modules transformed.
-  rendering chunks...
-  computing gzip size...
-  dist/index.html                   0.51 kB │ gzip:   0.31 kB
-  dist/assets/index-5vwpEThB.css  170.09 kB │ gzip:  24.14 kB
-  dist/assets/index-MX85DJkw.js   778.46 kB │ gzip: 225.97 kB
-  ✓ built in 7.79s
-  ```
-
----
+4. **Dependencies Correctness** (BUG-24 & BUG-25):
+   - `src/App.tsx` Auto-save effect (BUG-24):
+     - Lines 674-690: `useEffect` dependency array includes `[autoSave, auth.session, cloud.username, fetchDailyBoard, fetchLeaderboard, finishDurationMs, game.dailyActive, game.microDrillActive, supabase, typing.accuracy, typing.endTime, typing.input, typing.phase, typing.timePenalty, typing.wpm]`.
+     - `typing.input`, `auth.session`, and `supabase` are included.
+     - `// eslint-disable-next-line react-hooks/exhaustive-deps` suppression comment was removed.
+   - `src/App.tsx` Rematch effect (BUG-25):
+     - Lines 359-365: `useEffect(() => { if (race.status === 'lobby' && raceActive) { setRaceActive(false); setShowRace(true); typing.setPhase('CONFIGURING'); } }, [race.status, raceActive, typing.setPhase]);`.
+     - `typing.setPhase` is included in the dependency array.
 
 ## 2. Logic Chain
 
-1. **Rule 1 (Zero `backdrop-blur-*` classes)**:
-   - *Observation*: Regex search `/backdrop-blur-[a-zA-Z0-9_-]+/g` over `src/components/ChangelogModal.tsx` returned 0 matches.
-   - *Deduction*: Blur effects in modal background are handled via standard SVG filter progressive enhancement or orb filters (`blur-3xl`), eliminating any backdrop-blur conflicts.
-
-2. **Rule 2 (`.glass-panel` outer modal container)**:
-   - *Observation*: Line 196 contains `glass-panel` in the outer modal container `<div>`.
-   - *Deduction*: Glass panel styling is applied at the outermost card level of the modal.
-
-3. **Rule 3 (`lucid-scale` entrance animation)**:
-   - *Observation*: Line 196 contains `lucid-scale` in the outer modal container `<div>`, defined in `src/index.css` (line 234).
-   - *Deduction*: Entrance animation triggers keyframe `lucid-scale-in` when modal renders.
-
-4. **Rule 4 (Zero `font-sans` classes)**:
-   - *Observation*: Verbatim string match `font-sans` returned 0 occurrences in `src/components/ChangelogModal.tsx`.
-   - *Deduction*: Monospace typography discipline (`font-mono`) is strictly maintained throughout the component.
-
-5. **Rule 5 (Zero `searchQuery`, search input, or search filter logic)**:
-   - *Observation*: No state hooks, inputs, or array filter calls match search query logic in `ChangelogModal.tsx`.
-   - *Deduction*: Search overhead and UI clutter have been completely removed from the Changelog modal.
-
-6. **Rule 6 (Sidebar width `w-36`)**:
-   - *Observation*: Sidebar `<div>` on line 280 uses `w-36`.
-   - *Deduction*: Fixed sidebar width aligns with desktop UI layout specs.
-
-7. **Rule 7 (`divide-y divide-white/5` single list container)**:
-   - *Observation*: Line 366 wraps change items inside `<div className="divide-y divide-white/5 ...">`.
-   - *Deduction*: Compact change list uses single container divider styling without nested borders.
-
-8. **Compilation & Build Integrity**:
-   - *Observation*: `npx tsc --noEmit` produced 0 type errors. `npm run build` generated production artifacts in `dist/` in 7.79s without compilation failure.
-   - *Deduction*: All component changes are type-safe and production ready.
-
----
+1. **Observation 1** demonstrates that the TypeScript compiler (`tsc --noEmit`) and Vite production build (`npm run build`) complete with zero errors.
+2. **Observation 2** verifies that all identified `setTimeout` calls across `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, and `PlayerProfileModal.tsx` are backed by ref tracking and explicitly cleared on component unmount and before re-triggering. This eliminates unmounted state update warnings and memory leaks.
+3. **Observation 3** confirms that `ChangelogModal` and `StatsDashboard` are wrapped in `React.memo` and receive stable callback functions (`handleCloseModal`, `handleStartWeaknessDrill`) wrapped in `useCallback` from `App.tsx`. This avoids unnecessary component re-renders.
+4. **Observation 4** confirms that the auto-save effect in `App.tsx` properly declares `typing.input`, `auth.session`, and `supabase` in its dependency array without suppressing ESLint, and the rematch effect in `App.tsx` includes `typing.setPhase` in its dependency array.
 
 ## 3. Caveats
 
-No caveats. All 7 static code checks and both build commands passed strictly without exception.
-
----
+- No caveats. All 6 bug fixes (BUG-19, BUG-20, BUG-21, BUG-23, BUG-24, BUG-25) were verified empirically via code inspection, compilation, and production build execution.
 
 ## 4. Conclusion
 
-`src/components/ChangelogModal.tsx` passes 100% of empirical code inspection rules and builds cleanly in TypeScript and Vite. All requirements specified in Milestone 1.2 for Challenger 2 are fully satisfied.
+**Verdict: APPROVE**
 
----
+The implementation correctly addresses all requirements for BUG-19 through BUG-25 without regressions, compilation errors, or leak risks.
 
 ## 5. Verification Method
 
 To independently verify these results:
 
-1. **Execute Automated Verification Script**:
-   ```bash
-   node .agents/teamwork_preview_challenger_m1_2/verify.js
-   ```
-   *Expected Output*: `OVERALL: ALL TESTS PASSED` with 7 `[PASS]` statuses.
-
-2. **Execute TypeScript Check**:
+1. Run TypeScript check:
    ```bash
    npx tsc --noEmit
    ```
-   *Expected Output*: Exit status code 0 with zero error messages.
+   *Expected result*: Exit code 0, no compilation errors.
 
-3. **Execute Production Build**:
+2. Run Vite build:
    ```bash
    npm run build
    ```
-   *Expected Output*: Successful build output writing bundles to `dist/`.
+   *Expected result*: Exit code 0, successful production build.
+
+3. Inspect key source files:
+   - Check `src/hooks/useFriends.ts` for `errorTimeoutRef` and `initTimer` cleanups.
+   - Check `src/components/TypingController.tsx` for `shakeTimeoutRef` cleanup.
+   - Check `src/components/RaceModal.tsx`, `SocialModal.tsx`, and `PlayerProfileModal.tsx` for `closeTimeoutRef` and timer cleanups.
+   - Check `src/App.tsx` for `useCallback` handlers and `useEffect` dependency arrays.

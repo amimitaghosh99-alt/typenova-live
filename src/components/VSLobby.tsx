@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Users, Copy, Check, Play, Crown, LogOut, Swords, Link, Sparkles } from 'lucide-react';
 import type { RacerState, RaceStatus, RaceConfig } from '../hooks/useRace';
 import { PostMatchChat } from './PostMatchChat';
@@ -13,6 +13,7 @@ interface VSLobbyProps {
   roomSize?: number;
   lobbyConfig?: RaceConfig;
   username: string;
+  selfId?: string;
   onCreateRoom: (username: string) => void;
   onJoinRoom: (code: string, username: string) => void;
   onStartRace: () => void;
@@ -29,6 +30,7 @@ export function VSLobby({
   countdown,
   roomSize = 4,
   username,
+  selfId,
   onCreateRoom,
   onJoinRoom,
   onStartRace,
@@ -38,6 +40,15 @@ export function VSLobby({
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const timeoutCodeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutLinkRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutCodeRef.current) clearTimeout(timeoutCodeRef.current);
+      if (timeoutLinkRef.current) clearTimeout(timeoutLinkRef.current);
+    };
+  }, []);
 
   const canAct = (username || nameInput.trim()).length > 0;
   const activeName = username || nameInput.trim() || 'Racer';
@@ -46,7 +57,8 @@ export function VSLobby({
     if (!code) return;
     navigator.clipboard.writeText(code);
     setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+    if (timeoutCodeRef.current) clearTimeout(timeoutCodeRef.current);
+    timeoutCodeRef.current = setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const copyLink = () => {
@@ -54,7 +66,8 @@ export function VSLobby({
     const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    if (timeoutLinkRef.current) clearTimeout(timeoutLinkRef.current);
+    timeoutLinkRef.current = setTimeout(() => setCopiedLink(false), 2000);
   };
 
   return (
@@ -212,7 +225,7 @@ export function VSLobby({
                     <div
                       key={p.id}
                       className={`flex items-center justify-between p-3.5 rounded-xl border font-mono transition-all ${
-                        p.name?.toLowerCase() === activeName.toLowerCase()
+                        (selfId && p.id === selfId) || (!selfId && p.name?.toLowerCase() === activeName.toLowerCase())
                           ? 'bg-cyan-500/10 border-cyan-500/40 text-white'
                           : 'bg-slate-900/60 border-white/10 text-zinc-200'
                       }`}

@@ -11,9 +11,24 @@ export function VideoCallProvider({
   username 
 }: { children: React.ReactNode } & UseWebRTCProps) {
   const webrtc = useWebRTC({ userId, username });
+  // useMemo ensures the context value reference remains stable across renders
+  // as long as the underlying hook's returned object properties don't change identity.
+  const value = React.useMemo(() => webrtc, [
+    webrtc.localStream,
+    webrtc.remoteStream,
+    webrtc.callState,
+    webrtc.incomingCaller,
+    webrtc.activeCallWith,
+    webrtc.callUser,
+    webrtc.acceptCall,
+    webrtc.rejectCall,
+    webrtc.endCall,
+    webrtc.toggleVideo,
+    webrtc.toggleAudio,
+  ]);
 
   return (
-    <VideoCallContext.Provider value={webrtc}>
+    <VideoCallContext.Provider value={value}>
       {children}
     </VideoCallContext.Provider>
   );

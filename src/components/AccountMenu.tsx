@@ -33,7 +33,11 @@ export const AccountMenu = ({
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      // Use composedPath to handle if the target was removed from DOM
+      const path = e.composedPath();
+      if (ref.current && !path.includes(ref.current)) {
+        setOpen(false);
+      }
     };
     document.addEventListener('mousedown', onClick, { passive: true });
     return () => document.removeEventListener('mousedown', onClick);

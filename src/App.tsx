@@ -58,6 +58,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { ChangelogModal } from '@/components/ChangelogModal';
 import { CHANGELOG } from '@/data/changelog';
 import { SettingsModal } from './components/SettingsModal';
+import { BugReportsModal } from './components/BugReportsModal';
 import { VideoCallProvider } from '@/contexts/VideoCallContext';
 import { VideoCallOverlay } from '@/components/VideoCallOverlay';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
@@ -176,7 +177,7 @@ function MainApp() {
   const [soundProfile, setSoundProfileState] = useState('thocky');
   const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
 
-  type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'profile' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | null;
+  type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'profile' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | 'bugReports' | null;
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const showReplay = activeModal === 'replay';
 
@@ -362,7 +363,7 @@ function MainApp() {
       setShowRace(true);
       typing.setPhase('CONFIGURING');
     }
-  }, [race.status, raceActive]);
+  }, [race.status, raceActive, typing.setPhase]);
 
   const theme: Theme = THEMES[THEME_KEYS[themeIndex]];
   const themeMenuRef = useRef<HTMLDivElement>(null);
@@ -645,7 +646,7 @@ function MainApp() {
   // ─── Auto-Save ──────────────
   const hasAutoSavedRef = useRef(false);
   useEffect(() => {
-    if (typing.phase !== 'FINISHED' || hasAutoSavedRef.current || game.microDrillActive) return;
+    if (typing.phase !== 'FINISHED' || !typing.endTime || hasAutoSavedRef.current || game.microDrillActive) return;
     hasAutoSavedRef.current = true;
 
     // Auto-save if logged in
@@ -671,8 +672,23 @@ function MainApp() {
         });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typing.phase]);
+  }, [
+    autoSave,
+    auth.session,
+    cloud.username,
+    fetchDailyBoard,
+    fetchLeaderboard,
+    finishDurationMs,
+    game.dailyActive,
+    game.microDrillActive,
+    supabase,
+    typing.accuracy,
+    typing.endTime,
+    typing.input,
+    typing.phase,
+    typing.timePenalty,
+    typing.wpm,
+  ]);
 
   // Reset the auto-save guard when a new test starts
   useEffect(() => {
@@ -773,21 +789,28 @@ function MainApp() {
     race.sendProgress(pct, typing.wpm);
   }, [raceActive, typing.phase, typing.input.length, typing.targetText.length, typing.wpm, race]);
 
+  // ─── Ref to always hold the latest typing state ─────────────────
+  // Used by both timed-mode countdown and overclocked penalty so their
+  // intervals can read fresh values without being in the dep array.
+  const penaltyTypingRef = useRef(typing);
+  useEffect(() => { penaltyTypingRef.current = typing; });
+
   // ─── Timed Mode Countdown ────────────────────────────────────────
   useEffect(() => {
     if (typing.phase !== 'TYPING' || game.testMode !== 'time' || !typing.startTime) return;
+    // Capture startTime at setup — it won't change during a test.
+    const testStartTime = typing.startTime;
+    const durationMs = game.duration * 1000;
     const interval = setInterval(() => {
-      const finalTs = typing.startTime! + game.duration * 1000;
-      if (Date.now() >= finalTs) {
-        typing.finishTest(finalTs);
+      if (Date.now() >= testStartTime + durationMs) {
+        penaltyTypingRef.current.finishTest(testStartTime + durationMs);
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [typing.phase, typing.startTime, game.testMode, game.duration, typing]);
-
-  // ─── Overclocked Penalty ─────────────────────────────────────────
-  const penaltyTypingRef = useRef(typing);
-  useEffect(() => { penaltyTypingRef.current = typing; });
+    // `typing` is intentionally excluded — we read it via penaltyTypingRef
+    // to prevent the interval from being destroyed on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typing.phase, typing.startTime, game.testMode, game.duration]);
 
   useEffect(() => {
     if (!game.overclockedMode || typing.phase !== 'TYPING') return;
@@ -888,6 +911,46 @@ function MainApp() {
       </VideoCallProvider>
     );
   }
+
+  // ====== MEMOIZED HANDLERS FOR MODALS ======
+  const handleCloseModal = useCallback(() => setActiveModal(null), []);
+  const handleStartWeaknessDrill = useCallback((drillText: string) => {
+    typing.setTargetText(drillText);
+    setActiveModal(null);
+    typing.resetEngine();
+    toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
+  }, [typing.setTargetText, typing.resetEngine]);
+  const handleRaceCreate = useCallback((name: string, size?: number, isRanked?: boolean, roomCode?: string) => {
+    setIsRankedMatch(!!isRanked);
+    race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked);
+  }, [race, cloud.elo, auth.user?.id]);
+  const handleRaceJoin = useCallback((code: string, name: string, isRanked?: boolean) => {
+    setIsRankedMatch(!!isRanked);
+    race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked);
+  }, [race, cloud.elo, auth.user?.id]);
+  const handleRaceStart = useCallback((text?: string) => {
+    race.startRace(text);
+  }, [race]);
+  const handleRaceLeave = useCallback(() => {
+    race.leave();
+    setRaceActive(false);
+    setActiveModal(null);
+    setIsRankedMatch(false);
+  }, [race]);
+  const previousModalRef = useRef<ModalType>(null);
+  const handleOpenProfile = useCallback((name: string) => {
+    setSelectedProfileUsername(name);
+    // Track the modal we're coming from (but don't record 'profile' as a previous state)
+    setActiveModal(prev => {
+      if (prev !== 'profile') previousModalRef.current = prev;
+      return 'profile';
+    });
+  }, []);
+
+  const handleProfileClose = useCallback(() => {
+    setActiveModal(previousModalRef.current);
+    previousModalRef.current = null;
+  }, []);
 
   return (
     <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
@@ -1617,13 +1680,8 @@ function MainApp() {
                 theme={theme}
                 testsCompleted={rpg.testsCompleted}
                 heatmapData={rpg.heatmapData}
-                onClose={() => setActiveModal(null)}
-                onStartWeaknessDrill={(drillText) => {
-                  typing.setTargetText(drillText);
-                  setActiveModal(null);
-                  typing.resetEngine();
-                  toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
-                }}
+                onClose={handleCloseModal}
+                onStartWeaknessDrill={handleStartWeaknessDrill}
               />
             );
 
@@ -1652,39 +1710,36 @@ function MainApp() {
                 supabase={supabase}
                 updateLobbyConfig={race.updateLobbyConfig}
                 isRankedRoom={isRankedMatch}
-                onCreate={(name, size, isRanked, roomCode) => { setIsRankedMatch(!!isRanked); race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked); }}
-                onJoin={(code, name, isRanked) => { setIsRankedMatch(!!isRanked); race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked); }}
-                onStart={(text) => race.startRace(text)}
-                onLeave={() => { race.leave(); setRaceActive(false); setActiveModal(null); setIsRankedMatch(false); }}
-                onClose={() => setActiveModal(null)}
+                onCreate={handleRaceCreate}
+                onJoin={handleRaceJoin}
+                onStart={handleRaceStart}
+                onLeave={handleRaceLeave}
+                onClose={handleCloseModal}
               />
             );
 
             case 'social': return (
               <SocialModal
                 theme={theme}
-                onClose={() => setActiveModal(null)}
+                onClose={handleCloseModal}
                 friendsState={friendsState}
                 onChallengeFriend={handleChallengeFriend}
                 sentChallengeTo={challenges.sentChallengeTo}
-                onOpenProfile={(name) => {
-                  setSelectedProfileUsername(name);
-                  setShowProfile(true);
-                }}
+                onOpenProfile={handleOpenProfile}
               />
             );
 
             case 'changelog': return (
               <ChangelogModal
                 theme={theme}
-                onClose={() => setActiveModal(null)}
+                onClose={handleCloseModal}
               />
             );
 
             case 'settings': return (
               <SettingsModal
                 theme={theme}
-                onClose={() => setActiveModal(null)}
+                onClose={handleCloseModal}
                 suddenDeath={game.suddenDeath} setSuddenDeath={game.setSuddenDeath}
                 ghostPacer={game.ghostPacer} setGhostPacer={game.setGhostPacer}
                 focusMode={game.focusMode} setFocusMode={game.setFocusMode}
@@ -1702,7 +1757,7 @@ function MainApp() {
             case 'profile': return (
               <PlayerProfileModal
                 targetUsername={selectedProfileUsername}
-                onClose={() => setActiveModal(null)}
+                onClose={handleProfileClose}
                 supabase={supabase}
                 localUsername={cloud.username}
                 theme={theme}
@@ -1740,6 +1795,17 @@ function MainApp() {
                         <Star size={24} className="mb-2" /> Set Level to Max (50+)
                       </button>
                     </div>
+
+                    {/* Admin Bug Reports Button */}
+                    <div className="mt-4">
+                      <button 
+                        onClick={() => setActiveModal('bugReports')}
+                        className="w-full p-6 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all flex items-center justify-center gap-3 text-xs"
+                      >
+                        <Terminal size={24} /> Open Admin Bug Reports Inbox
+                      </button>
+                    </div>
+
                     <div className="mt-4 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
                       <h4 className="text-red-400 font-bold tracking-widest uppercase mb-3 text-xs flex items-center gap-2">
                         <RotateCcw size={16} /> DANGER ZONE
@@ -1753,12 +1819,19 @@ function MainApp() {
               </div>
             );
 
+            case 'bugReports': return (
+              <BugReportsModal 
+                supabase={supabase} 
+                onClose={handleCloseModal} 
+              />
+            );
+
             case 'comms': return isLoggedIn ? (
               <CommsModal
                 supabase={supabase}
                 userId={auth.session?.user.id}
                 friends={friendsState.friends}
-                onClose={() => setActiveModal(null)}
+                onClose={handleCloseModal}
               />
             ) : null;
 

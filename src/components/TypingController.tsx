@@ -1,19 +1,25 @@
 import { useEffect, useRef } from 'react';
 import type { Theme } from '@/data/constants';
+import type { useTypingEngine } from '@/hooks/useTypingEngine';
+import type { useAudioEngine } from '@/hooks/useAudioEngine';
+import type { useRPGSystem } from '@/hooks/useRPGSystem';
+import type { useParticles } from '@/hooks/useParticles';
+import type { GameConfigState } from '@/hooks/useGameConfig';
+import type { useGameConfig } from '@/hooks/useGameConfig';
 
 interface TypingControllerProps {
-  typing: any; // ReturnType<typeof useTypingEngine>
-  audio: any; // ReturnType<typeof useAudioEngine>
-  rpg: any; // ReturnType<typeof useRPGSystem>
-  particles: any; // ReturnType<typeof useParticles>
-  gameConfig: any; // game.configRef.current
-  gameActions: any; // ReturnType<typeof useGameConfig>
-  
+  typing: ReturnType<typeof useTypingEngine>;
+  audio: ReturnType<typeof useAudioEngine>;
+  rpg: ReturnType<typeof useRPGSystem>;
+  particles: ReturnType<typeof useParticles>;
+  gameConfig: GameConfigState;
+  gameActions: ReturnType<typeof useGameConfig>;
+
   activeModal: string | null;
   raceActive: boolean;
   theme: Theme;
   tetrisEffect: boolean;
-  
+
   onUnlockGodMode: () => void;
   onReset: () => void;
   onExitMicroDrill: () => void;
@@ -35,6 +41,8 @@ export function TypingController({
   onExitMicroDrill,
 }: TypingControllerProps) {
   
+  const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Use a ref to store the latest props so the keydown listener doesn't need to re-bind
   // and trigger GC thrashing on every keystroke.
   const stateRef = useRef({
@@ -50,6 +58,14 @@ export function TypingController({
       onUnlockGodMode, onReset, onExitMicroDrill
     });
   });
+
+  useEffect(() => {
+    return () => {
+      if (shakeTimeoutRef.current) {
+        clearTimeout(shakeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -183,18 +199,24 @@ export function TypingController({
           audio.playSound('error');
           typing.setCombo(0);
           typing.comboRef.current = 0;
+          if (shakeTimeoutRef.current) {
+            clearTimeout(shakeTimeoutRef.current);
+          }
           typing.setShake(true);
-          setTimeout(() => typing.setShake(false), 200);
+          shakeTimeoutRef.current = setTimeout(() => {
+            typing.setShake(false);
+            shakeTimeoutRef.current = null;
+          }, 200);
           if (cfg.stickyKeysMode) gameActions.setStickyPenalty(3);
           if (cfg.suddenDeath) {
             typing.finishTest(now, nextInput);
             return;
           }
         } else {
-          const nextCombo = typing.combo + 1;
+          const nextCombo = typing.comboRef.current + 1;
           typing.comboRef.current = nextCombo;
           typing.setCombo(nextCombo);
-          if (nextCombo > typing.maxCombo) typing.setMaxCombo(nextCombo);
+          typing.setMaxCombo((prev: number) => Math.max(prev, nextCombo));
           audio.playSound('key');
 
           if (tetrisEffect || nextCombo >= 50) {

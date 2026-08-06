@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Users, Copy, Check, Play, Crown, Flag, LogOut, Swords, Link, Activity, Target } from 'lucide-react';
 import { generateText, type Theme, type Level, type CodeLanguage } from '@/data/constants';
 import type { RacerState, RaceStatus, RaceConfig } from '@/hooks/useRace';
@@ -35,7 +35,7 @@ interface RaceModalProps {
   supabase?: SupabaseClient | null;
 }
 
-export const RaceModal = ({
+export const RaceModal = React.memo(({
   status, code, isHost, isRankedRoom, players, error, selfId, theme, roomSize,
   lobbyConfig, updateLobbyConfig,
   onCreate, onJoin, onStart, onLeave, onClose, initialCode,
@@ -54,12 +54,42 @@ export const RaceModal = ({
   const { cancel: mmCancel, clearMatch: mmClearMatch } = mm;
 
   const joinedMatchRef = useRef<string | null>(null);
+  const joinAttemptRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyCodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyLinkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoStartedRef = useRef(false);
+  const onStartRef = useRef(onStart);
+  const [noShowFor, setNoShowFor] = useState<string | null>(null);
+
+  useEffect(() => { onStartRef.current = onStart; });
+
+  /** Reset per-match refs so the player can queue for another ranked match. */
+  const resetMatchState = () => {
+    joinedMatchRef.current = null;
+    autoStartedRef.current = false;
+    joinAttemptRef.current = 0;
+    setNoShowFor(null);
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  };
+
+  /** Leave wrapper — resets per-match state so a rematch/requeue works. */
+  const handleLeave = () => {
+    resetMatchState();
+    onLeave();
+  };
 
   const handleClose = () => {
     if (isClosing) return;
     setIsClosing(true);
-    setTimeout(() => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = setTimeout(() => {
       mmCancel();
+      resetMatchState();
       onClose();
     }, 180);
   };
@@ -69,14 +99,52 @@ export const RaceModal = ({
     if (mmStatus !== 'found' || !mmRoomCode) return;
     if (joinedMatchRef.current === mmRoomCode) return;
     joinedMatchRef.current = mmRoomCode;
+    joinAttemptRef.current = 0;
 
     if (mmIsHost) {
       onCreate(username || name || 'GUEST', 2, true, mmRoomCode);
     } else {
-      onJoin(mmRoomCode, username || name || 'GUEST', true);
+      joinWithRetry(mmRoomCode);
     }
     mmClearMatch();
-  }, [mmStatus, mmRoomCode, mmIsHost, mmClearMatch, onCreate, onJoin, username, name]);
+  }, [mmStatus, mmRoomCode, mmIsHost, mmClearMatch, onJoin, username, name]);
+
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  // Clean up timers on unmount (BUG-21, BUG-22)
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+      if (copyCodeTimeoutRef.current) clearTimeout(copyCodeTimeoutRef.current);
+      if (copyLinkTimeoutRef.current) clearTimeout(copyLinkTimeoutRef.current);
+    };
+  }, []);
+
+  /**
+   * Guest side of a ranked match: the host emits `create_lobby` over Socket.io
+   * at roughly the same moment the guest receives the match-found broadcast.
+   * The socket room may not exist yet, so retry a few times with a short
+   * backoff instead of failing immediately with "Room not found".
+   */
+  function joinWithRetry(code: string) {
+    const attempt = () => {
+      joinAttemptRef.current += 1;
+      onJoin(code, username || name || 'GUEST', true);
+    };
+    attempt();
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    retryTimerRef.current = setTimeout(() => {
+      // Read from ref to avoid stale closure over `status`
+      const currentStatus = statusRef.current;
+      if (currentStatus === 'idle' || currentStatus === 'joining') {
+        if (joinAttemptRef.current < 5) {
+          attempt();
+        }
+      }
+    }, 1200);
+  }
 
   useEffect(() => {
     if (tab !== 'ranked' && mmStatus === 'searching') mmCancel();
@@ -87,10 +155,6 @@ export const RaceModal = ({
   const bothPresent = !!me && !!rival;
 
   // Ranked auto-start
-  const autoStartedRef = useRef(false);
-  const onStartRef = useRef(onStart);
-  useEffect(() => { onStartRef.current = onStart; });
-
   useEffect(() => {
     if (!isRankedRoom || status !== 'lobby' || !isHost || !bothPresent) return;
     if (autoStartedRef.current) return;
@@ -101,7 +165,6 @@ export const RaceModal = ({
     return () => clearTimeout(t);
   }, [isRankedRoom, status, isHost, bothPresent]);
 
-  const [noShowFor, setNoShowFor] = useState<string | null>(null);
   useEffect(() => {
     if (!isRankedRoom || status !== 'lobby' || bothPresent) return;
     const t = setTimeout(() => setNoShowFor(code), RANKED_NO_SHOW_MS);
@@ -113,22 +176,23 @@ export const RaceModal = ({
   const copyCode = () => {
     navigator.clipboard.writeText(code);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (copyCodeTimeoutRef.current) clearTimeout(copyCodeTimeoutRef.current);
+    copyCodeTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   const copyLink = () => {
     const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    if (copyLinkTimeoutRef.current) clearTimeout(copyLinkTimeoutRef.current);
+    copyLinkTimeoutRef.current = setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const canAct = username || name.trim().length > 0;
 
   const rankedCard = (p: RacerState | undefined, isSelf: boolean) => (
-    <div className={`flex-1 p-4 rounded-xl border font-mono flex flex-col items-center justify-center text-center transition-all ${
-      p ? (isSelf ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-purple-500/10 border-purple-500/30') : 'bg-slate-900/40 border-white/10'
-    }`}>
+    <div className={`flex-1 p-4 rounded-xl border font-mono flex flex-col items-center justify-center text-center transition-all ${p ? (isSelf ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-purple-500/10 border-purple-500/30') : 'bg-slate-900/40 border-white/10'
+      }`}>
       <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
         {p ? p.name : 'SEARCHING…'}
       </span>
@@ -149,15 +213,13 @@ export const RaceModal = ({
 
   return (
     <div
-      className={`fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 overflow-y-auto transition-opacity duration-200 ${
-        isClosing ? 'opacity-0' : 'opacity-100'
-      }`}
+      className={`fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 overflow-y-auto transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'
+        }`}
       onClick={handleClose}
     >
       <div
-        className={`glass-panel relative w-full max-w-lg max-h-[90vh] my-auto flex flex-col rounded-2xl border border-white/15 bg-slate-950/70 shadow-2xl shadow-cyan-950/30 overflow-hidden p-5 sm:p-6 min-h-0 font-mono ${
-          isClosing ? 'lucid-scale-exit' : 'lucid-scale'
-        }`}
+        className={`glass-panel relative w-full max-w-lg max-h-[90vh] my-auto flex flex-col rounded-2xl border border-white/15 bg-slate-950/70 shadow-2xl shadow-cyan-950/30 overflow-hidden p-5 sm:p-6 min-h-0 font-mono ${isClosing ? 'lucid-scale-exit' : 'lucid-scale'
+          }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Subtle Ambient Glow */}
@@ -194,21 +256,19 @@ export const RaceModal = ({
             <div className="flex bg-slate-900/60 p-1 rounded-xl border border-white/10 font-mono">
               <button
                 onClick={() => setTab('private')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                  tab === 'private'
-                    ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
-                    : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-                }`}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'private'
+                  ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                  }`}
               >
                 PRIVATE ROOM
               </button>
               <button
                 onClick={() => setTab('ranked')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
-                  tab === 'ranked'
-                    ? 'bg-purple-500/15 border border-purple-500/30 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.15)]'
-                    : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'ranked'
+                  ? 'bg-purple-500/15 border border-purple-500/30 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.15)]'
+                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                  }`}
               >
                 <Target size={13} /> RANKED 1V1
               </button>
@@ -236,11 +296,10 @@ export const RaceModal = ({
                       <button
                         key={size}
                         onClick={() => setSelectedSize(size as 2 | 3 | 4)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          selectedSize === size
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                            : 'text-zinc-400 hover:text-zinc-200'
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedSize === size
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                          }`}
                       >
                         {size} PLAYERS
                       </button>
@@ -251,11 +310,10 @@ export const RaceModal = ({
                 <button
                   onClick={() => canAct && onCreate(name.trim(), selectedSize)}
                   disabled={!canAct || status === 'joining'}
-                  className={`w-full py-3 rounded-xl font-bold text-xs tracking-wider border transition-all flex items-center justify-center gap-2 ${
-                    canAct
-                      ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:scale-[1.02]'
-                      : 'bg-slate-900/40 border-white/5 text-zinc-600 cursor-not-allowed'
-                  }`}
+                  className={`w-full py-3 rounded-xl font-bold text-xs tracking-wider border transition-all flex items-center justify-center gap-2 ${canAct
+                    ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:scale-[1.02]'
+                    : 'bg-slate-900/40 border-white/5 text-zinc-600 cursor-not-allowed'
+                    }`}
                 >
                   <Users size={15} /> CREATE PRIVATE ROOM
                 </button>
@@ -277,11 +335,10 @@ export const RaceModal = ({
                   <button
                     onClick={() => canAct && joinCode.trim().length >= 5 && onJoin(joinCode, name.trim())}
                     disabled={!canAct || joinCode.trim().length < 5 || status === 'joining'}
-                    className={`flex-1 py-2.5 rounded-xl font-bold text-xs tracking-wider border transition-all ${
-                      canAct && joinCode.trim().length >= 5
-                        ? 'bg-slate-900/80 border-cyan-500/30 text-cyan-300 hover:bg-slate-800'
-                        : 'bg-slate-900/40 border-white/5 text-zinc-600 cursor-not-allowed'
-                    }`}
+                    className={`flex-1 py-2.5 rounded-xl font-bold text-xs tracking-wider border transition-all ${canAct && joinCode.trim().length >= 5
+                      ? 'bg-slate-900/80 border-cyan-500/30 text-cyan-300 hover:bg-slate-800'
+                      : 'bg-slate-900/40 border-white/5 text-zinc-600 cursor-not-allowed'
+                      }`}
                   >
                     {status === 'joining' ? 'JOINING…' : 'JOIN ROOM'}
                   </button>
@@ -293,11 +350,10 @@ export const RaceModal = ({
               <div className="flex flex-col gap-4">
                 <div className="bg-slate-900/50 border border-white/10 rounded-2xl p-6 flex flex-col items-center text-center relative overflow-hidden">
                   <div className="relative z-10 flex flex-col items-center">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${
-                      mm.state.status === 'searching'
-                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 animate-pulse'
-                        : 'bg-slate-800 text-zinc-400'
-                    }`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${mm.state.status === 'searching'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 animate-pulse'
+                      : 'bg-slate-800 text-zinc-400'
+                      }`}>
                       <Activity size={24} />
                     </div>
 
@@ -358,7 +414,7 @@ export const RaceModal = ({
             </p>
 
             <button
-              onClick={onLeave}
+              onClick={handleLeave}
               className="w-full py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all flex items-center justify-center gap-2"
             >
               <LogOut size={14} /> {noShow ? 'LEAVE' : 'FORFEIT & LEAVE'}
@@ -409,9 +465,8 @@ export const RaceModal = ({
                 </div>
 
                 {/* Length Selector */}
-                <div className={`flex justify-center bg-slate-900/60 p-1 rounded-xl border border-white/10 transition-opacity ${
-                  lobbyConfig.mode === 'QUOTES' ? 'opacity-30 pointer-events-none' : 'opacity-100'
-                }`}>
+                <div className={`flex justify-center bg-slate-900/60 p-1 rounded-xl border border-white/10 transition-opacity ${lobbyConfig.mode === 'QUOTES' ? 'opacity-30 pointer-events-none' : 'opacity-100'
+                  }`}>
                   <SegmentedControl
                     options={[10, 25, 50, 100].map((v) => ({ label: String(v), value: v }))}
                     value={lobbyConfig.words}
@@ -448,11 +503,10 @@ export const RaceModal = ({
                 {players.map((p) => (
                   <div
                     key={p.id}
-                    className={`flex items-center justify-between px-4 py-2.5 rounded-xl border font-mono transition-all ${
-                      p.id === selfId
-                        ? 'bg-cyan-500/10 border-cyan-500/30 text-white'
-                        : 'bg-slate-900/50 border-white/10 text-zinc-200'
-                    }`}
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-xl border font-mono transition-all ${p.id === selfId
+                      ? 'bg-cyan-500/10 border-cyan-500/30 text-white'
+                      : 'bg-slate-900/50 border-white/10 text-zinc-200'
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 text-xs font-bold uppercase">
@@ -493,11 +547,10 @@ export const RaceModal = ({
                   onStart(text);
                 }}
                 disabled={players.length < 2}
-                className={`w-full py-3 rounded-xl font-bold text-xs tracking-wider border transition-all flex items-center justify-center gap-2 ${
-                  players.length >= 2
-                    ? 'bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-[1.02] active:scale-100'
-                    : 'bg-slate-900/40 border-white/5 text-zinc-600 cursor-not-allowed'
-                }`}
+                className={`w-full py-3 rounded-xl font-bold text-xs tracking-wider border transition-all flex items-center justify-center gap-2 ${players.length >= 2
+                  ? 'bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-[1.02] active:scale-100'
+                  : 'bg-slate-900/40 border-white/5 text-zinc-600 cursor-not-allowed'
+                  }`}
               >
                 <Play size={16} fill="currentColor" />
                 {players.length >= 2 ? 'START RACE NOW' : 'NEED 2+ PLAYERS TO START'}
@@ -509,7 +562,7 @@ export const RaceModal = ({
             )}
 
             <button
-              onClick={onLeave}
+              onClick={handleLeave}
               className="w-full py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/30 transition-all flex items-center justify-center gap-2"
             >
               <LogOut size={14} /> LEAVE ROOM
@@ -527,9 +580,8 @@ export const RaceModal = ({
             {ranking.map((p, idx) => (
               <div
                 key={p.id}
-                className={`flex items-center justify-between px-4 py-3 rounded-xl border ${
-                  p.id === selfId ? 'bg-cyan-500/10 border-cyan-500/30 text-white' : 'bg-slate-900/50 border-white/10 text-zinc-200'
-                }`}
+                className={`flex items-center justify-between px-4 py-3 rounded-xl border ${p.id === selfId ? 'bg-cyan-500/10 border-cyan-500/30 text-white' : 'bg-slate-900/50 border-white/10 text-zinc-200'
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <span className={`font-extrabold text-xl ${idx === 0 ? 'text-amber-400' : 'text-zinc-500'}`}>
@@ -555,7 +607,7 @@ export const RaceModal = ({
             )}
 
             <button
-              onClick={onLeave}
+              onClick={handleLeave}
               className="w-full py-3 rounded-xl font-bold text-xs tracking-wider bg-slate-900/80 border border-white/15 text-zinc-300 hover:text-white hover:bg-slate-800 transition-all mt-2"
             >
               LEAVE ROOM
@@ -572,4 +624,4 @@ export const RaceModal = ({
       </div>
     </div>
   );
-};
+});

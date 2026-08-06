@@ -24,27 +24,21 @@ const useSyntaxHighlighter = (text: string, isActive: boolean) => {
     const colors = new Array(text.length).fill('');
     if (!isActive) return colors;
     
-    let match;
-
-    REGEX_KEYWORDS.lastIndex = 0;
-    while ((match = REGEX_KEYWORDS.exec(text)) !== null) {
+    for (const match of text.matchAll(REGEX_KEYWORDS)) {
       for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-purple-400';
     }
 
-    REGEX_STRINGS.lastIndex = 0;
-    while ((match = REGEX_STRINGS.exec(text)) !== null) {
+    for (const match of text.matchAll(REGEX_STRINGS)) {
       for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-emerald-400';
     }
 
-    REGEX_NUMBERS.lastIndex = 0;
-    while ((match = REGEX_NUMBERS.exec(text)) !== null) {
+    for (const match of text.matchAll(REGEX_NUMBERS)) {
       for (let i = match.index; i < match.index + match[0].length; i++) {
         if (!colors[i]) colors[i] = 'text-orange-400';
       }
     }
 
-    REGEX_FUNCS.lastIndex = 0;
-    while ((match = REGEX_FUNCS.exec(text)) !== null) {
+    for (const match of text.matchAll(REGEX_FUNCS)) {
       const isKeyword = ['if', 'for', 'while', 'catch'].includes(match[1]);
       if (!isKeyword) {
         for (let i = match.index; i < match.index + match[1].length; i++) {
@@ -53,20 +47,17 @@ const useSyntaxHighlighter = (text: string, isActive: boolean) => {
       }
     }
 
-    REGEX_COMMENTS.lastIndex = 0;
-    while ((match = REGEX_COMMENTS.exec(text)) !== null) {
+    for (const match of text.matchAll(REGEX_COMMENTS)) {
       for (let i = match.index; i < match.index + match[0].length; i++) colors[i] = 'text-zinc-600 font-normal italic';
     }
 
-    REGEX_HTML_TAGS.lastIndex = 0;
-    while ((match = REGEX_HTML_TAGS.exec(text)) !== null) {
+    for (const match of text.matchAll(REGEX_HTML_TAGS)) {
       for (let i = match.index; i < match.index + match[0].length; i++) {
         if (!colors[i]) colors[i] = 'text-pink-400';
       }
     }
 
-    REGEX_CSS_PROPS.lastIndex = 0;
-    while ((match = REGEX_CSS_PROPS.exec(text)) !== null) {
+    for (const match of text.matchAll(REGEX_CSS_PROPS)) {
       for (let i = match.index; i < match.index + match[1].length; i++) {
         if (!colors[i]) colors[i] = 'text-cyan-400';
       }
@@ -447,15 +438,21 @@ function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
       });
     };
 
-    const resizeObserver = new ResizeObserver(() => requestAnimationFrame(measure));
+    let rafId: number;
+    const scheduleMeasure = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(measure);
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
     resizeObserver.observe(container);
 
-    const handleResize = () => requestAnimationFrame(measure);
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', scheduleMeasure);
 
     return () => {
       resizeObserver.disconnect();
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', scheduleMeasure);
+      cancelAnimationFrame(rafId);
     };
   }, [containerRef, targetText]);
 

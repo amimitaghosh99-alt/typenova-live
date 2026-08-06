@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Award, Zap, Target, ShieldCheck, ChevronDown, Check, Loader2, User } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Theme } from '@/data/constants';
@@ -30,7 +30,7 @@ interface PlayerProfileModalProps {
   };
 }
 
-export function PlayerProfileModal({
+export const PlayerProfileModal = React.memo(function PlayerProfileModal({
   targetUsername,
   onClose,
   supabase,
@@ -44,12 +44,19 @@ export function PlayerProfileModal({
   const [showBadgeSelector, setShowBadgeSelector] = useState(false);
   const [equippedTitleId, setEquippedTitleId] = useState<string>('novice');
   const [isClosing, setIsClosing] = useState(false);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isOwnProfile = !!(
     targetUsername &&
     localUsername &&
     targetUsername.toLowerCase() === localUsername.toLowerCase()
   );
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!targetUsername) return;
@@ -119,7 +126,8 @@ export function PlayerProfileModal({
   const handleClose = () => {
     if (isClosing) return;
     setIsClosing(true);
-    setTimeout(onClose, 180);
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = setTimeout(onClose, 180);
   };
 
   const handleSelectTitle = async (titleId: string) => {
@@ -382,4 +390,4 @@ export function PlayerProfileModal({
       </div>
     </div>
   );
-}
+});

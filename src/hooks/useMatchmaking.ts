@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { ROOM_ALPHABET } from './useRace';
 
 export interface MatchmakingState {
   status: 'idle' | 'searching' | 'found';
@@ -13,8 +14,10 @@ export interface MatchmakingState {
 /** Where this client sits in the offer → accept → confirm handshake. */
 type Role = 'none' | 'offering' | 'accepting' | 'locked';
 
-const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const makeRoomCode = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join('');
+// Room codes must match the Socket.io lobby codes (6 chars, same alphabet)
+// so ranked matches never produce codes that fail the App.tsx ?room= check
+// or the 6-char join validation in RaceModal.
+const makeRoomCode = () => Array.from({ length: 6 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join('');
 
 const HANDSHAKE_TIMEOUT_MS = 3000;
 

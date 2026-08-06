@@ -1,16 +1,31 @@
-# Project: TypeNova ChangelogModal Overhaul
+# Project: TypeNova Bug Fixes (BUG-19 to BUG-25)
 
 ## Architecture
-- Component: `src/components/ChangelogModal.tsx`
-- CSS Tokens: `src/index.css` (`.glass-panel`, `lucid-scale`, `lucid-fade-up`, `var(--ease-apple)`, `var(--ease-out-expo)`, JetBrains Mono font `font-mono`)
-- Accent scheme: Dark bg (`#0a0a0f`), Cyan primary (`text-cyan-400`, `border-cyan-500/30`), Zinc secondary text.
+- React / TypeScript codebase for TypeNova frontend.
+- Custom hooks (`useFriends.ts`), components (`TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`), and main application container (`App.tsx`).
+
+## Feature Inventory
+| # | Feature / Bug | Description | Milestone | Source |
+|---|---------------|-------------|-----------|--------|
+| 1 | BUG-19 | Track and clear 4 unmounted component timeouts in `useFriends.ts` | M1 | ORIGINAL_REQUEST |
+| 2 | BUG-20 | Track and clear `setShake` timeout in `TypingController.tsx` | M1 | ORIGINAL_REQUEST |
+| 3 | BUG-21 | Track and clear exit animation timeouts in `RaceModal.tsx`, `SocialModal.tsx`, and `PlayerProfileModal.tsx` | M1 | ORIGINAL_REQUEST |
+| 4 | BUG-23 | Memoize inline callbacks passed to `StatsDashboard` and `ChangelogModal` in `App.tsx` | M2 | ORIGINAL_REQUEST |
+| 5 | BUG-24 | Properly include `typing.input`, `auth.session`, and `supabase` in auto-save dependency arrays in `App.tsx`, resolving eslint suppression | M2 | ORIGINAL_REQUEST |
+| 6 | BUG-25 | Add `typing` to dependency array of rematch effect in `App.tsx` | M2 | ORIGINAL_REQUEST |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | ChangelogModal Overhaul (R1-R4 + Search Bar Removal) | Redesign `ChangelogModal.tsx` to strip all nested backdrop-blur-* classes, use `.glass-panel` on container, compact layout (reduced padding/spacing/font size, narrow timeline sidebar `w-36`, dense change cards `divide-y divide-white/5`), JetBrains Mono font (`font-mono`), cyan accents, remove mismatched black/uppercase headers, remove search bar, and apply `lucid-scale` entrance animation | None | DONE |
-| 2 | Verification & Audit | `npx tsc --noEmit` check, JSX code audit for zero nested backdrop-blur, `npm run build` check, JetBrains Mono font audit, glass-panel container check, lucid-scale animation check, forensic integrity audit | M1 | DONE |
+| 1 | M1: Fix Timeout Memory Leaks | `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx` | None | DONE |
+| 2 | M2: Fix React Rendering & Dependencies | `App.tsx`, `ChangelogModal.tsx` | None | DONE |
+| 3 | Verification & Audit | Full project build (`tsc --noEmit`), code audit & forensic audit | M1, M2 | DONE |
 
 ## Code Layout
-- `src/components/ChangelogModal.tsx`: The overhauled modal component.
-- `src/index.css`: App global styles including body font-family set to `'JetBrains Mono'`.
+- `src/hooks/useFriends.ts`
+- `src/components/TypingController.tsx`
+- `src/components/RaceModal.tsx`
+- `src/components/SocialModal.tsx`
+- `src/components/PlayerProfileModal.tsx`
+- `src/App.tsx`
+- `src/components/ChangelogModal.tsx`

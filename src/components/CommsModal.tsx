@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Send, Sparkles, MessageSquare, Video } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FriendData } from '@/hooks/useFriends';
@@ -12,7 +12,7 @@ interface CommsModalProps {
   onClose: () => void;
 }
 
-export function CommsModal({ supabase, userId, friends, onClose }: CommsModalProps) {
+export const CommsModal = React.memo(function CommsModal({ supabase, userId, friends, onClose }: CommsModalProps) {
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -243,4 +243,4 @@ export function CommsModal({ supabase, userId, friends, onClose }: CommsModalPro
       </div>
     </div>
   );
-}
+});

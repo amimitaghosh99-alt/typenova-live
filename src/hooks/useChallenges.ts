@@ -27,6 +27,11 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
   const expireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAcceptedRef = useRef(onAccepted);
   useEffect(() => { onAcceptedRef.current = onAccepted; }, [onAccepted]);
+  useEffect(() => {
+    return () => {
+      if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
+    };
+  }, []);
 
   // Subscribe to incoming challenges when logged in
   useEffect(() => {

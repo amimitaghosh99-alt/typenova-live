@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { LogIn, Fingerprint, Keyboard, Sparkles, Orbit, Hexagon, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,6 +7,13 @@ export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   // If already logged in, redirect to home
   useEffect(() => {
@@ -19,7 +26,8 @@ export function Login() {
     setIsSigningIn(true);
     await signInWithGoogle();
     // In case of error or failure to redirect, reset
-    setTimeout(() => setIsSigningIn(false), 3000);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setIsSigningIn(false), 3000);
   };
 
   return (

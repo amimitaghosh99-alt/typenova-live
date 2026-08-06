@@ -29,7 +29,7 @@ export function calculatePlayerTitle(
     for (const interval of intervals) {
       if (interval.rankings[0] === player.id) {
         timeInRank1++;
-      } else if (interval.rankings.includes(player.id)) {
+      } else if (interval.rankings.slice(1, 4).includes(player.id)) {
         timeInRank2to4++;
       }
     }

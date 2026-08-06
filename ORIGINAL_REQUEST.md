@@ -73,3 +73,32 @@ The modal must use the app's existing `lucid-scale` entrance animation class. No
 
 Additional requirement from the user: **Remove the search bar entirely** from the ChangelogModal. Delete the search input, the `searchQuery` state, and all filtering logic. The changelog should simply display all entries in order with no search functionality.
 
+## Follow-up — 2026-08-06T06:24:25Z
+
+Fix the remaining 6 Low-Severity bugs identified in the `full_codebase_scan.md` report, focusing on memory leaks (untracked timeouts), missing dependencies, and React performance issues (inline callbacks).
+
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
+Integrity mode: development
+
+## Requirements
+
+### R1. Fix Timeout Memory Leaks
+Track and clear all identified unmounted component timeouts:
+- 4 instances in `useFriends.ts` (BUG-19)
+- `setShake` timeout in `TypingController.tsx` (BUG-20)
+- Exit animation timeouts in `RaceModal.tsx`, `SocialModal.tsx`, and `PlayerProfileModal.tsx` (BUG-21)
+
+### R2. Fix React Rendering & Dependency Issues
+- Memoize the inline callbacks passed to `StatsDashboard` and `ChangelogModal` in `App.tsx` (BUG-23)
+- Properly include `typing.input`, `auth.session`, and `supabase` in the auto-save dependency arrays in `App.tsx`, resolving the eslint suppression (BUG-24)
+- Add `typing` to the dependency array of the rematch effect in `App.tsx` (BUG-25)
+
+## Acceptance Criteria
+
+### Leak Prevention
+- [ ] No `setTimeout` calls exist in the specified files without a corresponding `clearTimeout` on component unmount.
+
+### React Performance & Correctness
+- [ ] `StatsDashboard` and `ChangelogModal` receive stable function references via `useCallback`.
+- [ ] The auto-save effects in `App.tsx` no longer use `eslint-disable-next-line react-hooks/exhaustive-deps`.
+- [ ] The `tsc --noEmit` build passes with 0 errors.

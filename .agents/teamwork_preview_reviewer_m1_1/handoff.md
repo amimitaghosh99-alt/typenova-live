@@ -1,75 +1,79 @@
-# Code Review and Handoff Report — M1 Changelog Modal Redesign
-
-## Verdict
-**APPROVE**
-
----
+# Code Review Handoff Report
 
 ## 1. Observation
-Direct observations from code inspection and terminal commands in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`:
 
-1. **R1 (Glass Panel & Blur Utility Usage)**:
-   - File `src/components/ChangelogModal.tsx`: Exactly 0 instances of `backdrop-blur-*` or `backdrop-blur` classes.
-   - Outer modal container (line 196) and inner release card wrappers (line 339) both use `.glass-panel`.
-   - File `src/index.css` (lines 115–148): `.glass-panel` defines base dark glass background (`linear-gradient(135deg, rgba(255,255,255,0.14)...), rgba(18, 18, 22, 0.65)`), border (`rgba(255, 255, 255, 0.14)`), box-shadows, specular rim (`::after`), and progressive frosted glass enhancement under `@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))`.
+### Codebase Audits & Evidence
 
-2. **R2 (Compact Layout & Structural Density)**:
-   - Sidebar width (line 280): `<div className="hidden md:flex flex-col w-36 shrink-0 border-r border-white/10 bg-slate-950/40 p-2 overflow-y-auto custom-scrollbar min-h-0">` -> strictly `w-36`.
-   - Change items (lines 366–385): Contained within a single `<div className="divide-y divide-white/5 bg-white/[0.02] border border-white/5 rounded-lg overflow-hidden">` container. Individual items use `px-2.5 py-1.5 flex items-start gap-2 hover:bg-white/[0.04] transition-colors` with no card-per-item wrappers.
-   - Spatial density: Padding reduced (`p-3.5 sm:p-4`), badge font sizes (`text-[9px]`, `text-[10px]`), compact impact track height (`h-1.5`).
+1. **BUG-19 (`src/hooks/useFriends.ts`)**:
+   - `errorTimeoutRef` declared on line 24: `const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);`.
+   - `clearErrorTimeout` callback declared on lines 26–31 using `useCallback` to clear `errorTimeoutRef.current` and set it to `null`.
+   - `setErrorWithTimeout` helper defined on lines 33–42 calling `clearErrorTimeout()` prior to initializing a 3000ms `setTimeout`.
+   - Error setters across `addFriend` (lines 152, 156, 197) and `acceptRequest` (line 229) use `setErrorWithTimeout`.
+   - `useEffect` cleanup hook on lines 44–48 calls `clearErrorTimeout()` on component unmount.
+   - `initTimer` on line 285 is cleared on line 288 and line 315 upon unmount.
 
-3. **R3 (Typography & Accent Color Tokens)**:
-   - Font stack: `@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap')` at line 2 of `src/index.css`. `body` font family set to `'JetBrains Mono', ui-monospace, monospace` (line 77).
-   - Component typography: All text elements in `src/components/ChangelogModal.tsx` explicitly apply `font-mono`.
-   - `font-sans` classes: 0 occurrences.
-   - Ad-hoc purple/indigo color tokens: 0 occurrences.
-   - Cyan accent tokens: Consistently used (`text-cyan-400`, `border-cyan-500/30`, `bg-cyan-500/10`, `text-cyan-300`, `shadow-cyan-950/30`).
-   - Zinc text tokens: Consistently used (`text-zinc-200`, `text-zinc-300`, `text-zinc-400`, `text-zinc-500`).
-   - Header typography: Heavy mismatched headers (`font-black uppercase tracking-widest`) are completely removed (0 occurrences of `font-black` or `tracking-widest`).
+2. **BUG-20 (`src/components/TypingController.tsx`)**:
+   - `shakeTimeoutRef` declared on line 44: `const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);`.
+   - In `handleKeyDown` on error (lines 202–209), existing `shakeTimeoutRef.current` is cleared before scheduling a 200ms `setTimeout`.
+   - `useEffect` cleanup hook on lines 62–68 clears `shakeTimeoutRef.current` on component unmount.
 
-4. **R4 (Animation Architecture)**:
-   - Outer modal container (line 196) includes `lucid-scale` class.
-   - `src/index.css` (lines 202–205, 234–238) defines `@keyframes lucid-scale-in` and `.lucid-scale` with `animation: lucid-scale-in 0.5s var(--ease-apple) forwards`.
-   - Custom `animate-in` plugin classes (e.g. `zoom-in`, `fade-in` from tailwindcss-animate): 0 occurrences.
+3. **BUG-21 (`RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`)**:
+   - `RaceModal.tsx`:
+     - Refs declared on lines 58–61: `retryTimerRef`, `closeTimeoutRef`, `copyCodeTimeoutRef`, `copyLinkTimeoutRef`.
+     - `handleClose` clears `closeTimeoutRef` before setting a 180ms timeout (lines 89–94).
+     - `joinWithRetry` clears `retryTimerRef` before setting a 1200ms timeout (lines 137–147).
+     - `copyCode` and `copyLink` clear `copyCodeTimeoutRef` and `copyLinkTimeoutRef` before setting 2000ms timeouts (lines 176–189).
+     - `useEffect` cleanup hook on lines 116–123 clears all 4 refs on unmount.
+   - `SocialModal.tsx`:
+     - Ref declared on line 24: `closeTimeoutRef`.
+     - `handleClose` clears `closeTimeoutRef` before setting 180ms exit timeout (lines 26–33).
+     - `useEffect` cleanup hook on lines 35–39 clears `closeTimeoutRef` on unmount.
+   - `PlayerProfileModal.tsx`:
+     - Ref declared on line 47: `closeTimeoutRef`.
+     - `handleClose` clears `closeTimeoutRef` before setting 180ms exit timeout (lines 126–131).
+     - `useEffect` cleanup hook on lines 55–59 clears `closeTimeoutRef` on unmount.
 
-5. **Search Bar Removal**:
-   - `searchQuery` state variable, search input element, clear search button, and release filtering functions are completely removed. `CHANGELOG.map(...)` renders releases directly.
+4. **BUG-23 (`src/App.tsx` & `src/components/ChangelogModal.tsx`)**:
+   - `handleStartWeaknessDrill` in `App.tsx` (lines 916–921) is wrapped in `useCallback` with dependency array `[typing.setTargetText, typing.resetEngine]`.
+   - Passed to `StatsDashboard` alongside `handleCloseModal` (lines 1677–1685).
+   - `ChangelogModal.tsx` component export (line 24) is wrapped in `React.memo` (`memo(function ChangelogModal ...)`).
 
-6. **Build & Type Check Execution**:
-   - `npx tsc --noEmit`: Executed cleanly with exit code 0 and 0 errors.
-   - `npm run build`: Executed cleanly with exit code 0 (`tsc -b && vite build` completed in 10.39s, transforming 1788 modules and outputting `dist/assets/index-5vwpEThB.css` and `dist/assets/index-MX85DJkw.js`).
+5. **BUG-24 (`src/App.tsx`)**:
+   - Auto-save `useEffect` (lines 647–690) lists all dependencies in its array: `[autoSave, auth.session, cloud.username, fetchDailyBoard, fetchLeaderboard, finishDurationMs, game.dailyActive, game.microDrillActive, supabase, typing.accuracy, typing.endTime, typing.input, typing.phase, typing.timePenalty, typing.wpm]`.
+   - No `eslint-disable-next-line react-hooks/exhaustive-deps` suppression comment is present.
 
-7. **Integrity Violation Assessment**:
-   - Hardcoded test outputs: None found.
-   - Facade/dummy implementations: None found.
-   - Task shortcuts/bypasses: None found.
-   - Fabricated verification logs: None. Command outputs verified via shell execution.
+6. **BUG-25 (`src/App.tsx`)**:
+   - Rematch `useEffect` (lines 359–365) dependency array includes `[race.status, raceActive, typing.setPhase]`.
+
+7. **Type Safety & Build Check**:
+   - Command: `npx tsc --noEmit`
+   - Result: Exited with code `0`, zero errors.
+
+8. **Integrity Violation Check**:
+   - Verified no hardcoded test results, facade implementations, or bypassed verification.
 
 ---
 
 ## 2. Logic Chain
 
-1. **R1 Evaluation**: The prompt specified zero `backdrop-blur-*` classes in `ChangelogModal.tsx` and delegating frosted glass to `.glass-panel`. Code analysis confirmed zero `backdrop-blur` classes in `ChangelogModal.tsx`, while `.glass-panel` in `src/index.css` handles backdrop blur progressively via `@supports`. Therefore, R1 is satisfied.
-
-2. **R2 Evaluation**: The prompt required a narrow sidebar (`w-36`), dense divide-y list for change items (no card-per-item bloat), and reduced padding/spacing/font sizes. Code inspection confirmed `w-36` on the sidebar navigation, a single `divide-y divide-white/5` wrapper for change items with `px-2.5 py-1.5` padding, and reduced font sizes throughout (`text-xs` / `text-[9px]`). Therefore, R2 is satisfied.
-
-3. **R3 Evaluation**: The prompt required `JetBrains Mono` (`font-mono`) font usage, removal of `font-sans`, replacement of ad-hoc purple/indigo tokens with cyan accent tokens and zinc text, and removal of `font-black uppercase tracking-widest`. Code inspection confirmed 0 `font-sans` classes, 0 purple/indigo classes, explicit `font-mono` on all text elements, standard use of `cyan-*` and `zinc-*` palette tokens, and 0 occurrences of `font-black` or `tracking-widest`. Therefore, R3 is satisfied.
-
-4. **R4 Evaluation**: The prompt required `lucid-scale` on the outer modal container and no custom `animate-in` plugin classes. Code inspection confirmed `lucid-scale` on line 196 of `ChangelogModal.tsx`, defined in `src/index.css`, with zero `animate-in` classes. Therefore, R4 is satisfied.
-
-5. **Search Bar Removal Evaluation**: The prompt required complete removal of search input, `searchQuery` state, clear search button, and filtering logic. Code inspection confirmed none of these entities remain in `ChangelogModal.tsx`. Therefore, search bar removal is satisfied.
-
-6. **Build Verification Evaluation**: Running `npx tsc --noEmit` and `npm run build` directly in the project root confirmed zero TypeScript errors and a successful production build asset output.
+- **Memory Leak Mitigation**: Each component managing async state or transient UI timers (`useFriends`, `TypingController`, `RaceModal`, `SocialModal`, `PlayerProfileModal`) now explicitly tracks `setTimeout` return values in `useRef` containers. Pre-existing timers are cleared before starting new ones, preventing stale callback accumulation. Unmount cleanup hooks guarantee that no callbacks fire on unmounted React component instances.
+- **React Performance & Stability**: Wrapping `handleStartWeaknessDrill` in `useCallback` with exact hooks dependencies (`typing.setTargetText` and `typing.resetEngine`) and wrapping `ChangelogModal` in `React.memo` prevents unnecessary component re-renders when parent state changes.
+- **Hook Exhaustive Dependencies**: Complete listing of dependencies in `App.tsx` auto-save and rematch effects ensures React state transitions execute with fresh closure references while maintaining clean ESLint compliance without suppression comments.
+- **Type Safety**: TypeScript compilation passes cleanly, confirming all ref types and callback signatures are strictly type-safe.
 
 ---
 
 ## 3. Caveats
-- No caveats. The codebase changes were inspected line-by-line and build commands passed cleanly.
+
+- No caveats. All 6 bug fixes (BUG-19, BUG-20, BUG-21, BUG-23, BUG-24, BUG-25) were directly inspected and verified against the exact prompt criteria.
 
 ---
 
 ## 4. Conclusion
-The implementation of `src/components/ChangelogModal.tsx` and `src/index.css` fulfills all specified requirements (R1, R2, R3, R4, search bar removal, build integrity) with zero regressions, zero integrity violations, and clean build/type checks.
+
+**Verdict**: **APPROVE**
+
+All code fixes for BUG-19 through BUG-25 satisfy the functional, memory-safety, and React performance requirements. No regression, memory leak, or integrity violation was found.
 
 ---
 
@@ -77,56 +81,15 @@ The implementation of `src/components/ChangelogModal.tsx` and `src/index.css` fu
 
 To independently verify these findings:
 
-1. **Verify R1 (Zero `backdrop-blur-*`)**:
-   ```powershell
-   Select-String -Path "src/components/ChangelogModal.tsx" -Pattern "backdrop-blur"
-   ```
-   *Expected result*: No matches found.
-
-2. **Verify R3 (Zero `font-sans`, purple/indigo, or `font-black`)**:
-   ```powershell
-   Select-String -Path "src/components/ChangelogModal.tsx" -Pattern "font-sans|purple|indigo|font-black|tracking-widest"
-   ```
-   *Expected result*: No matches found.
-
-3. **Verify Search Bar Removal**:
-   ```powershell
-   Select-String -Path "src/components/ChangelogModal.tsx" -Pattern "searchQuery|Search"
-   ```
-   *Expected result*: No matches found.
-
-4. **Run TypeScript Check**:
-   ```powershell
+1. Run TypeScript type check:
+   ```bash
    npx tsc --noEmit
    ```
-   *Expected result*: Exits with code 0 and no output errors.
+   Confirm exit code 0 and no type errors.
 
-5. **Run Production Build**:
-   ```powershell
-   npm run build
-   ```
-   *Expected result*: Exits with code 0 (`✓ built in ...`).
-
----
-
-## Verified Claims
-
-- `backdrop-blur-*` classes in `ChangelogModal.tsx` → verified via grep → PASS (0 occurrences)
-- `.glass-panel` handles background/frosted glass → verified via `src/index.css` → PASS
-- Sidebar width `w-36` → verified via `src/components/ChangelogModal.tsx:280` → PASS
-- Dense divide-y list without item card bloat → verified via `src/components/ChangelogModal.tsx:366-385` → PASS
-- `font-mono` usage & removal of `font-sans` → verified via grep → PASS (0 `font-sans`)
-- Cyan accent tokens & zinc text system → verified via code inspection → PASS
-- Removal of heavy uppercase headers (`font-black uppercase tracking-widest`) → verified via grep → PASS (0 `font-black`, 0 `tracking-widest`)
-- `lucid-scale` outer animation & 0 `animate-in` plugin classes → verified via code & css inspection → PASS
-- Search input, state, and filtering removal → verified via code inspection → PASS
-- TypeScript check (`npx tsc --noEmit`) → verified via terminal command → PASS (0 errors)
-- Production build (`npm run build`) → verified via terminal command → PASS (`built in 10.39s`)
-
-## Coverage Gaps
-- None identified.
-
-## Adversarial Stress-Test Summary
-- **Empty `CHANGELOG` safety**: Code safely uses `CHANGELOG[0]?.version || ''` and default fallback strings to prevent runtime null dereferencing.
-- **Optional impact metric fields**: Safely coalesced using `?? 0` operators.
-- **Responsiveness**: Responsive classes (`hidden md:flex`, `p-3.5 sm:p-4`, `w-full max-w-4xl`) ensure proper display across mobile and desktop breakpoints.
+2. Code inspection points:
+   - `src/hooks/useFriends.ts`: Inspect `errorTimeoutRef`, `clearErrorTimeout`, `setErrorWithTimeout`, and `useEffect` unmount cleanup.
+   - `src/components/TypingController.tsx`: Inspect `shakeTimeoutRef` and unmount cleanup.
+   - `src/components/RaceModal.tsx`, `src/components/SocialModal.tsx`, `src/components/PlayerProfileModal.tsx`: Inspect exit and clipboard timeout refs and unmount cleanup.
+   - `src/App.tsx`: Inspect `handleStartWeaknessDrill` `useCallback` dependencies `[typing.setTargetText, typing.resetEngine]`, auto-save effect dep array, and rematch effect dep array.
+   - `src/components/ChangelogModal.tsx`: Inspect `memo` export wrapper.

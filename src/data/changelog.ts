@@ -18,6 +18,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.0.1',
+    date: 'August 10, 2026',
+    title: 'Academy & Massive UI Overhaul 🎓',
+    changes: [
+      { type: 'feature', description: 'Academy curriculum and progression system, including CyberHands and VirtualKeyboard.' },
+      { type: 'feature', description: 'Profile Customization Menu with Avatars and Banners.' },
+      { type: 'feature', description: 'New `useAcademyEngine` hook for academy mechanics.' },
+      { type: 'tweak', description: 'Extensive UI refactoring and removal of deprecated components like VSLobby.' },
+      { type: 'tweak', description: 'Improved Stats Dashboard, Player Profile Modal, and Results screen.' }
+    ],
+    impact: {
+      fixes: 2,
+      tweaks: 15,
+      linesChanged: 8500,
+      perfGain: 'Cleaner bundle & faster rendering'
+    }
+  },
+  {
     version: 'v1.6.5',
     date: 'August 6, 2026',
     title: 'Post-Match Chat Updates & Agents 🤖',

@@ -1,49 +1,46 @@
-# Handoff Report: TypeNova Bug Fixes (BUG-19 to BUG-25)
+# Orchestrator Final Handoff & Victory Claim — CyberHands Realignment & Kinematics
 
-## 1. Observation
-All 6 low-severity bugs (BUG-19, BUG-20, BUG-21, BUG-23, BUG-24, BUG-25) have been fixed, verified, and audited across 7 target files in `src/`:
+## Project Overview
+The CyberHands alignment, coordinate mapping, anatomical kinematics, and holographic aesthetic refinement for TypeNova v2 have been fully completed, verified, and audited across 5 milestones.
 
-1. **BUG-19 (`src/hooks/useFriends.ts`)**: Added `errorTimeoutRef` to track error clearance timeouts across 4 instances, clearing prior timeouts before setting new ones and adding unmount cleanup in `useEffect`.
-2. **BUG-20 (`src/components/TypingController.tsx`)**: Added `shakeTimeoutRef` to track `setShake(false)`, clearing pending timeouts on rapid error keystrokes and adding unmount cleanup.
-3. **BUG-21 (`src/components/RaceModal.tsx`, `src/components/SocialModal.tsx`, `src/components/PlayerProfileModal.tsx`)**: Added ref tracking (`closeTimeoutRef`, `copyCodeTimeoutRef`, `copyLinkTimeoutRef`) for 180ms exit animation delays and 2000ms copy status delays with `useEffect` unmount cleanup across all 3 modals.
-4. **BUG-23 (`src/App.tsx` & `src/components/ChangelogModal.tsx`)**: Wrapped `handleStartWeaknessDrill` in `useCallback` with dependencies `[typing.setTargetText, typing.resetEngine]`, passed stable references (`handleCloseModal`, `handleStartWeaknessDrill`) to `StatsDashboard`, and wrapped `ChangelogModal` in `React.memo`.
-5. **BUG-24 (`src/App.tsx`)**: Updated auto-save effect dependency array to explicitly include `[autoSave, auth.session, cloud.username, fetchDailyBoard, fetchLeaderboard, finishDurationMs, game.dailyActive, game.microDrillActive, supabase, typing.accuracy, typing.endTime, typing.input, typing.phase, typing.timePenalty, typing.wpm]` and removed `// eslint-disable-next-line react-hooks/exhaustive-deps`.
-6. **BUG-25 (`src/App.tsx`)**: Added `typing.setPhase` to the rematch effect dependency array `[race.status, raceActive, typing.setPhase]`.
+## Final Milestone Summary
+| Milestone | Description | Status | Gate Verdict |
+|-----------|-------------|--------|--------------|
+| M1 | Technical Survey & Codebase Investigation | DONE | APPROVED |
+| M2 | Coordinate System Alignment & Key Mapping | DONE | PASSED GATE (CLEAN Audit) |
+| M3 | Anatomical Kinematics Engine | DONE | PASSED GATE (CLEAN Audit) |
+| M4 | Premium Holographic Aesthetic Refinement | DONE | PASSED GATE (CLEAN Audit) |
+| M5 | E2E Acceptance Verification & Final Audit | DONE | PASSED GATE (CLEAN Audit) |
 
-### Verification Results
-- **TypeScript Compilation (`npx tsc --noEmit`)**: 0 errors (Exit code 0).
-- **Code Review**: Both Reviewer 1 and Reviewer 2 issued **APPROVE** verdicts.
-- **Empirical Stress-Test**: Both Challenger 1 and Challenger 2 issued **APPROVE** verdicts.
-- **Forensic Integrity Audit**: Forensic Auditor issued **CLEAN** verdict.
+## E2E Acceptance Verification Results (Milestone 5)
+- **Code Reviewer 1 (`reviewer_m5_1`)**: `APPROVE` — Target components pass build/lint cleanly with zero warnings/errors; verified exact key coordinate targeting, zero palm detachment, and holographic visual layering.
+- **Code Reviewer 2 (`reviewer_m5_2`)**: `APPROVE` — Confirmed `npm run build` exit code 0 (`✓ built in 25.75s`); verified home row rest Y=76, active key touch points, and kinematic origin rotation.
+- **Adversarial Challenger 1 (`challenger_m5_1`)**: `APPROVE` — Passed 257/257 empirical test assertions across all 28 key states; verified 0.000px reach error and edge case resilience (empty key, unknown keys, lowercase keys).
+- **Adversarial Challenger 2 (`challenger_m5_2`)**: `APPROVE` — Verified 280 SVG render state points within `viewBox="0 0 552 400"`, 0 coordinate overflows, scale factors within [0.6, 1.8], rotation angles within [-60°, +60°], and 100% palm attachment integrity.
+- **Forensic Auditor (`auditor_m5_1`)**: `CLEAN` — Verified 0 hardcoded test stubs, facade implementations, mock overrides, or cheating shortcuts.
 
----
+## Key Accomplishments & Deliverables
+1. **Coordinate System Alignment (`VirtualKeyboard.tsx` & `CyberHands.tsx`)**:
+   - Added missing `;` key definition to `VirtualKeyboard.tsx` at $(518, 76)$.
+   - Fixed middle finger resting Y coordinate to $Y=76$ across home row ($A, S, D, F, J, K, L, ;$).
+   - Corrected Spacebar thumb routing logic and sonar ripple null check (`normalizedKey !== ""`).
+   - Fixed zIndex stacking (`zIndex: 1` ghost hands behind `zIndex: 2` VirtualKeyboard).
+2. **Anatomical Kinematics Engine (`CyberHands.tsx`)**:
+   - Anchored finger movement to MCP knuckle origins (`transformOrigin: ${f.mcp[0]}px ${f.mcp[1]}px`).
+   - Dynamically calculated finger rotation (`Math.atan2`) and extension (`Math.hypot`).
+   - Extended base finger contour paths into the palm socket mesh (`Y = 240..245`), achieving zero palm detachment.
+   - Calibrated container shift multipliers ($0.18$ X / $0.22$ Y).
+3. **Premium Holographic Aesthetic**:
+   - Dual layered SVG glow filters (`holo-emerald-glow` #00ff9d & `holo-cyan-glow` #00e5ff).
+   - Cyberpunk scanline overlay pattern `#scanlines`.
+   - Wireframe joint node circles (MCP, PIP, DIP), solid bone axis rays, pulsing luminous fingertips, and sonar ripple target beams.
 
-## 2. Logic Chain
-1. **R1 Leak Prevention**: Unmounted component timeouts cause memory leaks and console warnings when trying to invoke state setters post-unmount. Ref-based tracking (`useRef`) coupled with `clearTimeout` in `useEffect` cleanup guarantees all pending timers are cancelled before components unmount or when timers are re-triggered.
-2. **R2 Callback Stability & Re-render Prevention**: Passing inline arrow functions invalidates `React.memo` prop comparison on child components. Wrapping callbacks in `useCallback` with stable dependencies and wrapping `ChangelogModal` in `React.memo` preserves reference equality across parent re-renders.
-3. **R2 Exhaustive Effect Dependencies**: Auto-save and rematch effects referenced state/props outside their dependency arrays and relied on ESLint suppressions. By accessing primitive values and stable React setters (`useState` setters), all dependencies are listed in compliance with `react-hooks/exhaustive-deps`, while `hasAutoSavedRef.current` guards against duplicate RPC executions.
+## Verification & Build Status
+- **Build**: `npm run build` (`tsc -b && vite build`) -> Exit Code 0.
+- **Lint**: `npx eslint src/components/academy/CyberHands.tsx src/components/academy/VirtualKeyboard.tsx` -> Exit Code 0 (0 errors, 0 warnings).
 
----
-
-## 3. Caveats
-- None. All target files were updated cleanly with 0 TypeScript compilation errors and 0 lint suppressions.
-
----
-
-## 4. Conclusion
-All acceptance criteria have been satisfied:
-- No untracked `setTimeout` calls remain in the specified files.
-- `StatsDashboard` and `ChangelogModal` receive stable function references via `useCallback` / `React.memo`.
-- Auto-save effects in `App.tsx` no longer use `eslint-disable-next-line react-hooks/exhaustive-deps`.
-- `npx tsc --noEmit` build passes with 0 errors.
-- Forensic Auditor verdict is CLEAN.
-
----
-
-## 5. Verification Method
-1. Run `npx tsc --noEmit` from workspace root:
-   ```powershell
-   npx tsc --noEmit
-   ```
-   Expected output: 0 errors.
-2. Inspect target files for `setTimeout` ref cleanups, `useCallback`, `memo`, and exhaustive dependency arrays.
+## Final Artifact Paths
+- Master Project Plan: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\PROJECT.md`
+- Gate Status: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\GATE_STATUS.md`
+- Progress Log: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\progress.md`
+- Final Handoff: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\handoff.md`

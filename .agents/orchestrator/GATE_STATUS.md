@@ -1,19 +1,48 @@
-# Gate Status — Iteration 1
+# Gate Status — CyberHands Alignment & Kinematics
 
-## Gate Evaluation Summary
+## Gate — Milestone 2: Coordinate System Alignment & Key Mapping
 | Agent | Role | Verdict | Source |
 |-------|------|---------|--------|
-| Reviewer 1 (`b6cdc896`) | teamwork_preview_reviewer | APPROVE | handoff.md |
-| Reviewer 2 (`ba4f42`) | teamwork_preview_reviewer | APPROVE | handoff.md |
-| Challenger 1 (`8852f5`) | teamwork_preview_challenger | APPROVE | handoff.md |
-| Challenger 2 (`1660e1`) | teamwork_preview_challenger | APPROVE | handoff.md |
-| Auditor 1 (`b7c5ce`) | teamwork_preview_auditor | CLEAN | handoff.md |
+| worker_m2_1 | teamwork_preview_worker | DONE (build & lint passed) | handoff.md |
+| reviewer_m2_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| reviewer_m2_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m2_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m2_2 | teamwork_preview_challenger | APPROVE | handoff.md |
+| auditor_m2_1 | teamwork_preview_auditor | CLEAN | handoff.md |
 
-Gate Result: **PASS**
+Gate Result: **PASS** (Milestone 2 Approved)
 
-## Acceptance Criteria Checklist
-- [x] Leak Prevention: No `setTimeout` calls exist in `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, and `PlayerProfileModal.tsx` without a corresponding `clearTimeout` on component unmount or re-trigger.
-- [x] React Performance & Correctness:
-  - `StatsDashboard` and `ChangelogModal` receive stable function references via `useCallback` and `React.memo`.
-  - The auto-save effects in `App.tsx` no longer use `eslint-disable-next-line react-hooks/exhaustive-deps`.
-  - `tsc --noEmit` build passes with 0 errors.
+## Gate — Milestone 3: Anatomical Kinematics Engine
+| Agent | Role | Verdict | Source |
+|-------|------|---------|--------|
+| worker_m3_1 | teamwork_preview_worker | DONE (build & lint passed) | handoff.md |
+| reviewer_m3_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| reviewer_m3_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m3_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m3_2 | teamwork_preview_challenger | APPROVE | handoff.md |
+| auditor_m3_1 | teamwork_preview_auditor | CLEAN | handoff.md |
+
+Gate Result: **PASS** (Milestone 3 Approved)
+
+## Gate — Milestone 4: Premium Holographic Aesthetic Refinement
+| Agent | Role | Verdict | Source |
+|-------|------|---------|--------|
+| worker_m4_1 | teamwork_preview_worker | DONE (build & lint passed) | handoff.md |
+| reviewer_m4_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| reviewer_m4_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m4_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m4_2 | teamwork_preview_challenger | handoff.md |
+| auditor_m4_1 | teamwork_preview_auditor | CLEAN | handoff.md |
+
+Gate Result: **PASS** (Milestone 4 Approved)
+
+## Gate — Milestone 5: E2E Acceptance Verification & Final Audit
+| Agent | Role | Verdict | Source |
+|-------|------|---------|--------|
+| reviewer_m5_1 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| reviewer_m5_2 | teamwork_preview_reviewer | APPROVE | handoff.md |
+| challenger_m5_1 | teamwork_preview_challenger | APPROVE | handoff.md |
+| challenger_m5_2 | teamwork_preview_challenger | APPROVE | handoff.md |
+| auditor_m5_1 | teamwork_preview_auditor | CLEAN | handoff.md |
+
+Gate Result: **PASS** (Milestone 5 Approved - All Acceptance Criteria Verified)

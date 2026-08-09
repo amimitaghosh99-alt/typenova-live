@@ -1,39 +1,46 @@
-# BRIEFING — 2026-08-06T06:30:30Z
+# BRIEFING — 2026-08-08T16:55:00Z
 
 ## Mission
-Investigate R2 (BUG-24 and BUG-25): React Effect Dependency Arrays in `App.tsx` (auto-save and rematch effects) and produce structured analysis report and handoff.
+Investigate CyberHands.tsx, Keyboard.tsx, AcademyLesson.tsx and parent containers for key-to-finger mapping, layout alignment/scaling/positioning, and build/test status.
 
 ## 🔒 My Identity
-- Archetype: teamwork_preview_explorer
-- Roles: Explorer 3
+- Archetype: explorer
+- Roles: Teamwork explorer (read-only investigator)
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3
-- Original parent: a46e49ea-a72d-4322-9493-1863c23e4b93
-- Milestone: m1
+- Original parent: cad57904-ee65-48ec-ba4a-d2fd4999a71d
+- Milestone: m1_3
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement changes in source code
-- Investigate BUG-24 and BUG-25 in `src/App.tsx`
-- Write analysis to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3\analysis.md` and handoff report to `handoff.md`
+- Read-only investigation — do NOT implement code changes in src/
+- Follow 5-component handoff protocol in handoff.md
+- Send message to parent on completion
 
 ## Current Parent
-- Conversation ID: a46e49ea-a72d-4322-9493-1863c23e4b93
-- Updated: 2026-08-06T06:30:30Z
+- Conversation ID: cad57904-ee65-48ec-ba4a-d2fd4999a71d
+- Updated: 2026-08-08T16:55:00Z
 
 ## Investigation State
-- **Explored paths**: `src/App.tsx` (lines 359-365 rematch effect, 647-675 auto-save effect, all 6 exhaustive-deps suppressions), `src/hooks/useTypingEngine.ts`
+- **Explored paths**:
+  - `src/components/academy/CyberHands.tsx`
+  - `src/components/academy/VirtualKeyboard.tsx`
+  - `src/components/academy/AcademyLayout.tsx`
+  - `src/components/academy/AcademyEntry.tsx`
+  - `src/data/academyCurriculum.ts`
+  - `src/hooks/useAcademyEngine.ts`
+  - `package.json`, `tsconfig.json`, `tsconfig.app.json`
 - **Key findings**:
-  1. `useTypingEngine()` returns an unmemoized object on every render of `App.tsx`.
-  2. BUG-24: Auto-save effect can safely list all primitive/stable dependencies `[autoSave, auth.session, cloud.username, fetchDailyBoard, fetchLeaderboard, finishDurationMs, game.dailyActive, game.microDrillActive, supabase, typing.accuracy, typing.endTime, typing.input, typing.phase, typing.timePenalty, typing.wpm]` because `hasAutoSavedRef` guards against duplicate score submissions and early returns when not `FINISHED`.
-  3. BUG-25: Rematch effect calls `typing.setPhase('CONFIGURING')`. `setPhase` is a stable `useState` setter. Dep array should be `[race.status, raceActive, typing.setPhase]`.
-  4. Audit of all 6 `eslint-disable-next-line react-hooks/exhaustive-deps` lines completed.
-- **Unexplored areas**: None (investigation complete).
+  1. Key-to-finger mapping: Semicolon `;` missing from home row & mapping; Number row missing; spacebar correctly activates both thumbs.
+  2. Right hand alignment drift: 56px finger spacing vs 53px key spacing causes J (+17px), K (+20px), L (+23px), ; (+26px) drift.
+  3. Static fingertip elevation: Fingertips stay on home row even when target key is top or bottom row.
+  4. Layering & Scaling: CyberHands `zIndex: 5` overlays VirtualKeyboard `zIndex: 2`. Container width 552px fixed without responsive scaling.
+  5. Build & Test: TypeScript types valid; no test runner in project.
+- **Unexplored areas**: None.
 
 ## Key Decisions Made
-- Initialized briefing and dispatch tracking
-- Completed full analysis and handoff report
+- Completed full analysis across all 3 requested categories and prepared structured 5-component handoff report.
 
 ## Artifact Index
-- DISPATCH.md — record of incoming dispatch instructions
-- BRIEFING.md — persistent working memory index
-- analysis.md — detailed analysis report for BUG-24 and BUG-25
-- handoff.md — 5-component handoff report
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3\DISPATCH.md
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3\BRIEFING.md
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3\progress.md
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3\handoff.md

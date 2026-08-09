@@ -102,3 +102,75 @@ Track and clear all identified unmounted component timeouts:
 - [ ] `StatsDashboard` and `ChangelogModal` receive stable function references via `useCallback`.
 - [ ] The auto-save effects in `App.tsx` no longer use `eslint-disable-next-line react-hooks/exhaustive-deps`.
 - [ ] The `tsc --noEmit` build passes with 0 errors.
+
+## Follow-up — 2026-08-08T16:42:53Z
+
+Rebuild the TypeNova Academy hand guidance overlay component (`CyberHands.tsx`) into a high-quality, realistic SVG vector hand visualization with organic curves, smooth Framer Motion animations, accurate key alignment, and neon glowing active states.
+
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
+Integrity mode: development
+
+## Requirements
+
+### R1. Realistic Organic Hand Silhouette
+Render realistic SVG hand vectors with smooth curved fingers, natural palm contours, and glassmorphic radial gradients, replacing straight lines or boxy geometric shapes.
+
+### R2. Smooth Animation & Neon Lighting
+Integrate Framer Motion or SVG animation transitions so active fingers dynamically glow, pulse, and animate when active keys are pressed during lessons.
+
+### R3. Precise Key & Finger Alignment
+Align left hand fingers (Pinky, Ring, Middle, Index, Thumb) and right hand fingers accurately with home row keys (A, S, D, F, Space, J, K, L, ;) and spacebar without clipping or layer blocking.
+
+## Acceptance Criteria
+
+### Visual Quality & Anatomy
+- [ ] Hands display natural curved hand silhouettes with realistic organic finger shapes rather than straight lines or boxy polygons.
+- [ ] Left hand glows in neon emerald/green and right hand glows in cyan/blue with smooth radial gradient palm hulls.
+
+### Interactivity & Alignment
+- [ ] When a lesson step prompts a key press, the corresponding finger lights up with an active neon glow and animated ripple directly over the target keycap.
+- [ ] Non-active fingers remain subtly visible as supportive guides without obscuring the virtual keyboard layout.
+
+## Follow-up — 2026-08-09T16:05:10+05:30
+
+# Teamwork Project Prompt — TypeNova Academy Expansion
+
+Expand TypeNova Academy with advanced tailored lessons (Numbers, Symbols, Code/Dev Syntax, Speed N-Grams, Real Words) and new interactive learning features (Category Filters, Real-time WPM/Accuracy engine, Audio Haptics, Lesson Star Ratings & Analytics).
+
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
+Integrity mode: development
+
+## Requirements
+
+### R1. Comprehensive Tailored Lessons Expansion
+Extend `src/data/academyCurriculum.ts` with new categorized lesson modules:
+- **Numbers & Top Row**: Digits 0-9 with dedicated finger assignments.
+- **Punctuation & Shift Key**: Capital letters, commas, periods, quotes, and question marks.
+- **Developer Special**: Coding brackets `{ } [ ] ( )`, operators `= + - * /`, and symbols `< > ; :`.
+- **Rhythm & Bigrams**: High-frequency English letter pairs (`th`, `he`, `in`, `er`, `an`, `re`, `nd`, `at`).
+- **Word Flow Drills**: Full word practice sequences with finger guidance.
+
+### R2. Category Navigation & Lesson Selection UI
+Update `AcademyLayout.tsx` to group lessons into distinct visual categories ("Foundations", "Numbers & Punctuation", "Developer Code", "Speed & Rhythm") with tabbed filtering or accordion sections for easy navigation.
+
+### R3. Real-Time Performance & Gamification Engine
+Enhance `useAcademyEngine.ts` and `AcademyLayout.tsx` to include:
+- **Live Lesson Stats**: Real-time WPM, Accuracy %, and current error-free Streak counter.
+- **Lesson Mastery Rating**: 1-3 Star rating earned upon lesson completion based on accuracy.
+- **Audio Feedback**: Subtle, crisp keypress audio toggle for correct key hits and error buzzes.
+
+### R4. Keyboard & CyberHands Symbol Support
+Ensure `KEY_MAP` and `FINGER_MAP` in `VirtualKeyboard.tsx` and `CyberHands.tsx` fully support all new numbers, symbols, shift key modifiers, and punctuation marks so the 3D Holographic Hands accurately highlight and reach every target key.
+
+## Acceptance Criteria
+
+### Curriculum & Coverage
+- [ ] At least 8 new specialized lessons are added across 4 distinct categories in `academyCurriculum.ts`.
+- [ ] All new keys (numbers, punctuation, symbols) have mapped finger hints in `KEY_MAP` and `FINGER_MAP`.
+
+### UI & Features
+- [ ] Academy sidebar features category filters/tabs for browsing lessons by difficulty and topic.
+- [ ] Real-time WPM, Accuracy %, and Streak HUD are visible during active lesson playback.
+- [ ] Upon finishing a lesson, a completion modal displays final score, accuracy, stars earned, and next lesson prompt.
+- [ ] Audio feedback toggle is functional during lesson execution.
+- [ ] The app compiles cleanly (`npm run build` / `npx tsc --noEmit`) with no TypeScript or lint errors.

@@ -31,20 +31,25 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
   const [hoveredOvertakeIdx, setHoveredOvertakeIdx] = useState<number | null>(null);
   const svgRectRef = useRef<DOMRect | null>(null);
 
+  const safePts = useMemo(() => Array.isArray(timelinePoints) ? timelinePoints : [], [timelinePoints]);
+  const safeDuration = Math.max(durationMs || 0, 1000);
+
   const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor } = useMemo(() => {
-    let maxW = Math.max(...timelinePoints.map(p => Math.max(p.wpm, p.rawWpm)), 10);
+    let maxW = Math.max(...safePts.map(p => Math.max(p?.wpm || 0, p?.rawWpm || 0)), 10);
     if (competitorTimelines) {
       Object.values(competitorTimelines).forEach(pts => {
-        maxW = Math.max(maxW, ...pts.map(p => p.wpm));
+        if (Array.isArray(pts)) {
+          maxW = Math.max(maxW, ...pts.map(p => p?.wpm || 0));
+        }
       });
     }
 
-    const avgWpm = timelinePoints.length
-      ? Math.round(timelinePoints.reduce((s, p) => s + p.wpm, 0) / timelinePoints.length)
+    const avgWpm = safePts.length
+      ? Math.round(safePts.reduce((s, p) => s + (p?.wpm || 0), 0) / safePts.length)
       : 0;
 
-    const px = (t: number) => (t / durationMs) * 700 + 60;
-    const py = (w: number) => 30 + (1 - w / maxW) * 180;
+    const px = (t: number) => ((t || 0) / safeDuration) * 700 + 60;
+    const py = (w: number) => 30 + (1 - (w || 0) / (maxW || 1)) * 180;
 
     const buildSmoothPath = (pts: Array<any>, key: string) => {
       if (pts.length === 0) return '';
@@ -71,8 +76,8 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
       return d;
     };
 
-    const poly = buildSmoothPath(timelinePoints, 'wpm');
-    const rawPoly = buildSmoothPath(timelinePoints, 'rawWpm');
+    const poly = buildSmoothPath(safePts, 'wpm');
+    const rawPoly = buildSmoothPath(safePts, 'rawWpm');
     
     const compPolys: Record<string, { path: string; color: string }> = {};
     const medalColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
@@ -91,7 +96,7 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
     }
 
     // Gradient fill area (close the path at the bottom)
-    const gradientPoly = poly ? poly + ` L ${px(timelinePoints[timelinePoints.length - 1]?.t ?? durationMs)},210 L ${px(timelinePoints[0]?.t ?? 0)},210 Z` : '';
+    const gradientPoly = poly ? poly + ` L ${px(safePts[safePts.length - 1]?.t ?? safeDuration)},210 L ${px(safePts[0]?.t ?? 0)},210 Z` : '';
 
     // Y-axis labels
     const ySteps = 5;
@@ -111,9 +116,9 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
 
     // Calculate Overtakes
     const overtakes: Array<{ t: number; prevLeaderName: string; newLeaderName: string }> = [];
-    if (players && selfId && players.length > 1 && timelinePoints.length > 0) {
+    if (players && selfId && players.length > 1 && safePts.length > 0) {
       let currentLeaderId: string | null = null;
-      for (const p of timelinePoints) {
+      for (const p of safePts) {
         if (p.t === 0) continue;
         let bestWpm = -1;
         let newLeaderId: string | null = null;
@@ -149,11 +154,11 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
     }
 
     return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor };
-  }, [timelinePoints, competitorTimelines, players, selfId, durationMs]);
+  }, [safePts, competitorTimelines, players, selfId, durationMs]);
 
-  if (timelinePoints.length < 2 || durationMs <= 0) return null;
+  if (safePts.length < 2 || safeDuration <= 0) return null;
 
-  const px = (t: number) => (t / durationMs) * 700 + 60;
+  const px = (t: number) => (t / safeDuration) * 700 + 60;
   const py = (w: number) => 30 + (1 - w / maxW) * 180;
 
   return (
@@ -224,7 +229,7 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
 
         {/* Error dots on curve */}
         {errorTimes.map((t, i) => {
-          const pyVal = py(interpolateWpm(timelinePoints, t));
+          const pyVal = py(interpolateWpm(safePts, t));
           const dotY = Math.min(pyVal, 206);
           return (
             <g key={`err-${i}`}>

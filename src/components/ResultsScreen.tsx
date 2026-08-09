@@ -34,16 +34,21 @@ export interface ResultsScreenProps {
 }
 
 export function ResultsScreen({
-  wpm, rawWpm, accuracy, consistency, flawlessStreak,
-  leveledUp, xpGainedLast, theme,
-  saveStatus,
-  timelinePoints, competitorTimelines, errorTimes, durationMs,
-  keystrokeLog,
+  wpm = 0, rawWpm = 0, accuracy = 0, consistency = 0, flawlessStreak = 0,
+  leveledUp = false, xpGainedLast = 0, theme,
+  saveStatus = '',
+  timelinePoints = [], competitorTimelines, errorTimes = [], durationMs = 1000,
+  keystrokeLog = [],
   onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill,
   compact = false
 }: ResultsScreenProps) {
   const [shareStatus, setShareStatus] = useState('');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const safeTimelinePoints = useMemo(() => Array.isArray(timelinePoints) ? timelinePoints : [], [timelinePoints]);
+  const safeErrorTimes = useMemo(() => Array.isArray(errorTimes) ? errorTimes : [], [errorTimes]);
+  const safeKeystrokeLog = useMemo(() => Array.isArray(keystrokeLog) ? keystrokeLog : [], [keystrokeLog]);
+  const safeDurationMs = Math.max(durationMs || 0, 1000);
 
   useEffect(() => {
     return () => {
@@ -74,9 +79,9 @@ export function ResultsScreen({
     try {
       const result = await shareResultCard({
         wpm, rawWpm, accuracy, consistency, grade,
-        themeName: theme.name,
-        glowPrimary: theme.glowPrimary,
-        glowSecondary: theme.glowSecondary,
+        themeName: theme?.name || 'CYBERPUNK',
+        glowPrimary: theme?.glowPrimary || 'rgba(6,182,212,0.4)',
+        glowSecondary: theme?.glowSecondary || 'rgba(34,211,238,0.3)',
       });
       setShareStatus(result === 'copied' ? 'COPIED TO CLIPBOARD!' : 'PNG DOWNLOADED!');
     } catch {
@@ -95,15 +100,16 @@ export function ResultsScreen({
 
   const testHeatmapData = useMemo(() => {
     const data: Record<string, { total: number; errors: number }> = {};
-    for (const k of keystrokeLog) {
-      if (k.isBackspace) continue;
-      const char = k.expected.toUpperCase();
+    for (const k of safeKeystrokeLog) {
+      if (!k || k.isBackspace) continue;
+      const char = k.expected ? k.expected.toUpperCase() : '';
+      if (!char) continue;
       if (!data[char]) data[char] = { total: 0, errors: 0 };
       data[char].total++;
       if (k.isError) data[char].errors++;
     }
     return data;
-  }, [keystrokeLog]);
+  }, [safeKeystrokeLog]);
 
   const content = (
     <div className={compact ? '' : 'relative z-10 max-w-6xl mx-auto px-6 py-12'}>
@@ -126,7 +132,7 @@ export function ResultsScreen({
 
           {/* Auto-save status */}
           {saveStatus && (
-            <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs ${saveStatus.includes('Error') || saveStatus.includes('INVALID') ? 'bg-red-500/20 text-red-400 border border-red-500/30' : `bg-white/5 border border-white/10 ${theme.text}`}`}>
+            <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs ${saveStatus.includes('Error') || saveStatus.includes('INVALID') ? 'bg-red-500/20 text-red-400 border border-red-500/30' : `bg-white/5 border border-white/10 ${theme?.text || 'text-cyan-400'}`}`}>
               {saveStatus}
             </div>
           )}
@@ -156,18 +162,18 @@ export function ResultsScreen({
           </div>
           <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
             <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Flawless</span>
-            <span className={`text-5xl font-black ${flawlessStreak > 50 ? theme.text : 'text-white'}`}>{flawlessStreak}</span>
+            <span className={`text-5xl font-black ${flawlessStreak > 50 ? (theme?.text || 'text-cyan-400') : 'text-white'}`}>{flawlessStreak}</span>
           </div>
         </div>
 
         {/* Graphs Section - Single unified graph */}
         <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '100ms' }}>
           <WpmGraph
-            timelinePoints={timelinePoints}
+            timelinePoints={safeTimelinePoints}
             competitorTimelines={competitorTimelines}
-            errorTimes={errorTimes}
-            durationMs={durationMs}
-            theme={theme}
+            errorTimes={safeErrorTimes}
+            durationMs={safeDurationMs}
+            theme={theme || { name: 'CYBERPUNK', bg: 'bg-slate-950', text: 'text-cyan-400', border: 'border-cyan-500/30', glowPrimary: 'rgba(6,182,212,0.4)', glowSecondary: 'rgba(34,211,238,0.3)' }}
           />
         </div>
 
@@ -234,7 +240,7 @@ export function ResultsScreen({
           {onStartSmartDrill && (
             <button
               onClick={onStartSmartDrill}
-              className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl ${theme.text} font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-transparent hover:border-white/10`}
+              className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl ${theme?.text || 'text-cyan-400'} font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-transparent hover:border-white/10`}
             >
               <Brain size={16} /> SMART DRILL
             </button>
@@ -243,7 +249,7 @@ export function ResultsScreen({
           <button
             onClick={handleShare}
             disabled={!!shareStatus}
-            className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl transition-all text-sm font-black tracking-widest ${shareStatus ? theme.text : 'text-zinc-300 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'}`}
+            className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl transition-all text-sm font-black tracking-widest ${shareStatus ? (theme?.text || 'text-cyan-400') : 'text-zinc-300 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'}`}
           >
             <Share2 size={16} /> {shareStatus || 'SHARE CARD'}
           </button>
@@ -264,8 +270,8 @@ export function ResultsScreen({
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
       {/* Ambient glow effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className={`absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[200px] opacity-[0.04]`} style={{ background: theme.glowPrimary }} />
-        <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[200px] opacity-[0.03]`} style={{ background: theme.glowSecondary }} />
+        <div className={`absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[200px] opacity-[0.04]`} style={{ background: theme?.glowPrimary || 'rgba(6,182,212,0.4)' }} />
+        <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[200px] opacity-[0.03]`} style={{ background: theme?.glowSecondary || 'rgba(34,211,238,0.3)' }} />
       </div>
       {content}
     </div>

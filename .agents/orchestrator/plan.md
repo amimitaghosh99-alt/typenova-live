@@ -1,25 +1,25 @@
-# Execution Plan: TypeNova Low-Severity Bug Fixes (BUG-19 to BUG-25)
+# TypeNova Academy Expansion — Master Plan
 
-## Objective
-Fix 6 low-severity memory leak and React dependency/memoization bugs in `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`, and `App.tsx`.
+## Overview
+Expand TypeNova Academy with comprehensive categorized lessons, category navigation UI, real-time performance & gamification engine, keyboard & CyberHands symbol support, and full build/typecheck verification.
 
-## Phases & Strategy
+## Decomposition & Strategy
+1. **Phase 0: Codebase Survey & Feature Inventory**
+   - Dispatch 3 parallel Explorers to investigate current codebase (`src/data/academyCurriculum.ts`, `AcademyLayout.tsx`, `useAcademyEngine.ts`, `VirtualKeyboard.tsx`, `CyberHands.tsx`, audio system, etc.)
+   - Aggregate inventory and produce global `PROJECT.md`.
 
-### Phase 0: Survey & Exploration
-- Spawn 3 parallel Explorers:
-  - `explorer_1`: Investigate BUG-19, BUG-20, BUG-21 (timeout memory leaks in `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`). Identify all `setTimeout` calls, missing `clearTimeout`s, ref/effect cleanup mechanisms needed.
-  - `explorer_2`: Investigate BUG-23 (inline callbacks passed to `StatsDashboard` and `ChangelogModal` in `App.tsx`). Identify all callback props, state dependencies, and `useCallback` requirements.
-  - `explorer_3`: Investigate BUG-24 and BUG-25 (auto-save dependency arrays with `typing.input`, `auth.session`, `supabase` and rematch effect dependency on `typing` in `App.tsx`). Identify eslint suppressions, stale closure risks, ref usages, and proper dependency configurations.
+2. **Milestones**:
+   - **M1: Curriculum & Keyboard/Hands Mapping (R1 & R4 Data/Mapping Layer)**
+     - Add >=8 specialized lessons across 4 categories ("Foundations", "Numbers & Punctuation", "Developer Code", "Speed & Rhythm") in `src/data/academyCurriculum.ts`.
+     - Update `KEY_MAP` and `FINGER_MAP` in `VirtualKeyboard.tsx` and `CyberHands.tsx` for numbers, symbols, shift keys, punctuation.
+   - **M2: Category UI & Real-Time Engine (R2 & R3 Engine/UI Layer)**
+     - Update `AcademyLayout.tsx` for category tabs/accordion navigation.
+     - Update `useAcademyEngine.ts` & `AcademyLayout.tsx` for live stats (WPM, Acc %, streak), 1-3 star mastery rating, crisp audio toggle (keypress & error buzz), completion modal with next lesson prompt.
+   - **M3: E2E Testing & Acceptance Verification**
+     - Run comprehensive build check (`npm run build`, `npx tsc --noEmit`), audit integrity, and test feature coverage.
 
-### Phase 1: Implementation & Iteration Loop
-- Milestone 1 (M1): Fix Timeout Memory Leaks
-  - Worker updates `useFriends.ts`, `TypingController.tsx`, `RaceModal.tsx`, `SocialModal.tsx`, `PlayerProfileModal.tsx`.
-  - Reviewers (2) & Challengers (2) verify leak prevention and unmount cleanups.
-- Milestone 2 (M2): Fix React Rendering & Dependency Issues
-  - Worker updates `App.tsx` (callbacks memoized, auto-save deps updated, rematch deps updated, eslint suppressions removed).
-  - Reviewers (2) & Challengers (2) verify dependency correctness and callback stability.
-
-### Phase 2: Verification & Forensic Audit
-- Run `npx tsc --noEmit` build verification.
-- Dispatch `teamwork_preview_auditor` for static analysis & integrity verification.
-- Synthesize final findings and deliver completion report.
+## Verification Gate Criteria
+- 100% clean compilation (`npx tsc --noEmit` & `npm run build` pass with 0 errors).
+- All 8+ lessons correctly categorized.
+- All keys/symbols mapped in VirtualKeyboard and CyberHands.
+- Reviewer APPROVE, Challenger verified, Forensic Auditor CLEAN.

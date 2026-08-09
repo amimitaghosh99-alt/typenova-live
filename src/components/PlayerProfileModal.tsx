@@ -3,6 +3,8 @@ import { X, Award, Zap, Target, ShieldCheck, ChevronDown, Check, Loader2, User }
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Theme } from '@/data/constants';
 import { TITLE_BADGES, getActiveTitleId, setActiveTitleId, type UserSkillStats } from '@/data/titles';
+import { ProfileCustomizationMenu } from './ProfileCustomizationMenu';
+import { ALL_BANNERS, AVATARS } from '@/data/customization';
 
 interface PublicProfileData {
   username: string;
@@ -13,6 +15,8 @@ interface PublicProfileData {
   max_wpm: number;
   avg_acc: number;
   tests_completed: number;
+  avatar_id?: string;
+  banner_id?: string;
 }
 
 interface PlayerProfileModalProps {
@@ -35,13 +39,13 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
   onClose,
   supabase,
   localUsername,
-  theme,
   localRPGStats,
 }: PlayerProfileModalProps) {
   const [profileData, setProfileData] = useState<PublicProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [showBadgeSelector, setShowBadgeSelector] = useState(false);
+  const [showCustomization, setShowCustomization] = useState(false);
   const [equippedTitleId, setEquippedTitleId] = useState<string>('novice');
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,7 +71,9 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
     if (isOwnProfile && localRPGStats) {
       const activeId = getActiveTitleId();
       setEquippedTitleId(activeId);
-      setProfileData({
+      
+      // Build local profile data first with defaults
+      const localData: PublicProfileData = {
         username: targetUsername,
         level: localRPGStats.level,
         xp: localRPGStats.xp,
@@ -76,10 +82,30 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
         max_wpm: localRPGStats.skillStats.maxWpm,
         avg_acc: localRPGStats.skillStats.avgAccuracy,
         tests_completed: localRPGStats.skillStats.testsCompleted,
-      });
+        avatar_id: 'default',
+        banner_id: 'basic_dark',
+      };
+      setProfileData(localData);
       setLoading(false);
       setNotFound(false);
-      return; // own profile uses local truth — no cloud fetch needed
+      
+      // Also fetch saved avatar/banner from cloud (non-blocking)
+      if (supabase) {
+        supabase.from('public_profiles')
+          .select('avatar_id, banner_id')
+          .ilike('username', targetUsername)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              setProfileData(prev => prev ? {
+                ...prev,
+                avatar_id: data.avatar_id || 'default',
+                banner_id: data.banner_id || 'basic_dark',
+              } : prev);
+            }
+          });
+      }
+      return;
     }
 
     // For other players, fetch from Supabase public_profiles
@@ -193,6 +219,19 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
         : ['novice'])
   );
 
+  const avatarId = profileData?.avatar_id || 'default';
+  const bannerId = profileData?.banner_id || 'basic_dark';
+  
+  const selectedBanner = ALL_BANNERS.find(b => b.id === bannerId) || ALL_BANNERS[0];
+  const selectedAvatar = AVATARS.find(a => a.id === avatarId) || AVATARS[0];
+  const AvatarIcon = selectedAvatar.icon;
+
+  const handleCustomizationUpdate = (newAvatarId: string, newBannerId: string) => {
+    if (profileData) {
+      setProfileData({ ...profileData, avatar_id: newAvatarId, banner_id: newBannerId });
+    }
+  };
+
   return (
     <div
       className={`fixed inset-0 z-[600] flex items-center justify-center bg-black/80 p-4 overflow-y-auto transition-opacity duration-200 ${
@@ -201,19 +240,20 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
       onClick={handleClose}
     >
       <div
-        className={`glass-panel relative w-full max-w-md my-auto flex flex-col rounded-2xl border border-white/15 bg-slate-950/80 shadow-2xl shadow-cyan-950/30 overflow-hidden p-5 sm:p-6 font-mono ${
+        className={`relative w-full max-w-md my-auto flex flex-col rounded-2xl border ${selectedBanner.accentBorder || 'border-white/15'} bg-slate-950 shadow-2xl overflow-hidden p-5 sm:p-6 font-mono ${
           isClosing ? 'lucid-scale-exit' : 'lucid-scale'
         }`}
+        style={{ boxShadow: `0 0 60px rgba(${selectedBanner.glowColor || '6, 182, 212'}, 0.15), 0 25px 50px -12px rgba(0, 0, 0, 0.5)` }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Ambient Glow Backdrop */}
+        {/* Banner Background — fills the top, fades to dark at bottom */}
+        <div className={`absolute inset-0 z-0 ${selectedBanner.bgClass}`} />
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/20 via-slate-950/70 to-slate-950" />
+        
+        {/* Banner Glow — uses the banner's own accent color */}
         <div
-          className="absolute -top-32 -left-32 w-72 h-72 rounded-full blur-3xl pointer-events-none opacity-20"
-          style={{ background: `rgb(${theme.glowPrimary || '6, 182, 212'})` }}
-        />
-        <div
-          className="absolute -bottom-32 -right-32 w-72 h-72 rounded-full blur-3xl pointer-events-none opacity-15"
-          style={{ background: `rgb(${theme.glowSecondary || '34, 211, 238'})` }}
+          className="absolute -top-20 left-1/2 -translate-x-1/2 w-80 h-60 rounded-full blur-3xl pointer-events-none opacity-30 z-0"
+          style={{ background: `rgb(${selectedBanner.glowColor || '6, 182, 212'})` }}
         />
 
         {/* Header */}
@@ -224,13 +264,23 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
             </div>
             {isOwnProfile ? 'Your Player Profile' : `${targetUsername}'s Profile`}
           </h2>
-          <button
-            onClick={handleClose}
-            className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white rounded-full transition-all hover:rotate-90"
-            aria-label="Close modal"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {isOwnProfile && (
+              <button
+                onClick={() => setShowCustomization(true)}
+                className="px-2.5 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-black transition-all uppercase tracking-widest shadow-sm shadow-cyan-900/20"
+              >
+                Customize
+              </button>
+            )}
+            <button
+              onClick={handleClose}
+              className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white rounded-full transition-all hover:rotate-90"
+              aria-label="Close modal"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Body Content */}
@@ -251,8 +301,11 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border-2 border-cyan-400/50 flex items-center justify-center text-cyan-300 font-black text-lg uppercase shadow-[0_0_15px_rgba(6,182,212,0.3)]">
-                    {targetUsername.substring(0, 1)}
+                  <div
+                    className={`w-14 h-14 shrink-0 rounded-2xl ${selectedAvatar.gradient || 'bg-cyan-600'} border-2 ${selectedAvatar.borderColor || 'border-cyan-400/60'} flex items-center justify-center ${selectedAvatar.iconColor || 'text-white'} shadow-lg transition-transform hover:scale-105`}
+                    style={{ boxShadow: `0 0 20px rgba(${selectedAvatar.glowColor || '6, 182, 212'}, 0.4)` }}
+                  >
+                    <AvatarIcon size={26} strokeWidth={2.2} />
                   </div>
                   <div className="absolute -bottom-1 -right-1 bg-cyan-400 text-slate-950 font-black text-[10px] px-1.5 py-0.2 rounded-full border-2 border-slate-950 shadow-md">
                     LVL {displayLevel}
@@ -388,6 +441,22 @@ export const PlayerProfileModal = React.memo(function PlayerProfileModal({
           </div>
         )}
       </div>
+      
+      {showCustomization && supabase && isOwnProfile && (
+        <ProfileCustomizationMenu
+          supabase={supabase}
+          username={localUsername ? profileData?.username : undefined}
+          currentAvatarId={avatarId}
+          currentBannerId={bannerId}
+          userStats={{
+            level: displayLevel,
+            wpm: skillStats.maxWpm,
+            combo: 0 
+          }}
+          onClose={() => setShowCustomization(false)}
+          onUpdate={handleCustomizationUpdate}
+        />
+      )}
     </div>
   );
 });

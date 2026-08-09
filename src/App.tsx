@@ -33,6 +33,7 @@ import type { PaceSample } from '@/components/TypingArea';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ResultsScreen } from '@/components/ResultsScreen';
 import { RaceResultsScreen } from '@/components/RaceResultsScreen';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { StatsDashboard, appendHistory, loadHistory } from '@/components/StatsDashboard';
 import type { HistoryEntry } from '@/components/StatsDashboard';
 import { ReplayModal } from '@/components/ReplayModal';
@@ -61,6 +62,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { BugReportsModal } from './components/BugReportsModal';
 import { VideoCallProvider } from '@/contexts/VideoCallContext';
 import { VideoCallOverlay } from '@/components/VideoCallOverlay';
+import { AcademyEntry } from '@/components/academy/AcademyEntry';
+import { AcademyLayout } from '@/components/academy/AcademyLayout';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
 // stay import-free — tailwind.config.js loads it via jiti) to lucide
@@ -173,9 +176,15 @@ function MainApp() {
   const [isCrossfading, setIsCrossfading] = useState(false);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [themeIndex, setThemeIndex] = useState(0);
-  const [soundProfile, setSoundProfileState] = useState('thocky');
-  const [_seenThemes, setSeenThemes] = useState(new Set<number>([0]));
+  const [themeIndex, setThemeIndex] = useState(() => {
+    try { const saved = localStorage.getItem('typezen_theme'); return saved ? parseInt(saved, 10) : 0; } catch { return 0; }
+  });
+  const [soundProfile, setSoundProfileState] = useState(() => {
+    try { return localStorage.getItem('typezen_sound') || 'thocky'; } catch { return 'thocky'; }
+  });
+  const [_seenThemes, setSeenThemes] = useState(() => {
+    try { const saved = localStorage.getItem('typezen_theme'); return new Set([0, saved ? parseInt(saved, 10) : 0]); } catch { return new Set([0]); }
+  });
 
   type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'profile' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | 'bugReports' | null;
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -197,6 +206,17 @@ function MainApp() {
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
+  const [isAcademyMode, setIsAcademyMode] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const enterAcademy = useCallback(() => {
+    if (isTransitioning || isAcademyMode) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setIsAcademyMode(true);
+      setIsTransitioning(false);
+    }, 700);
+  }, [isTransitioning, isAcademyMode]);
   const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
   const [selectedProfileUsername, setSelectedProfileUsername] = useState<string | null>(null);
 
@@ -365,7 +385,8 @@ function MainApp() {
     }
   }, [race.status, raceActive, typing.setPhase]);
 
-  const theme: Theme = THEMES[THEME_KEYS[themeIndex]];
+  const safeThemeKey = THEME_KEYS[themeIndex] || THEME_KEYS[0];
+  const theme: Theme = THEMES[safeThemeKey] || THEMES[THEME_KEYS[0]];
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const soundMenuRef = useRef<HTMLDivElement>(null);
 
@@ -580,7 +601,7 @@ function MainApp() {
 
   // Lifetime-weakest keys (min 10 hits each, letters/digits only)
   const smartDrillKeys = useMemo(() => {
-    return Object.entries(rpg.heatmapData)
+    return Object.entries(rpg.heatmapData || {})
       .filter(([k, v]) => v.total >= 10 && k !== 'SPACE' && k !== 'ENTER')
       .map(([k, v]) => [k, v.errors / v.total] as [string, number])
       .filter(([, rate]) => rate > 0)
@@ -624,11 +645,13 @@ function MainApp() {
     setThemeIndex(index);
     setSeenThemes(prev => new Set([...prev, index]));
     setShowThemeMenu(false);
+    try { localStorage.setItem('typezen_theme', index.toString()); } catch {}
   };
 
   const selectSoundProfile = (key: string) => {
     setSoundProfileState(key);
     setShowSoundMenu(false);
+    try { localStorage.setItem('typezen_sound', key); } catch {}
   };
 
 
@@ -840,78 +863,6 @@ function MainApp() {
   const leaderboardClass = `transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${shouldHideClutter ? 'w-0 opacity-0 blur-2xl translate-x-32 pointer-events-none p-0 border-transparent m-0' : 'w-full xl:w-[400px] p-8 opacity-100 blur-none translate-x-0'
     }`;
 
-  // ─── Render ──────────────────────────────────────────────────────
-  if (typing.phase === 'FINISHED') {
-    const resultsProps = {
-      wpm: typing.wpm,
-      rawWpm: typing.rawWpm,
-      accuracy: typing.accuracy,
-      consistency: typing.consistency,
-      flawlessStreak: typing.flawlessStreak,
-      leveledUp: rpg.leveledUp,
-      xpGainedLast: rpg.xpGainedLast,
-      theme,
-      heatmapData: rpg.heatmapData,
-      isLoggedIn: !!cloud.username,
-      displayName: cloud.username,
-      saveStatus,
-      timelinePoints: typing.timelinePoints,
-      errorTimes,
-      durationMs: finishDurationMs,
-      keystrokeLog: typing.keystrokeLog.current,
-      testStartTime: typing.startTime || 0,
-      onReset: () => handleReset(),
-      onWatchReplay: () => setShowReplay(true),
-      onStartMicroDrill: startMicroDrill,
-      onStartSmartDrill: smartDrillKeys.length > 0 ? startSmartDrill : null,
-    };
-
-    if (raceActive) {
-      return (
-        <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
-          <RaceResultsScreen
-            {...resultsProps}
-            players={race.players}
-            selfId={race.selfId ?? ''}
-            roomSize={race.roomSize}
-            timelines={undefined}
-            isRanked={isRankedMatch}
-            supabase={supabase}
-            raceId={race.raceId}
-            isHost={race.isHost}
-            onRematch={() => race.rematch()}
-            onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
-            onUpdateElo={(elo) => cloud.setElo(elo)}
-          />
-          {activeModal === 'replay' && (
-            <ReplayModal
-              targetText={typing.targetText}
-              log={typing.keystrokeLog.current}
-              theme={theme}
-              onClose={() => setActiveModal(null)}
-            />
-          )}
-          <VideoCallOverlay />
-        </VideoCallProvider>
-      );
-    }
-
-    return (
-      <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
-        <ResultsScreen {...resultsProps} />
-        {activeModal === 'replay' && (
-          <ReplayModal
-            targetText={typing.targetText}
-            log={typing.keystrokeLog.current}
-            theme={theme}
-            onClose={() => setActiveModal(null)}
-          />
-        )}
-        <VideoCallOverlay />
-      </VideoCallProvider>
-    );
-  }
-
   // ====== MEMOIZED HANDLERS FOR MODALS ======
   const handleCloseModal = useCallback(() => setActiveModal(null), []);
   const handleStartWeaknessDrill = useCallback((drillText: string) => {
@@ -951,6 +902,96 @@ function MainApp() {
     setActiveModal(previousModalRef.current);
     previousModalRef.current = null;
   }, []);
+
+  const exitAcademy = useCallback(() => {
+    setIsAcademyMode(false);
+  }, []);
+
+  // ─── Render ──────────────────────────────────────────────────────
+
+  // Academy Mode — full-screen takeover
+  if (isAcademyMode) {
+    return (
+      <AcademyLayout
+        onExit={exitAcademy}
+      />
+    );
+  }
+
+  if (typing.phase === 'FINISHED') {
+    const resultsProps = {
+      wpm: typing.wpm,
+      rawWpm: typing.rawWpm,
+      accuracy: typing.accuracy,
+      consistency: typing.consistency,
+      flawlessStreak: typing.flawlessStreak,
+      leveledUp: rpg.leveledUp,
+      xpGainedLast: rpg.xpGainedLast,
+      theme,
+      heatmapData: rpg.heatmapData,
+      isLoggedIn: !!cloud.username,
+      displayName: cloud.username,
+      saveStatus,
+      timelinePoints: typing.timelinePoints,
+      errorTimes,
+      durationMs: finishDurationMs,
+      keystrokeLog: typing.keystrokeLog.current,
+      testStartTime: typing.startTime || 0,
+      onReset: () => handleReset(),
+      onWatchReplay: () => setShowReplay(true),
+      onStartMicroDrill: startMicroDrill,
+      onStartSmartDrill: smartDrillKeys.length > 0 ? startSmartDrill : null,
+    };
+
+    if (raceActive) {
+      return (
+        <ErrorBoundary onReset={() => handleReset()}>
+          <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
+            <RaceResultsScreen
+              {...resultsProps}
+              players={race.players}
+              selfId={race.selfId ?? ''}
+              roomSize={race.roomSize}
+              timelines={undefined}
+              isRanked={isRankedMatch}
+              supabase={supabase}
+              raceId={race.raceId}
+              isHost={race.isHost}
+              onRematch={() => race.rematch()}
+              onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
+              onUpdateElo={(elo) => cloud.setElo(elo)}
+            />
+            {activeModal === 'replay' && (
+              <ReplayModal
+                targetText={typing.targetText}
+                log={typing.keystrokeLog.current}
+                theme={theme}
+                onClose={() => setActiveModal(null)}
+              />
+            )}
+            <VideoCallOverlay />
+          </VideoCallProvider>
+        </ErrorBoundary>
+      );
+    }
+
+    return (
+      <ErrorBoundary onReset={() => handleReset()}>
+        <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
+          <ResultsScreen {...resultsProps} />
+          {activeModal === 'replay' && (
+            <ReplayModal
+              targetText={typing.targetText}
+              log={typing.keystrokeLog.current}
+              theme={theme}
+              onClose={() => setActiveModal(null)}
+            />
+          )}
+          <VideoCallOverlay />
+        </VideoCallProvider>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
@@ -992,6 +1033,14 @@ function MainApp() {
 
         {/* Subtle Noise Texture Overlay for realism */}
         <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.15] mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+
+
+        {/* ═══ ACADEMY PORTAL TRANSITION ═══ */}
+        {isTransitioning && (
+          <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-amber-950/90 backdrop-blur-3xl academy-portal-circle" />
+          </div>
+        )}
 
         {/* ═══ ANIMATED DUAL-COLOR CONTRAST ORBS ═══ */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 mix-blend-screen opacity-80">
@@ -1146,10 +1195,16 @@ function MainApp() {
 
           {/* Header */}
           <header className={topHudClass}>
-            {/* Logo (Left) */}
-            <div className={`flex items-center space-x-3 ${theme.vividText}`}>
-              <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
-              <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
+            {/* Logo & Academy Button (Left) */}
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full xl:w-auto justify-center xl:justify-start">
+              <div className={`flex items-center space-x-3 ${theme.vividText}`}>
+                <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
+                <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
+              </div>
+              
+              {!isAcademyMode && (
+                <AcademyEntry onClick={enterAcademy} />
+              )}
             </div>
 
             {/* HUD Controls & Actions (Right) */}
@@ -1159,7 +1214,7 @@ function MainApp() {
               {/* Profile & Actions */}
               <div className="flex items-center glass-panel p-1.5 rounded-2xl font-mono shrink-0">
                 <button
-                  onClick={() => cloud.username && setSelectedProfileUsername(cloud.username)}
+                  onClick={() => cloud.username && handleOpenProfile(cloud.username)}
                   className="group flex items-center px-3.5 py-2 bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/20 rounded-xl transition-all cursor-pointer text-left gap-3.5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
                   title="View / Edit your Player Profile"
                 >
@@ -1726,6 +1781,7 @@ function MainApp() {
                 onChallengeFriend={handleChallengeFriend}
                 sentChallengeTo={challenges.sentChallengeTo}
                 onOpenProfile={handleOpenProfile}
+                supabase={supabase}
               />
             );
 

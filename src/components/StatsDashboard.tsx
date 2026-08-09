@@ -202,7 +202,11 @@ function KeyboardHeatmap({ data, onStartWeaknessDrill }: { data: Record<string, 
                   <span className="text-xs font-black">{displayChar}</span>
 
                   {hasData && (
-                    <div className="absolute bottom-full mb-2 hidden group-hover:block w-max bg-zinc-950 border border-zinc-800 p-3 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-75 duration-200">
+                    <div className={`absolute ${i < 2 ? 'top-full mt-2' : 'bottom-full mb-2'} hidden group-hover:block w-max bg-zinc-950 border border-zinc-800 p-3 rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in-75 duration-200 ${
+                      ['Q', 'W', 'A', 'S', 'Z', 'X'].includes(key) ? 'left-0' :
+                      ['P', 'O', 'L', 'K', 'M', 'N'].includes(key) ? 'right-0' :
+                      'left-1/2 -translate-x-1/2'
+                    }`}>
                       <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-2">{isSpace ? 'Spacebar' : `Key: ${key}`}</div>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                         <span className="text-xs font-bold text-zinc-500">Errors:</span>

@@ -1,0 +1,9 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "TypeNova Academy",
+      "url": "http://localhost:5174"
+    }
+  ]
+}

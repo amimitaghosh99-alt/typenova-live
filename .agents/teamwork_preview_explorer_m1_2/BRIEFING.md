@@ -1,42 +1,43 @@
-# BRIEFING — 2026-08-06T00:58:00Z
+# BRIEFING — 2026-08-08T22:25:00Z
 
 ## Mission
-Investigate R2 (BUG-23): Inline Callback Memoization in `App.tsx` for `StatsDashboard` and `ChangelogModal`.
+Investigate `src/components/CyberHands.tsx` and Framer Motion usage in `typenova-v2`, analyzing active key prompts, target finger mapping/highlighting, Framer Motion animations (elevation, neon glow, scale pulsing, ripples), and defining exact color tokens for left hand emerald and right hand cyan glows.
 
 ## 🔒 My Identity
-- Archetype: Explorer
-- Roles: Investigator
+- Archetype: explorer
+- Roles: Teamwork explorer
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2
-- Original parent: a46e49ea-a72d-4322-9493-1863c23e4b93
-- Milestone: m1_2
+- Original parent: cad57904-ee65-48ec-ba4a-d2fd4999a71d
+- Milestone: m1_2 (CyberHands & Framer Motion investigation)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement (except writing analysis and handoff reports in working directory)
-- Focus on inline callbacks passed to StatsDashboard and ChangelogModal in App.tsx
+- Read-only investigation — do NOT implement code in `src/`
+- Output detailed handoff report in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2\handoff.md`
 
 ## Current Parent
-- Conversation ID: a46e49ea-a72d-4322-9493-1863c23e4b93
-- Updated: 2026-08-06T00:58:00Z
+- Conversation ID: cad57904-ee65-48ec-ba4a-d2fd4999a71d
+- Updated: 2026-08-08T22:25:00Z
 
 ## Investigation State
 - **Explored paths**:
-  - `src/App.tsx` (Lines 899-932, 1656-1669, 1715-1720)
-  - `src/components/StatsDashboard.tsx` (Lines 93, 227)
-  - `src/components/ChangelogModal.tsx` (Lines 19, 24)
-  - `src/hooks/useTypingEngine.ts` (Lines 33, 243)
+  - `src/components/academy/CyberHands.tsx` (Hand overlay SVG component)
+  - `src/components/academy/VirtualKeyboard.tsx` (`FINGER_MAP` & key rendering)
+  - `src/components/academy/AcademyLayout.tsx` (Layout, z-index, finger metadata, step integration)
+  - `src/hooks/useAcademyEngine.ts` (Keyboard event listening, step state management)
+  - `src/data/academyCurriculum.ts` (Lesson definitions, target keys, finger mappings)
+  - `package.json` (Dependency verification — `framer-motion` status)
 - **Key findings**:
-  - `StatsDashboard` is wrapped in `React.memo`, but `App.tsx` passes inline functions `onClose={() => setActiveModal(null)}` and `onStartWeaknessDrill={(drillText) => { ... }}` at lines 1661-1667, invalidating `React.memo`.
-  - `ChangelogModal` in `App.tsx` line 1718 is passed `onClose={handleCloseModal}` (which is memoized with `useCallback`), but `ChangelogModal` in `src/components/ChangelogModal.tsx` line 24 is not wrapped in `React.memo`.
-  - Captured dependencies for `onStartWeaknessDrill` (`typing.setTargetText`, `setActiveModal`, `typing.resetEngine`, `toast`) are identity-stable.
-- **Unexplored areas**: None. Investigation complete.
+  - `framer-motion` is NOT currently listed in `package.json` dependencies; implementer will need `framer-motion` installed or specified.
+  - Active key prompts originate in `useAcademyEngine` -> `AcademyLayout` (`activeKey`, `activeFinger`) -> `CyberHands`.
+  - Target fingers mapped via `FINGER_MAP` in `VirtualKeyboard.tsx`.
+  - Color tokens defined for Left Hand Emerald (`#10b981`, `#34d399`), Right Hand Cyan (`#06b6d4`, `#38bdf8`), and Non-Active Supportive Fingers opacity.
+  - Framer Motion animation patterns formulated for SVG elements (`motion.g`, `motion.circle`, `motion.path`).
+- **Unexplored areas**: None within the scope of this investigation.
 
 ## Key Decisions Made
-- Identified `handleStartWeaknessDrill` `useCallback` refactoring with dependency array `[typing.setTargetText, typing.resetEngine]`.
-- Recommended using existing `handleCloseModal` for `StatsDashboard.onClose`.
-- Recommended wrapping `ChangelogModal` export in `React.memo`.
+- Completed full analysis of data flow, finger mapping, Framer Motion SVG animation integration, and color token definitions.
 
 ## Artifact Index
-- DISPATCH.md — Dispatch log
-- BRIEFING.md — Agent briefing and state tracking
-- analysis.md — Technical analysis report for BUG-23
-- handoff.md — 5-Component handoff report for BUG-23
+- DISPATCH.md — Incoming task dispatch record
+- BRIEFING.md — Persistent memory state
+- handoff.md — Detailed 5-component handoff report

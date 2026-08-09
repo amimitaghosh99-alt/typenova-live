@@ -32,7 +32,10 @@ export const useRPGSystem = () => {
   const [leveledUp, setLeveledUp] = useState(false);
   const [heatmapData, setHeatmapData] = useState<Record<string, { total: number; errors: number; totalMs?: number }>>(() => {
     if (typeof window === 'undefined') return {};
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.heatmap) || '{}'); } catch { return {}; }
+    try { 
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.heatmap) || '{}'); 
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch { return {}; }
   });
 
   // Persist to localStorage

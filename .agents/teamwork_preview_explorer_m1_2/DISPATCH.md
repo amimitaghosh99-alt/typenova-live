@@ -1,15 +1,14 @@
-## 2026-08-06T00:56:50Z
-You are Explorer 2 (teamwork_preview_explorer).
-Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2
+## 2026-08-08T22:21:33Z
+Your working directory is c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2.
+Please read ORIGINAL_REQUEST.md at c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md (specifically the latest CyberHands.tsx rebuild section lines 106-133).
 
-Your task:
-Investigate R2 (BUG-23): Inline Callback Memoization in `App.tsx`.
-Read ORIGINAL_REQUEST at `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`.
+Investigate `src/components/CyberHands.tsx` and Framer Motion usage in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`.
+Analyze how active key press prompts are received during typing lessons, how target fingers are selected/highlighted, and how Framer Motion can animate finger elevation, neon glow (`drop-shadow`, `filter`, `radial-gradient`), scale pulsing, and animated ripple circles over target keycaps when active keys are pressed.
 
-Specifically inspect `App.tsx` (or `src/App.tsx`):
-1. Find all inline callbacks passed as props to `StatsDashboard` and `ChangelogModal`.
-2. Determine which state variables, refs, or setters are captured by each inline callback.
-3. Determine how to wrap each callback in `useCallback` with stable references and minimal, accurate dependency arrays to avoid unnecessary re-renders of `StatsDashboard` and `ChangelogModal`.
+Define exact color tokens:
+- Left hand active neon emerald/green glow (`#10b981`, `#059669`, `#34d399`, etc.)
+- Right hand active neon cyan/blue glow (`#06b6d4`, `#3b82f6`, `#38bdf8`, etc.)
+- Non-active supportive fingers: subtle opacity, non-intrusive visibility so virtual keyboard labels remain visible.
 
-Provide exact line numbers, current implementation snippets, and recommended refactored `useCallback` code structure.
-Write your findings into `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2\analysis.md` and write a handoff report in `handoff.md`. Communicate via send_message when done.
+Write a complete, detailed handoff report in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2\handoff.md`.
+Send a completion message back to the orchestrator when done.

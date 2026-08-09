@@ -1,28 +1,22 @@
-# Handoff Report — Project Sentinel
+# Handoff Report — Project Sentinel Initial Setup
 
 ## Observation
-All 6 Low-Severity bugs identified in `full_codebase_scan.md` (BUG-19, BUG-20, BUG-21, BUG-23, BUG-24, BUG-25) have been addressed and audited.
-
-- **BUG-19**: 4 unmounted component timeout instances in `useFriends.ts` tracked via `errorTimeoutRef` and cleared on unmount / replacement.
-- **BUG-20**: `setShake` timeout in `TypingController.tsx` tracked via `shakeTimeoutRef` and cleared on unmount.
-- **BUG-21**: Exit animation and clipboard timeouts in `RaceModal.tsx`, `SocialModal.tsx`, and `PlayerProfileModal.tsx` tracked via `closeTimeoutRef`, `copyCodeTimeoutRef`, and `copyLinkTimeoutRef` and cleared on unmount.
-- **BUG-23**: Inline callbacks passed to `StatsDashboard` and `ChangelogModal` in `App.tsx` (`handleCloseModal`, `handleStartWeaknessDrill`) memoized via `useCallback`.
-- **BUG-24**: Auto-save effect dependency array in `App.tsx` updated to include `typing.input`, `auth.session`, `supabase`, `typing.wpm`, `typing.accuracy`, etc. `eslint-disable-next-line react-hooks/exhaustive-deps` removed.
-- **BUG-25**: Rematch effect dependency array in `App.tsx` updated to include `typing.setPhase`.
+- Original user request captured in `.agents/ORIGINAL_REQUEST.md`.
+- `BRIEFING.md` created in `.agents/sentinel/BRIEFING.md`.
+- Project Orchestrator spawned with conversation ID `a4a90fc6-fe5e-4990-aa87-4e70203a02b0`.
+- Cron 1 (Progress Reporting, `*/8 * * * *`, task-11) and Cron 2 (Liveness Check, `*/10 * * * *`, task-13) scheduled.
 
 ## Logic Chain
-1. Project Orchestrator dispatched parallel Workers (M1 and M2) to address leak prevention and React hook dependencies.
-2. Reviewers and Challengers verified code correctness and runtime behavior.
-3. Forensic Auditor conducted static AST and dependency check.
-4. Independent Victory Auditor executed 3-phase audit (timeline analysis, cheating detection, independent test execution) and issued **VICTORY CONFIRMED**.
+- User request requires curriculum expansion, live WPM/Accuracy metrics, and dynamic visual feedback in Academy.
+- Sentinel delegating full technical implementation to Project Orchestrator (`teamwork_preview_orchestrator`).
+- Sentinel maintains monitoring crons and will spawn `teamwork_preview_victory_auditor` upon orchestrator's claim of project completion.
 
 ## Caveats
-- None. All acceptance criteria strictly satisfied.
+- Mandatory Victory Audit is required before declaring project completion to the user.
+- Sentinel must not write code or make technical decisions directly.
 
 ## Conclusion
-Project completed with **VICTORY CONFIRMED**.
+- Setup complete. Waiting for subagent updates and cron notifications.
 
 ## Verification Method
-- `npx tsc --noEmit` passed with 0 errors.
-- `npm run build` completed with 0 errors.
-- Independent AST & static code checks passed 100%.
+- Crons active. Orchestrator conversation ID recorded in briefing.

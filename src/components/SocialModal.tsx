@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, Swords } from 'lucide-react';
+import { X, Users, UserPlus, Inbox, Search, Check, UserMinus, UserCheck, Swords, Loader2 } from 'lucide-react';
 import type { Theme, Level, CodeLanguage } from '@/data/constants';
 import type { useFriends } from '@/hooks/useFriends';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { AVATARS } from '@/data/customization';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+interface PublicPlayer {
+  id: string;
+  username: string;
+  level?: number;
+  max_wpm?: number;
+  equipped_title?: string;
+  avatar_id?: string;
+}
 
 interface SocialModalProps {
   theme: Theme;
@@ -11,9 +22,10 @@ interface SocialModalProps {
   onChallengeFriend?: (username: string, config?: { mode?: Level; words?: number; language?: CodeLanguage }) => void;
   sentChallengeTo?: string | null;
   onOpenProfile?: (username: string) => void;
+  supabase?: SupabaseClient | null;
 }
 
-export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallengeFriend, sentChallengeTo, onOpenProfile }: SocialModalProps) => {
+export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallengeFriend, sentChallengeTo, onOpenProfile, supabase }: SocialModalProps) => {
   const [tab, setTab] = useState<'friends' | 'add' | 'inbox'>('friends');
   const [searchInput, setSearchInput] = useState('');
   const [isClosing, setIsClosing] = useState(false);
@@ -21,6 +33,8 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
   const [challengeMode, setChallengeMode] = useState<Level>('NOVICE');
   const [challengeWords, setChallengeWords] = useState<number>(25);
   const [challengeLang, setChallengeLang] = useState<CodeLanguage>('JavaScript/TypeScript');
+  const [publicPlayers, setPublicPlayers] = useState<PublicPlayer[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleClose = () => {
@@ -37,6 +51,52 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
       if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
     };
   }, []);
+
+  // Fetch registered players directory when opening Add tab
+  useEffect(() => {
+    if (tab !== 'add') return;
+    let active = true;
+    setLoadingPlayers(true);
+
+    const loadDirectory = async () => {
+      if (!supabase) {
+        if (active) setLoadingPlayers(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('public_profiles')
+          .select('id, username, level, max_wpm, equipped_title, avatar_id')
+          .order('level', { ascending: false })
+          .limit(50);
+
+        if (!error && data && data.length > 0) {
+          if (active) setPublicPlayers(data);
+        } else {
+          // Fallback to profiles table if public_profiles query fails or is empty
+          const { data: profData } = await supabase
+            .from('profiles')
+            .select('id, username, level, elo')
+            .limit(50);
+          if (profData && active) {
+            setPublicPlayers(profData.map(p => ({
+              id: p.id,
+              username: p.username,
+              level: p.level || 1,
+              max_wpm: 0
+            })));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load player directory:', err);
+      } finally {
+        if (active) setLoadingPlayers(false);
+      }
+    };
+
+    loadDirectory();
+    return () => { active = false; };
+  }, [tab, supabase]);
   
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,7 +371,7 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
               {friendsState.outgoingRequests.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <h3 className="text-[10px] font-bold font-mono tracking-wider uppercase text-zinc-400 px-1 flex items-center">
-                    <span className="w-1 h-1 rounded-full bg-cyan-400 mr-2"></span> Outgoing Requests
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mr-2"></span> Outgoing Requests
                   </h3>
                   {friendsState.outgoingRequests.map((u: string) => (
                     <div key={u} className="flex justify-between items-center bg-slate-900/40 border border-white/10 p-2.5 rounded-xl">
@@ -340,6 +400,100 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                   ))}
                 </div>
               )}
+
+              {/* Registered Players Directory */}
+              <div className="flex flex-col gap-2 mt-1">
+                <h3 className="text-[10px] font-bold font-mono tracking-wider uppercase text-zinc-400 px-1 flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Users size={12} className="text-cyan-400 mr-1.5" />
+                    All Players Directory ({publicPlayers.filter(p => p.username?.toLowerCase().includes(searchInput.toLowerCase())).length})
+                  </span>
+                  {loadingPlayers && <Loader2 size={12} className="animate-spin text-cyan-400" />}
+                </h3>
+
+                {loadingPlayers && publicPlayers.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-zinc-500 text-xs">
+                    <Loader2 size={20} className="animate-spin text-cyan-400 mr-2" />
+                    Loading players…
+                  </div>
+                ) : publicPlayers.length === 0 ? (
+                  <div className="p-6 text-center text-zinc-500 text-xs rounded-xl bg-slate-900/30 border border-white/5">
+                    No public profiles registered yet. Search username above to add directly!
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
+                    {publicPlayers
+                      .filter(p => p.username?.toLowerCase().includes(searchInput.toLowerCase()))
+                      .map((player) => {
+                        const isFriend = friendsState.friends.some(f => f.username.toLowerCase() === player.username.toLowerCase());
+                        const isOutgoing = friendsState.outgoingRequests.some(r => r.toLowerCase() === player.username.toLowerCase());
+                        const isIncoming = friendsState.incomingRequests.some(r => r.toLowerCase() === player.username.toLowerCase());
+                        const avatarDef = AVATARS.find(a => a.id === player.avatar_id) || AVATARS[0];
+                        const AvatarIconComponent = avatarDef.icon;
+
+                        return (
+                          <div
+                            key={player.id || player.username}
+                            className="flex justify-between items-center bg-slate-900/50 hover:bg-slate-900/80 border border-white/10 hover:border-cyan-500/30 p-2.5 rounded-xl transition-all"
+                          >
+                            <button
+                              onClick={() => onOpenProfile?.(player.username)}
+                              className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity"
+                              title={`View ${player.username}'s Profile`}
+                            >
+                              <div className={`w-8 h-8 rounded-xl ${avatarDef.gradient || 'bg-cyan-600'} border ${avatarDef.borderColor || 'border-cyan-400/60'} flex items-center justify-center ${avatarDef.iconColor || 'text-white'} shadow-sm shrink-0`}>
+                                <AvatarIconComponent size={16} />
+                              </div>
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-bold text-white tracking-wide hover:underline hover:text-cyan-300">
+                                    {player.username}
+                                  </span>
+                                  {player.level && (
+                                    <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                                      LVL {player.level}
+                                    </span>
+                                  )}
+                                </div>
+                                {player.max_wpm ? (
+                                  <span className="text-[10px] text-zinc-400">{player.max_wpm} WPM Max</span>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-500">Player</span>
+                                )}
+                              </div>
+                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              {isFriend ? (
+                                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded-lg flex items-center gap-1">
+                                  <UserCheck size={12} /> Friend
+                                </span>
+                              ) : isOutgoing ? (
+                                <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/30 px-2 py-1 rounded-lg">
+                                  Requested
+                                </span>
+                              ) : isIncoming ? (
+                                <button
+                                  onClick={() => friendsState.acceptRequest(player.username)}
+                                  className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                >
+                                  <Check size={12} /> Accept
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => friendsState.addFriend(player.username)}
+                                  className="text-[10px] font-bold text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/35 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 hover:scale-105"
+                                >
+                                  <UserPlus size={12} /> Add
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

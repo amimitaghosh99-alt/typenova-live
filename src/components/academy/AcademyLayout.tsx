@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
   ArrowLeft, ChevronRight, Trophy, CheckCircle2, LayoutGrid, Zap, 
-  Volume2, VolumeX, Gauge, Activity, Sparkles, Target, Flame
+  Volume2, VolumeX, Gauge, Activity, Sparkles
 } from 'lucide-react';
 import { VirtualKeyboard } from './VirtualKeyboard';
 import { CyberHands } from './CyberHands';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings, Skull, Ghost, Brain, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, Cloud, Key, AlertTriangle } from 'lucide-react';
+import { X, Settings, Skull, Ghost, Brain, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { THEMES, THEME_KEYS, SOUND_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
@@ -283,8 +283,10 @@ export const SettingsModal = React.memo(function SettingsModal({
       setTimeout(() => setShowGlow(false), 1500);
     }
   };
-  const handleUrlChange = (val: string) => { setByokUrl(val); localStorage.setItem('typezen_byok_url', val); };
-  const handleModelChange = (val: string) => { setByokModel(val); localStorage.setItem('typezen_byok_model', val); };
+  const handleModelChange = (val: string) => {
+    setByokModel(val);
+    localStorage.setItem('typezen_byok_model', val);
+  };
   
   // Bug Report State
   const [reportMsg, setReportMsg] = useState('');

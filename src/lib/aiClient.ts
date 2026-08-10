@@ -60,7 +60,7 @@ function estimateTokens(chars: number): number {
   return Math.ceil(chars / 4);
 }
 
-export function trackUsage(response: Response, usage: unknown, fallbackChars: number): void {
+export function trackUsage(usage: unknown, fallbackChars: number): void {
   try {
     const reported = (usage as { total_tokens?: number } | undefined)?.total_tokens;
     const tokensUsed = typeof reported === 'number' ? reported : estimateTokens(fallbackChars);
@@ -178,6 +178,7 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
 
   if (mode === 'global') {
     const { supabase } = await import('@/lib/supabase');
+    if (!supabase) throw new AIError('Global engine unavailable (Supabase not initialized).');
     const { SUPABASE_URL, SUPABASE_ANON_KEY } = await import('@/data/constants');
     const { data } = await supabase.auth.getSession();
     

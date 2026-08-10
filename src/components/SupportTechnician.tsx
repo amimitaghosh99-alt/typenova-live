@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, RotateCcw, AlertTriangle, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Send, Bot, RotateCcw, AlertTriangle } from 'lucide-react';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
 import { chatCompletion, type ChatMessage } from '@/lib/aiClient';
 

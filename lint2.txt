@@ -1,0 +1,109 @@
+
+C:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\App.tsx
+  354:6   warning  React Hook useEffect has an unnecessary dependency: 'supabase'. Either exclude it or remove the dependency array. Outer scope values like 'supabase' aren't valid dependencies because mutating them doesn't re-render the component                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+  361:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\App.tsx:361:7
+  359 |     const room = params.get('race');
+  360 |     if (room && room.length === 6) {
+> 361 |       setInitialRaceCode(room.toUpperCase());
+      |       ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  362 |       setShowRace(true);
+  363 |       // Clean up URL so it doesn't linger
+  364 |       window.history.replaceState({}, '', window.location.pathname);                                                                                 react-hooks/set-state-in-effect
+  392:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\App.tsx:392:7
+  390 |   useEffect(() => {
+  391 |     if (race.status === 'lobby' && raceActive) {
+> 392 |       setRaceActive(false);
+      |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  393 |       setShowRace(true);
+  394 |       typing.setPhase('CONFIGURING');
+  395 |     }                                                                                                                                                                                 react-hooks/set-state-in-effect
+  396:6   warning  React Hook useEffect has a missing dependency: 'typing'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    react-hooks/exhaustive-deps
+  486:21  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\App.tsx:486:21
+  484 |   }, [friendsState.friends, cloud.username]);
+  485 |
+> 486 |   useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);
+      |                     ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  487 |   useEffect(() => { if (boardTab === 'friends') fetchFriendsBoard(); }, [boardTab, fetchFriendsBoard]);
+  488 |
+  489 |   const [activeTitle, setActiveTitle] = useState(getActiveTitleId());     react-hooks/set-state-in-effect
+  487:49  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\App.tsx:487:49
+  485 |
+  486 |   useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);
+> 487 |   useEffect(() => { if (boardTab === 'friends') fetchFriendsBoard(); }, [boardTab, fetchFriendsBoard]);
+      |                                                 ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  488 |
+  489 |   const [activeTitle, setActiveTitle] = useState(getActiveTitleId());
+  490 |   useEffect(() => {  react-hooks/set-state-in-effect
+  523:6   warning  React Hook useEffect has a missing dependency: 'cloud'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     react-hooks/exhaustive-deps
+  531:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\App.tsx:531:5
+  529 |     const suggested = (meta?.full_name || meta?.name || auth.user?.email?.split('@')[0] || '')
+  530 |       .replace(/[^a-zA-Z0-9_]/g, '').slice(0, 12);
+> 531 |     setNameInput(prev => prev || suggested);
+      |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  532 |     setNameErr('');
+  533 |   }, [cloud.status, auth.user]);
+  534 |                                                                                                      react-hooks/set-state-in-effect
+  579:6   warning  React Hook useCallback has a missing dependency: 'game'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    react-hooks/exhaustive-deps
+  622:33  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\App.tsx:622:33
+  620 |     // otherwise the user sees the exact same 5 keys for weeks
+  621 |     // since lifetime stats are slow to shift.
+> 622 |     return worstKeys.sort(() => Math.random() - 0.5).slice(0, 5);
+      |                                 ^^^^^^^^^^^^^ Cannot call impure function
+  623 |   }, [rpg.heatmapData]);
+  624 |
+  625 |   // Same weakness data, but ranked and with the rates attached, so the AI coach                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/purity
+  660:14  error    'err' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+  664:6   warning  React Hook useCallback has a missing dependency: 'launchDrill'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+  685:76  error    Empty block statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        no-empty
+  691:63  error    Empty block statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        no-empty
+  735:6   warning  React Hook useEffect has a missing dependency: 'typing.keystrokeLog'. Either include it or remove the dependency array. Outer scope values like 'supabase' aren't valid dependencies because mutating them doesn't re-render the component                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/exhaustive-deps
+  872:5   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+  909:6   warning  React Hook useCallback has a missing dependency: 'typing'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+
+✖ 17 problems (9 errors, 8 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

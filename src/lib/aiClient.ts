@@ -89,7 +89,7 @@ export function trackUsage(usage: unknown, fallbackChars: number): void {
     try {
       history = JSON.parse(localStorage.getItem(AI_KEYS.rollingHistory) || '[]');
     } catch { /* ignore */ }
-    
+
     // Filter out events older than 60 seconds
     history = history.filter(ev => now - ev.ts < 60000);
     history.push({ ts: now, t: tokensUsed, r: 1 });
@@ -170,7 +170,7 @@ export interface ChatResult {
 export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions = {}): Promise<ChatResult> {
   const config = getAIConfig();
   const mode = opts.mode || 'byok';
-  
+
   let finalUrl = `${config.baseUrl}/chat/completions`;
   let finalKey = config.apiKey;
   // Use a sensible default model for global if the user hasn't selected one
@@ -181,7 +181,7 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
     if (!supabase) throw new AIError('Global engine unavailable (Supabase not initialized).');
     const { SUPABASE_URL, SUPABASE_ANON_KEY } = await import('@/data/constants');
     const { data } = await supabase.auth.getSession();
-    
+
     // Authenticate with Supabase using the user's session JWT, or fallback to Anon Key
     finalKey = data.session?.access_token || SUPABASE_ANON_KEY;
     finalUrl = `${SUPABASE_URL}/functions/v1/ai-proxy`;
@@ -212,7 +212,7 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
   if (!stream) {
     const data = await response.json();
     const text: string = data.choices?.[0]?.message?.content ?? '';
-    trackUsage(response, data.usage, payload.length + text.length);
+    trackUsage(data.usage, payload.length + text.length);
     return { text, finishReason: data.choices?.[0]?.finish_reason ?? null };
   }
 
@@ -234,7 +234,7 @@ async function readStream(
   let usage: unknown;
 
   try {
-    for (;;) {
+    for (; ;) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
@@ -268,6 +268,6 @@ async function readStream(
     reader.releaseLock();
   }
 
-  trackUsage(response, usage, requestChars + text.length);
+  trackUsage(usage, requestChars + text.length);
   return { text, finishReason };
 }

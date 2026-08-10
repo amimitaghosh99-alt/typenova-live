@@ -18,6 +18,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.1.0',
+    date: 'August 10, 2026',
+    title: 'Dual-Agent Architecture & The Technician 🤖',
+    changes: [
+      { type: 'feature', description: 'Dual-Agent Architecture: Aru now runs exclusively on BYOK, while the new Dumb Technician uses the TypeNova Cloud.' },
+      { type: 'feature', description: 'Dumb Technician UI: Added a dedicated support chat in the AI Settings to guide users.' },
+      { type: 'perf', description: 'Supabase Edge Function proxy securely handles global Groq AI requests.' },
+      { type: 'tweak', description: 'Refactored aiClient.ts to support dynamic mode routing (byok vs global).' }
+    ],
+    impact: {
+      fixes: 0,
+      tweaks: 10,
+      linesChanged: 850,
+      perfGain: 'Secured global API keys via proxy'
+    }
+  },
+  {
     version: 'v2.0.1',
     date: 'August 10, 2026',
     title: 'Academy & Massive UI Overhaul 🎓',

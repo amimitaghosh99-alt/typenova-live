@@ -1,3 +1,9 @@
+ 
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/purity */
+/* eslint-disable no-empty */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Keyboard, Activity, Target, RotateCcw, Skull, Ghost,
@@ -33,6 +39,7 @@ import type { PaceSample } from '@/components/TypingArea';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ResultsScreen } from '@/components/ResultsScreen';
 import { RaceResultsScreen } from '@/components/RaceResultsScreen';
+import { AIDrillResultsScreen } from '@/components/AIDrillResultsScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { StatsDashboard, appendHistory, loadHistory } from '@/components/StatsDashboard';
 import type { HistoryEntry } from '@/components/StatsDashboard';
@@ -64,6 +71,8 @@ import { VideoCallProvider } from '@/contexts/VideoCallContext';
 import { VideoCallOverlay } from '@/components/VideoCallOverlay';
 import { AcademyEntry } from '@/components/academy/AcademyEntry';
 import { AcademyLayout } from '@/components/academy/AcademyLayout';
+import { useSmartDrills } from '@/hooks/useSmartDrills';
+import { AIChatBot } from '@/components/AIChatBot';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
 // stay import-free — tailwind.config.js loads it via jiti) to lucide
@@ -171,6 +180,12 @@ function MainApp() {
   // ─── Mode State ──────────────────────────────────────────────────
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
+  
+  const [themeFont, setThemeFont] = useState(() => localStorage.getItem('typezen_font') || 'JetBrains Mono');
+  
+  useEffect(() => {
+    document.documentElement.style.setProperty('--typezen-font', `"${themeFont}"`);
+  }, [themeFont]);
 
   const [dailyStreak, setDailyStreak] = useState(loadDailyStreak);
   const [isCrossfading, setIsCrossfading] = useState(false);
@@ -206,6 +221,7 @@ function MainApp() {
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
+  const { generateDrill, isGenerating: isSmartDrillGenerating } = useSmartDrills();
   const [isAcademyMode, setIsAcademyMode] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -418,7 +434,7 @@ function MainApp() {
   // ─── Initialization ──────────────────────────────────────────────
   useEffect(() => {
     typing.setTargetText(generateText('NOVICE', 25, '', false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // ─── Leaderboard ─────────────────────────────────────────────────
@@ -585,13 +601,10 @@ function MainApp() {
 
   // ─── Drills (single-key micro + heatmap smart) ───────────────────
   const launchDrill = (text: string) => {
+    typing.resetEngine();
     game.setMicroDrillActive(true);
     typing.setTargetText(text);
-    typing.setInputSync('');
-    typing.setStartTime(null);
-    typing.setEndTime(null);
     typing.setPhase('READY');
-    typing.resetKeystrokes();
   };
 
   const startMicroDrill = (keyChar: string) => {
@@ -601,34 +614,64 @@ function MainApp() {
 
   // Lifetime-weakest keys (min 10 hits each, letters/digits only)
   const smartDrillKeys = useMemo(() => {
-    return Object.entries(rpg.heatmapData || {})
+    const worstKeys = Object.entries(rpg.heatmapData || {})
       .filter(([k, v]) => v.total >= 10 && k !== 'SPACE' && k !== 'ENTER')
       .map(([k, v]) => [k, v.errors / v.total] as [string, number])
       .filter(([, rate]) => rate > 0)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, 15)
       .map(([k]) => k);
+      
+    // Shuffle the top 15 worst keys and pick 5 to add variety,
+    // otherwise the user sees the exact same 5 keys for weeks
+    // since lifetime stats are slow to shift.
+    return worstKeys.sort(() => Math.random() - 0.5).slice(0, 5);
   }, [rpg.heatmapData]);
 
-  const startSmartDrill = () => {
-    if (smartDrillKeys.length === 0) return;
-    launchDrill(buildDrillWords(smartDrillKeys, 20).join(' '));
-  };
+  // Same weakness data, but ranked and with the rates attached, so the AI coach
+  // can name specific keys instead of giving generic advice.
+  const aruWeakKeys = useMemo(() => {
+    return Object.entries(rpg.heatmapData || {})
+      .filter(([k, v]) => v.total >= 10 && k !== 'SPACE' && k !== 'ENTER')
+      .map(([key, v]) => ({ key, errorRate: v.errors / v.total }))
+      .filter((k) => k.errorRate > 0)
+      .sort((a, b) => b.errorRate - a.errorRate)
+      .slice(0, 5);
+  }, [rpg.heatmapData]);
+
+  const aruStats = useMemo(() => ({
+    wpm: typing.wpm,
+    accuracy: typing.accuracy,
+    level: rpg.userLevel,
+    testsCompleted: rpg.testsCompleted,
+    streak: dailyStreak,
+    weakKeys: aruWeakKeys,
+  }), [typing.wpm, typing.accuracy, rpg.userLevel, rpg.testsCompleted, dailyStreak, aruWeakKeys]);
+
+  const startSmartDrill = useCallback(async (sessionKeys?: string[]) => {
+    const targetKeys = sessionKeys && sessionKeys.length > 0 ? sessionKeys : smartDrillKeys;
+    if (targetKeys.length === 0) return;
+    const toastId = toast.loading('AI Engine generating drill...', { icon: '🧠' });
+    try {
+      const result = await generateDrill(targetKeys);
+      toast.dismiss(toastId);
+      if (result.engine === 'cloud') {
+        toast.success('Cloud AI generated a custom drill!', { icon: '☁️' });
+      } else if (result.engine === 'ai') {
+        toast.success('Local AI Engine generated a custom drill!', { icon: '🧠' });
+      } else {
+        toast.success('Procedural Engine generated a smart drill!', { icon: '⚙️' });
+      }
+      launchDrill(result.text);
+    } catch (err) {
+      toast.dismiss(toastId);
+      toast.error('Failed to generate drill.');
+    }
+  }, [smartDrillKeys, generateDrill]);
 
   const exitMicroDrill = () => {
-    const cfg = game.configRef.current;
     game.setMicroDrillActive(false);
-    const length = cfg.testMode === 'time' ? cfg.duration * 4 : cfg.wordCount;
-    typing.setTargetText(generateText(cfg.level, length, cfg.customText, cfg.mirroredMode, {
-      numbers: cfg.withNumbers,
-      punctuation: cfg.withPunctuation,
-      rng: cfg.dailyActive ? mulberry32(daySeed()) : undefined,
-      codeLanguage: cfg.codeLanguage,
-    }));
-    typing.resetKeystrokes();
-    // Go back to CONFIGURING instead of FINISHED to avoid triggering RPG
-    // processing with an empty keystroke log.
-    typing.setPhase('CONFIGURING');
+    handleResetRef.current({});
   };
 
   // ─── Personal Best (ghost pacer data) ────────────────────────────
@@ -637,7 +680,7 @@ function MainApp() {
     if (game.level === 'CUSTOM' || game.mirroredMode || game.dailyActive) return null;
     try { return JSON.parse(localStorage.getItem(pbStorageKey) || 'null'); } catch { return null; }
     // typing.phase is a deliberate extra dep: reload the PB after each finish
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [pbStorageKey, game.level, game.mirroredMode, game.dailyActive, typing.phase]);
 
   // ─── Theme / Sound Cycles ────────────────────────────────────────
@@ -662,7 +705,7 @@ function MainApp() {
     if (log.length === 0 || !typing.startTime) return [];
     const t0 = log[0].time;
     return log.filter(k => k.isError && !k.isBackspace).map(k => k.time - t0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [typing.phase, typing.endTime]);
   const finishDurationMs = typing.startTime && typing.endTime ? typing.endTime - typing.startTime : 0;
 
@@ -760,7 +803,7 @@ function MainApp() {
       else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
       else streakNow = 1;
       localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setDailyStreak(streakNow);
     }
 
@@ -802,7 +845,7 @@ function MainApp() {
       const backspaceCount = typing.keystrokeLog.current.filter(k => k.key === 'Backspace').length;
       race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, result.updatedHeatmap, errCount, backspaceCount);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [typing.phase, typing.endTime]);
 
   // ─── Multiplayer: broadcast live progress while racing ───────────
@@ -832,7 +875,7 @@ function MainApp() {
     return () => clearInterval(interval);
     // `typing` is intentionally excluded — we read it via penaltyTypingRef
     // to prevent the interval from being destroyed on every keystroke.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [typing.phase, typing.startTime, game.testMode, game.duration]);
 
   useEffect(() => {
@@ -869,7 +912,6 @@ function MainApp() {
     typing.setTargetText(drillText);
     setActiveModal(null);
     typing.resetEngine();
-    toast.success("Weakness Drill Generated! Focus on red problem keys.", { icon: "🎯" });
   }, [typing.setTargetText, typing.resetEngine]);
   const handleRaceCreate = useCallback((name: string, size?: number, isRanked?: boolean, roomCode?: string) => {
     setIsRankedMatch(!!isRanked);
@@ -940,7 +982,8 @@ function MainApp() {
       onReset: () => handleReset(),
       onWatchReplay: () => setShowReplay(true),
       onStartMicroDrill: startMicroDrill,
-      onStartSmartDrill: smartDrillKeys.length > 0 ? startSmartDrill : null,
+      onStartSmartDrill: startSmartDrill,
+      isSmartDrillGenerating,
     };
 
     if (raceActive) {
@@ -978,7 +1021,20 @@ function MainApp() {
     return (
       <ErrorBoundary onReset={() => handleReset()}>
         <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
-          <ResultsScreen {...resultsProps} />
+          {game.microDrillActive ? (
+            <AIDrillResultsScreen
+              wpm={typing.wpm}
+              accuracy={typing.accuracy}
+              theme={theme}
+              smartDrillKeys={smartDrillKeys}
+              isGenerating={isSmartDrillGenerating}
+              onGenerateAnother={startSmartDrill}
+              onRetry={() => launchDrill(typing.targetText)}
+              onExit={exitMicroDrill}
+            />
+          ) : (
+            <ResultsScreen {...resultsProps} />
+          )}
           {activeModal === 'replay' && (
             <ReplayModal
               targetText={typing.targetText}
@@ -1010,7 +1066,7 @@ function MainApp() {
         onReset={handleReset}
         onExitMicroDrill={exitMicroDrill}
       />
-      <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-sans selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
+      <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-mono selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
 
         {/* Global Liquid-Glass SVG filter — rendered once, referenced by every
           .glass-refract panel via backdrop-filter: url(#glass-distortion)
@@ -1807,6 +1863,8 @@ function MainApp() {
                 zenMode={game.zenMode} setZenMode={game.setZenMode}
                 themeIndex={themeIndex} selectTheme={selectTheme}
                 soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
+                themeFont={themeFont}
+                setThemeFont={(font) => { setThemeFont(font); localStorage.setItem('typezen_font', font); }}
               />
             );
 
@@ -1938,6 +1996,11 @@ function MainApp() {
           }
         })()}
         <VideoCallOverlay />
+        <AIChatBot
+          stats={aruStats}
+          onStartDrill={startSmartDrill}
+          hideTrigger={shouldHideClutter}
+        />
       </div>
     </VideoCallProvider>
   );

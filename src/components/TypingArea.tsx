@@ -186,8 +186,8 @@ export const TypingArea = ({
   // Zen mode: brighter untyped text, no dimming
   const untypedColor = zenMode ? 'text-zinc-400' : 'text-zinc-500';
   const baseFontClass = zenMode
-    ? 'text-2xl md:text-3xl lg:text-4xl leading-[2]'
-    : 'text-xl md:text-2xl lg:text-3xl leading-[1.8]';
+    ? 'font-mono text-2xl md:text-3xl lg:text-4xl leading-[2]'
+    : 'font-mono text-xl md:text-2xl lg:text-3xl leading-[1.8]';
 
   const syntaxColors = useSyntaxHighlighter(targetText, isCodeMode);
 
@@ -257,7 +257,6 @@ export const TypingArea = ({
             ref={containerRef}
             className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto pb-4 pt-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-700`}
             style={{
-              fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace",
               filter: !startTime && !zenMode ? 'blur(12px)' : 'none',
               opacity: !startTime && !zenMode ? 0.3 : 1,
               textShadow: zenMode ? '0 0 40px rgba(255,255,255,0.03)' : 'none',

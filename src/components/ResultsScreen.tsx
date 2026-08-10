@@ -29,7 +29,8 @@ export interface ResultsScreenProps {
   onReset: () => void;
   onWatchReplay: () => void;
   onStartMicroDrill: (keyChar: string) => void;
-  onStartSmartDrill: (() => void) | null;
+  onStartSmartDrill: ((keys?: string[]) => void) | null;
+  isSmartDrillGenerating?: boolean;
   compact?: boolean;
 }
 
@@ -39,7 +40,7 @@ export function ResultsScreen({
   saveStatus = '',
   timelinePoints = [], competitorTimelines, errorTimes = [], durationMs = 1000,
   keystrokeLog = [],
-  onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill,
+  onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill, isSmartDrillGenerating,
   compact = false
 }: ResultsScreenProps) {
   const [shareStatus, setShareStatus] = useState('');
@@ -47,6 +48,30 @@ export function ResultsScreen({
 
   const safeTimelinePoints = useMemo(() => Array.isArray(timelinePoints) ? timelinePoints : [], [timelinePoints]);
   const safeErrorTimes = useMemo(() => Array.isArray(errorTimes) ? errorTimes : [], [errorTimes]);
+
+  const sessionWeakKeys = useMemo(() => {
+    const errorCounts: Record<string, number> = {};
+    const totalCounts: Record<string, number> = {};
+    
+    keystrokeLog.forEach(k => {
+      // Backspaces have no expected char and are excluded from all accuracy stats.
+      if (k.isBackspace) return;
+      const char = k.expected.toUpperCase();
+      if (char === ' ' || char === '\n') return;
+      totalCounts[char] = (totalCounts[char] || 0) + 1;
+      if (k.isError) {
+        errorCounts[char] = (errorCounts[char] || 0) + 1;
+      }
+    });
+
+    const worstKeys = Object.keys(errorCounts)
+      .map(k => ({ key: k, rate: errorCounts[k] / totalCounts[k], errors: errorCounts[k] }))
+      .filter(k => k.errors > 0)
+      .sort((a, b) => b.rate - a.rate || b.errors - a.errors)
+      .map(k => k.key);
+
+    return worstKeys.slice(0, 5);
+  }, [keystrokeLog]);
   const safeKeystrokeLog = useMemo(() => Array.isArray(keystrokeLog) ? keystrokeLog : [], [keystrokeLog]);
   const safeDurationMs = Math.max(durationMs || 0, 1000);
 
@@ -238,12 +263,20 @@ export function ResultsScreen({
           </button>
 
           {onStartSmartDrill && (
-            <button
-              onClick={onStartSmartDrill}
-              className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl ${theme?.text || 'text-cyan-400'} font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-transparent hover:border-white/10`}
-            >
-              <Brain size={16} /> SMART DRILL
-            </button>
+            <div className="relative group/btn">
+              <button
+                onClick={() => onStartSmartDrill?.(sessionWeakKeys)}
+                disabled={isSmartDrillGenerating || sessionWeakKeys.length === 0}
+                className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl ${theme?.text || 'text-cyan-400'} font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-transparent hover:border-white/10 disabled:opacity-50`}
+              >
+                {isSmartDrillGenerating ? (
+                  <span className="animate-spin text-lg">⚙️</span>
+                ) : (
+                  <Brain size={16} />
+                )}
+                {isSmartDrillGenerating ? 'AI ENGINE...' : 'SMART DRILL'}
+              </button>
+            </div>
           )}
 
           <button

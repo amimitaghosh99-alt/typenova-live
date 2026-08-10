@@ -1,7 +1,9 @@
 import { useMemo, memo, useState } from 'react';
-import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle, Keyboard, Zap } from 'lucide-react';
+import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle, Keyboard, Zap, Loader2 } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import { readLocalProgress } from '@/lib/progress';
+import { useSmartDrills } from '@/hooks/useSmartDrills';
+import { toast } from 'sonner';
 
 export interface HistoryEntry {
   /** ISO date */
@@ -42,29 +44,6 @@ export function loadPersonalBests(): Array<{ label: string; wpm: number }> {
   return out.sort((a, b) => b.wpm - a.wpm);
 }
 
-export function generateWeaknessDrillText(weakKeys: string[]): string {
-  const charSet = new Set(weakKeys.map(k => k.toLowerCase()));
-  const WORD_POOL = [
-    'experience', 'determine', 'strategy', 'execution', 'system', 'architecture',
-    'performance', 'optimization', 'keyboard', 'precision', 'momentum', 'velocity',
-    'algorithm', 'structure', 'javascript', 'typescript', 'interface', 'react',
-    'component', 'responsive', 'hardware', 'acceleration', 'animation', 'sequence',
-    'threshold', 'frequency', 'calibration', 'accuracy', 'consistency', 'excellence',
-    'challenge', 'victory', 'champion', 'mastery', 'flowstate', 'focus', 'rhythm',
-    'stamina', 'endurance', 'developer', 'intelligence', 'antigravity', 'typenova'
-  ];
-
-  const prioritized = WORD_POOL.filter(w => w.split('').some(c => charSet.has(c)));
-  const pool = prioritized.length >= 10 ? prioritized : WORD_POOL;
-
-  const result: string[] = [];
-  for (let i = 0; i < 40; i++) {
-    const word = pool[Math.floor(Math.random() * pool.length)];
-    result.push(word);
-  }
-
-  return result.join(' ');
-}
 
 // Simple polyline over the last N entries, same visual language as the
 // expanded pacing graph in App.tsx.
@@ -107,6 +86,7 @@ const KEYBOARD_ROWS = [
 
 function KeyboardHeatmap({ data, onStartWeaknessDrill }: { data: Record<string, { total: number; errors: number; totalMs?: number }>; onStartWeaknessDrill?: (text: string) => void }) {
   const [mode, setMode] = useState<'accuracy' | 'speed'>('accuracy');
+  const { generateDrill, isGenerating } = useSmartDrills();
 
   // Find max values to normalize the heat map
   let maxErrorRate = 0;
@@ -137,12 +117,22 @@ function KeyboardHeatmap({ data, onStartWeaknessDrill }: { data: Record<string, 
           <Keyboard size={16} /> Finger Heatmap
         </h3>
         <div className="flex gap-2">
-          {onStartWeaknessDrill && weakKeys.length > 0 && (
+          {onStartWeaknessDrill && (
             <button 
-              onClick={() => onStartWeaknessDrill(generateWeaknessDrillText(weakKeys))}
-              className="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all flex items-center gap-1.5"
+              disabled={isGenerating}
+              onClick={async () => {
+                const result = await generateDrill(weakKeys);
+                if (result.engine === 'ai') {
+                  toast.success('Local AI Engine generated a custom drill!', { icon: '🧠' });
+                } else {
+                  toast.success('Procedural Engine generated a smart drill!', { icon: '⚙️' });
+                }
+                onStartWeaknessDrill(result.text);
+              }}
+              className="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Zap size={12} /> Drill Weak Keys
+              {isGenerating ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+              {isGenerating ? 'AI Engine...' : (weakKeys.length > 0 ? 'Drill Weak Keys' : 'AI Warmup Drill')}
             </button>
           )}
           <button 

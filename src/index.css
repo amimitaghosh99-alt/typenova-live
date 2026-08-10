@@ -1,5 +1,5 @@
 /* @import must be first in the stylesheet or browsers silently drop it */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anonymous+Pro:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;700&family=Cutive+Mono&family=Dancing+Script:wght@400;700&family=Fira+Code:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=Inconsolata:wght@400;700&family=JetBrains+Mono:wght@400;700;800&family=Pacifico&family=Roboto+Mono:wght@400;700&family=Share+Tech+Mono&family=Space+Mono:wght@400;700&family=Syne+Mono&family=VT323&family=Victor+Mono:ital,wght@0,400;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -73,9 +73,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    @apply bg-background text-foreground font-mono;
   }
+  
+  .font-mono {
+    font-family: var(--typezen-font, "JetBrains Mono"), monospace !important;
+  }
+
   button, a, input, select, textarea, [role="button"], [role="menuitem"], [role="tab"], .glass-panel {
     @apply transition-all duration-300;
     transition-timing-function: var(--ease-apple);

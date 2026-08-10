@@ -83,6 +83,22 @@ export function TypingController({
       // but we ignore keystrokes if a modal is open.
       if (activeModal) return;
 
+      // Any focused text field owns the keyboard — the floating Aru chat widget
+      // is not part of the activeModal machine, so without this the phase
+      // branches below would still see every keystroke typed into its input.
+      // [data-keyboard-isolated] covers the rest of such a widget, so tabbing to
+      // one of its buttons and pressing Escape doesn't also reset the test.
+      const focused = document.activeElement as HTMLElement | null;
+      if (
+        focused &&
+        (focused.tagName === 'INPUT' ||
+          focused.tagName === 'TEXTAREA' ||
+          focused.isContentEditable ||
+          focused.closest('[data-keyboard-isolated]'))
+      ) {
+        return;
+      }
+
       // During an active multiplayer race, swallow ESC so a mid-race abort
       // can't desync the room; typing still flows through below.
       if (raceActive && e.key === 'Escape') { e.preventDefault(); return; }
@@ -148,7 +164,7 @@ export function TypingController({
       }
 
       // ─── TYPING ONLY ───
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA' || typing.phase !== 'TYPING') return;
+      if (typing.phase !== 'TYPING') return;
       if (e.ctrlKey || e.metaKey || e.altKey || (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace')) return;
       if (e.key === 'Shift') return;
 

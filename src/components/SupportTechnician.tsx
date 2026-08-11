@@ -1,7 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, RotateCcw, AlertTriangle } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Bot, RotateCcw, AlertTriangle, Square, Copy, Check, Zap } from 'lucide-react';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
-import { chatCompletion, type ChatMessage } from '@/lib/aiClient';
+import { chatCompletion, hasAIKey, type ChatMessage } from '@/lib/aiClient';
+import {
+  buildSystemPrompt,
+  parseActions,
+  readTechSnapshot,
+  suggestStarters,
+  type TechAction,
+  type TechAiState,
+} from '@/lib/technicianBrain';
 
 type Role = 'user' | 'assistant';
 
@@ -9,34 +17,54 @@ interface Message {
   id: string;
   role: Role;
   content: string;
+  /** Locally-generated failure notice — shown, never replayed to the model. */
   isError?: boolean;
 }
 
+/** Actions the Technician can offer. Anything the host doesn't wire up is
+ *  silently dropped from its reply, so the chat never dangles a dead button. */
+export interface TechnicianCapabilities {
+  openTab?: (tab: string) => void;
+  setProvider?: (providerId: string) => void;
+  setModel?: (model: string) => void;
+  testConnection?: () => void;
+  resetUsage?: () => void;
+  toggleModifier?: (id: string) => void;
+}
+
+interface SupportTechnicianProps {
+  /** Live Smart Engine form state — includes edits not yet in localStorage. */
+  ai?: Partial<TechAiState>;
+  /** Which gameplay modifiers are currently on, keyed by action id. */
+  modifiers?: Record<string, boolean>;
+  capabilities?: TechnicianCapabilities;
+}
+
+/** Key-console destinations for `open_console`. An explicit allowlist rather
+ *  than a lookup over PROVIDER_PRESETS, so a bogus argument from the model can
+ *  never open an arbitrary URL. */
+const CONSOLE_URLS: Record<string, string> = {
+  groq: 'https://console.groq.com/keys',
+  openrouter: 'https://openrouter.ai/keys',
+  google: 'https://aistudio.google.com/app/apikey',
+  kimi: 'https://platform.moonshot.cn/console/api-keys',
+  openai: 'https://platform.openai.com/api-keys',
+};
+
+const HISTORY_KEY = 'typenova_tech_history';
+const MAX_STORED = 40;
+/** How many prior turns get replayed. Deliberately short: the cloud proxy's
+ *  Groq key is shared by everyone, so its tokens-per-minute ceiling is a common
+ *  resource, and the manual excerpt is already the bulk of each request. */
+const HISTORY_WINDOW = 6;
+const REQUEST_TIMEOUT_MS = 60_000;
+
+/** Support answers should be short and literal, not creative. */
+const TUNING = { temperature: 0.5, maxTokens: 500 } as const;
+
 const GREETING = "Look, rookie, I don't have all day. What's busted? Need a key? Don't know what a Ghost Pacer is? Spit it out so I can get back to calibrating the mainframe.";
 
-const STARTERS = [
-  "How do I get an API key?",
-  "What is the Triple Threat Engine?",
-  "Explain the game modifiers to me."
-];
-
-const SYSTEM_PROMPT = `You are the 'Dumb Technician', a Weary but Helpful Cyberpunk Mechanic acting as the guide for the TypeNova app.
-You sound a little tired of having to explain basic concepts to 'rookies', but your actual advice must be 100% accurate, clear, and genuinely helpful. Use technical/cyberpunk slang (e.g. 'mainframe', 'jack in', 'fried circuits', 'rookie') but keep the instructions dead simple.
-
-Knowledge Base:
-- Getting Keys: You know how to guide users to Groq, OpenRouter, or Google AI Studio to get free API keys.
-- The Modifiers (Game Modes):
-  - Sudden Death: 1 mistake ends the test (1HP).
-  - Ghost Pacer: Races a holographic cursor at a set WPM.
-  - Focus Mode: Blurs out text outside a 15-character radius.
-  - Blind Mode: Typed characters instantly vanish (opacity-0).
-  - Fog of War: Only the current and next word are visible.
-  - Sticky Keys: Typos 'stick' and the player must mash Backspace multiple times to unjam the keyboard.
-  - Overclocked: Adds massive time penalties if accuracy drops below 95%.
-- Progression: Players earn XP, level up, and unlock Trophies (like 'Speed Demon' or 'The Cyber Ninja') based on their WPM, accuracy, and active modifiers.
-- The Engine: The app uses a 'Triple Threat Engine' (Cloud AI, Local Gemini Nano, and Procedural Fallback).
-
-Keep your responses concise. Do not use more than a few short paragraphs. Use markdown for formatting.`;
+const EMPTY_STARTERS: string[] = [];
 
 let idCounter = 0;
 function newId(): string {
@@ -44,93 +72,230 @@ function newId(): string {
   return `tech-${Date.now().toString(36)}-${idCounter}`;
 }
 
-export function SupportTechnician() {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 'greeting', role: 'assistant', content: GREETING }
-  ]);
+function greetingMessage(): Message {
+  return { id: newId(), role: 'assistant', content: GREETING };
+}
+
+function loadHistory(): Message[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) return parsed.slice(-MAX_STORED);
+    }
+  } catch {
+    /* corrupt transcript isn't worth crashing the settings modal over */
+  }
+  return [greetingMessage()];
+}
+
+export function SupportTechnician({ ai, modifiers, capabilities }: SupportTechnicianProps) {
+  const [messages, setMessages] = useState<Message[]>(loadHistory);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [ranAction, setRanAction] = useState<string | null>(null);
+
+  const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef(messages);
+  const stickToBottom = useRef(true);
 
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Persist across the settings modal being closed and reopened.
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
+    messagesRef.current = messages;
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-MAX_STORED)));
+    } catch {
+      /* quota — the transcript is disposable */
+    }
+  }, [messages]);
 
-  useEffect(() => {
-    return () => abortRef.current?.abort();
+  const handleScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   }, []);
 
-  const send = async (text: string) => {
-    if (!text.trim() || isTyping) return;
-    if (abortRef.current) abortRef.current.abort();
+  useEffect(() => {
+    if (stickToBottom.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
 
-    const userMsg: Message = { id: newId(), role: 'user', content: text.trim() };
-    const loadingId = newId();
+  useEffect(() => () => abortRef.current?.abort(), []);
 
-    setMessages(prev => [...prev, userMsg, { id: loadingId, role: 'assistant', content: '' }]);
+  // Rebuilt per send, not per render — it reads localStorage and the heatmap.
+  const snapshotInputs = useRef({ ai, modifiers });
+  useEffect(() => { snapshotInputs.current = { ai, modifiers }; });
+
+  // Suggestions are drawn from what's actually wrong with this install, so they
+  // are built fresh — but only while the console is empty, which is the only
+  // time they render and the only time the localStorage sweep is worth it.
+  const showStarters = messages.length === 1 && !isTyping;
+  const starters = showStarters ? suggestStarters(readTechSnapshot(ai, modifiers)) : EMPTY_STARTERS;
+
+  const runAction = useCallback((action: TechAction) => {
+    const caps = capabilities;
+    if (!caps) return;
+
+    switch (action.id) {
+      case 'open_tab': caps.openTab?.(action.arg); break;
+      case 'set_provider': caps.setProvider?.(action.arg); break;
+      case 'set_model': caps.setModel?.(action.arg); break;
+      case 'test_connection': caps.testConnection?.(); break;
+      case 'reset_usage': caps.resetUsage?.(); break;
+      case 'toggle': caps.toggleModifier?.(action.arg); break;
+      case 'open_console': {
+        const url = CONSOLE_URLS[action.arg];
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+        break;
+      }
+    }
+
+    const token = `${action.id}:${action.arg}`;
+    setRanAction(token);
+    setTimeout(() => setRanAction(current => (current === token ? null : current)), 2000);
+  }, [capabilities]);
+
+  /** Drop actions this host can't perform so the model can't promise vapour. */
+  const supported = useCallback((action: TechAction): boolean => {
+    const caps = capabilities;
+    switch (action.id) {
+      case 'open_tab': return !!caps?.openTab;
+      case 'set_provider': return !!caps?.setProvider;
+      case 'set_model': return !!caps?.setModel;
+      case 'test_connection': return !!caps?.testConnection;
+      case 'reset_usage': return !!caps?.resetUsage;
+      case 'toggle': return !!caps?.toggleModifier;
+      case 'open_console': return !!CONSOLE_URLS[action.arg];
+      default: return false;
+    }
+  }, [capabilities]);
+
+  const send = useCallback(async (rawText: string, opts: { replaceLast?: boolean } = {}) => {
+    const text = rawText.trim();
+    if (!text || isTyping) return;
+
+    abortRef.current?.abort();
+
+    // On a regenerate, peel the trailing assistant turn(s) back off so the same
+    // question gets asked again rather than answered twice.
+    let baseHistory = messagesRef.current;
+    if (opts.replaceLast) {
+      while (baseHistory.length && baseHistory[baseHistory.length - 1].role === 'assistant') {
+        baseHistory = baseHistory.slice(0, -1);
+      }
+    }
+
+    const replyId = newId();
+    const withUser: Message[] = opts.replaceLast
+      ? baseHistory
+      : [...baseHistory, { id: newId(), role: 'user', content: text }];
+
+    setMessages([...withUser, { id: replyId, role: 'assistant', content: '' }]);
     setInput('');
     setIsTyping(true);
+    stickToBottom.current = true;
 
-    // Build the request history (System Prompt + last 10 messages to save context limits)
-    const history = messages
-      .filter(m => !m.isError)
-      .slice(-10)
-      .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-      
+    const priorTurns = baseHistory
+      .filter(m => !m.isError && m.content.trim() !== '')
+      .slice(-HISTORY_WINDOW);
+
+    // Only the relevant slices of the manual travel with each question, keyed
+    // off the question plus the last couple of turns for follow-up context.
+    const { ai: liveAi, modifiers: liveModifiers } = snapshotInputs.current;
+    const snapshot = readTechSnapshot(liveAi, liveModifiers);
+    const context = priorTurns.slice(-2).map(m => m.content).join(' ');
+
     const payload: ChatMessage[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history,
-      { role: 'user', content: userMsg.content }
+      { role: 'system', content: buildSystemPrompt(snapshot, text, context) },
+      ...priorTurns.map(m => ({ role: m.role, content: m.content })),
+      ...(opts.replaceLast ? [] : [{ role: 'user' as const, content: text }]),
     ];
 
     const controller = new AbortController();
     abortRef.current = controller;
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+
+    const stream = (chunk: string) =>
+      setMessages(prev => prev.map(m => (m.id === replyId ? { ...m, content: m.content + chunk } : m)));
 
     try {
-      await chatCompletion(payload, {
-        mode: 'global',
-        signal: controller.signal,
-        onDelta: (chunk) => {
-          setMessages(prev => prev.map(m => 
-            m.id === loadingId ? { ...m, content: m.content + chunk } : m
-          ));
-        }
-      });
-    } catch (e: any) {
-      if (e.name === 'AbortError') return;
+      try {
+        await chatCompletion(payload, { ...TUNING, mode: 'global', signal: controller.signal, onDelta: stream });
+      } catch (proxyError) {
+        // The shared proxy is the only thing that lets the Technician work with
+        // no key configured — but if it's down and the user HAS a key, their own
+        // provider is a perfectly good second radio. Aborts are not failures.
+        if (controller.signal.aborted || !hasAIKey()) throw proxyError;
+        setMessages(prev => prev.map(m => (m.id === replyId ? { ...m, content: '' } : m)));
+        await chatCompletion(payload, { ...TUNING, mode: 'byok', signal: controller.signal, onDelta: stream });
+      }
+
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === replyId && !m.content.trim()
+            ? { ...m, content: 'Transmission came back empty. Ask again, rookie.' }
+            : m,
+        ),
+      );
+    } catch (err) {
+      const stoppedByUser = controller.signal.aborted && !timedOut;
+      const detail = timedOut
+        ? 'Request timed out after 60 seconds — the relay is jammed.'
+        : err instanceof Error
+          ? err.message
+          : 'Transmission garbled.';
+
       setMessages(prev => {
-        const next = prev.filter(m => m.id !== loadingId);
-        return [...next, { 
-          id: newId(), 
-          role: 'assistant', 
-          content: e.message || 'Transmission garbled. Try again, rookie.', 
-          isError: true 
-        }];
+        const streamed = prev.find(m => m.id === replyId)?.content ?? '';
+        if (stoppedByUser && streamed.trim()) return prev;
+        if (stoppedByUser) {
+          return prev.map(m => (m.id === replyId ? { ...m, content: '_Cut the feed._' } : m));
+        }
+        return prev.map(m => (m.id === replyId ? { ...m, content: detail, isError: true } : m));
       });
     } finally {
-      if (abortRef.current === controller) {
-        setIsTyping(false);
-        abortRef.current = null;
-        inputRef.current?.focus();
-      }
+      clearTimeout(timeout);
+      if (abortRef.current === controller) abortRef.current = null;
+      setIsTyping(false);
+      inputRef.current?.focus();
     }
-  };
+  }, [isTyping]);
 
-  const clearChat = () => {
-    if (abortRef.current) abortRef.current.abort();
+  const regenerate = useCallback(() => {
+    const lastUser = [...messagesRef.current].reverse().find(m => m.role === 'user');
+    if (lastUser) send(lastUser.content, { replaceLast: true });
+  }, [send]);
+
+  const clearChat = useCallback(() => {
+    abortRef.current?.abort();
     setIsTyping(false);
-    setMessages([{ id: newId(), role: 'assistant', content: GREETING }]);
-  };
+    setMessages([greetingMessage()]);
+  }, []);
+
+  const copyMessage = useCallback(async (msg: Message) => {
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      setCopiedId(msg.id);
+      setTimeout(() => setCopiedId(id => (id === msg.id ? null : id)), 1500);
+    } catch {
+      /* clipboard blocked — nothing useful to say about it here */
+    }
+  }, []);
+
+  const canRegenerate = !isTyping && messages.some(m => m.role === 'user');
 
   return (
-    <div className="mt-8 border border-amber-500/20 rounded-2xl bg-zinc-950/80 overflow-hidden flex flex-col h-[400px]">
+    <div
+      data-keyboard-isolated
+      className="mt-8 border border-amber-500/20 rounded-2xl bg-zinc-950/80 overflow-hidden flex flex-col h-[440px]"
+    >
       {/* Header */}
       <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -146,52 +311,125 @@ export function SupportTechnician() {
             </p>
           </div>
         </div>
-        
-        <button
-          onClick={clearChat}
-          className="p-2 text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors"
-          title="Reset Console"
-        >
-          <RotateCcw size={16} />
-        </button>
+
+        <div className="flex items-center gap-1">
+          {canRegenerate && (
+            <button
+              onClick={regenerate}
+              className="p-2 text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors"
+              title="Ask that again"
+              aria-label="Regenerate last reply"
+            >
+              <Zap size={15} />
+            </button>
+          )}
+          <button
+            onClick={clearChat}
+            className="p-2 text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors"
+            title="Reset Console"
+            aria-label="Reset console"
+          >
+            <RotateCcw size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Chat History */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm">
-        {messages.map((msg) => {
+      <div
+        ref={listRef}
+        onScroll={handleScroll}
+        role="log"
+        aria-live="polite"
+        className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm custom-scrollbar"
+      >
+        {messages.map(msg => {
           const isUser = msg.role === 'user';
+          const { body, actions } = isUser || msg.isError
+            ? { body: msg.content, actions: [] as TechAction[] }
+            : parseActions(msg.content);
+          const runnable = actions.filter(supported);
+          // Nothing has streamed in yet. A reply that turns out to be nothing
+          // BUT a directive is not pending — it just has no prose, so it skips
+          // the bubble and shows its buttons alone.
+          const isPending = !isUser && !msg.isError && msg.content.trim() === '';
+
           return (
-            <div key={msg.id} className={`flex gap-3 max-w-[85%] ${isUser ? 'ml-auto flex-row-reverse' : ''}`}>
+            <div key={msg.id} className={`group flex gap-3 max-w-[85%] ${isUser ? 'ml-auto flex-row-reverse' : ''}`}>
               {!isUser && (
                 <div className="w-6 h-6 shrink-0 rounded bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 mt-1">
                   <Bot size={14} />
                 </div>
               )}
-              <div
-                className={`p-3 rounded-xl ${
-                  msg.isError
-                    ? 'bg-red-950/50 border border-red-500/30 text-red-400'
-                    : isUser
-                    ? 'bg-amber-500/20 border border-amber-500/30 text-amber-100'
-                    : 'bg-zinc-900 border border-amber-500/20 text-zinc-300'
-                }`}
-              >
-                {msg.isError ? msg.content : (
-                  msg.content ? <ChatMarkdown content={msg.content} /> : <span className="opacity-50 animate-pulse">Typing...</span>
+
+              <div className="flex flex-col gap-2 min-w-0">
+                {(isPending || body) && (
+                  <div
+                    className={`p-3 rounded-xl ${
+                      msg.isError
+                        ? 'bg-red-950/50 border border-red-500/30 text-red-400'
+                        : isUser
+                          ? 'bg-amber-500/20 border border-amber-500/30 text-amber-100'
+                          : 'bg-zinc-900 border border-amber-500/20 text-zinc-300'
+                    }`}
+                  >
+                    {msg.isError || isUser ? (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    ) : isPending ? (
+                      <span className="opacity-50 animate-pulse">Typing...</span>
+                    ) : (
+                      <ChatMarkdown content={body} />
+                    )}
+                  </div>
+                )}
+
+                {/* Directives the model emitted, as buttons the user presses */}
+                {runnable.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {runnable.map(action => {
+                      const token = `${action.id}:${action.arg}`;
+                      const done = ranAction === token;
+                      return (
+                        <button
+                          key={token}
+                          onClick={() => runAction(action)}
+                          className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1.5 ${
+                            done
+                              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                              : 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300'
+                          }`}
+                        >
+                          {done ? <Check size={11} /> : <Zap size={11} />}
+                          {done ? 'Done' : action.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!isUser && !msg.isError && body && (
+                  <button
+                    onClick={() => copyMessage(msg)}
+                    aria-label="Copy message"
+                    className="self-start px-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600 hover:text-zinc-300 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center gap-1"
+                  >
+                    {copiedId === msg.id ? <Check size={10} /> : <Copy size={10} />}
+                    {copiedId === msg.id ? 'Copied' : 'Copy'}
+                  </button>
                 )}
               </div>
             </div>
           );
         })}
-        {messages.length === 1 && (
+
+        {showStarters && (
           <div className="flex flex-wrap gap-2 mt-4 ml-9">
-            {STARTERS.map((s, i) => (
+            {starters.map(starter => (
               <button
-                key={i}
-                onClick={() => send(s)}
+                key={starter}
+                onClick={() => send(starter)}
                 className="px-3 py-1.5 bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 text-amber-300/80 rounded-full text-[10px] transition-colors"
               >
-                {s}
+                {starter}
               </button>
             ))}
           </div>
@@ -201,7 +439,7 @@ export function SupportTechnician() {
 
       {/* Input */}
       <form
-        onSubmit={(e) => {
+        onSubmit={e => {
           e.preventDefault();
           send(input);
         }}
@@ -211,18 +449,31 @@ export function SupportTechnician() {
           ref={inputRef}
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={e => setInput(e.target.value)}
           placeholder="Ask the technician..."
-          disabled={isTyping}
-          className="flex-1 bg-zinc-950 border border-amber-500/30 rounded-xl px-4 py-2 text-sm text-zinc-200 font-mono placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 transition-colors disabled:opacity-50"
+          aria-label="Message the Technician"
+          className="flex-1 bg-zinc-950 border border-amber-500/30 rounded-xl px-4 py-2 text-sm text-zinc-200 font-mono placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 transition-colors"
         />
-        <button
-          type="submit"
-          disabled={!input.trim() || isTyping}
-          className="p-3 bg-amber-500 hover:bg-amber-400 text-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-        >
-          <Send size={18} />
-        </button>
+        {isTyping ? (
+          <button
+            type="button"
+            onClick={() => abortRef.current?.abort()}
+            aria-label="Stop generating"
+            title="Stop generating"
+            className="p-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl transition-colors flex items-center justify-center"
+          >
+            <Square size={16} fill="currentColor" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            aria-label="Send message"
+            className="p-3 bg-amber-500 hover:bg-amber-400 text-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            <Send size={18} />
+          </button>
+        )}
       </form>
     </div>
   );

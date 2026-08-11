@@ -24,6 +24,118 @@ export const AI_KEYS = {
 export const DEFAULT_BASE_URL = 'https://api.groq.com/openai/v1';
 export const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 
+// ─── PROVIDER CATALOG ─────────────────────────────────────────────────
+// Shared by Settings → Smart Engine (the form) and the Technician (so it can
+// name the right console URL and detect which provider a pasted key belongs
+// to). One list, so the two can't drift.
+
+export interface ProviderPreset {
+  id: string;
+  label: string;
+  url: string;
+  model: string;
+  /** Where the user gets a key. Absent for `custom`. */
+  consoleUrl?: string;
+  /** Prefix that identifies a key as belonging to this provider. */
+  keyPrefix?: string;
+}
+
+export const PROVIDER_PRESETS: ProviderPreset[] = [
+  { id: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', consoleUrl: 'https://console.groq.com/keys', keyPrefix: 'gsk_' },
+  { id: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-3-haiku', consoleUrl: 'https://openrouter.ai/keys', keyPrefix: 'sk-or-' },
+  { id: 'google', label: 'Google AI Studio', url: 'https://generativelanguage.googleapis.com/v1beta/openai/', model: 'gemini-1.5-flash', consoleUrl: 'https://aistudio.google.com/app/apikey', keyPrefix: 'AIza' },
+  { id: 'kimi', label: 'Kimi', url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k', consoleUrl: 'https://platform.moonshot.cn/console/api-keys' },
+  { id: 'glm', label: 'Zhipu AI', url: 'https://open.bigmodel.cn/api/paas/v4/', model: 'glm-4', consoleUrl: 'https://open.bigmodel.cn/usercenter/apikeys' },
+  { id: 'minimax', label: 'Minimax', url: 'https://api.minimax.chat/v1', model: 'minimax-text-01', keyPrefix: 'eyJ' },
+  { id: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', consoleUrl: 'https://platform.openai.com/api-keys' },
+  { id: 'custom', label: 'Custom Endpoint', url: '', model: '' },
+];
+
+export function providerForUrl(url: string): ProviderPreset | undefined {
+  return PROVIDER_PRESETS.find(p => p.url === url && p.id !== 'custom');
+}
+
+/** Best guess at which provider a key belongs to, from its prefix alone. */
+export function providerForKey(key: string): ProviderPreset | undefined {
+  const trimmed = key.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith('gsk_')) return PROVIDER_PRESETS.find(p => p.id === 'groq');
+  if (trimmed.startsWith('sk-or-')) return PROVIDER_PRESETS.find(p => p.id === 'openrouter');
+  if (trimmed.startsWith('AIza')) return PROVIDER_PRESETS.find(p => p.id === 'google');
+  if (trimmed.startsWith('eyJ')) return PROVIDER_PRESETS.find(p => p.id === 'minimax');
+  if (trimmed.includes('.')) return PROVIDER_PRESETS.find(p => p.id === 'glm');
+  if (trimmed.startsWith('sk-')) return PROVIDER_PRESETS.find(p => p.id === 'openai');
+  return undefined;
+}
+
+// ─── FREE-TIER RATE LIMITS ────────────────────────────────────────────
+// Published Groq free-tier ceilings. Only used to draw the gauges in
+// Settings → Local AI Stats and to let the Technician warn before a 429 —
+// the real headers are unreadable from the browser because of CORS.
+
+export interface RateLimits { rpm: number; rpd: number; tpm: number; tpd: number }
+
+export const GROQ_LIMITS: Record<string, RateLimits> = {
+  'allam-2-7b': { rpm: 30, rpd: 7000, tpm: 6000, tpd: 500000 },
+  'groq/compound': { rpm: 30, rpd: 250, tpm: 70000, tpd: Infinity },
+  'groq/compound-mini': { rpm: 30, rpd: 250, tpm: 70000, tpd: Infinity },
+  'llama-3.1-8b-instant': { rpm: 30, rpd: 14400, tpm: 6000, tpd: 500000 },
+  'llama-3.3-70b-versatile': { rpm: 30, rpd: 1000, tpm: 12000, tpd: 100000 },
+  'meta-llama/llama-prompt-guard-2-22m': { rpm: 30, rpd: 14400, tpm: 15000, tpd: 500000 },
+  'meta-llama/llama-prompt-guard-2-86m': { rpm: 30, rpd: 14400, tpm: 15000, tpd: 500000 },
+  'openai/gpt-oss-120b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
+  'openai/gpt-oss-20b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
+  'openai/gpt-oss-safeguard-20b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
+  'qwen/qwen3.6-27b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
+  // Fallbacks
+  'llama3-70b-8192': { rpm: 30, rpd: 14400, tpm: 6000, tpd: 500000 },
+  'llama3-8b-8192': { rpm: 30, rpd: 14400, tpm: 30000, tpd: 500000 },
+  'mixtral-8x7b-32768': { rpm: 30, rpd: 14400, tpm: 5000, tpd: 500000 },
+  'gemma2-9b-it': { rpm: 30, rpd: 14400, tpm: 15000, tpd: 500000 },
+};
+
+export const FALLBACK_LIMITS: RateLimits = { rpm: 30, rpd: 1000, tpm: 6000, tpd: 100000 };
+
+export function limitsForModel(model: string): RateLimits {
+  return GROQ_LIMITS[model] || FALLBACK_LIMITS;
+}
+
+export interface UsageSnapshot {
+  totalTokens: number;
+  totalRequests: number;
+  dailyTokens: number;
+  dailyRequests: number;
+  /** Rolling 60-second window — what a TPM/RPM limit actually measures. */
+  minuteTokens: number;
+  minuteRequests: number;
+}
+
+export function readUsage(): UsageSnapshot {
+  const num = (key: string) => parseInt(localStorage.getItem(key) || '0', 10) || 0;
+  let minuteTokens = 0;
+  let minuteRequests = 0;
+  try {
+    const history: Array<{ ts: number; t: number; r: number }> = JSON.parse(
+      localStorage.getItem(AI_KEYS.rollingHistory) || '[]',
+    );
+    const now = Date.now();
+    for (const ev of history) {
+      if (now - ev.ts >= 60000) continue;
+      minuteTokens += ev.t;
+      minuteRequests += ev.r;
+    }
+  } catch { /* corrupt history — treat as idle */ }
+
+  return {
+    totalTokens: num(AI_KEYS.usageTokens),
+    totalRequests: num(AI_KEYS.usageRequests),
+    dailyTokens: num(AI_KEYS.dailyTokens),
+    dailyRequests: num(AI_KEYS.dailyRequests),
+    minuteTokens,
+    minuteRequests,
+  };
+}
+
 /** Emitted after every call so open UI (Settings → usage) can refresh in-tab.
  *  A real `storage` event never fires in the tab that wrote the value. */
 export const USAGE_EVENT = 'typenova:usage';

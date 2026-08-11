@@ -5,6 +5,8 @@ import { THEMES, THEME_KEYS, SOUND_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
 import { toast } from 'sonner';
 import { SupportTechnician } from '@/components/SupportTechnician';
+import type { TechnicianCapabilities } from '@/components/SupportTechnician';
+import { AI_KEYS, GROQ_LIMITS, PROVIDER_PRESETS, limitsForModel } from '@/lib/aiClient';
 
 interface SettingsModalProps {
   theme: Theme;
@@ -80,22 +82,12 @@ export const ToggleSwitch = ({ label, description, checked, onChange, icon: Icon
   </div>
 );
 
-const PROVIDER_PRESETS = [
-  { id: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile' },
-  { id: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-3-haiku' },
-  { id: 'google', label: 'Google AI Studio', url: 'https://generativelanguage.googleapis.com/v1beta/openai/', model: 'gemini-1.5-flash' },
-  { id: 'kimi', label: 'Kimi', url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
-  { id: 'glm', label: 'Zhipu AI', url: 'https://open.bigmodel.cn/api/paas/v4/', model: 'glm-4' },
-  { id: 'minimax', label: 'Minimax', url: 'https://api.minimax.chat/v1', model: 'minimax-text-01' },
-  { id: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  { id: 'custom', label: 'Custom Endpoint', url: '', model: '' }
-];
-
 export const SettingsModal = React.memo(function SettingsModal({
   theme,
   onClose,
   suddenDeath, setSuddenDeath,
   ghostPacer, setGhostPacer,
+  focusMode, setFocusMode,
   blindMode, setBlindMode,
   mirroredMode, toggleMirror,
   fogMode, setFogMode,
@@ -108,12 +100,12 @@ export const SettingsModal = React.memo(function SettingsModal({
   const [activeTab, setActiveTab] = useState<'gameplay' | 'visuals' | 'system' | 'ai' | 'usage' | 'report'>('visuals');
 
   // AI Settings State
-  const [byokKey, setByokKey] = useState(() => localStorage.getItem('typezen_byok_key') || '');
-  const [byokUrl, setByokUrl] = useState(() => localStorage.getItem('typezen_byok_url') || 'https://api.groq.com/openai/v1');
-  const [byokModel, setByokModel] = useState(() => localStorage.getItem('typezen_byok_model') || 'llama-3.3-70b-versatile');
+  const [byokKey, setByokKey] = useState(() => localStorage.getItem(AI_KEYS.byokKey) || '');
+  const [byokUrl, setByokUrl] = useState(() => localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1');
+  const [byokModel, setByokModel] = useState(() => localStorage.getItem(AI_KEYS.byokModel) || 'llama-3.3-70b-versatile');
 
   const [selectedProvider, setSelectedProvider] = useState(() => {
-    const savedUrl = localStorage.getItem('typezen_byok_url') || 'https://api.groq.com/openai/v1';
+    const savedUrl = localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1';
     const preset = PROVIDER_PRESETS.find(p => p.url === savedUrl && p.id !== 'custom');
     return preset ? preset.id : 'custom';
   });
@@ -127,36 +119,18 @@ export const SettingsModal = React.memo(function SettingsModal({
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
 
   // Usage Tracker State
-  const [usageTokens, setUsageTokens] = useState(() => parseInt(localStorage.getItem('typenova_usage_tokens') || '0', 10));
-  const [usageRequests, setUsageRequests] = useState(() => parseInt(localStorage.getItem('typenova_usage_requests') || '0', 10));
-  const [dailyTokens, setDailyTokens] = useState(() => parseInt(localStorage.getItem('typenova_daily_tokens') || '0', 10));
-  const [dailyRequests, setDailyRequests] = useState(() => parseInt(localStorage.getItem('typenova_daily_requests') || '0', 10));
+  const [usageTokens, setUsageTokens] = useState(() => parseInt(localStorage.getItem(AI_KEYS.usageTokens) || '0', 10));
+  const [usageRequests, setUsageRequests] = useState(() => parseInt(localStorage.getItem(AI_KEYS.usageRequests) || '0', 10));
+  const [dailyTokens, setDailyTokens] = useState(() => parseInt(localStorage.getItem(AI_KEYS.dailyTokens) || '0', 10));
+  const [dailyRequests, setDailyRequests] = useState(() => parseInt(localStorage.getItem(AI_KEYS.dailyRequests) || '0', 10));
   const [rollingUsage, setRollingUsage] = useState({ tokens: 0, requests: 0 });
 
-  const GROQ_LIMITS: Record<string, { rpm: number; rpd: number; tpm: number; tpd: number }> = {
-    'allam-2-7b': { rpm: 30, rpd: 7000, tpm: 6000, tpd: 500000 },
-    'groq/compound': { rpm: 30, rpd: 250, tpm: 70000, tpd: Infinity },
-    'groq/compound-mini': { rpm: 30, rpd: 250, tpm: 70000, tpd: Infinity },
-    'llama-3.1-8b-instant': { rpm: 30, rpd: 14400, tpm: 6000, tpd: 500000 },
-    'llama-3.3-70b-versatile': { rpm: 30, rpd: 1000, tpm: 12000, tpd: 100000 },
-    'meta-llama/llama-prompt-guard-2-22m': { rpm: 30, rpd: 14400, tpm: 15000, tpd: 500000 },
-    'meta-llama/llama-prompt-guard-2-86m': { rpm: 30, rpd: 14400, tpm: 15000, tpd: 500000 },
-    'openai/gpt-oss-120b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
-    'openai/gpt-oss-20b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
-    'openai/gpt-oss-safeguard-20b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
-    'qwen/qwen3.6-27b': { rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000 },
-    // Fallbacks
-    'llama3-70b-8192': { rpm: 30, rpd: 14400, tpm: 6000, tpd: 500000 },
-    'llama3-8b-8192': { rpm: 30, rpd: 14400, tpm: 30000, tpd: 500000 },
-    'mixtral-8x7b-32768': { rpm: 30, rpd: 14400, tpm: 5000, tpd: 500000 },
-    'gemma2-9b-it': { rpm: 30, rpd: 14400, tpm: 15000, tpd: 500000 }
-  };
-  const activeLimits = GROQ_LIMITS[byokModel] || { rpm: 30, rpd: 1000, tpm: 6000, tpd: 100000 };
+  const activeLimits = limitsForModel(byokModel);
 
   useEffect(() => {
     const updateRolling = () => {
       try {
-        const history: { ts: number; t: number; r: number }[] = JSON.parse(localStorage.getItem('typenova_rolling_history') || '[]');
+        const history: { ts: number; t: number; r: number }[] = JSON.parse(localStorage.getItem(AI_KEYS.rollingHistory) || '[]');
         const now = Date.now();
         const valid = history.filter(ev => now - ev.ts < 60000);
         setRollingUsage({
@@ -169,10 +143,10 @@ export const SettingsModal = React.memo(function SettingsModal({
     };
 
     const handleStorage = () => {
-      setUsageTokens(parseInt(localStorage.getItem('typenova_usage_tokens') || '0', 10));
-      setUsageRequests(parseInt(localStorage.getItem('typenova_usage_requests') || '0', 10));
-      setDailyTokens(parseInt(localStorage.getItem('typenova_daily_tokens') || '0', 10));
-      setDailyRequests(parseInt(localStorage.getItem('typenova_daily_requests') || '0', 10));
+      setUsageTokens(parseInt(localStorage.getItem(AI_KEYS.usageTokens) || '0', 10));
+      setUsageRequests(parseInt(localStorage.getItem(AI_KEYS.usageRequests) || '0', 10));
+      setDailyTokens(parseInt(localStorage.getItem(AI_KEYS.dailyTokens) || '0', 10));
+      setDailyRequests(parseInt(localStorage.getItem(AI_KEYS.dailyRequests) || '0', 10));
       updateRolling();
     };
 
@@ -244,16 +218,16 @@ export const SettingsModal = React.memo(function SettingsModal({
     const preset = PROVIDER_PRESETS.find(p => p.id === id);
     if (preset && id !== 'custom') {
       setByokUrl(preset.url);
-      localStorage.setItem('typezen_byok_url', preset.url);
+      localStorage.setItem(AI_KEYS.byokUrl, preset.url);
       setByokModel(preset.model);
-      localStorage.setItem('typezen_byok_model', preset.model);
+      localStorage.setItem(AI_KEYS.byokModel, preset.model);
     }
     setIsDropdownOpen(false);
   };
 
   const handleKeyChange = (val: string) => {
     setByokKey(val);
-    localStorage.setItem('typezen_byok_key', val);
+    localStorage.setItem(AI_KEYS.byokKey, val);
 
     let newProviderId = selectedProvider;
 
@@ -281,7 +255,51 @@ export const SettingsModal = React.memo(function SettingsModal({
   };
   const handleModelChange = (val: string) => {
     setByokModel(val);
-    localStorage.setItem('typezen_byok_model', val);
+    localStorage.setItem(AI_KEYS.byokModel, val);
+  };
+
+  const resetUsageStats = () => {
+    localStorage.setItem(AI_KEYS.usageTokens, '0');
+    localStorage.setItem(AI_KEYS.usageRequests, '0');
+    setUsageTokens(0);
+    setUsageRequests(0);
+    toast.success('Local usage stats reset.');
+  };
+
+  // ─── TECHNICIAN CONTROLS ──────────────────────────────────────────
+  // The support chat can emit action directives; these are the only levers it
+  // is allowed to pull, and every one of them still needs a user click.
+  const technicianCapabilities: TechnicianCapabilities = {
+    openTab: (tab) => {
+      if (tab === 'gameplay' || tab === 'visuals' || tab === 'system' || tab === 'ai' || tab === 'usage' || tab === 'report') {
+        setActiveTab(tab);
+      }
+    },
+    setProvider: (providerId) => {
+      const preset = PROVIDER_PRESETS.find(p => p.id === providerId && p.id !== 'custom');
+      if (!preset) return;
+      handleProviderSelect(preset.id);
+      toast.success(`Switched to ${preset.label}.`);
+    },
+    setModel: (model) => {
+      if (!model.trim()) return;
+      handleModelChange(model.trim());
+      toast.success(`Target model set to ${model.trim()}.`);
+    },
+    testConnection: () => { void testConnection(); },
+    resetUsage: resetUsageStats,
+    toggleModifier: (id) => {
+      switch (id) {
+        case 'sudden_death': setSuddenDeath(!suddenDeath); break;
+        case 'overclocked': setOverclockedMode(!overclockedMode); break;
+        case 'blind': setBlindMode(!blindMode); break;
+        case 'fog': setFogMode(!fogMode); break;
+        case 'mirror': toggleMirror(); break;
+        case 'ghost': setGhostPacer(!ghostPacer); break;
+        case 'focus': setFocusMode?.(!focusMode); break;
+        case 'sticky': setStickyKeysMode(!stickyKeysMode); break;
+      }
+    },
   };
 
   // Bug Report State
@@ -629,7 +647,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                         value={byokUrl}
                         onChange={(e) => {
                           setByokUrl(e.target.value);
-                          localStorage.setItem('typezen_byok_url', e.target.value);
+                          localStorage.setItem(AI_KEYS.byokUrl, e.target.value);
                           const preset = PROVIDER_PRESETS.find(p => p.url === e.target.value && p.id !== 'custom');
                           setSelectedProvider(preset ? preset.id : 'custom');
                         }}
@@ -655,7 +673,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                                   setSelectedProvider(preset.id);
                                   if (preset.url) {
                                     setByokUrl(preset.url);
-                                    localStorage.setItem('typezen_byok_url', preset.url);
+                                    localStorage.setItem(AI_KEYS.byokUrl, preset.url);
                                   }
                                   setIsDropdownOpen(false);
                                 }}
@@ -717,7 +735,27 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </p>
                 </div>
 
-                <SupportTechnician />
+                <SupportTechnician
+                  ai={{
+                    apiKey: byokKey,
+                    baseUrl: byokUrl,
+                    model: byokModel,
+                    connectionStatus,
+                    connectionError,
+                    modelCount: availableModels.length,
+                  }}
+                  modifiers={{
+                    sudden_death: suddenDeath,
+                    overclocked: overclockedMode,
+                    blind: blindMode,
+                    fog: fogMode,
+                    mirror: mirroredMode,
+                    ghost: ghostPacer,
+                    focus: !!focusMode,
+                    sticky: stickyKeysMode,
+                  }}
+                  capabilities={technicianCapabilities}
+                />
               </div>
             )}
 
@@ -869,13 +907,7 @@ export const SettingsModal = React.memo(function SettingsModal({
 
                 <div className="mt-8 flex justify-end">
                   <button
-                    onClick={() => {
-                      localStorage.setItem('typenova_usage_tokens', '0');
-                      localStorage.setItem('typenova_usage_requests', '0');
-                      setUsageTokens(0);
-                      setUsageRequests(0);
-                      toast.success('Local usage stats reset.');
-                    }}
+                    onClick={resetUsageStats}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest uppercase text-red-500/70 hover:text-red-400 hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/20"
                   >
                     <RotateCcw size={12} /> Reset Stats

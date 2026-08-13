@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
 import { chatCompletion, MissingKeyError, hasAIKey, hasNativeAI, PROVIDER_PRESETS, type ChatMessage } from '@/lib/aiClient';
 import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
-import LaserFlow from '@/components/LaserFlow';
 import { SupportTechnician } from '@/components/SupportTechnician';
 import type { Theme } from '@/data/constants';
 
@@ -128,7 +127,6 @@ export const AIChatBot = memo(function AIChatBot({
     const [techQuery, setTechQuery] = useState<string | null>(null);
     const [configExpanded, setConfigExpanded] = useState(false);
     const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
-    const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 1080);
     const revealRef = useRef<HTMLDivElement>(null);
 
     // Smart Engine config — shared with Settings modal
@@ -170,15 +168,6 @@ export const AIChatBot = memo(function AIChatBot({
       if (isOpen && el && stickToBottom.current) el.scrollTop = el.scrollHeight;
     }, [messages, isOpen]);
 
-    useEffect(() => {
-      const handleResize = () => setWindowHeight(window.innerHeight);
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    const boxHeight = Math.max(400, Math.min(800, windowHeight * 0.65));
-    const boxTopFromBottom = 40 + boxHeight;
-    const verticalBeamOffset = (boxTopFromBottom / windowHeight) - 0.5;
 
     useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -334,28 +323,6 @@ export const AIChatBot = memo(function AIChatBot({
               background: 'radial-gradient(circle at var(--mx, 50%) var(--my, 50%), transparent 0%, #120F17 800px)',
             }}
           />
-
-          {/* Laser Flow Beam */}
-          <div className="absolute inset-0 z-20 pointer-events-none">
-            <LaserFlow
-              paused={!isOpen}
-              horizontalBeamOffset={0.0}
-              verticalBeamOffset={verticalBeamOffset}
-              color={`rgb(${theme ? theme.glowPrimary : '207, 158, 255'})`}
-              horizontalSizing={0.5}
-              verticalSizing={1.8}
-              wispDensity={1.2}
-              wispSpeed={15}
-              wispIntensity={5}
-              flowSpeed={0.35}
-              flowStrength={0.25}
-              fogIntensity={0.5}
-              fogScale={0.3}
-              fogFallSpeed={0.6}
-              decay={1.2}
-              falloffStart={1.0}
-            />
-          </div>
         </div>
 
         <AnimatePresence>

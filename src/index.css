@@ -497,16 +497,6 @@ body {
     margin: 0 auto;
 }
 
-/* Glassmorphism Classes */
-.glass-panel {
-    background: rgba(20, 20, 22, 0.4);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
-    border: 1px solid;
-    border-image: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.01) 100%) 1;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4);
-}
-
 /* Premium Glow Buttons */
 .btn-glow-cyan {
      box-shadow: 0 0 20px rgba(125,244,255,0.15), inset 0 0 10px rgba(125,244,255,0.1);

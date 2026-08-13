@@ -4,8 +4,6 @@ import { supabase } from '@/lib/supabase';
 import { THEMES, THEME_KEYS, SOUND_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
 import { toast } from 'sonner';
-import { SupportTechnician } from '@/components/SupportTechnician';
-import type { TechnicianCapabilities } from '@/components/SupportTechnician';
 import { AI_KEYS, GROQ_LIMITS, PROVIDER_PRESETS, limitsForModel } from '@/lib/aiClient';
 import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
 
@@ -88,7 +86,6 @@ export const SettingsModal = React.memo(function SettingsModal({
   onClose,
   suddenDeath, setSuddenDeath,
   ghostPacer, setGhostPacer,
-  focusMode, setFocusMode,
   blindMode, setBlindMode,
   mirroredMode, toggleMirror,
   fogMode, setFogMode,
@@ -113,10 +110,10 @@ export const SettingsModal = React.memo(function SettingsModal({
   // AI Settings State
   const engineConfig = useSmartEngineConfig();
   const {
-    byokKey, setByokKey, byokUrl, setByokUrl, byokModel, setByokModel,
-    selectedProvider, setSelectedProvider, isAmbiguousSk, setIsAmbiguousSk,
-    showGlow, setShowGlow, connectionStatus, connectionError, availableModels,
-    testConnection, handleProviderSelect, handleKeyChange, handleModelChange,
+    byokKey, byokUrl, setByokUrl, byokModel,
+    selectedProvider, setSelectedProvider, isAmbiguousSk,
+    connectionStatus, connectionError, availableModels,
+    handleKeyChange, handleModelChange,
   } = engineConfig;
   
   const [_isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -175,41 +172,6 @@ export const SettingsModal = React.memo(function SettingsModal({
     toast.success('Local usage stats reset.');
   };
 
-  // ─── TECHNICIAN CONTROLS ──────────────────────────────────────────
-  // The support chat can emit action directives; these are the only levers it
-  // is allowed to pull, and every one of them still needs a user click.
-  const technicianCapabilities: TechnicianCapabilities = {
-    openTab: (tab) => {
-      if (tab === 'gameplay' || tab === 'visuals' || tab === 'system' || tab === 'ai' || tab === 'usage' || tab === 'report') {
-        setActiveTab(tab);
-      }
-    },
-    setProvider: (providerId) => {
-      const preset = PROVIDER_PRESETS.find(p => p.id === providerId && p.id !== 'custom');
-      if (!preset) return;
-      handleProviderSelect(preset.id);
-      toast.success(`Switched to ${preset.label}.`);
-    },
-    setModel: (model) => {
-      if (!model.trim()) return;
-      handleModelChange(model.trim());
-      toast.success(`Target model set to ${model.trim()}.`);
-    },
-    testConnection: () => { void testConnection(); },
-    resetUsage: resetUsageStats,
-    toggleModifier: (id) => {
-      switch (id) {
-        case 'sudden_death': setSuddenDeath(!suddenDeath); break;
-        case 'overclocked': setOverclockedMode(!overclockedMode); break;
-        case 'blind': setBlindMode(!blindMode); break;
-        case 'fog': setFogMode(!fogMode); break;
-        case 'mirror': toggleMirror(); break;
-        case 'ghost': setGhostPacer(!ghostPacer); break;
-        case 'focus': setFocusMode?.(!focusMode); break;
-        case 'sticky': setStickyKeysMode(!stickyKeysMode); break;
-      }
-    },
-  };
 
   // Bug Report State
   const [reportMsg, setReportMsg] = useState('');

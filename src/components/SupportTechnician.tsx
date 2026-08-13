@@ -57,14 +57,6 @@ const CONSOLE_URLS: Record<string, string> = {
 
 const HISTORY_KEY = 'typenova_tech_history';
 const MAX_STORED = 40;
-/** How many prior turns get replayed. Deliberately short: the cloud proxy's
- *  Groq key is shared by everyone, so its tokens-per-minute ceiling is a common
- *  resource, and the manual excerpt is already the bulk of each request. */
-const HISTORY_WINDOW = 6;
-const REQUEST_TIMEOUT_MS = 60_000;
-
-/** Support answers should be short and literal, not creative. */
-const TUNING = { temperature: 0.5, maxTokens: 500 } as const;
 
 const GREETING = "Look, rookie, I don't have all day. What's busted? Need a key? Don't know what a Ghost Pacer is? Spit it out so I can get back to calibrating the mainframe.";
 

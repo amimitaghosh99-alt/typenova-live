@@ -74,9 +74,7 @@ import { AcademyEntry } from '@/components/academy/AcademyEntry';
 import { AcademyLayout } from '@/components/academy/AcademyLayout';
 import { useSmartDrills } from '@/hooks/useSmartDrills';
 import { AIChatBot } from '@/components/AIChatBot';
-import { SupportTechnician } from '@/components/SupportTechnician';
 import { AI_KEYS } from '@/lib/aiClient';
-import { AnimatePresence, motion } from 'framer-motion';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
 // stay import-free — tailwind.config.js loads it via jiti) to lucide
@@ -189,7 +187,6 @@ function MainApp() {
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
   const [isAruOpen, setIsAruOpen] = useState(false);
-  const [isTechnicianOpen, setIsTechnicianOpen] = useState(false);
 
   const [techAiState, setTechAiState] = useState({
     apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',

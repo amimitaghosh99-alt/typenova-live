@@ -58,6 +58,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useCloudSync } from '@/hooks/useCloudSync';
 import { useFriends } from '@/hooks/useFriends';
+import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 import { AccountMenu } from '@/components/AccountMenu';
 import { Routes, Route, Navigate } from 'react-router';
 import { Login } from '@/pages/Login';
@@ -1336,9 +1337,8 @@ function MainApp() {
           <header className={topHudClass}>
             {/* Logo & Academy Button (Left) */}
             <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full xl:w-auto justify-center xl:justify-start">
-              <div className={`flex items-center space-x-3 ${theme.vividText}`}>
-                <Keyboard size={36} className={typing.combo > 30 ? theme.drop : ''} />
-                <span className="font-black tracking-widest text-3xl text-white">TYPE<span className={theme.text}>NOVA</span></span>
+              <div className="flex items-center">
+                <TypeNovaLogo size="md" />
               </div>
               
               {!isAcademyMode && (

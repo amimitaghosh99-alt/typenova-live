@@ -1,38 +1,74 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#18181b"/>
-      <stop offset="100%" stop-color="#000000"/>
-    </linearGradient>
-
-    <filter id="neon" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
-      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2" />
-      <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur3" />
+    <filter id="nova-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
       <feMerge>
-        <feMergeNode in="blur3" />
-        <feMergeNode in="blur2" />
-        <feMergeNode in="blur1" />
+        <feMergeNode in="blur" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
 
-    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#22d3ee"/>
-      <stop offset="100%" stop-color="#0284c7"/>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e1726"/>
+      <stop offset="100%" stop-color="#030712"/>
     </linearGradient>
+
+    <linearGradient id="keyTopGrad" x1="20%" y1="10%" x2="80%" y2="90%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#080d1a" />
+    </linearGradient>
+
+    <linearGradient id="keyLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <linearGradient id="keyRightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#010308" />
+    </linearGradient>
+
+    <linearGradient id="edgeCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7df4ff" />
+      <stop offset="50%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="50%" stop-color="#7df4ff" />
+      <stop offset="100%" stop-color="#00f0ff" />
+    </linearGradient>
+
+    <radialGradient id="novaCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+      <stop offset="40%" stop-color="#00f0ff" stop-opacity="0.8" />
+      <stop offset="80%" stop-color="#00f0ff" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#00f0ff" stop-opacity="0" />
+    </radialGradient>
   </defs>
 
-  <rect width="100" height="100" rx="24" fill="url(#bgGrad)" stroke="#27272a" stroke-width="2" />
-  <rect x="5" y="5" width="90" height="90" rx="19" stroke="#22d3ee" stroke-width="1" fill="none" opacity="0.15" filter="url(#neon)" />
-
-  <g transform="translate(18, 22) scale(2.6)" stroke="url(#cyanGrad)" fill="none" filter="url(#neon)">
-    <rect width="20" height="16" x="2" y="4" rx="3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-    <path d="M10 8h.01M12 12h.01M14 8h.01M16 12h.01M18 8h.01M6 8h.01M7 16h10M8 12h.01" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-  </g>
+  <!-- Dark Obsidian Background Rounded Squircle -->
+  <rect width="100" height="100" rx="22" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="1.5" />
   
-  <g transform="translate(18, 22) scale(2.6)" stroke="#ffffff" fill="none">
-    <rect width="20" height="16" x="2" y="4" rx="3" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
-    <path d="M10 8h.01M12 12h.01M14 8h.01M16 12h.01M18 8h.01M6 8h.01M7 16h10M8 12h.01" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+  <!-- Ambient Supernova Glow -->
+  <circle cx="50" cy="48" r="32" fill="url(#novaCore)" opacity="0.4" />
+
+  <!-- 3D Isometric Keycap Base Faces -->
+  <path d="M 16 54 L 50 74 L 50 86 L 16 66 Z" fill="url(#keyLeftGrad)" stroke="rgba(255,255,255,0.1)" stroke-width="0.8" />
+  <path d="M 50 74 L 84 54 L 84 66 L 50 86 Z" fill="url(#keyRightGrad)" stroke="rgba(255,255,255,0.1)" stroke-width="0.8" />
+
+  <!-- Top Isometric Keycap Face -->
+  <path d="M 50 18 L 84 38 L 50 58 L 16 38 Z" fill="url(#keyTopGrad)" stroke="url(#edgeCyan)" stroke-width="1.8" stroke-linejoin="round" />
+
+  <!-- Front Edge Highlight -->
+  <path d="M 16 38 L 50 58 L 84 38" stroke="#7df4ff" stroke-width="1.5" stroke-linecap="round" opacity="0.9" />
+
+  <!-- Supernova Starburst Center Core -->
+  <g transform="translate(50, 38)" filter="url(#nova-glow)">
+    <path d="M 0 -13 Q 0 0 13 0 Q 0 0 0 13 Q 0 0 -13 0 Q 0 0 0 -13 Z" fill="url(#starGrad)" />
+    <path d="M -6 -6 Q 0 0 6 -6 Q 0 0 6 6 Q 0 0 -6 6 Q 0 0 -6 -6 Z" fill="#ffffff" opacity="0.9" />
+    <circle cx="0" cy="0" r="3" fill="#ffffff" />
   </g>
 </svg>

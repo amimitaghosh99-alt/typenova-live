@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { CosmicShaderBackground } from '@/components/CosmicShaderBackground';
 import { KineticKeyboard } from '@/components/KineticKeyboard';
 import { ExpandableInfoModal } from '@/components/ExpandableInfoModal';
+import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 
 export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
@@ -62,10 +63,9 @@ export function Login() {
       />
       
       {/* Top Navigation */}
-      <header className="w-full bg-[#080809]/40 backdrop-blur-2xl z-50 border-b border-white/5 hidden md:flex justify-between items-center px-8 lg:px-16 py-6 shrink-0 transition-all duration-300">
+      <header className="w-full bg-[#080809]/40 backdrop-blur-2xl z-50 border-b border-white/5 hidden md:flex justify-between items-center px-8 lg:px-16 py-5 shrink-0 transition-all duration-300">
         <div className="flex items-center gap-3 select-none">
-          <span className="material-symbols-outlined text-secondary-fixed text-2xl font-light" style={{ fontVariationSettings: "'FILL' 1" }}>keyboard</span>
-          <span className="font-display-lg text-headline-md tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">TypeNova</span>
+          <TypeNovaLogo size="md" />
         </div>
         <nav className="flex gap-10 items-center font-label-mono text-label-mono z-50">
           <button 
@@ -113,8 +113,7 @@ export function Login() {
       <header className="md:hidden w-full bg-[#080809]/60 backdrop-blur-2xl z-50 border-b border-white/5 px-5 py-4 shrink-0">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2 select-none">
-            <span className="material-symbols-outlined text-secondary-fixed text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>keyboard</span>
-            <span className="font-display-lg text-headline-md tracking-tighter text-white">TypeNova</span>
+            <TypeNovaLogo size="sm" />
           </div>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-on-surface hover:text-white transition-colors">
             <span className="material-symbols-outlined">{isMobileMenuOpen ? 'close' : 'menu'}</span>
@@ -254,7 +253,7 @@ export function Login() {
 
       {/* Footer */}
       <footer className="w-full bg-transparent border-t border-white/5 flex flex-col md:flex-row justify-between items-center px-8 lg:px-16 py-6 gap-4 z-10 backdrop-blur-sm shrink-0">
-        <div className="font-headline-md text-white tracking-tight">TYPENOVA</div>
+        <TypeNovaLogo size="sm" />
         <div className="font-label-mono text-label-caps text-on-surface-variant opacity-60 hover:opacity-100 transition-opacity tracking-widest text-center">
           © {new Date().getFullYear()} TYPENOVA. FREE &amp; OPEN SOURCE UNDER MIT LICENSE.
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useOutsideClick } from "@/hooks/use-outside-click";
 import { LANDING_CARDS, type LandingCardItem } from "@/data/landingModalContent";
@@ -11,6 +11,9 @@ interface ExpandableInfoModalProps {
 export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalProps) {
   const activeCard: LandingCardItem | null = activeId ? LANDING_CARDS[activeId] || null : null;
   const modalRef = useRef<HTMLDivElement>(null);
+  const [hasAgreed, setHasAgreed] = useState<boolean>(() => {
+    return localStorage.getItem('typenova_terms_accepted') === 'true';
+  });
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -36,6 +39,12 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
     if (activeCard) onClose();
   });
 
+  const handleAcceptTerms = () => {
+    setHasAgreed(true);
+    localStorage.setItem('typenova_terms_accepted', 'true');
+    onClose();
+  };
+
   return (
     <AnimatePresence>
       {activeCard && (
@@ -57,10 +66,10 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="relative z-10 w-full max-w-2xl max-h-[85vh] flex flex-col bg-[#0c1017]/95 border border-white/15 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8),0_0_40px_rgba(125,244,255,0.1)] backdrop-blur-2xl"
+            className="relative z-10 w-full max-w-2xl max-h-[88vh] flex flex-col bg-[#0c1017]/95 border border-white/15 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8),0_0_40px_rgba(125,244,255,0.1)] backdrop-blur-2xl"
           >
             {/* Modal Header Banner */}
-            <div className={`relative px-6 py-6 sm:px-8 sm:py-8 bg-gradient-to-br ${activeCard.bannerGradient} border-b border-white/10 flex items-start justify-between`}>
+            <div className={`relative px-6 py-6 sm:px-8 sm:py-7 bg-gradient-to-br ${activeCard.bannerGradient} border-b border-white/10 flex items-start justify-between`}>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white/[0.08] border border-white/15 flex items-center justify-center shadow-inner">
                   <span className="material-symbols-outlined text-secondary-fixed text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -91,7 +100,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
               {/* Top Close Button */}
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <span className="material-symbols-outlined text-base">close</span>
@@ -99,21 +108,53 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
             </div>
 
             {/* Scrollable Content Body */}
-            <div className="p-6 sm:p-8 overflow-y-auto max-h-[calc(85vh-160px)] space-y-6 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]">
+            <div className="p-6 sm:p-8 overflow-y-auto max-h-[calc(88vh-190px)] space-y-6 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]">
               {activeCard.content}
+
+              {/* Special Acceptance Checkbox Box for Terms of Service */}
+              {activeCard.id === 'terms' && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-slate-900/60 to-black border border-cyan-500/30 flex items-start gap-3 mt-4">
+                  <input
+                    type="checkbox"
+                    id="terms-agree-checkbox"
+                    checked={hasAgreed}
+                    onChange={(e) => {
+                      setHasAgreed(e.target.checked);
+                      localStorage.setItem('typenova_terms_accepted', e.target.checked ? 'true' : 'false');
+                    }}
+                    className="mt-1 w-4 h-4 rounded border-white/20 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-black accent-cyan-400 cursor-pointer"
+                  />
+                  <label htmlFor="terms-agree-checkbox" className="text-xs text-zinc-300 leading-relaxed cursor-pointer select-none">
+                    <strong className="text-white">I confirm that I have read and agree</strong> to the TypeNova Terms of Service, MIT Open-Source licensing provisions, and Anti-Cheat Fair Play protocols.
+                  </label>
+                </div>
+              )}
             </div>
 
-            {/* Modal Bottom Footer Bar */}
-            <div className="px-6 py-4 sm:px-8 bg-white/[0.02] border-t border-white/10 flex items-center justify-between">
-              <span className="text-[11px] font-mono text-zinc-500 tracking-wider">
+            {/* Modal Bottom Footer Bar with Action CTA */}
+            <div className="px-6 py-4 sm:px-8 bg-white/[0.02] border-t border-white/10 flex items-center justify-between gap-4">
+              <span className="text-[11px] font-mono text-zinc-500 tracking-wider hidden sm:inline">
                 TYPENOVA PROTOCOL v2.4
               </span>
-              <button
-                onClick={onClose}
-                className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-xs font-medium transition-all"
-              >
-                Close (Esc)
-              </button>
+              
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                {activeCard.id === 'terms' ? (
+                  <button
+                    onClick={handleAcceptTerms}
+                    className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-300 text-black font-sans font-bold text-xs tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm font-bold">check_circle</span>
+                    <span>{hasAgreed ? 'Accepted & Continue' : 'I Accept & Continue'}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={onClose}
+                    className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-xs font-medium transition-all cursor-pointer"
+                  >
+                    Close (Esc)
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         </div>

@@ -205,16 +205,36 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
     content: (
       <div className="space-y-4 text-sm text-zinc-300 leading-relaxed font-sans">
         <p>
-          Meet <strong>Aru</strong>, your personal AI typing mentor capable of analyzing key-by-key hesitation metrics.
+          Meet <strong>Aru</strong>, your personal AI typing mentor capable of analyzing key-by-key hesitation metrics and fatigue pacing in real time.
         </p>
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
-            <div className="text-purple-300 font-semibold text-xs font-mono mb-1">Chrome Gemini Nano Integration</div>
-            <p className="text-xs text-zinc-400">Runs 100% locally in your browser with zero latency without requiring an external API key.</p>
+            <div className="text-purple-300 font-semibold text-xs font-mono mb-1 flex items-center justify-between">
+              <span>01. Chrome Gemini Nano (Local NPU)</span>
+              <span className="text-[10px] text-zinc-500 font-mono">Chrome Dev / Canary</span>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Runs 100% locally on your machine with zero latency and no external API key required when using Chrome Dev/Canary with the experimental Prompt API flag enabled.
+            </p>
           </div>
+
           <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
-            <div className="text-purple-300 font-semibold text-xs font-mono mb-1">Adaptive Drill Generation</div>
-            <p className="text-xs text-zinc-400">Identifies your weak bigrams (e.g. &quot;tr&quot;, &quot;qu&quot;) and dynamically generates targeted practice passages.</p>
+            <div className="text-purple-300 font-semibold text-xs font-mono mb-1 flex items-center justify-between">
+              <span>02. BYOK Cloud Gateway (Groq / Gemini / OpenAI)</span>
+              <span className="text-[10px] text-cyan-400 font-mono">Standard Browsers</span>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Not on Chrome Dev? Simply connect your own free API key (like Groq or OpenRouter) in Settings. Our offline Technician bot can even guide you step-by-step to grab a free key in 30 seconds.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10">
+            <div className="text-purple-300 font-semibold text-xs font-mono mb-1">
+              03. Adaptive Muscle Memory Drills
+            </div>
+            <p className="text-xs text-zinc-400">
+              Live keystroke latency tracking isolates your weakest character transitions (e.g. &quot;tr&quot;, &quot;qu&quot;) and dynamically generates targeted practice sentences to accelerate speed gains.
+            </p>
           </div>
         </div>
       </div>

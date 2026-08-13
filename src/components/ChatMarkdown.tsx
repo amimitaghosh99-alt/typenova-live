@@ -8,7 +8,7 @@ import React from 'react';
  * elements — model output is never parsed as HTML — so no sanitizer is needed.
  */
 
-const INLINE = /(\[.*?\]\(.*?\)|https?:\/\/[^\s<]+[^<.,:;"')\]\s]|\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
+const INLINE = /(<https?:\/\/[^>]+>|\[.*?\]\(.*?\)|https?:\/\/[^\s<]+[^<.,:;"')\]\s]|\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
 
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   return text.split(INLINE).filter(Boolean).map((token, i) => {
@@ -19,6 +19,16 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       return (
         <a key={key} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--aru-glow))] font-bold hover:underline underline-offset-2 transition-all">
           {linkMatch[1]}
+        </a>
+      );
+    }
+
+    const autoLinkMatch = token.match(/^<(https?:\/\/[^>]+)>$/);
+    if (autoLinkMatch) {
+      const url = autoLinkMatch[1];
+      return (
+        <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--aru-glow))] font-bold hover:underline underline-offset-2 transition-all">
+          {url}
         </a>
       );
     }

@@ -99,7 +99,7 @@ export function Login() {
               <span className="w-2 h-2 rounded-full bg-secondary-fixed animate-pulse shadow-[0_0_10px_#7df4ff]"></span>
               <span className="font-label-mono text-label-caps text-secondary-fixed tracking-widest">System Online v2.4 • Open Source</span>
             </div>
-            <h1 className="font-display-lg text-headline-xl-mobile md:text-[84px] text-white max-w-5xl leading-[1.05] tracking-tighter text-glow-premium opacity-0 animate-fade-in-up delay-200 drop-shadow-2xl">
+            <h1 className="font-display-lg text-headline-xl-mobile md:text-[84px] text-white max-w-5xl leading-[1.05] tracking-tighter text-glow-premium opacity-0 animate-fade-in-up delay-200 drop-shadow-[0_8px_32px_rgba(0,0,0,0.9)] [text-shadow:_0_4px_24px_rgba(0,0,0,0.95)]">
               The Next-Gen <br className="hidden md:block"/> Gamified Typing Platform
             </h1>
             <p className="font-body-lg text-xl text-on-surface-variant max-w-3xl mt-6 leading-relaxed font-light opacity-0 animate-fade-in-up delay-300 drop-shadow-md">
@@ -153,7 +153,7 @@ export function Login() {
       <footer className="w-full bg-transparent border-t border-white/5 flex flex-col md:flex-row justify-between items-center px-8 lg:px-16 py-6 gap-4 z-10 backdrop-blur-sm shrink-0">
         <div className="font-headline-md text-white tracking-tight">TYPENOVA</div>
         <div className="font-label-mono text-label-caps text-on-surface-variant opacity-60 hover:opacity-100 transition-opacity tracking-widest text-center">
-          © 2024 TYPENOVA. FREE &amp; OPEN SOURCE UNDER MIT LICENSE.
+          © {new Date().getFullYear()} TYPENOVA. FREE &amp; OPEN SOURCE UNDER MIT LICENSE.
         </div>
         <nav className="flex flex-wrap justify-center gap-8 font-label-mono text-label-caps tracking-wider relative z-50">
           <a className="text-secondary-fixed hover:text-white transition-colors flex items-center gap-1.5" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">

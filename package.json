@@ -37,6 +37,7 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@react-spring/web": "^10.1.2",
     "@supabase/supabase-js": "^2.110.6",
     "@tabler/icons-react": "^3.46.0",
     "@types/three": "^0.185.4",

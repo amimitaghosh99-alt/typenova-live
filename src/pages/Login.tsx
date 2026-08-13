@@ -5,6 +5,7 @@ import { CosmicShaderBackground } from '@/components/CosmicShaderBackground';
 import { KineticKeyboard } from '@/components/KineticKeyboard';
 import { ExpandableInfoModal } from '@/components/ExpandableInfoModal';
 import { TypeNovaLogo } from '@/components/TypeNovaLogo';
+import { BlurText } from '@/components/BlurText';
 
 export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
@@ -144,8 +145,9 @@ export function Login() {
               <span className="w-2 h-2 rounded-full bg-secondary-fixed animate-pulse shadow-[0_0_10px_#7df4ff]"></span>
               <span className="font-label-mono text-label-caps text-secondary-fixed tracking-widest">System Online v2.4 • Open Source</span>
             </div>
-            <h1 className="font-display-lg text-headline-xl-mobile md:text-[84px] text-white max-w-5xl leading-[1.05] tracking-tighter text-glow-premium opacity-0 animate-fade-in-up delay-200 drop-shadow-[0_8px_32px_rgba(0,0,0,0.9)] [text-shadow:_0_4px_24px_rgba(0,0,0,0.95)]">
-              The Next-Gen <br className="hidden md:block"/> Gamified Typing Platform
+            <h1 className="font-display-lg text-headline-xl-mobile md:text-[84px] text-white max-w-5xl leading-[1.05] tracking-tighter text-glow-premium drop-shadow-[0_8px_32px_rgba(0,0,0,0.9)] [text-shadow:_0_4px_24px_rgba(0,0,0,0.95)] flex flex-col items-center justify-center text-center">
+              <BlurText text="The Next-Gen" delay={45} className="inline-flex justify-center" />
+              <BlurText text="Gamified Typing Platform" delay={45} className="inline-flex justify-center mt-1" />
             </h1>
             <p className="font-body-lg text-xl text-on-surface-variant max-w-3xl mt-6 leading-relaxed font-light opacity-0 animate-fade-in-up delay-300 drop-shadow-md">
               100% Free &amp; Open Source. Engineered for speed. Train with elite AI, compete globally, and upgrade your CyberHands in an uncompromising, high-fidelity environment.

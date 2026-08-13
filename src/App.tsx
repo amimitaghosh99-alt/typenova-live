@@ -68,8 +68,6 @@ import { CHANGELOG } from '@/data/changelog';
 import { SettingsModal } from './components/SettingsModal';
 import { BugReportsModal } from './components/BugReportsModal';
 
-import { VideoCallProvider } from '@/contexts/VideoCallContext';
-import { VideoCallOverlay } from '@/components/VideoCallOverlay';
 import { AcademyEntry } from '@/components/academy/AcademyEntry';
 import { AcademyLayout } from '@/components/academy/AcademyLayout';
 import { useSmartDrills } from '@/hooks/useSmartDrills';
@@ -1064,52 +1062,20 @@ function MainApp() {
     if (raceActive) {
       return (
         <ErrorBoundary onReset={handleReset}>
-          <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
-            <RaceResultsScreen
-              {...resultsProps}
-              players={race.players}
-              selfId={race.selfId ?? ''}
-              roomSize={race.roomSize}
-              timelines={undefined}
-              isRanked={isRankedMatch}
-              supabase={supabase}
-              raceId={race.raceId}
-              isHost={race.isHost}
-              onRematch={handleRematchRace}
-              onLeaveRace={handleLeaveRace}
-              onUpdateElo={cloud.setElo}
-            />
-            {activeModal === 'replay' && (
-              <ReplayModal
-                targetText={typing.targetText}
-                log={typing.keystrokeLog.current}
-                theme={theme}
-                onClose={handleCloseModal}
-              />
-            )}
-            <VideoCallOverlay />
-          </VideoCallProvider>
-        </ErrorBoundary>
-      );
-    }
-
-    return (
-      <ErrorBoundary onReset={handleReset}>
-        <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
-          {game.microDrillActive ? (
-            <AIDrillResultsScreen
-              wpm={typing.wpm}
-              accuracy={typing.accuracy}
-              theme={theme}
-              smartDrillKeys={smartDrillKeys}
-              isGenerating={isSmartDrillGenerating}
-              onGenerateAnother={startSmartDrill}
-              onRetry={handleRetryDrill}
-              onExit={exitMicroDrill}
-            />
-          ) : (
-            <ResultsScreen {...resultsProps} />
-          )}
+          <RaceResultsScreen
+            {...resultsProps}
+            players={race.players}
+            selfId={race.selfId ?? ''}
+            roomSize={race.roomSize}
+            timelines={undefined}
+            isRanked={isRankedMatch}
+            supabase={supabase}
+            raceId={race.raceId}
+            isHost={race.isHost}
+            onRematch={handleRematchRace}
+            onLeaveRace={handleLeaveRace}
+            onUpdateElo={cloud.setElo}
+          />
           {activeModal === 'replay' && (
             <ReplayModal
               targetText={typing.targetText}
@@ -1118,14 +1084,40 @@ function MainApp() {
               onClose={handleCloseModal}
             />
           )}
-          <VideoCallOverlay />
-        </VideoCallProvider>
+        </ErrorBoundary>
+      );
+    }
+
+    return (
+      <ErrorBoundary onReset={handleReset}>
+        {game.microDrillActive ? (
+          <AIDrillResultsScreen
+            wpm={typing.wpm}
+            accuracy={typing.accuracy}
+            theme={theme}
+            smartDrillKeys={smartDrillKeys}
+            isGenerating={isSmartDrillGenerating}
+            onGenerateAnother={startSmartDrill}
+            onRetry={handleRetryDrill}
+            onExit={exitMicroDrill}
+          />
+        ) : (
+          <ResultsScreen {...resultsProps} />
+        )}
+        {activeModal === 'replay' && (
+          <ReplayModal
+            targetText={typing.targetText}
+            log={typing.keystrokeLog.current}
+            theme={theme}
+            onClose={handleCloseModal}
+          />
+        )}
       </ErrorBoundary>
     );
   }
 
   return (
-    <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
+    <>
       <TypingController
         typing={typing}
         audio={audio}
@@ -2117,7 +2109,7 @@ function MainApp() {
             default: return null;
           }
         })()}
-        <VideoCallOverlay />
+
         <AIChatBot
           stats={aruStats}
           onStartDrill={startSmartDrill}
@@ -2139,7 +2131,7 @@ function MainApp() {
           techCapabilities={techCapabilities}
         />
       </div>
-    </VideoCallProvider>
+    </>
   );
 }
 

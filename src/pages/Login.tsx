@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '@/hooks/useAuth';
 import { CosmicShaderBackground } from '@/components/CosmicShaderBackground';
 import { KineticKeyboard } from '@/components/KineticKeyboard';
+import { ExpandableInfoModal } from '@/components/ExpandableInfoModal';
 
 export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
   
   useEffect(() => {
     if (authReady && session) {
@@ -27,6 +29,11 @@ export function Login() {
     navigate('/');
   };
 
+  const openCard = (id: string) => {
+    setIsMobileMenuOpen(false);
+    setActiveCardId(id);
+  };
+
   return (
     <div 
       className="fixed inset-0 w-screen h-screen overflow-hidden text-on-background bg-[#080809] font-body-md text-body-md antialiased dark flex flex-col justify-between"
@@ -34,6 +41,12 @@ export function Login() {
     >
       {/* WebGL Cosmic Background Shader */}
       <CosmicShaderBackground />
+
+      {/* Expandable Aceternity Card Modal */}
+      <ExpandableInfoModal 
+        activeId={activeCardId} 
+        onClose={() => setActiveCardId(null)} 
+      />
       
       {/* Top Navigation */}
       <header className="w-full bg-[#080809]/40 backdrop-blur-2xl z-50 border-b border-white/5 hidden md:flex justify-between items-center px-8 lg:px-16 py-6 shrink-0 transition-all duration-300">
@@ -42,10 +55,30 @@ export function Login() {
           <span className="font-display-lg text-headline-md tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">TypeNova</span>
         </div>
         <nav className="flex gap-10 items-center font-label-mono text-label-mono z-50">
-          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Multiplayer</a>
-          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">AI Coach</a>
-          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">RPG Academy</a>
-          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Leaderboards</a>
+          <button 
+            onClick={() => openCard('multiplayer')} 
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+          >
+            Multiplayer
+          </button>
+          <button 
+            onClick={() => openCard('coach')} 
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+          >
+            AI Coach
+          </button>
+          <button 
+            onClick={() => openCard('academy')} 
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+          >
+            RPG Academy
+          </button>
+          <button 
+            onClick={() => openCard('leaderboards')} 
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+          >
+            Leaderboards
+          </button>
         </nav>
         <div className="hidden md:flex items-center gap-4 z-50">
           <a 
@@ -76,10 +109,10 @@ export function Login() {
         </div>
         {isMobileMenuOpen && (
           <nav className="flex flex-col gap-5 items-center font-label-mono text-label-mono w-full mt-5 pt-5 border-t border-white/10 animate-fade-in-up">
-            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Multiplayer</a>
-            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">AI Coach</a>
-            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">RPG Academy</a>
-            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Leaderboards</a>
+            <button onClick={() => openCard('multiplayer')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">Multiplayer</button>
+            <button onClick={() => openCard('coach')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">AI Coach</button>
+            <button onClick={() => openCard('academy')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">RPG Academy</button>
+            <button onClick={() => openCard('leaderboards')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">Leaderboards</button>
             <a className="text-secondary-fixed hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
               <span>★ Star on GitHub</span>
             </a>
@@ -159,9 +192,24 @@ export function Login() {
           <a className="text-secondary-fixed hover:text-white transition-colors flex items-center gap-1.5" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
             <span>★</span> Star on GitHub
           </a>
-          <a className="text-on-surface-variant hover:text-white transition-colors" href="#">Terms of Service</a>
-          <a className="text-on-surface-variant hover:text-white transition-colors" href="#">Privacy Protocol</a>
-          <a className="text-on-surface-variant hover:text-white transition-colors" href="#">System Status</a>
+          <button 
+            onClick={() => openCard('terms')} 
+            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
+          >
+            Terms of Service
+          </button>
+          <button 
+            onClick={() => openCard('privacy')} 
+            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
+          >
+            Privacy Protocol
+          </button>
+          <button 
+            onClick={() => openCard('status')} 
+            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
+          >
+            System Status
+          </button>
         </nav>
       </footer>
     </div>

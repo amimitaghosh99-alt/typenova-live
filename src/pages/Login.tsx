@@ -253,7 +253,6 @@ export function Login() {
 
       {/* Footer */}
       <footer className="w-full bg-transparent border-t border-white/5 flex flex-col md:flex-row justify-between items-center px-8 lg:px-16 py-6 gap-4 z-10 backdrop-blur-sm shrink-0">
-        <TypeNovaLogo size="sm" />
         <div className="font-label-mono text-label-caps text-on-surface-variant opacity-60 hover:opacity-100 transition-opacity tracking-widest text-center">
           © {new Date().getFullYear()} TYPENOVA. FREE &amp; OPEN SOURCE UNDER MIT LICENSE.
         </div>

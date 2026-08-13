@@ -12,7 +12,7 @@ import {
   X, Code, Star, Trophy, Terminal, Zap, Lock, Users,
   Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown,
   Swords, Sword, Sparkles, Orbit, Unlock,
-  Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight, MessageSquare, Settings
+  Hash, Clock, BarChart2, CalendarCheck, Hourglass, ChevronRight, MessageSquare, Settings, Bot
 } from 'lucide-react';
 // Note: Swords is used both for the ACHIEVEMENT_ICONS map and the race button.
 import type { LucideIcon } from 'lucide-react';
@@ -67,12 +67,16 @@ import { ChangelogModal } from '@/components/ChangelogModal';
 import { CHANGELOG } from '@/data/changelog';
 import { SettingsModal } from './components/SettingsModal';
 import { BugReportsModal } from './components/BugReportsModal';
+
 import { VideoCallProvider } from '@/contexts/VideoCallContext';
 import { VideoCallOverlay } from '@/components/VideoCallOverlay';
 import { AcademyEntry } from '@/components/academy/AcademyEntry';
 import { AcademyLayout } from '@/components/academy/AcademyLayout';
 import { useSmartDrills } from '@/hooks/useSmartDrills';
 import { AIChatBot } from '@/components/AIChatBot';
+import { SupportTechnician } from '@/components/SupportTechnician';
+import { AI_KEYS } from '@/lib/aiClient';
+import { AnimatePresence, motion } from 'framer-motion';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
 // stay import-free — tailwind.config.js loads it via jiti) to lucide
@@ -99,6 +103,10 @@ const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
   'calendar-check': CalendarCheck,
   'hourglass': Hourglass,
 };
+
+const TIME_OPTIONS = [15, 30, 60].map(v => ({ label: String(v), value: v }));
+const WORD_OPTIONS = [10, 25, 50, 100].map(v => ({ label: String(v), value: v }));
+const CODE_LANGUAGE_OPTIONS = CODE_LANGUAGES.map(lang => ({ label: lang.toUpperCase(), value: lang }));
 
 // ─── DRILL WORD POOL ──────────────────────────────────────────────────
 // Shared by single-key micro-drills and heatmap-driven smart drills.
@@ -180,6 +188,45 @@ function MainApp() {
   // ─── Mode State ──────────────────────────────────────────────────
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
+  const [isAruOpen, setIsAruOpen] = useState(false);
+  const [isTechnicianOpen, setIsTechnicianOpen] = useState(false);
+
+  const [techAiState, setTechAiState] = useState({
+    apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',
+    baseUrl: localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1',
+    model: localStorage.getItem(AI_KEYS.byokModel) || 'llama-3.3-70b-versatile',
+    connectionStatus: 'idle' as const,
+    connectionError: '',
+    modelCount: 0
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setTechAiState(prev => ({
+        ...prev,
+        apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',
+        baseUrl: localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1',
+        model: localStorage.getItem(AI_KEYS.byokModel) || 'llama-3.3-70b-versatile',
+      }));
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const techCapabilities = useMemo(() => ({
+    openTab: (tabId: string) => {
+      setActiveModal('settings');
+      setTimeout(() => window.dispatchEvent(new CustomEvent('open_settings_tab', { detail: tabId })), 50);
+    },
+    setProvider: (url: string) => {
+      localStorage.setItem(AI_KEYS.byokUrl, url);
+      window.dispatchEvent(new Event('storage'));
+    },
+    setModel: (model: string) => {
+      localStorage.setItem(AI_KEYS.byokModel, model);
+      window.dispatchEvent(new Event('storage'));
+    }
+  }), []);
   
   const [themeFont, setThemeFont] = useState(() => localStorage.getItem('typezen_font') || 'JetBrains Mono');
   
@@ -206,17 +253,15 @@ function MainApp() {
   const showReplay = activeModal === 'replay';
 
   // Aliases for backward compatibility during refactor
-  const setShowTrophyRoom = (b: boolean) => setActiveModal(b ? 'trophy' : null);
-  const setShowGodMode = (b: boolean) => setActiveModal(b ? 'godMode' : null);
-  const setShowStatsDashboard = (b: boolean) => setActiveModal(b ? 'stats' : null);
-  const setShowReplay = (b: boolean) => setActiveModal(b ? 'replay' : null);
-  const setShowRace = (b: boolean) => setActiveModal(b ? 'race' : null);
-  const setShowProfile = (b: boolean) => setActiveModal(b ? 'profile' : null);
-  const setShowSocialModal = (b: boolean) => setActiveModal(b ? 'social' : null);
-  const setShowCommsModal = (b: boolean) => setActiveModal(b ? 'comms' : null);
-  const setShowDailyQuestsModal = (b: boolean) => setActiveModal(b ? 'quests' : null);
-  const setShowSettingsModal = (b: boolean) => setActiveModal(b ? 'settings' : null);
-  const setShowChangelog = (b: boolean) => setActiveModal(b ? 'changelog' : null);
+  const setShowTrophyRoom = useCallback((b: boolean) => setActiveModal(b ? 'trophy' : null), []);
+  const setShowStatsDashboard = useCallback((b: boolean) => setActiveModal(b ? 'stats' : null), []);
+  const setShowRace = useCallback((b: boolean) => setActiveModal(b ? 'race' : null), []);
+  const setShowProfile = useCallback((b: boolean) => setActiveModal(b ? 'profile' : null), []);
+  const setShowSocialModal = useCallback((b: boolean) => setActiveModal(b ? 'social' : null), []);
+  const setShowCommsModal = useCallback((b: boolean) => setActiveModal(b ? 'comms' : null), []);
+  const setShowDailyQuestsModal = useCallback((b: boolean) => setActiveModal(b ? 'quests' : null), []);
+  const setShowSettingsModal = useCallback((b: boolean) => setActiveModal(b ? 'settings' : null), []);
+  const setShowChangelog = useCallback((b: boolean) => setActiveModal(b ? 'changelog' : null), []);
 
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
@@ -287,6 +332,15 @@ function MainApp() {
     onHydrated: () => setDailyStreak(loadDailyStreak()),
   });
   const isLoggedIn = !!auth.session;
+  const levelOptions = useMemo(() => (["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM"] as Level[]).map(l => ({
+    label: l,
+    value: l,
+    locked: !isLoggedIn && (l === "CODE" || l === "CUSTOM")
+  })), [isLoggedIn]);
+
+  const handleSignIn = useCallback(() => { void auth.signInWithGoogle(); }, [auth]);
+  const handleSignOut = useCallback(() => { void auth.signOut(); }, [auth]);
+  const handleUnlockGodMode = useCallback(() => setActiveModal('godMode'), []);
   const friendsState = useFriends({ supabase, session: auth.session, username: cloud.username });
 
   const challenges = useChallenges({
@@ -600,17 +654,17 @@ function MainApp() {
   };
 
   // ─── Drills (single-key micro + heatmap smart) ───────────────────
-  const launchDrill = (text: string) => {
+  const launchDrill = useCallback((text: string) => {
     typing.resetEngine();
     game.setMicroDrillActive(true);
     typing.setTargetText(text);
     typing.setPhase('READY');
-  };
+  }, [typing, game]);
 
-  const startMicroDrill = (keyChar: string) => {
+  const startMicroDrill = useCallback((keyChar: string) => {
     const words = buildDrillWords([keyChar], 10);
     launchDrill(keyChar === 'ENTER' ? words.join('\n') : words.join(' '));
-  };
+  }, [launchDrill]);
 
   // Lifetime-weakest keys (min 10 hits each, letters/digits only)
   const smartDrillKeys = useMemo(() => {
@@ -639,40 +693,35 @@ function MainApp() {
       .slice(0, 5);
   }, [rpg.heatmapData]);
 
+  const isFinished = typing.phase === 'FINISHED';
   const aruStats = useMemo(() => ({
-    wpm: typing.wpm,
-    accuracy: typing.accuracy,
+    wpm: isFinished ? typing.wpm : 0,
+    accuracy: isFinished ? typing.accuracy : 0,
     level: rpg.userLevel,
     testsCompleted: rpg.testsCompleted,
     streak: dailyStreak,
     weakKeys: aruWeakKeys,
-  }), [typing.wpm, typing.accuracy, rpg.userLevel, rpg.testsCompleted, dailyStreak, aruWeakKeys]);
+  }), [isFinished, typing.wpm, typing.accuracy, rpg.userLevel, rpg.testsCompleted, dailyStreak, aruWeakKeys]);
 
   const startSmartDrill = useCallback(async (sessionKeys?: string[]) => {
     const targetKeys = sessionKeys && sessionKeys.length > 0 ? sessionKeys : smartDrillKeys;
-    if (targetKeys.length === 0) return;
-    const toastId = toast.loading('AI Engine generating drill...', { icon: '🧠' });
+    if (targetKeys.length === 0) {
+      toast.error('Not enough data! Play a few rounds first to generate weak keys.', { icon: '⚠️' });
+      return;
+    }
+    
     try {
       const result = await generateDrill(targetKeys);
-      toast.dismiss(toastId);
-      if (result.engine === 'cloud') {
-        toast.success('Cloud AI generated a custom drill!', { icon: '☁️' });
-      } else if (result.engine === 'ai') {
-        toast.success('Local AI Engine generated a custom drill!', { icon: '🧠' });
-      } else {
-        toast.success('Procedural Engine generated a smart drill!', { icon: '⚙️' });
-      }
       launchDrill(result.text);
     } catch (err) {
-      toast.dismiss(toastId);
-      toast.error('Failed to generate drill.');
+      toast.error('Failed to generate drill. Is Aru offline?');
     }
-  }, [smartDrillKeys, generateDrill]);
+  }, [smartDrillKeys, generateDrill, launchDrill]);
 
-  const exitMicroDrill = () => {
+  const exitMicroDrill = useCallback(() => {
     game.setMicroDrillActive(false);
     handleResetRef.current({});
-  };
+  }, [game]);
 
   // ─── Personal Best (ghost pacer data) ────────────────────────────
   const pbStorageKey = `typezen_pb:${game.level}:${game.testMode === 'time' ? 't' + game.duration : 'w' + game.wordCount}`;
@@ -684,18 +733,18 @@ function MainApp() {
   }, [pbStorageKey, game.level, game.mirroredMode, game.dailyActive, typing.phase]);
 
   // ─── Theme / Sound Cycles ────────────────────────────────────────
-  const selectTheme = (index: number) => {
+  const selectTheme = useCallback((index: number) => {
     setThemeIndex(index);
     setSeenThemes(prev => new Set([...prev, index]));
     setShowThemeMenu(false);
     try { localStorage.setItem('typezen_theme', index.toString()); } catch {}
-  };
+  }, []);
 
-  const selectSoundProfile = (key: string) => {
+  const selectSoundProfile = useCallback((key: string) => {
     setSoundProfileState(key);
     setShowSoundMenu(false);
     try { localStorage.setItem('typezen_sound', key); } catch {}
-  };
+  }, []);
 
 
 
@@ -949,6 +998,35 @@ function MainApp() {
     setIsAcademyMode(false);
   }, []);
 
+  const handleChangeLevel = useCallback((l: Level) => game.changeLevel(l), [game]);
+  const handleLockedLevelClick = useCallback((l: Level) => {
+    const modeName = l === "CODE" ? "Code" : "Custom";
+    toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
+  }, []);
+  const handleChangeCountOrDuration = useCallback((v: number) => {
+    if (game.testMode === 'time') game.changeDuration(v);
+    else game.changeWordCount(v);
+  }, [game]);
+  const handleChangeCodeLanguage = useCallback((lang: CodeLanguage) => game.changeCodeLanguage(lang), [game]);
+  const handleWatchReplay = useCallback(() => setActiveModal('replay'), []);
+  const handleRetryDrill = useCallback(() => { launchDrill(typing.targetText); }, [launchDrill, typing.targetText]);
+  const handleRematchRace = useCallback(() => race.rematch(), [race]);
+  const handleLeaveRace = useCallback(() => {
+    race.leave();
+    setRaceActive(false);
+    setIsRankedMatch(false);
+    handleReset();
+  }, [race, handleReset]);
+  const handleCloseAru = useCallback(() => setIsAruOpen(false), []);
+  const handleSetThemeFont = useCallback((font: string) => {
+    setThemeFont(font);
+    localStorage.setItem('typezen_font', font);
+  }, []);
+
+  const otherRacePlayers = useMemo(() => (
+    raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined
+  ), [raceActive, race.players, race.selfId]);
+
   // ─── Render ──────────────────────────────────────────────────────
 
   // Academy Mode — full-screen takeover
@@ -979,8 +1057,8 @@ function MainApp() {
       durationMs: finishDurationMs,
       keystrokeLog: typing.keystrokeLog.current,
       testStartTime: typing.startTime || 0,
-      onReset: () => handleReset(),
-      onWatchReplay: () => setShowReplay(true),
+      onReset: handleReset,
+      onWatchReplay: handleWatchReplay,
       onStartMicroDrill: startMicroDrill,
       onStartSmartDrill: startSmartDrill,
       isSmartDrillGenerating,
@@ -988,7 +1066,7 @@ function MainApp() {
 
     if (raceActive) {
       return (
-        <ErrorBoundary onReset={() => handleReset()}>
+        <ErrorBoundary onReset={handleReset}>
           <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
             <RaceResultsScreen
               {...resultsProps}
@@ -1000,16 +1078,16 @@ function MainApp() {
               supabase={supabase}
               raceId={race.raceId}
               isHost={race.isHost}
-              onRematch={() => race.rematch()}
-              onLeaveRace={() => { race.leave(); setRaceActive(false); setIsRankedMatch(false); handleReset(); }}
-              onUpdateElo={(elo) => cloud.setElo(elo)}
+              onRematch={handleRematchRace}
+              onLeaveRace={handleLeaveRace}
+              onUpdateElo={cloud.setElo}
             />
             {activeModal === 'replay' && (
               <ReplayModal
                 targetText={typing.targetText}
                 log={typing.keystrokeLog.current}
                 theme={theme}
-                onClose={() => setActiveModal(null)}
+                onClose={handleCloseModal}
               />
             )}
             <VideoCallOverlay />
@@ -1019,7 +1097,7 @@ function MainApp() {
     }
 
     return (
-      <ErrorBoundary onReset={() => handleReset()}>
+      <ErrorBoundary onReset={handleReset}>
         <VideoCallProvider userId={auth.session?.user.id} username={cloud.username}>
           {game.microDrillActive ? (
             <AIDrillResultsScreen
@@ -1029,7 +1107,7 @@ function MainApp() {
               smartDrillKeys={smartDrillKeys}
               isGenerating={isSmartDrillGenerating}
               onGenerateAnother={startSmartDrill}
-              onRetry={() => launchDrill(typing.targetText)}
+              onRetry={handleRetryDrill}
               onExit={exitMicroDrill}
             />
           ) : (
@@ -1040,7 +1118,7 @@ function MainApp() {
               targetText={typing.targetText}
               log={typing.keystrokeLog.current}
               theme={theme}
-              onClose={() => setActiveModal(null)}
+              onClose={handleCloseModal}
             />
           )}
           <VideoCallOverlay />
@@ -1062,7 +1140,7 @@ function MainApp() {
         raceActive={raceActive}
         theme={theme}
         tetrisEffect={tetrisEffect}
-        onUnlockGodMode={() => setShowGodMode(true)}
+        onUnlockGodMode={handleUnlockGodMode}
         onReset={handleReset}
         onExitMicroDrill={exitMicroDrill}
       />
@@ -1102,42 +1180,52 @@ function MainApp() {
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0 mix-blend-screen opacity-80">
           {/* PRIMARY vivid orb — top-left, large */}
           <div
-            className="absolute rounded-full blur-[100px] orb-drift-1"
+            className="absolute rounded-full blur-[80px] orb-drift-1"
             style={{
               width: '50vw', height: '50vw', top: '-20%', left: '-15%',
               background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.55) 0%, rgba(${theme.glowPrimary},0.15) 50%, transparent 70%)`,
+              willChange: 'transform',
+              contain: 'strict',
             }}
           />
           {/* SECONDARY contrast orb — right side, large */}
           <div
-            className="absolute rounded-full blur-[120px] orb-drift-2"
+            className="absolute rounded-full blur-[90px] orb-drift-2"
             style={{
               width: '55vw', height: '55vw', top: '20%', right: '-20%',
               background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.50) 0%, rgba(${theme.glowSecondary},0.12) 50%, transparent 70%)`,
+              willChange: 'transform',
+              contain: 'strict',
             }}
           />
           {/* PRIMARY accent — bottom, medium */}
           <div
-            className="absolute rounded-full blur-[90px] orb-drift-3"
+            className="absolute rounded-full blur-[70px] orb-drift-3"
             style={{
               width: '40vw', height: '40vw', bottom: '-15%', left: '25%',
               background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.40) 0%, rgba(${theme.glowPrimary},0.08) 50%, transparent 70%)`,
+              willChange: 'transform',
+              contain: 'strict',
             }}
           />
           {/* SECONDARY small vivid — center area */}
           <div
-            className="absolute rounded-full blur-[70px] orb-drift-4"
+            className="absolute rounded-full blur-[50px] orb-drift-4"
             style={{
               width: '30vw', height: '30vw', top: '45%', left: '35%',
               background: `radial-gradient(circle, rgba(${theme.glowSecondary},0.45) 0%, rgba(${theme.glowSecondary},0.10) 50%, transparent 70%)`,
+              willChange: 'transform',
+              contain: 'strict',
             }}
           />
           {/* Mixed glow — top-right sweep */}
           <div
-            className="absolute rounded-full blur-[140px] orb-drift-5"
+            className="absolute rounded-full blur-[100px] orb-drift-5"
             style={{
               width: '50vw', height: '50vw', top: '-25%', right: '5%',
               background: `radial-gradient(circle, rgba(${theme.glowPrimary},0.35) 0%, rgba(${theme.glowSecondary},0.20) 40%, transparent 65%)`,
+              willChange: 'transform',
+              contain: 'strict',
             }}
           />
         </div>
@@ -1390,7 +1478,7 @@ function MainApp() {
             </div>
           </header>
 
-          <main className={`relative z-10 flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4'}`}>
+          <main className={`relative z-10 flex flex-col xl:flex-row gap-8 w-full transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4 pb-20'}`}>
             <div className="flex-1 w-full flex flex-col gap-6">
 
               {/* Difficulty & Length/Time & Daily */}
@@ -1399,17 +1487,10 @@ function MainApp() {
                   <span className="text-[9px] font-black tracking-widest uppercase text-zinc-400 flex items-center ml-2"><Target size={10} className="mr-1.5" /> DIFFICULTY</span>
                   <div className="flex glass-panel rounded-full">
                     <SegmentedControl
-                      options={(["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM"] as Level[]).map(l => ({
-                        label: l,
-                        value: l,
-                        locked: !isLoggedIn && (l === "CODE" || l === "CUSTOM")
-                      }))}
+                      options={levelOptions}
                       value={game.level}
-                      onChange={(l) => game.changeLevel(l)}
-                      onLockedClick={(l) => {
-                        const modeName = l === "CODE" ? "Code" : "Custom";
-                        toast.error(`Sign in to unlock ${modeName} Mode!`, { icon: <Lock size={14} /> });
-                      }}
+                      onChange={handleChangeLevel}
+                      onLockedClick={handleLockedLevelClick}
                       themeTextClass={theme.text}
                     />
                   </div>
@@ -1436,12 +1517,9 @@ function MainApp() {
                     ><Clock size={13} /></button>
                     <div className="w-px h-4 bg-white/10 mx-1.5"></div>
                     <SegmentedControl
-                      options={(game.testMode === 'time' ? [15, 30, 60] : [10, 25, 50, 100]).map(v => ({
-                        label: String(v),
-                        value: v
-                      }))}
+                      options={game.testMode === 'time' ? TIME_OPTIONS : WORD_OPTIONS}
                       value={game.testMode === 'time' ? game.duration : game.wordCount}
-                      onChange={(v) => game.testMode === 'time' ? game.changeDuration(v) : game.changeWordCount(v)}
+                      onChange={handleChangeCountOrDuration}
                       disabled={lengthLocked}
                       themeTextClass={theme.text}
                       className="!p-0"
@@ -1489,12 +1567,9 @@ function MainApp() {
                       </span>
                       <div className="flex glass-panel rounded-full">
                         <SegmentedControl
-                          options={CODE_LANGUAGES.map(lang => ({
-                            label: lang.toUpperCase(),
-                            value: lang
-                          }))}
+                          options={CODE_LANGUAGE_OPTIONS}
                           value={game.codeLanguage}
-                          onChange={(lang) => game.changeCodeLanguage(lang)}
+                          onChange={handleChangeCodeLanguage}
                           themeTextClass={theme.text}
                           pillClassName="bg-white/10 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
                         />
@@ -1587,7 +1662,7 @@ function MainApp() {
                   zenMode={game.zenMode}
                   pbGhost={pbGhost}
                   isCodeMode={game.level === 'CODE'}
-                  racePlayers={raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined}
+                  racePlayers={otherRacePlayers}
                   isCrossfading={isCrossfading}
                 />
 
@@ -1697,21 +1772,71 @@ function MainApp() {
           </main>
         </div>
 
-        {/* Floating Bottom-Right Controls */}
+        {/* Floating Bottom-Right Controls Pill */}
         {!shouldHideClutter && (
-          <div className="fixed bottom-6 right-6 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-            {/* One bar: theme · sound · account. Single glass surface with
-              hairline dividers rather than separate stacked pills. */}
-            <div className="flex items-center gap-1 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.75)]">
+          <div className="fixed bottom-6 right-6 z-[500] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+            <div className="flex items-center gap-1.5 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.85)]">
+              {/* Settings Button */}
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className={`p-2.5 rounded-full ${activeModal === 'settings' ? 'bg-white/[0.08] text-white' : 'hover:bg-white/[0.06] text-zinc-300'} flex justify-center items-center transition-colors`}
+                className={`p-2.5 rounded-full ${activeModal === 'settings' ? 'bg-white/10 text-white' : 'hover:bg-white/[0.08] text-zinc-400 hover:text-white'} flex justify-center items-center transition-all`}
                 title="Settings"
               >
-                <Settings size={16} />
+                <Settings size={15} />
               </button>
 
-              <div className="w-px h-5 bg-white/10 mx-1" />
+              <div className="w-px h-5 bg-white/10 mx-0.5" />
+
+              <button
+                onClick={() => setIsAruOpen(!isAruOpen)}
+                className={`relative flex items-center gap-2.5 px-5 py-2 rounded-full transition-all duration-500 group overflow-hidden ${
+                  isAruOpen 
+                    ? `bg-[rgba(${theme.glowPrimary},0.2)] border border-[rgba(${theme.glowPrimary},0.5)] shadow-[0_0_30px_rgba(${theme.glowPrimary},0.6)] scale-95` 
+                    : 'bg-[#0f0e1a] border border-fuchsia-500/20 hover:border-transparent shadow-[0_0_20px_rgba(217,70,239,0.15)] hover:shadow-[0_0_40px_rgba(34,211,238,0.4)]'
+                }`}
+                title="Ask Aru — AI Typing Coach"
+              >
+                {/* Spinning Neon Gradient Border (Active on Hover) */}
+                {!isAruOpen && (
+                  <span className="absolute inset-[-1000%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,transparent_0%,#c084fc_33%,#22d3ee_66%,transparent_100%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                )}
+                
+                {/* Dark Inner Surface (Hides the center of the spinning conic gradient to form a 1px border) */}
+                {!isAruOpen && (
+                  <span className="absolute inset-[1px] rounded-full bg-[#0a0914] z-0 transition-colors duration-500 group-hover:bg-[#0f0e1a]" />
+                )}
+
+                {/* Animated Sheen Sweep */}
+                <span className="absolute inset-0 z-0 overflow-hidden pointer-events-none rounded-full">
+                  <span className="absolute top-0 left-[-100%] h-full w-[60%] bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-25deg] transition-all duration-1000 group-hover:left-[200%] ease-in-out" />
+                </span>
+
+                <div className="relative z-10 flex items-center gap-2">
+                  {isAruOpen ? (
+                    <>
+                      <X size={15} className="text-fuchsia-400" />
+                      <span className="text-[11px] font-black tracking-[0.2em] uppercase text-fuchsia-300">Close</span>
+                    </>
+                  ) : (
+                    <>
+                      {/* AI Core Pulse Indicator */}
+                      <div className="relative flex items-center justify-center">
+                        <Bot size={16} className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] group-hover:rotate-12 group-hover:scale-110 transition-transform duration-500" />
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-fuchsia-400 opacity-75 duration-1000" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-fuchsia-500 shadow-[0_0_10px_#d946ef]" />
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-black tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-pink-300 group-hover:from-white group-hover:to-cyan-100 transition-all drop-shadow-sm">
+                        Ask Aru
+                      </span>
+                      <Sparkles size={13} className="text-amber-300 animate-pulse drop-shadow-[0_0_5px_rgba(252,211,77,0.8)]" />
+                    </>
+                  )}
+                </div>
+              </button>
+
+              <div className="w-px h-5 bg-white/10 mx-0.5" />
 
               {/* Account: Google login */}
               <AccountMenu
@@ -1722,8 +1847,8 @@ function MainApp() {
                   ?? (auth.user?.user_metadata as { picture?: string } | undefined)?.picture ?? null}
                 status={cloud.status}
                 elo={cloud.elo}
-                onSignIn={() => { void auth.signInWithGoogle(); }}
-                onSignOut={() => { void auth.signOut(); }}
+                onSignIn={handleSignIn}
+                onSignOut={handleSignOut}
               />
             </div>
           </div>
@@ -1864,7 +1989,7 @@ function MainApp() {
                 themeIndex={themeIndex} selectTheme={selectTheme}
                 soundProfile={soundProfile} selectSoundProfile={selectSoundProfile}
                 themeFont={themeFont}
-                setThemeFont={(font) => { setThemeFont(font); localStorage.setItem('typezen_font', font); }}
+                setThemeFont={handleSetThemeFont}
               />
             );
 
@@ -2000,6 +2125,21 @@ function MainApp() {
           stats={aruStats}
           onStartDrill={startSmartDrill}
           hideTrigger={shouldHideClutter}
+          theme={theme}
+          isOpen={isAruOpen}
+          onClose={handleCloseAru}
+          techAiState={techAiState}
+          techModifiers={{
+            sudden_death: game.suddenDeath,
+            overclocked: game.overclockedMode,
+            blind: game.blindMode,
+            fog: game.fogMode,
+            mirror: game.mirroredMode,
+            ghost: game.ghostPacer,
+            focus: !!game.focusMode,
+            sticky: game.stickyKeysMode,
+          }}
+          techCapabilities={techCapabilities}
         />
       </div>
     </VideoCallProvider>

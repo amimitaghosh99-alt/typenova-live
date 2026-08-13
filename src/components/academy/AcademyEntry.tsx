@@ -1,10 +1,11 @@
+import { memo } from 'react';
 import { GraduationCap } from 'lucide-react';
 
 interface AcademyEntryProps {
   onClick: () => void;
 }
 
-export function AcademyEntry({ onClick }: AcademyEntryProps) {
+export const AcademyEntry = memo(function AcademyEntry({ onClick }: AcademyEntryProps) {
   return (
     <button
       onClick={onClick}
@@ -25,4 +26,4 @@ export function AcademyEntry({ onClick }: AcademyEntryProps) {
       </div>
     </button>
   );
-}
+});

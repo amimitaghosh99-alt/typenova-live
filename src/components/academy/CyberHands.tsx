@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { FINGER_MAP } from './VirtualKeyboard';
 
 interface CyberHandsProps {
@@ -220,7 +220,7 @@ export const RIGHT_HOLOGRAM_FINGERS: HologramFinger[] = [
   },
 ];
 
-export function CyberHands({ activeKey, activeFinger }: CyberHandsProps) {
+export const CyberHands = memo(function CyberHands({ activeKey, activeFinger }: CyberHandsProps) {
   const upperKey = useMemo(() => activeKey.toUpperCase(), [activeKey]);
   const normalizedKey = upperKey === " " ? "SPACE" : upperKey;
 
@@ -611,4 +611,4 @@ export function CyberHands({ activeKey, activeFinger }: CyberHandsProps) {
       </svg>
     </div>
   );
-}
+});

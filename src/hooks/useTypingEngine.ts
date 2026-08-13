@@ -85,7 +85,7 @@ export const useTypingEngine = () => {
     comboRef.current = val;
   }, []);
 
-  const calculateStats = useCallback((currentInput: string, timeMs: number, currentPenalty = 0, explicitStartTime: number | null = null): TypingStats => {
+  const calculateStats = useCallback((currentInput: string, timeMs: number, currentPenalty = 0, explicitStartTime: number | null = null, includeTimeline = false): TypingStats => {
     if (!timeMs || currentInput.length === 0) {
       return { currentWpm: 0, rawWpm: 0, currentAcc: 100, timeline: [], consistency: 100, flawless: 0 };
     }
@@ -116,14 +116,19 @@ export const useTypingEngine = () => {
     if (curStreak > localMaxStreak) localMaxStreak = curStreak;
 
     const rawCalc = minutes > 0 ? Math.round((totalTyped / 5) / minutes) : 0;
-    // BUG FIX: Use totalTyped (all non-backspace keystrokes) instead of
-    // currentInput.length (final input length) for net WPM. The old formula
-    // subtracted errorCount (which includes corrected errors) from
-    // currentInput.length (which excludes backspaced characters), creating an
-    // inconsistency that artificially deflated net WPM when users corrected
-    // mistakes. The standard net WPM formula is (totalTyped - errorCount) / 5.
     const netCalc = minutes > 0 ? Math.max(0, Math.round(((totalTyped - errorCount) / 5) / minutes)) : 0;
     const currentAcc = totalTyped > 0 ? Math.min(Math.max(Math.round(((totalTyped - errorCount) / totalTyped) * 100), 0), 100) : 100;
+
+    if (!includeTimeline) {
+      return {
+        currentWpm: isNaN(netCalc) || netCalc < 0 ? 0 : netCalc,
+        rawWpm: isNaN(rawCalc) ? 0 : rawCalc,
+        currentAcc: isNaN(currentAcc) ? 100 : currentAcc,
+        timeline: [],
+        consistency: 100,
+        flawless: localMaxStreak
+      };
+    }
 
     const intervals = Math.max(1, Math.floor(totalTimeMs / 1000));
     const step = totalTimeMs / intervals;
@@ -180,7 +185,7 @@ export const useTypingEngine = () => {
     setEndTime(finalTimestamp);
     setPhase('FINISHED');
     const statsInput = finalInput !== null ? finalInput : input;
-    const finalStats = calculateStats(statsInput, finalTimestamp - startTime, timePenalty, startTime);
+    const finalStats = calculateStats(statsInput, finalTimestamp - startTime, timePenalty, startTime, true);
     setLiveStats({
       wpm: finalStats.currentWpm,
       rawWpm: finalStats.rawWpm,

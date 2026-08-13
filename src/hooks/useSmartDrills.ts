@@ -3,11 +3,6 @@ import { NOVICE_SENTENCES } from '@/data/constants';
 import { toast } from 'sonner';
 import { chatCompletion, hasAIKey } from '@/lib/aiClient';
 
-/** Chrome's experimental built-in Gemini Nano surface. */
-interface WindowAI {
-  createTextSession: () => Promise<{ prompt: (input: string) => Promise<string> }>;
-}
-
 export function useSmartDrills() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +62,10 @@ export function useSmartDrills() {
       }
 
       // ─── TIER 2: LOCAL AI (Gemini Nano via window.ai) ──────────────
-      const winAi = (window as unknown as { ai?: WindowAI }).ai;
-      if (winAi && typeof winAi.createTextSession === 'function') {
+      const winAi = (window as any).ai;
+      if (winAi && winAi.languageModel && typeof winAi.languageModel.create === 'function') {
         try {
-          const session = await winAi.createTextSession();
+          const session = await winAi.languageModel.create();
           const result = await session.prompt(prompt);
           if (result && typeof result === 'string') {
             const cleanText = result

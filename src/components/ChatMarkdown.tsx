@@ -8,11 +8,21 @@ import React from 'react';
  * elements — model output is never parsed as HTML — so no sanitizer is needed.
  */
 
-const INLINE = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
+const INLINE = /(\[.*?\]\(.*?\)|\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*\n]+\*|_[^_\n]+_)/g;
 
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   return text.split(INLINE).filter(Boolean).map((token, i) => {
     const key = `${keyPrefix}-${i}`;
+    
+    const linkMatch = token.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) {
+      return (
+        <a key={key} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--aru-glow))] font-bold hover:underline underline-offset-2 transition-all">
+          {linkMatch[1]}
+        </a>
+      );
+    }
+
     if ((token.startsWith('**') && token.endsWith('**')) || (token.startsWith('__') && token.endsWith('__'))) {
       return <strong key={key} className="font-bold text-white">{token.slice(2, -2)}</strong>;
     }

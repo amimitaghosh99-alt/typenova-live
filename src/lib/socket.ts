@@ -30,8 +30,8 @@ export const getSocket = (): Socket => {
     socket = io(resolveSocketUrl(), {
       autoConnect: false, // Explicit connection control on entering VS mode
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 25, // 25 attempts * 2s delay = ~50s tolerance for Render free-tier cold start
+      reconnectionDelay: 2000,
     });
   }
   return socket;

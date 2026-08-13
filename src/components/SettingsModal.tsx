@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { SupportTechnician } from '@/components/SupportTechnician';
 import type { TechnicianCapabilities } from '@/components/SupportTechnician';
 import { AI_KEYS, GROQ_LIMITS, PROVIDER_PRESETS, limitsForModel } from '@/lib/aiClient';
+import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
 
 interface SettingsModalProps {
   theme: Theme;
@@ -98,24 +99,27 @@ export const SettingsModal = React.memo(function SettingsModal({
   themeFont, setThemeFont
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'gameplay' | 'visuals' | 'system' | 'ai' | 'usage' | 'report'>('visuals');
+  
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail && typeof e.detail === 'string') {
+        setActiveTab(e.detail as any);
+      }
+    };
+    window.addEventListener('open_settings_tab', handler);
+    return () => window.removeEventListener('open_settings_tab', handler);
+  }, []);
 
   // AI Settings State
-  const [byokKey, setByokKey] = useState(() => localStorage.getItem(AI_KEYS.byokKey) || '');
-  const [byokUrl, setByokUrl] = useState(() => localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1');
-  const [byokModel, setByokModel] = useState(() => localStorage.getItem(AI_KEYS.byokModel) || 'llama-3.3-70b-versatile');
-
-  const [selectedProvider, setSelectedProvider] = useState(() => {
-    const savedUrl = localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1';
-    const preset = PROVIDER_PRESETS.find(p => p.url === savedUrl && p.id !== 'custom');
-    return preset ? preset.id : 'custom';
-  });
+  const engineConfig = useSmartEngineConfig();
+  const {
+    byokKey, setByokKey, byokUrl, setByokUrl, byokModel, setByokModel,
+    selectedProvider, setSelectedProvider, isAmbiguousSk, setIsAmbiguousSk,
+    showGlow, setShowGlow, connectionStatus, connectionError, availableModels,
+    testConnection, handleProviderSelect, handleKeyChange, handleModelChange,
+  } = engineConfig;
+  
   const [_isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isAmbiguousSk, setIsAmbiguousSk] = useState(false);
-  const [_showGlow, setShowGlow] = useState(false);
-
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [connectionError, setConnectionError] = useState('');
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
 
   // Usage Tracker State
@@ -161,102 +165,7 @@ export const SettingsModal = React.memo(function SettingsModal({
     };
   }, []);
 
-  const testConnection = async (keyToUse = byokKey, urlToUse = byokUrl) => {
-    if (!keyToUse.trim()) return;
-    setConnectionStatus('testing');
-    setConnectionError('');
-    try {
-      const baseUrl = urlToUse.replace(/\/chat\/completions\/?$/, '').replace(/\/models\/?$/, '');
-      const endpoint = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
 
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${keyToUse}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        let errData = 'API Error';
-        try {
-          const errObj = await response.json();
-          errData = errObj?.error?.message || errObj?.error || `HTTP ${response.status}`;
-        } catch {
-          errData = `HTTP ${response.status}`;
-        }
-        throw new Error(errData);
-      }
-
-      const data = await response.json();
-      if (data && data.data && Array.isArray(data.data)) {
-        const models = data.data.map((m: any) => m.id);
-        setAvailableModels(models);
-        setConnectionStatus('success');
-      } else {
-        throw new Error('Invalid response format');
-      }
-    } catch (err: any) {
-      setConnectionStatus('error');
-      setConnectionError(err.message || 'Connection failed');
-    }
-  };
-
-  useEffect(() => {
-    if (!byokKey.trim()) {
-      setConnectionStatus('idle');
-      return;
-    }
-    const timer = setTimeout(() => {
-      testConnection(byokKey, byokUrl);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [byokKey, byokUrl]);
-
-  const handleProviderSelect = (id: string) => {
-    setSelectedProvider(id);
-    const preset = PROVIDER_PRESETS.find(p => p.id === id);
-    if (preset && id !== 'custom') {
-      setByokUrl(preset.url);
-      localStorage.setItem(AI_KEYS.byokUrl, preset.url);
-      setByokModel(preset.model);
-      localStorage.setItem(AI_KEYS.byokModel, preset.model);
-    }
-    setIsDropdownOpen(false);
-  };
-
-  const handleKeyChange = (val: string) => {
-    setByokKey(val);
-    localStorage.setItem(AI_KEYS.byokKey, val);
-
-    let newProviderId = selectedProvider;
-
-    if (val.startsWith('gsk_')) newProviderId = 'groq';
-    else if (val.startsWith('sk-or-')) newProviderId = 'openrouter';
-    else if (val.startsWith('AIza')) newProviderId = 'google';
-    else if (val.includes('.')) newProviderId = 'glm';
-    else if (val.startsWith('eyJ')) newProviderId = 'minimax';
-    else if (val.startsWith('sk-')) {
-      if (selectedProvider !== 'kimi' && selectedProvider !== 'minimax') {
-        newProviderId = 'openai';
-        setIsAmbiguousSk(true);
-      } else {
-        setIsAmbiguousSk(false);
-      }
-    } else {
-      setIsAmbiguousSk(false);
-    }
-
-    if (newProviderId !== selectedProvider) {
-      handleProviderSelect(newProviderId);
-      setShowGlow(true);
-      setTimeout(() => setShowGlow(false), 1500);
-    }
-  };
-  const handleModelChange = (val: string) => {
-    setByokModel(val);
-    localStorage.setItem(AI_KEYS.byokModel, val);
-  };
 
   const resetUsageStats = () => {
     localStorage.setItem(AI_KEYS.usageTokens, '0');
@@ -585,9 +494,14 @@ export const SettingsModal = React.memo(function SettingsModal({
                                       handleModelChange(m);
                                       setIsModelDropdownOpen(false);
                                     }}
-                                    className="px-4 py-3 cursor-pointer transition-colors text-sm font-mono text-zinc-400 hover:bg-white/5 hover:text-white border-b border-white/5 last:border-0"
+                                    className="px-4 py-3 flex items-center justify-between cursor-pointer transition-colors text-sm font-mono text-zinc-400 hover:bg-white/5 hover:text-white border-b border-white/5 last:border-0"
                                   >
-                                    {m}
+                                    <span>{m}</span>
+                                    {engineConfig.workingModels?.includes(m) && (
+                                      <span className="text-[10px] text-emerald-400 font-sans tracking-widest uppercase bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                        ⭐ Working
+                                      </span>
+                                    )}
                                   </div>
                                 ))}
                                 {displayedModels.length === 0 && (
@@ -726,36 +640,6 @@ export const SettingsModal = React.memo(function SettingsModal({
                   )}
                 </div>
 
-                <div className="mt-8 p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col gap-2">
-                  <h5 className="text-[10px] font-black tracking-widest text-indigo-400 uppercase">Fallback Hierarchy</h5>
-                  <p className="text-[11px] text-zinc-500 font-mono">
-                    <span className="text-indigo-300">Tier 1:</span> Cloud API (if configured above)<br />
-                    <span className="text-zinc-400">Tier 2:</span> Local window.ai (Gemini Nano)<br />
-                    <span className="text-zinc-500">Tier 3:</span> Procedural Markov-chain
-                  </p>
-                </div>
-
-                <SupportTechnician
-                  ai={{
-                    apiKey: byokKey,
-                    baseUrl: byokUrl,
-                    model: byokModel,
-                    connectionStatus,
-                    connectionError,
-                    modelCount: availableModels.length,
-                  }}
-                  modifiers={{
-                    sudden_death: suddenDeath,
-                    overclocked: overclockedMode,
-                    blind: blindMode,
-                    fog: fogMode,
-                    mirror: mirroredMode,
-                    ghost: ghostPacer,
-                    focus: !!focusMode,
-                    sticky: stickyKeysMode,
-                  }}
-                  capabilities={technicianCapabilities}
-                />
               </div>
             )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getSocket } from '@/lib/socket';
 import { toast } from 'sonner';
 
@@ -25,10 +25,20 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
 
   useEffect(() => { usernameRef.current = username; }, [username]);
   useEffect(() => { userIdRef.current = userId; }, [userId]);
-  // Track mounted status so async operations can bail out after unmount.
+  // Track mounted status and ensure all media tracks are explicitly stopped on unmount.
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+        localStreamRef.current = null;
+      }
+      if (peerConnection.current) {
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+    };
   }, []);
 
   // Initialize WebRTC and Signaling Channel via Socket.io
@@ -196,7 +206,7 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     }
   };
 
-  const callUser = async (targetId: string, targetName: string) => {
+  const callUser = useCallback(async (targetId: string, targetName: string) => {
     if (!userId) {
       toast.error('You must be logged in to start a video call.');
       return;
@@ -230,9 +240,16 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     await peerConnection.current.setLocalDescription(offer);
 
     sendSignal(targetId, 'offer', offer);
-  };
+  }, [userId, callState]);
 
-  const acceptCall = async () => {
+  const rejectCall = useCallback(() => {
+    if (incomingCaller) {
+      sendSignal(incomingCaller.id, 'reject', { reason: 'declined' });
+      cleanupCall();
+    }
+  }, [incomingCaller]);
+
+  const acceptCall = useCallback(async () => {
     if (!incomingCaller || !peerConnection.current) return;
 
     const callerId = incomingCaller.id;
@@ -259,23 +276,16 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     setIncomingCaller(null);
     setCallState('CONNECTED');
     processIceQueue();
-  };
+  }, [incomingCaller, rejectCall]);
 
-  const rejectCall = () => {
-    if (incomingCaller) {
-      sendSignal(incomingCaller.id, 'reject', { reason: 'declined' });
-      cleanupCall();
-    }
-  };
-
-  const endCall = () => {
+  const endCall = useCallback(() => {
     if (activeCallWith) {
       sendSignal(activeCallWith.id, 'end', {});
     } else if (incomingCaller) {
       rejectCall();
     }
     cleanupCall();
-  };
+  }, [activeCallWith, incomingCaller, rejectCall]);
 
   function cleanupCall() {
     if (peerConnection.current) {
@@ -294,19 +304,19 @@ export function useWebRTC({ userId, username }: UseWebRTCProps) {
     iceCandidatesQueue.current = [];
   }
 
-  const toggleVideo = () => {
+  const toggleVideo = useCallback(() => {
     if (localStreamRef.current) {
       const videoTrack = localStreamRef.current.getVideoTracks()[0];
       if (videoTrack) videoTrack.enabled = !videoTrack.enabled;
     }
-  };
+  }, []);
 
-  const toggleAudio = () => {
+  const toggleAudio = useCallback(() => {
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) audioTrack.enabled = !audioTrack.enabled;
     }
-  };
+  }, []);
 
   return {
     callState,

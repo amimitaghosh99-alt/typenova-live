@@ -1,33 +1,35 @@
-# BRIEFING — 2026-08-09T10:38:15Z
+# BRIEFING — 2026-08-13T03:23:30Z
 
 ## Mission
-Investigate codebase for R2 (Category UI) & R3 (Engine & Gamification) in TypeNova v2 and provide a comprehensive implementation blueprint in handoff.md.
+Perform a deep codebase exploration focusing on Zombie Processes, Global Event Listeners, Multiplayer Sync, and Interactive Overlays in TypeNova to identify performance bottlenecks, memory/listener leaks, and re-render thrashing.
 
 ## 🔒 My Identity
-- Archetype: explorer
-- Roles: teamwork_preview_explorer_survey_3
+- Archetype: Teamwork Explorer
+- Roles: Explorer 3 (Survey Phase - Zombie Processes, Event Listeners, Overlays, Multiplayer Sync)
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_survey_3
-- Original parent: b5d35cff-eacc-45b4-94ea-418e78dec38b
-- Milestone: Preview / Academy UI & Engine R2/R3 Investigation Complete
+- Original parent: 924775c8-1100-4421-acff-66c983eac5cd
+- Milestone: Survey Phase
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT edit source code
-- Provide exact line references and verified findings
+- Read-only investigation — do NOT implement code changes in app source files (only write report/progress/briefing/handoff in working dir)
+- Focus on Zombie Processes, Global Event Listeners, Multiplayer Sync, VideoCallOverlay, Aru Chatbot, background timers/loops, WebSocket/WebRTC connections.
+- Framerate goal: stable 120+ FPS (no capping at 60 FPS).
 
 ## Current Parent
-- Conversation ID: b5d35cff-eacc-45b4-94ea-418e78dec38b
-- Updated: 2026-08-09T10:38:15Z
+- Conversation ID: 924775c8-1100-4421-acff-66c983eac5cd
+- Updated: not yet
 
 ## Investigation State
-- **Explored paths**: `src/components/academy/AcademyLayout.tsx`, `src/hooks/useAcademyEngine.ts`, `src/data/academyCurriculum.ts`, `src/hooks/useAudioEngine.ts`, `src/components/academy/VirtualKeyboard.tsx`, `src/components/academy/CyberHands.tsx`, `src/components/academy/AcademyEntry.tsx`.
-- **Key findings**: Complete line-by-line diagnosis of missing category filter tabs, absent real-time WPM/Accuracy/Streak metrics, missing 1-3 star mastery calculation, lack of audio mute toggle controls, and lack of floating completion modal.
-- **Unexplored areas**: None.
+- **Explored paths**: `ORIGINAL_REQUEST.md`
+- **Key findings**: Initial setup completed. Starting code search for timers, event listeners, multiplayer sync, VideoCallOverlay, Aru Chatbot.
+- **Unexplored areas**: Entire `src/` codebase regarding background loops, event listeners, VideoCallOverlay, Aru Chatbot, WebSocket/WebRTC, multiplayer sync.
 
 ## Key Decisions Made
-- Wrote full handoff report to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_survey_3\handoff.md`.
+- Focusing systematically across all components and custom hooks in `src/`.
 
 ## Artifact Index
-- DISPATCH.md — Dispatch log
-- BRIEFING.md — Working memory
-- progress.md — Liveness tracker
-- handoff.md — Final 5-component report
+- `DISPATCH.md` — Log of incoming dispatch messages
+- `BRIEFING.md` — Context index & briefing memory
+- `progress.md` — Heartbeat and task progress log
+- `survey_report.md` — Comprehensive survey report
+- `handoff.md` — 5-component handoff report

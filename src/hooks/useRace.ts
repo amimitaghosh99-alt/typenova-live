@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getSocket, connectSocket, disconnectSocket } from '../lib/socket';
+
 import type { Level, CodeLanguage } from '../data/constants';
 
 export type RaceStatus = 'idle' | 'joining' | 'lobby' | 'racing' | 'finished';
@@ -83,6 +84,8 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   const [lobbyConfig, setLobbyConfig] = useState<RaceConfig>({ mode: 'NOVICE', words: 25 });
   const [selfId, setSelfId] = useState<string | null>(null);
   const [timelines, setTimelines] = useState<unknown[]>([]);
+
+
 
   const lastProgressSendRef = useRef(0);
   const finishSentRef = useRef(false);
@@ -178,6 +181,9 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         clearTimeout(joinTimeoutRef.current);
         joinTimeoutRef.current = null;
       }
+      
+      // We are in!
+      // (loader removed)
 
       setCode(roomState.roomId);
       setIsHost(roomState.hostId === socket.id);
@@ -254,6 +260,8 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     teardown();
     setError('');
     setStatus('joining');
+    
+
 
     attachSocketListeners();
     const socket = connectSocket();
@@ -267,13 +275,13 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       isRanked
     });
 
-    // If we never hear back within 10s, stop the spinner and show an error.
+    // If we never hear back within 15s, stop the spinner and show an error.
     if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
     joinTimeoutRef.current = setTimeout(() => {
       setError('Timed out creating room. Is the multiplayer server running?');
       setStatus((prev) => (prev === 'joining' ? 'idle' : prev));
       joinTimeoutRef.current = null;
-    }, 10_000);
+    }, 15_000);
   }, [teardown, attachSocketListeners]);
 
   /** Join an existing room via Socket.io */
@@ -288,6 +296,8 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     setError('');
     setStatus('joining');
     setCode(formattedCode);
+
+
 
     attachSocketListeners();
     const socket = connectSocket();
@@ -306,7 +316,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       setError(`Timed out joining room "${formattedCode}". Is the multiplayer server running?`);
       setStatus((prev) => (prev === 'joining' ? 'idle' : prev));
       joinTimeoutRef.current = null;
-    }, 10_000);
+    }, 15_000);
   }, [teardown, attachSocketListeners]);
 
   /** Host starts the race */

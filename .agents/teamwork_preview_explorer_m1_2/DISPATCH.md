@@ -1,14 +1,26 @@
-## 2026-08-08T22:21:33Z
-Your working directory is c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2.
-Please read ORIGINAL_REQUEST.md at c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md (specifically the latest CyberHands.tsx rebuild section lines 106-133).
+## 2026-08-13T03:34:47Z
+You are Explorer 2 for Milestone 1 (Global Contexts & Render Tree Optimization).
+Your working directory is: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2
+Project plan is at: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\PROJECT.md
+Original user request is at: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
 
-Investigate `src/components/CyberHands.tsx` and Framer Motion usage in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`.
-Analyze how active key press prompts are received during typing lessons, how target fingers are selected/highlighted, and how Framer Motion can animate finger elevation, neon glow (`drop-shadow`, `filter`, `radial-gradient`), scale pulsing, and animated ripple circles over target keycaps when active keys are pressed.
+Task:
+Analyze component memoization across src/components/ for Milestone 1.
+1. Read PROJECT.md and ORIGINAL_REQUEST.md.
+2. Formulate exact React.memo wrapper implementations and export statements for:
+   - StatsPanel.tsx
+   - AccountMenu.tsx
+   - SegmentedControl.tsx
+   - AIChatBot.tsx
+   - VideoCallOverlay.tsx
+   - SplashCursor.tsx
+   - ui/multi-step-loader.tsx
+   - academy/AcademyEntry.tsx
+   - academy/CyberHands.tsx
+   - academy/VirtualKeyboard.tsx
+3. Check for any custom prop comparison functions needed (e.g. prevProps vs nextProps) to prevent unnecessary re-renders during high WPM typing.
+4. Verify that visual rendering and interactive features remain intact.
 
-Define exact color tokens:
-- Left hand active neon emerald/green glow (`#10b981`, `#059669`, `#34d399`, etc.)
-- Right hand active neon cyan/blue glow (`#06b6d4`, `#3b82f6`, `#38bdf8`, etc.)
-- Non-active supportive fingers: subtle opacity, non-intrusive visibility so virtual keyboard labels remain visible.
-
-Write a complete, detailed handoff report in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2\handoff.md`.
-Send a completion message back to the orchestrator when done.
+Write your report to:
+c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2\m1_explorer_report.md
+When done, send a message to parent with the report path and summary.

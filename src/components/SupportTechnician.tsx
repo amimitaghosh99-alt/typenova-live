@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, RotateCcw, AlertTriangle, Square, Copy, Check, Zap } from 'lucide-react';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
-import { chatCompletion, hasAIKey, type ChatMessage } from '@/lib/aiClient';
+import { hasAIKey, AI_KEYS, PROVIDER_PRESETS } from '@/lib/aiClient';
 import {
-  buildSystemPrompt,
+  offlineRespond,
   parseActions,
   readTechSnapshot,
   suggestStarters,
@@ -38,6 +38,10 @@ interface SupportTechnicianProps {
   /** Which gameplay modifiers are currently on, keyed by action id. */
   modifiers?: Record<string, boolean>;
   capabilities?: TechnicianCapabilities;
+  embedded?: boolean;
+  onWakeAru?: () => void;
+  initialQuery?: string | null;
+  onQuerySent?: () => void;
 }
 
 /** Key-console destinations for `open_console`. An explicit allowlist rather
@@ -89,12 +93,13 @@ function loadHistory(): Message[] {
   return [greetingMessage()];
 }
 
-export function SupportTechnician({ ai, modifiers, capabilities }: SupportTechnicianProps) {
+export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWakeAru, initialQuery, onQuerySent }: SupportTechnicianProps) {
   const [messages, setMessages] = useState<Message[]>(loadHistory);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [ranAction, setRanAction] = useState<string | null>(null);
+  const [lastTopic, setLastTopic] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -130,9 +135,8 @@ export function SupportTechnician({ ai, modifiers, capabilities }: SupportTechni
   useEffect(() => { snapshotInputs.current = { ai, modifiers }; });
 
   // Suggestions are drawn from what's actually wrong with this install, so they
-  // are built fresh — but only while the console is empty, which is the only
-  // time they render and the only time the localStorage sweep is worth it.
-  const showStarters = messages.length === 1 && !isTyping;
+  // are built fresh. We show them anytime the AI finishes typing so they are always available.
+  const showStarters = !isTyping && messages[messages.length - 1]?.role !== 'user';
   const starters = showStarters ? suggestStarters(readTechSnapshot(ai, modifiers)) : EMPTY_STARTERS;
 
   const runAction = useCallback((action: TechAction) => {
@@ -179,6 +183,83 @@ export function SupportTechnician({ ai, modifiers, capabilities }: SupportTechni
 
     abortRef.current?.abort();
 
+    // LOCAL INTERCEPTOR: If the user pasted an API key, we hijack the chat locally
+    // to prevent the key from being sent to the LLM cloud proxy.
+    const isKeyLike = text.startsWith('gsk_') || text.startsWith('sk-') || text.startsWith('AIza') || text.match(/^[a-zA-Z0-9]{32,}$/);
+    if (isKeyLike && capabilities?.setProvider && !opts.replaceLast) {
+      const replyId = newId();
+      // Mask the key in the transcript
+      const withUser: Message[] = [...messagesRef.current, { id: newId(), role: 'user', content: "[[ API KEY ENCRYPTED ]]" }];
+      
+      setMessages([...withUser, { id: replyId, role: 'assistant', content: '' }]);
+      setInput('');
+      setIsTyping(true);
+      stickToBottom.current = true;
+
+      // Determine provider (naive guess)
+      let providerId = 'groq';
+      let url = PROVIDER_PRESETS.find(p => p.id === 'groq')?.url || 'https://api.groq.com/openai/v1/chat/completions';
+      if (text.startsWith('sk-or')) {
+        url = PROVIDER_PRESETS.find(p => p.id === 'openrouter')?.url || 'https://openrouter.ai/api/v1/chat/completions';
+        providerId = 'openrouter';
+      } else if (text.startsWith('AIza')) {
+        url = PROVIDER_PRESETS.find(p => p.id === 'google')?.url || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+        providerId = 'google';
+      } else if (text.startsWith('sk-')) {
+        providerId = 'openai';
+      }
+
+      // Save the key and provider directly, then dispatch storage event
+      localStorage.setItem(AI_KEYS.byokKey, text);
+      capabilities.setProvider(url);
+
+      let responseText = "Got it. I'm slotting this key into the mainframe now...\n\nNeural link established. Aru is waking up.";
+      let isValid = true;
+
+      if (text.length < 20) {
+        isValid = false;
+        responseText = "That doesn't look like a full key, rookie. API keys are usually 40+ characters. Make sure you copied the whole thing.";
+      } else {
+        try {
+          const baseUrl = url.replace(/\/chat\/completions$/, '');
+          const res = await fetch(baseUrl + '/models', {
+            headers: { Authorization: 'Bearer ' + text }
+          });
+          if (!res.ok) {
+            isValid = false;
+            if (res.status === 401 || res.status === 403) {
+              responseText = `That key got rejected, rookie. Either it's expired, you didn't copy the whole thing, or it's been revoked. Go back and generate a fresh one.\n\n[[do:open_console:${providerId}]]`;
+            } else if (res.status === 404) {
+              responseText = "Key connected but the default model isn't available. Head to Settings to pick a different one.\n\n[[do:open_tab:ai]]";
+            } else {
+              responseText = "Can't reach the provider, rookie. Check your internet connection. If it persists, try a different provider.";
+            }
+          }
+        } catch (error) {
+          isValid = false;
+          responseText = "Can't reach the provider, rookie. Check your internet connection. If it persists, try a different provider.";
+        }
+      }
+
+      if (!isValid) {
+        localStorage.removeItem(AI_KEYS.byokKey);
+      }
+
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < responseText.length) {
+          const chunk = responseText.slice(i, i + 4);
+          setMessages(prev => prev.map(m => (m.id === replyId ? { ...m, content: m.content + chunk } : m)));
+          i += 4;
+        } else {
+          clearInterval(interval);
+          setIsTyping(false);
+          if (isValid && onWakeAru) setTimeout(onWakeAru, 1200);
+        }
+      }, 25);
+      return;
+    }
+
     // On a regenerate, peel the trailing assistant turn(s) back off so the same
     // question gets asked again rather than answered twice.
     let baseHistory = messagesRef.current;
@@ -198,80 +279,53 @@ export function SupportTechnician({ ai, modifiers, capabilities }: SupportTechni
     setIsTyping(true);
     stickToBottom.current = true;
 
-    const priorTurns = baseHistory
-      .filter(m => !m.isError && m.content.trim() !== '')
-      .slice(-HISTORY_WINDOW);
-
-    // Only the relevant slices of the manual travel with each question, keyed
-    // off the question plus the last couple of turns for follow-up context.
     const { ai: liveAi, modifiers: liveModifiers } = snapshotInputs.current;
     const snapshot = readTechSnapshot(liveAi, liveModifiers);
-    const context = priorTurns.slice(-2).map(m => m.content).join(' ');
+    const { text: responseText, topic: newTopic } = offlineRespond(text, snapshot, lastTopic);
+    
+    if (newTopic) {
+      setLastTopic(newTopic);
+    }
 
-    const payload: ChatMessage[] = [
-      { role: 'system', content: buildSystemPrompt(snapshot, text, context) },
-      ...priorTurns.map(m => ({ role: m.role, content: m.content })),
-      ...(opts.replaceLast ? [] : [{ role: 'user' as const, content: text }]),
-    ];
-
+    // Simulate typing character by character
+    let i = 0;
+    // Faster typing speed since it's an offline bot but we still want the effect
+    const CHUNKS = 3; 
+    
+    // We still want a way to stop the feed if they hit clear chat
     const controller = new AbortController();
     abortRef.current = controller;
-    let timedOut = false;
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, REQUEST_TIMEOUT_MS);
-
-    const stream = (chunk: string) =>
-      setMessages(prev => prev.map(m => (m.id === replyId ? { ...m, content: m.content + chunk } : m)));
-
-    try {
-      try {
-        await chatCompletion(payload, { ...TUNING, mode: 'global', signal: controller.signal, onDelta: stream });
-      } catch (proxyError) {
-        // The shared proxy is the only thing that lets the Technician work with
-        // no key configured — but if it's down and the user HAS a key, their own
-        // provider is a perfectly good second radio. Aborts are not failures.
-        if (controller.signal.aborted || !hasAIKey()) throw proxyError;
-        setMessages(prev => prev.map(m => (m.id === replyId ? { ...m, content: '' } : m)));
-        await chatCompletion(payload, { ...TUNING, mode: 'byok', signal: controller.signal, onDelta: stream });
+    
+    const interval = setInterval(() => {
+      if (controller.signal.aborted) {
+        clearInterval(interval);
+        return;
       }
-
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === replyId && !m.content.trim()
-            ? { ...m, content: 'Transmission came back empty. Ask again, rookie.' }
-            : m,
-        ),
-      );
-    } catch (err) {
-      const stoppedByUser = controller.signal.aborted && !timedOut;
-      const detail = timedOut
-        ? 'Request timed out after 60 seconds — the relay is jammed.'
-        : err instanceof Error
-          ? err.message
-          : 'Transmission garbled.';
-
-      setMessages(prev => {
-        const streamed = prev.find(m => m.id === replyId)?.content ?? '';
-        if (stoppedByUser && streamed.trim()) return prev;
-        if (stoppedByUser) {
-          return prev.map(m => (m.id === replyId ? { ...m, content: '_Cut the feed._' } : m));
-        }
-        return prev.map(m => (m.id === replyId ? { ...m, content: detail, isError: true } : m));
-      });
-    } finally {
-      clearTimeout(timeout);
-      if (abortRef.current === controller) abortRef.current = null;
-      setIsTyping(false);
-      inputRef.current?.focus();
-    }
+      
+      if (i < responseText.length) {
+        const chunk = responseText.slice(i, i + CHUNKS);
+        setMessages(prev => prev.map(m => (m.id === replyId ? { ...m, content: m.content + chunk } : m)));
+        i += CHUNKS;
+      } else {
+        clearInterval(interval);
+        if (abortRef.current === controller) abortRef.current = null;
+        setIsTyping(false);
+        inputRef.current?.focus();
+      }
+    }, 15);
   }, [isTyping]);
 
   const regenerate = useCallback(() => {
     const lastUser = [...messagesRef.current].reverse().find(m => m.role === 'user');
     if (lastUser) send(lastUser.content, { replaceLast: true });
   }, [send]);
+
+  useEffect(() => {
+    if (initialQuery) {
+      send(initialQuery);
+      if (onQuerySent) onQuerySent();
+    }
+  }, [initialQuery, send, onQuerySent]);
 
   const clearChat = useCallback(() => {
     abortRef.current?.abort();
@@ -294,45 +348,47 @@ export function SupportTechnician({ ai, modifiers, capabilities }: SupportTechni
   return (
     <div
       data-keyboard-isolated
-      className="mt-8 border border-amber-500/20 rounded-2xl bg-zinc-950/80 overflow-hidden flex flex-col h-[440px]"
+      className={embedded ? "flex flex-col h-full w-full" : "border border-amber-500/20 rounded-2xl bg-zinc-950/80 overflow-hidden flex flex-col h-full"}
     >
       {/* Header */}
-      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center border border-amber-500/30 text-amber-400">
-            <AlertTriangle size={16} />
+      {!embedded && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center border border-amber-500/30 text-amber-400">
+              <AlertTriangle size={16} />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-amber-400 uppercase tracking-widest leading-none mb-1">
+                Dumb Technician
+              </h4>
+              <p className="text-[10px] text-amber-400/50 uppercase tracking-wider font-mono">
+                TypeNova Cloud Proxy Active
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-sm font-black text-amber-400 uppercase tracking-widest leading-none mb-1">
-              Dumb Technician
-            </h4>
-            <p className="text-[10px] text-amber-400/50 uppercase tracking-wider font-mono">
-              TypeNova Cloud Proxy Active
-            </p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-1">
-          {canRegenerate && (
+          <div className="flex items-center gap-1">
+            {canRegenerate && (
+              <button
+                onClick={regenerate}
+                className="p-2 text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors"
+                title="Ask that again"
+                aria-label="Regenerate last reply"
+              >
+                <Zap size={15} />
+              </button>
+            )}
             <button
-              onClick={regenerate}
+              onClick={clearChat}
               className="p-2 text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors"
-              title="Ask that again"
-              aria-label="Regenerate last reply"
+              title="Reset Console"
+              aria-label="Reset console"
             >
-              <Zap size={15} />
+              <RotateCcw size={16} />
             </button>
-          )}
-          <button
-            onClick={clearChat}
-            className="p-2 text-zinc-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors"
-            title="Reset Console"
-            aria-label="Reset console"
-          >
-            <RotateCcw size={16} />
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Chat History */}
       <div
@@ -443,35 +499,38 @@ export function SupportTechnician({ ai, modifiers, capabilities }: SupportTechni
           e.preventDefault();
           send(input);
         }}
-        className="p-3 bg-zinc-900/50 border-t border-amber-500/20 flex gap-2 shrink-0"
+        className={`bg-zinc-950/80 border-t border-amber-500/20 flex gap-2 shrink-0 ${embedded ? 'p-1' : 'p-3 bg-zinc-900/50'}`}
       >
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Ask the technician..."
-          aria-label="Message the Technician"
-          className="flex-1 bg-zinc-950 border border-amber-500/30 rounded-xl px-4 py-2 text-sm text-zinc-200 font-mono placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 transition-colors"
-        />
+        <div className={`flex-1 flex items-center bg-black/60 border border-amber-500/30 text-amber-500 focus-within:border-amber-400 focus-within:bg-black/80 transition-all font-mono text-sm ${embedded ? 'rounded-lg px-3 py-1' : 'rounded-xl px-4 py-2'}`}>
+          <span className="opacity-50 select-none mr-2 font-black tracking-widest text-[10px]">root@proxy:~#</span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder={hasAIKey() ? "sudo fix..." : "Paste your API key here, or ask me anything..."}
+            aria-label="Message the Technician"
+            className="flex-1 bg-transparent text-zinc-200 placeholder:text-amber-500/30 focus:outline-none"
+          />
+        </div>
         {isTyping ? (
           <button
             type="button"
             onClick={() => abortRef.current?.abort()}
             aria-label="Stop generating"
             title="Stop generating"
-            className="p-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl transition-colors flex items-center justify-center"
+            className={`bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors flex items-center justify-center ${embedded ? 'p-2 rounded-lg' : 'p-3 rounded-xl'}`}
           >
-            <Square size={16} fill="currentColor" />
+            <Square size={embedded ? 14 : 16} fill="currentColor" />
           </button>
         ) : (
           <button
             type="submit"
             disabled={!input.trim()}
             aria-label="Send message"
-            className="p-3 bg-amber-500 hover:bg-amber-400 text-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className={`bg-amber-500/20 hover:bg-amber-500 hover:text-black text-amber-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center ${embedded ? 'p-2 rounded-lg' : 'p-3 rounded-xl'}`}
           >
-            <Send size={18} />
+            <Send size={embedded ? 14 : 18} />
           </button>
         )}
       </form>

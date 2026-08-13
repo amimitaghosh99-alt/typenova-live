@@ -1,55 +1,62 @@
-# BRIEFING — 2026-08-06T06:36:00Z
+# BRIEFING — 2026-08-13T03:35:42Z
 
 ## Mission
-Implement Milestone 1: Fix Timeout Memory Leaks (BUG-19, BUG-20, BUG-21).
+Implement Milestone 1 optimizations: Global Contexts & Render Tree Optimization (LoaderContext, VideoCallContext/useWebRTC, React.memo for components, App.tsx callbacks/memoization).
 
 ## 🔒 My Identity
-- Archetype: teamwork_preview_worker
+- Archetype: implementer/qa/specialist
 - Roles: implementer, qa, specialist
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_worker_m1
-- Original parent: a46e49ea-a72d-4322-9493-1863c23e4b93
-- Milestone: Milestone 1
+- Original parent: 924775c8-1100-4421-acff-66c983eac5cd
+- Milestone: Milestone 1 - Global Contexts & Render Tree Optimization
 
 ## 🔒 Key Constraints
-- Track error timeouts (4 instances) in `src/hooks/useFriends.ts` using ref tracking (`errorTimeoutRef`), clearing existing timeout before scheduling a new one, and adding cleanup in `useEffect` on unmount.
-- Track `setShake(false)` timeout in `src/components/TypingController.tsx` using ref tracking (`shakeTimeoutRef`), clearing existing timeout before scheduling a new one, and cleaning up on unmount.
-- Track exit animation timeout (180ms) and copy status timeouts (`copied`, `copiedLink`, 2000ms) with refs and clean up on unmount in `src/components/RaceModal.tsx`.
-- Track exit animation timeout (180ms) with ref and clean up on unmount in `src/components/SocialModal.tsx`.
-- Track exit animation timeout (180ms) with ref and clean up on unmount in `src/components/PlayerProfileModal.tsx`.
-- Follow minimal change principle.
-- Run `npx tsc --noEmit` to verify 0 errors.
+- Minimal change principle
+- No hardcoded test results / shortcuts
+- Zero TypeScript errors (`npx tsc --noEmit`)
+- Clean production build (`npm run build`)
 
 ## Current Parent
-- Conversation ID: a46e49ea-a72d-4322-9493-1863c23e4b93
-- Updated: 2026-08-06T06:36:00Z
+- Conversation ID: 924775c8-1100-4421-acff-66c983eac5cd
+- Updated: 2026-08-13T03:35:42Z
 
 ## Task Summary
-- **What to build**: Fix timeout memory leaks across 5 components/hooks.
-- **Success criteria**: All timeouts properly managed via refs, cleared before setting new ones where appropriate, and cleaned up on unmount. `npx tsc --noEmit` passes with 0 errors.
-- **Interface contracts**: Public props and behavior remain unchanged.
-- **Code layout**: React hooks in `src/hooks/`, components in `src/components/`.
-
-## Key Decisions Made
-- Used `setErrorWithTimeout` helper with `errorTimeoutRef` in `useFriends.ts` to manage error state resets consistently.
-- Added explicit `useEffect` unmount cleanup across all 5 files to clear pending timers.
-- Verified compilation via `npx tsc --noEmit` (0 errors).
-
-## Artifact Index
-- `.agents/teamwork_preview_worker_m1/DISPATCH.md` — Task prompt
-- `.agents/teamwork_preview_worker_m1/progress.md` — Heartbeat progress
-- `.agents/teamwork_preview_worker_m1/handoff.md` — Handoff report
+- **What to build**: Memoize LoaderContext value, wrap useWebRTC action functions in useCallback, wrap key components in React.memo, stabilize App.tsx inline callbacks & memoize props/filtered objects.
+- **Success criteria**: All 4 target areas optimized, 0 TS errors, successful build.
+- **Interface contracts**: PROJECT.md
 
 ## Change Tracker
 - **Files modified**:
-  - `src/hooks/useFriends.ts` - Added `errorTimeoutRef`, `clearErrorTimeout`, `setErrorWithTimeout`, and `useEffect` unmount cleanup.
-  - `src/components/TypingController.tsx` - Added `shakeTimeoutRef` tracking and `useEffect` unmount cleanup.
-  - `src/components/RaceModal.tsx` - Added `closeTimeoutRef`, `copyCodeTimeoutRef`, `copyLinkTimeoutRef` tracking and `useEffect` unmount cleanup.
-  - `src/components/SocialModal.tsx` - Added `closeTimeoutRef` tracking and `useEffect` unmount cleanup.
-  - `src/components/PlayerProfileModal.tsx` - Added `closeTimeoutRef` tracking and `useEffect` unmount cleanup.
-- **Build status**: PASS (`npx tsc --noEmit` returned 0 errors)
+  - `src/contexts/LoaderContext.tsx` — Memoized provider value object with `useMemo`.
+  - `src/hooks/useWebRTC.ts` — Wrapped WebRTC action functions in `useCallback` and reordered declaration.
+  - `src/components/StatsPanel.tsx` — Wrapped in `React.memo` with custom prop compare.
+  - `src/components/AccountMenu.tsx` — Wrapped in `React.memo` with custom prop compare.
+  - `src/components/SegmentedControl.tsx` — Wrapped in `React.memo` with generic type preservation.
+  - `src/components/AIChatBot.tsx` — Wrapped in `React.memo` with deep stats prop compare.
+  - `src/components/VideoCallOverlay.tsx` — Wrapped in `React.memo`.
+  - `src/components/SplashCursor.tsx` — Wrapped in `React.memo` with `BACK_COLOR` compare.
+  - `src/components/ui/multi-step-loader.tsx` — Wrapped in `React.memo` with `loadingStates` compare.
+  - `src/components/academy/AcademyEntry.tsx` — Wrapped in `React.memo`.
+  - `src/components/academy/CyberHands.tsx` — Wrapped in `React.memo`.
+  - `src/components/academy/VirtualKeyboard.tsx` — Wrapped in `React.memo`.
+  - `src/App.tsx` — Pre-allocated static option arrays, memoized levelOptions/otherRacePlayers/aruStats, stabilized callbacks in `useCallback`.
+- **Build status**: PASS (`npx tsc --noEmit` exit 0, `npm run build` exit 0)
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: Pass (0 errors)
+- **Build/test result**: PASS (TypeScript 0 errors, Vite production build successful)
 - **Lint status**: Clean
-- **Tests added/modified**: Static verification passed via TypeScript compiler
+- **Tests added/modified**: Verified build compilation and type correctness
+
+## Loaded Skills
+- None
+
+## Key Decisions Made
+- Gated `aruStats` WPM/accuracy updates in `App.tsx` to `typing.phase === 'FINISHED'` to prevent `AIChatBot` overlay re-renders on every typing keystroke.
+- Preserved generic type parameter `<T extends string | number>` on `SegmentedControl` by exporting `memo(...) as typeof Component`.
+
+## Artifact Index
+- DISPATCH.md — Dispatch instructions
+- BRIEFING.md — Persistent briefing state
+- progress.md — Heartbeat and step log
+- handoff.md — Final handoff report

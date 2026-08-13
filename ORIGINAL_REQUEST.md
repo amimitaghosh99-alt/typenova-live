@@ -174,3 +174,39 @@ Ensure `KEY_MAP` and `FINGER_MAP` in `VirtualKeyboard.tsx` and `CyberHands.tsx` 
 - [ ] Upon finishing a lesson, a completion modal displays final score, accuracy, stars earned, and next lesson prompt.
 - [ ] Audio feedback toggle is functional during lesson execution.
 - [ ] The app compiles cleanly (`npm run build` / `npx tsc --noEmit`) with no TypeScript or lint errors.
+
+## Follow-up — 2026-08-12T21:51:53Z
+
+# Teamwork Project Prompt
+
+Conduct a comprehensive bug-finding and performance optimization mission across the TypeNova React codebase. The goal is to identify and resolve the root cause of severe app-wide stuttering and lag, focusing on memory leaks, rogue event listeners, or inefficient rendering loops.
+
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
+Integrity mode: development
+
+## Requirements
+
+### R1. Deep Performance Audit
+Analyze the global contexts (e.g., LoaderContext, App.tsx) and high-frequency components (e.g., SplashCursor, VideoCallOverlay, multiplayer sync) to find components that are excessively re-rendering or leaking memory.
+
+### R2. Fix Zombie Processes
+Identify any background loops (`requestAnimationFrame`, `setInterval`, `setTimeout`) or global event listeners attached to `window` or `document.body` that fail to clean up when their parent component unmounts.
+
+### R3. Maintain Feature Parity
+Resolve the performance issues without removing or breaking the intended visual effects (e.g., the Fluid cursor simulation, the Multi-Step Loader, the Aru Chatbot).
+
+## Acceptance Criteria
+
+### Verification & Performance
+- [ ] The app runs at a stable 60 FPS without stuttering during normal typing gameplay.
+- [ ] Navigating between the Login page (SplashCursor) and the App page does not spawn duplicate background WebGL contexts or rogue event listeners.
+- [ ] Global Contexts (like LoaderContext) use appropriate memoization (`useMemo`, `useCallback`) to prevent blasting the entire `<App />` tree with unnecessary renders.
+
+## Follow-up — 2026-08-12T21:53:07Z
+
+The user provided an update to the acceptance criteria for the bug-finding mission:
+"no cap on fps at least 120"
+
+Please ensure that your performance optimizations target a stable 120+ FPS rather than capping or targeting 60 FPS. Do not introduce any artificial framerate limiters that restrict the app to 60 FPS.
+
+

@@ -7,6 +7,15 @@
  * callers can't drift apart.
  */
 
+export interface WindowAI {
+  languageModel: {
+    capabilities: () => Promise<{ available: 'readily' | 'after-download' | 'no' }>;
+    create: (options?: any) => Promise<{
+      prompt: (input: string) => Promise<string>;
+    }>;
+  };
+}
+
 /** localStorage keys. The `typezen_` prefix is the old product name — kept because
  *  changing it would silently log existing users out of their configured key. */
 export const AI_KEYS = {
@@ -19,6 +28,7 @@ export const AI_KEYS = {
   dailyRequests: 'typenova_daily_requests',
   usageDate: 'typenova_usage_date',
   rollingHistory: 'typenova_rolling_history',
+  workingModels: 'typenova_working_models',
 } as const;
 
 export const DEFAULT_BASE_URL = 'https://api.groq.com/openai/v1';
@@ -167,6 +177,22 @@ export function hasAIKey(): boolean {
   return getAIConfig().apiKey !== '';
 }
 
+/** Check if Chrome's built-in Gemini Nano Prompt API is available. */
+export function hasNativeAI(): boolean {
+  if (typeof window === 'undefined') return false;
+  const winAi = (window as unknown as { ai?: WindowAI }).ai;
+  return !!winAi && !!winAi.languageModel && typeof winAi.languageModel.create === 'function';
+}
+
+export function markModelWorking(model: string): void {
+  if (!model || model.trim() === '') return;
+  try {
+    let working: string[] = JSON.parse(localStorage.getItem(AI_KEYS.workingModels) || '[]');
+    working = [model, ...working.filter(m => m !== model)].slice(0, 15);
+    localStorage.setItem(AI_KEYS.workingModels, JSON.stringify(working));
+  } catch { /* ignore */ }
+}
+
 /** Roughly 4 characters per token — only used when the provider omits `usage`. */
 function estimateTokens(chars: number): number {
   return Math.ceil(chars / 4);
@@ -265,6 +291,7 @@ export interface ChatOptions {
   temperature?: number;
   maxTokens?: number;
   mode?: 'byok' | 'global';
+  forceLocal?: boolean; // <-- Add this
   /** Called with each incremental chunk of text when streaming. */
   onDelta?: (chunk: string) => void;
 }
@@ -283,6 +310,24 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
   const config = getAIConfig();
   const mode = opts.mode || 'byok';
 
+  // Route to local Gemini Nano if forced, OR if we have no cloud key but native AI exists
+  if (opts.forceLocal || (!config.apiKey && hasNativeAI())) {
+    try {
+      const winAi = (window as unknown as { ai?: WindowAI }).ai;
+      if (!winAi) throw new Error('window.ai not available');
+      
+      const session = await winAi.languageModel.create();
+      // Gemini Nano's prompt() just takes a string. We'll stringify the chat history.
+      const promptText = messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+      const result = await session.prompt(promptText);
+      return { text: result, finishReason: 'stop' };
+    } catch (err) {
+      console.warn('Native AI failed:', err);
+      // Fall through to throw MissingKeyError if there's no key
+      if (!config.apiKey && mode === 'byok') throw new MissingKeyError();
+    }
+  }
+
   let finalUrl = `${config.baseUrl}/chat/completions`;
   let finalKey = config.apiKey;
   // Use a sensible default model for global if the user hasn't selected one
@@ -297,8 +342,8 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
     // Authenticate with Supabase using the user's session JWT, or fallback to Anon Key
     finalKey = data.session?.access_token || SUPABASE_ANON_KEY;
     finalUrl = `${SUPABASE_URL}/functions/v1/ai-proxy`;
-    // Force a specific model for the Technician if we want, or just let it pass through
-    finalModel = 'llama-3.3-70b-versatile';
+    // Use the requested model for the Technician
+    finalModel = 'llama-3.1-8b-instant';
   } else {
     if (!finalKey) throw new MissingKeyError();
   }
@@ -325,10 +370,13 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
     const data = await response.json();
     const text: string = data.choices?.[0]?.message?.content ?? '';
     trackUsage(data.usage, payload.length + text.length);
+    if (mode === 'byok') markModelWorking(finalModel);
     return { text, finishReason: data.choices?.[0]?.finish_reason ?? null };
   }
 
-  return readStream(response, payload.length, opts.onDelta!);
+  const streamResult = await readStream(response, payload.length, opts.onDelta!);
+  if (mode === 'byok') markModelWorking(finalModel);
+  return streamResult;
 }
 
 async function readStream(

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { LogIn, Fingerprint, Keyboard, Sparkles, Orbit, Hexagon, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import SplashCursor from '@/components/SplashCursor';
 
 export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
@@ -33,6 +34,20 @@ export function Login() {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden text-white font-sans selection:bg-fuchsia-500/30">
       
+      <SplashCursor
+        DYE_RESOLUTION={512}
+        DENSITY_DISSIPATION={3.5}
+        VELOCITY_DISSIPATION={2}
+        PRESSURE={0.1}
+        CURL={3}
+        SPLAT_RADIUS={0.2}
+        SPLAT_FORCE={6000}
+        COLOR_UPDATE_SPEED={10}
+        SHADING
+        RAINBOW_MODE={false}
+        COLOR="#A855F7"
+      />
+
       {/* Dynamic Background Elements */}
       <div className="absolute inset-0 z-0">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[120px] animate-pulse" />

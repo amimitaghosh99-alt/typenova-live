@@ -1,23 +1,33 @@
-## 2026-08-06T01:00:00Z
-You are Worker M1 (teamwork_preview_worker).
-Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_worker_m1
+## 2026-08-13T03:35:42Z
+You are Worker 1 for Milestone 1: Global Contexts & Render Tree Optimization.
+Your working directory is: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_worker_m1
+Project plan: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\PROJECT.md
+Original user request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
 
-Your task:
-Implement Milestone 1: Fix Timeout Memory Leaks (BUG-19, BUG-20, BUG-21).
-Read ORIGINAL_REQUEST at `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`.
-Read Explorer 1 analysis at `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_1\analysis.md` and handoff at `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_1\handoff.md`.
+Reports from M1 Explorers:
+- Contexts: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_1\m1_explorer_report.md
+- Components Memo: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_2\m1_explorer_report.md
+- App.tsx Callbacks: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_explorer_m1_3\m1_explorer_report.md
 
-Target files you exclusively own and must edit:
-1. `src/hooks/useFriends.ts` (BUG-19): Track error timeouts (4 instances) using ref tracking (`errorTimeoutRef`), clearing existing timeout before scheduling a new one, and adding cleanup in a `useEffect` on unmount.
-2. `src/components/TypingController.tsx` (BUG-20): Track `setShake(false)` timeout using ref tracking (`shakeTimeoutRef`), clearing existing timeout before scheduling new one, and cleaning up on unmount.
-3. `src/components/RaceModal.tsx` (BUG-21): Track exit animation timeout (180ms) and copy status timeouts (`copied`, `copiedLink`, 2000ms) with refs and clean up on unmount.
-4. `src/components/SocialModal.tsx` (BUG-21): Track exit animation timeout (180ms) with ref and clean up on unmount.
-5. `src/components/PlayerProfileModal.tsx` (BUG-21): Track exit animation timeout (180ms) with ref and clean up on unmount.
+Task Objectives:
+Implement the Milestone 1 optimizations to eliminate unmemoized contexts, top-level re-render thrashing, and unmemoized component/prop allocations:
 
-Integrity Warning:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+1. **LoaderContext.tsx**: Memoize the provider value object ({ startLoading, stopLoading, setCurrentStep }) using React.useMemo.
+2. **useWebRTC.ts & VideoCallContext.tsx**: Wrap action functions (callUser, acceptCall, rejectCall, endCall, toggleVideo, toggleAudio) in React.useCallback to prevent VideoCallContext useMemo invalidation on renders.
+3. **src/components/**: Wrap UI components in React.memo with appropriate prop comparison functions:
+   - StatsPanel.tsx
+   - AccountMenu.tsx
+   - SegmentedControl.tsx
+   - AIChatBot.tsx
+   - VideoCallOverlay.tsx
+   - SplashCursor.tsx
+   - ui/multi-step-loader.tsx
+   - academy/AcademyEntry.tsx
+   - academy/CyberHands.tsx
+   - academy/VirtualKeyboard.tsx
+4. **src/App.tsx**: Stabilize all inline callback allocations (handleSignIn, handleSignOut, handleUnlockGodMode, exitMicroDrill, modal setters, theme/sound selection) using useCallback; pre-allocate or useMemo options arrays and filter results (e.g. SegmentedControl options, otherRacePlayers, aruStats during active typing).
 
-After modifying the files:
-- Run `npx tsc --noEmit` to verify 0 TypeScript compilation errors.
-- Document all changes and build output in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_worker_m1\handoff.md`.
-- Communicate via send_message when complete.
+Verification Requirements:
+- Run `npx tsc --noEmit` to verify 0 TypeScript errors.
+- Run `npm run build` to verify production build passes cleanly.
+- Document exact build and test commands and results in your handoff report (`handoff.md`).

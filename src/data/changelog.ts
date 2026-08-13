@@ -18,6 +18,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.2.0',
+    date: 'August 13, 2026',
+    title: 'The Triple Threat Engine & Working Models ⭐',
+    changes: [
+      { type: 'feature', description: 'Gemini Nano Integration: Aru now natively hooks into Chrome\'s local Prompt API, allowing offline, zero-latency inference without an API key.' },
+      { type: 'feature', description: 'Working Models Tracker: Automatically remembers your successful models from custom endpoints and pins them to the top of dropdowns with a ⭐.' },
+      { type: 'tweak', description: 'API Key Redesign: Overhauled the Settings Modal and added a Compact Config Bar to Aru to manage custom endpoints seamlessly.' },
+      { type: 'tweak', description: 'Procedural fallback engine updated to tap into local AI before hardcoded algorithms.' }
+    ],
+    impact: {
+      fixes: 0,
+      tweaks: 5,
+      linesChanged: 1200,
+      perfGain: 'Zero latency local inference'
+    }
+  },
+  {
     version: 'v2.1.0',
     date: 'August 10, 2026',
     title: 'Dual-Agent Architecture & The Technician 🤖',

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useLayoutEffect } from 'react';
+import React, { memo, useRef, useState, useLayoutEffect } from 'react';
 import { Lock } from 'lucide-react';
 
 interface SegmentedControlProps<T extends string | number> {
@@ -13,7 +13,7 @@ interface SegmentedControlProps<T extends string | number> {
   fullWidth?: boolean;
 }
 
-export function SegmentedControl<T extends string | number>({
+function SegmentedControlComponent<T extends string | number>({
   options,
   value,
   onChange,
@@ -114,3 +114,29 @@ export function SegmentedControl<T extends string | number>({
     </div>
   );
 }
+
+export const SegmentedControl = memo(
+  SegmentedControlComponent,
+  (prevProps, nextProps) => {
+    if (
+      prevProps.value !== nextProps.value ||
+      prevProps.disabled !== nextProps.disabled ||
+      prevProps.themeTextClass !== nextProps.themeTextClass ||
+      prevProps.className !== nextProps.className ||
+      prevProps.pillClassName !== nextProps.pillClassName ||
+      prevProps.fullWidth !== nextProps.fullWidth ||
+      prevProps.onChange !== nextProps.onChange ||
+      prevProps.onLockedClick !== nextProps.onLockedClick
+    ) {
+      return false;
+    }
+    if (prevProps.options === nextProps.options) return true;
+    if (prevProps.options.length !== nextProps.options.length) return false;
+    return prevProps.options.every(
+      (opt, idx) =>
+        opt.value === nextProps.options[idx].value &&
+        opt.label === nextProps.options[idx].label &&
+        opt.locked === nextProps.options[idx].locked
+    );
+  }
+) as typeof SegmentedControlComponent;

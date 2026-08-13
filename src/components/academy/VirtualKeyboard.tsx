@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 
 interface VirtualKeyboardProps {
   activeKey: string;
@@ -40,7 +40,7 @@ const FINGER_STYLE: Record<string, { bg: string; border: string; color: string }
   'thumb':        { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.20)', color: 'rgba(252,211,77,0.80)'  },
 };
 
-export function VirtualKeyboard({ activeKey, activeFinger }: VirtualKeyboardProps) {
+export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, activeFinger }: VirtualKeyboardProps) {
   const normalizedActive = useMemo(() => activeKey.toUpperCase(), [activeKey]);
 
   return (
@@ -111,4 +111,4 @@ export function VirtualKeyboard({ activeKey, activeFinger }: VirtualKeyboardProp
       ))}
     </div>
   );
-}
+});

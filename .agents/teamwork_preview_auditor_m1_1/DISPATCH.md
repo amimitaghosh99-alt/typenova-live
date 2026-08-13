@@ -1,16 +1,33 @@
-## 2026-08-06T01:06:45Z
-You are Forensic Auditor (teamwork_preview_auditor).
-Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_auditor_m1_1
+## 2026-08-13T03:40:42Z
+You are Forensic Auditor 1 for Milestone 1: Global Contexts & Render Tree Optimization.
+Your working directory is: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_auditor_m1_1
+Project plan: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\PROJECT.md
+Original user request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
+Worker Handoff: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_worker_m1\handoff.md
 
-Your task:
-Perform a forensic integrity audit on the fixes for BUG-19, BUG-20, BUG-21, BUG-23, BUG-24, BUG-25 in TypeNova.
-Read ORIGINAL_REQUEST at `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`.
+Task:
+Perform a forensic integrity audit on all changes made for Milestone 1 in:
+- src/contexts/LoaderContext.tsx
+- src/hooks/useWebRTC.ts
+- src/contexts/VideoCallContext.tsx
+- src/components/StatsPanel.tsx
+- src/components/AccountMenu.tsx
+- src/components/SegmentedControl.tsx
+- src/components/AIChatBot.tsx
+- src/components/VideoCallOverlay.tsx
+- src/components/SplashCursor.tsx
+- src/components/ui/multi-step-loader.tsx
+- src/components/academy/AcademyEntry.tsx
+- src/components/academy/CyberHands.tsx
+- src/components/academy/VirtualKeyboard.tsx
+- src/App.tsx
 
-Perform systematic integrity verification:
-1. Verify that all timeout memory leak fixes in `src/hooks/useFriends.ts`, `src/components/TypingController.tsx`, `src/components/RaceModal.tsx`, `src/components/SocialModal.tsx`, and `src/components/PlayerProfileModal.tsx` are genuine implementations using standard React ref tracking (`useRef`) and unmount cleanup (`useEffect`), with NO hardcoded dummy timers, fake timeouts, or bypassed logic.
-2. Verify that `handleStartWeaknessDrill` and `handleCloseModal` in `src/App.tsx` and `memo(...)` in `src/components/ChangelogModal.tsx` are authentic React memoization structures.
-3. Verify that the auto-save effect dependency array in `src/App.tsx` contains all required dependencies without ESLint suppression comments and without bypassing react hooks rules.
-4. Verify that the rematch effect dependency array in `src/App.tsx` includes `typing.setPhase`.
-5. Run `npx tsc --noEmit` to confirm complete type safety.
+Verify:
+1. Authentic implementation: Are all memoization wrappers, callbacks, and prop comparisons genuine, functional React code?
+2. No cheating: Confirm there are NO hardcoded test results, facade implementations, suppressed errors, or dummy mocks.
+3. Build check: Run `npx tsc --noEmit` and `npm run build`.
 
-Write your verdict (CLEAN or INTEGRITY VIOLATION) and full evidence report in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_auditor_m1_1\handoff.md`. Communicate via send_message when complete.
+Write your audit report to:
+c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\teamwork_preview_auditor_m1_1\audit_report.md
+Include handoff.md in your directory. Explicitly include your final verdict: CLEAN or INTEGRITY VIOLATION.
+When done, send a message to parent with your verdict and report path.

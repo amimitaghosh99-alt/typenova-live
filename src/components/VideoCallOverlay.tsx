@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { useVideoCall } from '@/contexts/VideoCallContext';
 import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Maximize2, Minimize2 } from 'lucide-react';
 
-export function VideoCallOverlay() {
+export const VideoCallOverlay = memo(function VideoCallOverlay() {
   const { 
     callState, 
     incomingCaller, 
@@ -30,12 +30,22 @@ export function VideoCallOverlay() {
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
     }
+    return () => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+    };
   }, [localStream, callState]);
 
   useEffect(() => {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
+    return () => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+    };
   }, [remoteStream, callState]);
 
   // Handle Dragging
@@ -184,4 +194,4 @@ export function VideoCallOverlay() {
   }
 
   return null;
-}
+});

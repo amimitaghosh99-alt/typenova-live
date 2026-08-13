@@ -1,22 +1,15 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { LogIn, Fingerprint, Keyboard, Sparkles, Orbit, Hexagon, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import SplashCursor from '@/components/SplashCursor';
+import { CosmicShaderBackground } from '@/components/CosmicShaderBackground';
+import { KineticKeyboard } from '@/components/KineticKeyboard';
 
 export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  // If already logged in, redirect to home
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   useEffect(() => {
     if (authReady && session) {
       navigate('/');
@@ -26,94 +19,151 @@ export function Login() {
   const handleLogin = async () => {
     setIsSigningIn(true);
     await signInWithGoogle();
-    // In case of error or failure to redirect, reset
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setIsSigningIn(false), 3000);
+    setTimeout(() => setIsSigningIn(false), 3000);
+  };
+
+  const handleGuest = () => {
+    localStorage.setItem('guestMode', 'true');
+    navigate('/');
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden text-white font-sans selection:bg-fuchsia-500/30">
+    <div 
+      className="fixed inset-0 w-screen h-screen overflow-hidden text-on-background bg-[#080809] font-body-md text-body-md antialiased dark flex flex-col justify-between"
+      style={{ backgroundColor: '#080809' }}
+    >
+      {/* WebGL Cosmic Background Shader */}
+      <CosmicShaderBackground />
       
-      <SplashCursor
-        DYE_RESOLUTION={512}
-        DENSITY_DISSIPATION={3.5}
-        VELOCITY_DISSIPATION={2}
-        PRESSURE={0.1}
-        CURL={3}
-        SPLAT_RADIUS={0.2}
-        SPLAT_FORCE={6000}
-        COLOR_UPDATE_SPEED={10}
-        SHADING
-        RAINBOW_MODE={false}
-        COLOR="#A855F7"
-      />
-
-      {/* Dynamic Background Elements */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-fuchsia-600/20 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
-      </div>
-
-      <div className="absolute top-10 left-10 text-white/5 opacity-50"><Hexagon size={120} /></div>
-      <div className="absolute bottom-20 right-20 text-white/5 opacity-50"><Orbit size={180} /></div>
-
-      {/* Main Content */}
-      <div className="z-10 flex flex-col items-center animate-in fade-in slide-in-from-bottom-10 duration-1000 ease-out">
-        
-        {/* Logo */}
-        <div className="flex items-center gap-4 mb-12">
-          <Keyboard size={48} className="text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
-          <h1 className="text-5xl font-black tracking-[0.2em] uppercase">
-            Type<span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-cyan-400 drop-shadow-[0_0_15px_rgba(217,70,239,0.5)]">Nova</span>
-          </h1>
+      {/* Top Navigation */}
+      <header className="w-full bg-[#080809]/40 backdrop-blur-2xl z-50 border-b border-white/5 hidden md:flex justify-between items-center px-8 lg:px-16 py-6 shrink-0 transition-all duration-300">
+        <div className="flex items-center gap-3 select-none">
+          <span className="material-symbols-outlined text-secondary-fixed text-2xl font-light" style={{ fontVariationSettings: "'FILL' 1" }}>keyboard</span>
+          <span className="font-display-lg text-headline-md tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">TypeNova</span>
         </div>
+        <nav className="flex gap-10 items-center font-label-mono text-label-mono z-50">
+          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Multiplayer</a>
+          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">AI Coach</a>
+          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">RPG Academy</a>
+          <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Leaderboards</a>
+        </nav>
+        <div className="hidden md:flex items-center gap-4 z-50">
+          <a 
+            href="https://github.com/amimitaghosh99-alt/typenova-live" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2.5 font-label-mono text-xs text-secondary-fixed hover:text-white transition-all border border-secondary-fixed/30 hover:border-secondary-fixed/60 px-4 py-2 rounded-full backdrop-blur-md bg-secondary-fixed/5 hover:bg-secondary-fixed/15 shadow-[0_0_15px_rgba(125,244,255,0.15)] group"
+          >
+            <svg className="w-4 h-4 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+              <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+            <span className="font-semibold tracking-wide">Star on GitHub</span>
+            <span className="text-secondary-fixed/60 font-normal">★</span>
+          </a>
+        </div>
+      </header>
 
-        {/* Login Card */}
-        <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-fuchsia-500 to-cyan-500 rounded-[2.5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-          
-          <div className="relative bg-zinc-950/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 md:p-14 w-[90vw] max-w-md shadow-2xl flex flex-col items-center text-center">
-            
-            <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-8 shadow-inner relative">
-               <Fingerprint size={36} className="text-zinc-400" />
-               <Sparkles size={16} className="absolute top-2 right-2 text-fuchsia-400 animate-pulse" />
-            </div>
-
-            <h2 className="text-2xl font-black tracking-widest uppercase mb-3">Authenticate</h2>
-            <p className="text-zinc-400 text-xs font-bold leading-relaxed mb-10 max-w-[250px]">
-              Sign in for free to securely sync your stats, climb the leaderboards, and race friends.
-            </p>
-
-            <button
-              onClick={handleLogin}
-              disabled={isSigningIn}
-              className="w-full relative group/btn overflow-hidden rounded-2xl p-[2px]"
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-fuchsia-500 via-purple-500 to-cyan-500 opacity-70 group-hover/btn:opacity-100 transition-opacity duration-300" />
-              <div className="relative bg-zinc-950 flex items-center justify-center gap-3 px-8 py-4 rounded-2xl transition-all duration-300 group-hover/btn:bg-zinc-900/50">
-                {isSigningIn ? (
-                  <Zap size={20} className="text-white animate-pulse" />
-                ) : (
-                  <LogIn size={20} className="text-white" />
-                )}
-                <span className="font-black tracking-widest uppercase text-sm">
-                  {isSigningIn ? 'Connecting...' : 'Sign in with Google'}
-                </span>
-              </div>
-            </button>
-            
-            <button 
-              onClick={() => {
-                localStorage.setItem('guestMode', 'true');
-                navigate('/');
-              }}
-              className="mt-6 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
-            >
-              Continue as Guest
-            </button>
+      {/* Mobile Top Navigation */}
+      <header className="md:hidden w-full bg-[#080809]/60 backdrop-blur-2xl z-50 border-b border-white/5 px-5 py-4 shrink-0">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2 select-none">
+            <span className="material-symbols-outlined text-secondary-fixed text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>keyboard</span>
+            <span className="font-display-lg text-headline-md tracking-tighter text-white">TypeNova</span>
           </div>
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-on-surface hover:text-white transition-colors">
+            <span className="material-symbols-outlined">{isMobileMenuOpen ? 'close' : 'menu'}</span>
+          </button>
         </div>
-      </div>
+        {isMobileMenuOpen && (
+          <nav className="flex flex-col gap-5 items-center font-label-mono text-label-mono w-full mt-5 pt-5 border-t border-white/10 animate-fade-in-up">
+            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Multiplayer</a>
+            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">AI Coach</a>
+            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">RPG Academy</a>
+            <a className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide" href="#">Leaderboards</a>
+            <a className="text-secondary-fixed hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
+              <span>★ Star on GitHub</span>
+            </a>
+          </nav>
+        )}
+      </header>
+
+      {/* Main Hero Section */}
+      <main className="flex-1 relative flex items-center justify-center px-6 md:px-16 z-10">
+        <section className="flex flex-col items-center justify-center text-center w-full relative">
+          
+          {/* 3D Kinetic Keyboard positioned directly in hero */}
+          <KineticKeyboard />
+
+          <div className="relative z-10 flex flex-col items-center max-w-5xl">
+            <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-secondary-fixed/20 bg-secondary-fixed/5 backdrop-blur-md mb-8 sheen overflow-hidden btn-glow-cyan opacity-0 animate-fade-in-up delay-100">
+              <span className="w-2 h-2 rounded-full bg-secondary-fixed animate-pulse shadow-[0_0_10px_#7df4ff]"></span>
+              <span className="font-label-mono text-label-caps text-secondary-fixed tracking-widest">System Online v2.4 • Open Source</span>
+            </div>
+            <h1 className="font-display-lg text-headline-xl-mobile md:text-[84px] text-white max-w-5xl leading-[1.05] tracking-tighter text-glow-premium opacity-0 animate-fade-in-up delay-200 drop-shadow-2xl">
+              The Next-Gen <br className="hidden md:block"/> Gamified Typing Platform
+            </h1>
+            <p className="font-body-lg text-xl text-on-surface-variant max-w-3xl mt-6 leading-relaxed font-light opacity-0 animate-fade-in-up delay-300 drop-shadow-md">
+              100% Free &amp; Open Source. Engineered for speed. Train with elite AI, compete globally, and upgrade your CyberHands in an uncompromising, high-fidelity environment.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-5 mt-10 w-full max-w-2xl justify-center opacity-0 animate-fade-in-up delay-400">
+              {/* Ultra-Premium Radiant Google Sign-In Button */}
+              <button 
+                onClick={handleLogin} 
+                disabled={isSigningIn} 
+                className="relative group p-[1px] rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_30px_rgba(0,240,255,0.2)] hover:shadow-[0_0_50px_rgba(0,240,255,0.45)] z-50 disabled:opacity-50"
+              >
+                {/* Luminous Animated Border Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 opacity-70 group-hover:opacity-100 transition-opacity duration-300"></div>
+                
+                {/* Inner Core Surface */}
+                <div className="relative px-7 py-3.5 rounded-[15px] bg-[#090d14]/90 backdrop-blur-xl flex items-center justify-center gap-3 group-hover:bg-[#0c121e]/85 transition-colors duration-300">
+                  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span className="font-sans font-semibold text-[15px] text-white tracking-tight">
+                    {isSigningIn ? 'Authenticating...' : 'Sign in with Google'}
+                  </span>
+                  <span className="material-symbols-outlined text-cyan-300 text-lg transition-transform duration-300 group-hover:translate-x-1">
+                    arrow_forward
+                  </span>
+                </div>
+              </button>
+
+              {/* Ultra-Premium Frosted Obsidian Guest Button */}
+              <button 
+                onClick={handleGuest} 
+                className="relative group px-7 py-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] backdrop-blur-xl border border-white/[0.12] hover:border-white/[0.28] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.08)] flex items-center justify-center gap-3 z-50"
+              >
+                <span className="material-symbols-outlined text-zinc-400 group-hover:text-cyan-300 text-xl transition-colors duration-300">
+                  sports_esports
+                </span>
+                <span className="font-sans font-medium text-[15px] text-zinc-200 group-hover:text-white tracking-tight transition-colors duration-300">
+                  Play as Guest
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="w-full bg-transparent border-t border-white/5 flex flex-col md:flex-row justify-between items-center px-8 lg:px-16 py-6 gap-4 z-10 backdrop-blur-sm shrink-0">
+        <div className="font-headline-md text-white tracking-tight">TYPENOVA</div>
+        <div className="font-label-mono text-label-caps text-on-surface-variant opacity-60 hover:opacity-100 transition-opacity tracking-widest text-center">
+          © 2024 TYPENOVA. FREE &amp; OPEN SOURCE UNDER MIT LICENSE.
+        </div>
+        <nav className="flex flex-wrap justify-center gap-8 font-label-mono text-label-caps tracking-wider relative z-50">
+          <a className="text-secondary-fixed hover:text-white transition-colors flex items-center gap-1.5" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
+            <span>★</span> Star on GitHub
+          </a>
+          <a className="text-on-surface-variant hover:text-white transition-colors" href="#">Terms of Service</a>
+          <a className="text-on-surface-variant hover:text-white transition-colors" href="#">Privacy Protocol</a>
+          <a className="text-on-surface-variant hover:text-white transition-colors" href="#">System Status</a>
+        </nav>
+      </footer>
     </div>
   );
 }

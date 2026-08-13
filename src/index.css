@@ -483,4 +483,79 @@
   border: 1px solid rgba(34, 211, 238, 0.4);
   pointer-events: none;
   clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%, 0 12px);
+}/* Base Void & Grids */
+body {
+    background-color: #080809;
 }
+
+/* Fullscreen Container */
+.landscape-wrapper {
+    min-height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+    background: rgba(20, 20, 22, 0.4);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid;
+    border-image: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.01) 100%) 1;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4);
+}
+
+/* Premium Glow Buttons */
+.btn-glow-cyan {
+     box-shadow: 0 0 20px rgba(125,244,255,0.15), inset 0 0 10px rgba(125,244,255,0.1);
+     border: 1px solid rgba(125,244,255,0.3);
+}
+.btn-glow-cyan:hover {
+     box-shadow: 0 0 30px rgba(125,244,255,0.3), inset 0 0 15px rgba(125,244,255,0.2);
+     border-color: rgba(125,244,255,0.6);
+}
+
+/* Sheen Effect */
+.sheen::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    z-index: 10;
+}
+
+/* Text Glow */
+.text-glow-premium {
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.2), 0 0 60px rgba(125, 244, 255, 0.1);
+}
+
+/* WebGL Background Container */
+#webgl-bg-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* 3D Keyboard Hero Container */
+#hero-3d-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 120%;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }

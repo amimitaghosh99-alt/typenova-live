@@ -269,6 +269,26 @@ export const THEMES: Record<string, Theme> = {
     toastGlow: 'shadow-[0_0_30px_rgba(255,0,80,0.4)]',
     glowPrimary: '255, 0, 80',
     glowSecondary: '0, 255, 255'
+  },
+  starfield: {
+    name: 'starfield',
+    bg: 'bg-black',
+    text: 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-200 to-indigo-300',
+    vividText: 'text-cyan-300',
+    accent: 'cyan',
+    drop: 'drop-shadow-[0_0_12px_rgba(56,189,248,0.6)]',
+    border: 'border-cyan-500/30',
+    borderHalf: 'border-cyan-500/50',
+    solid: 'bg-gradient-to-r from-cyan-500 to-indigo-500',
+    bgAlpha: 'bg-cyan-500/10',
+    bgHover: 'hover:bg-cyan-500/20',
+    glow: 'shadow-[0_0_25px_rgba(56,189,248,0.5)]',
+    auraHigh: 'shadow-[0_0_120px_rgba(56,189,248,0.4)]',
+    auraMed: 'shadow-[0_0_60px_rgba(99,102,241,0.3)]',
+    auraLow: 'shadow-[0_0_20px_rgba(6,182,212,0.2)]',
+    toastGlow: 'shadow-[0_0_30px_rgba(56,189,248,0.4)]',
+    glowPrimary: '56, 189, 248',
+    glowSecondary: '99, 102, 241'
   }
 };
 

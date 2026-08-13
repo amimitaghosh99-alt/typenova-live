@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings, Skull, Ghost, Brain, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle } from 'lucide-react';
+import { X, Settings, Skull, Ghost, Brain, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { THEMES, THEME_KEYS, SOUND_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
 import { toast } from 'sonner';
 import { AI_KEYS, GROQ_LIMITS, PROVIDER_PRESETS, limitsForModel } from '@/lib/aiClient';
 import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
+import { BgAnimateButton } from '@/components/ui/bg-animate-button';
 
 interface SettingsModalProps {
   theme: Theme;
@@ -316,6 +317,21 @@ export const SettingsModal = React.memo(function SettingsModal({
                     {THEME_KEYS.map((key, idx) => {
                       const t = THEMES[key];
                       const isActive = idx === themeIndex;
+                      if (key === 'starfield') {
+                        return (
+                          <BgAnimateButton
+                            key={key}
+                            active={isActive}
+                            onClick={() => selectTheme(idx)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">✨</span>
+                              <span className="uppercase tracking-widest">{t.name}</span>
+                            </div>
+                            {isActive ? <Check size={14} className="text-cyan-300" /> : <Sparkles size={12} className="text-cyan-400 animate-pulse" />}
+                          </BgAnimateButton>
+                        );
+                      }
                       return (
                         <button
                           key={key}

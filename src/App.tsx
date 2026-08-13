@@ -73,6 +73,7 @@ import { AcademyLayout } from '@/components/academy/AcademyLayout';
 import { useSmartDrills } from '@/hooks/useSmartDrills';
 import { AIChatBot } from '@/components/AIChatBot';
 import { AI_KEYS } from '@/lib/aiClient';
+import { StarfieldBackground } from '@/components/ui/starfield-background';
 // ─── ACHIEVEMENT ICONS ────────────────────────────────────────────────
 // Resolves the plain-string icon keys in ACHIEVEMENTS (constants.ts must
 // stay import-free — tailwind.config.js loads it via jiti) to lucide
@@ -1134,6 +1135,11 @@ function MainApp() {
         onExitMicroDrill={exitMicroDrill}
       />
       <div className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-mono selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}>
+        {theme.name === 'starfield' && (
+          <div className="fixed inset-0 z-0 pointer-events-none">
+            <StarfieldBackground starCount={1000} speedFactor={0.04} />
+          </div>
+        )}
 
         {/* Global Liquid-Glass SVG filter — rendered once, referenced by every
           .glass-refract panel via backdrop-filter: url(#glass-distortion)

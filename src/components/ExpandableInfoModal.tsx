@@ -108,53 +108,53 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
             </div>
 
             {/* Scrollable Content Body */}
-            <div className="p-6 sm:p-8 overflow-y-auto max-h-[calc(88vh-190px)] space-y-6 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]">
+            <div className="p-6 sm:p-8 overflow-y-auto max-h-[calc(88vh-180px)] space-y-6 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]">
               {activeCard.content}
-
-              {/* Special Acceptance Checkbox Box for Terms of Service */}
-              {activeCard.id === 'terms' && (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 via-slate-900/60 to-black border border-cyan-500/30 flex items-start gap-3 mt-4">
-                  <input
-                    type="checkbox"
-                    id="terms-agree-checkbox"
-                    checked={hasAgreed}
-                    onChange={(e) => {
-                      setHasAgreed(e.target.checked);
-                      localStorage.setItem('typenova_terms_accepted', e.target.checked ? 'true' : 'false');
-                    }}
-                    className="mt-1 w-4 h-4 rounded border-white/20 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-black accent-cyan-400 cursor-pointer"
-                  />
-                  <label htmlFor="terms-agree-checkbox" className="text-xs text-zinc-300 leading-relaxed cursor-pointer select-none">
-                    <strong className="text-white">I confirm that I have read and agree</strong> to the TypeNova Terms of Service, MIT Open-Source licensing provisions, and Anti-Cheat Fair Play protocols.
-                  </label>
-                </div>
-              )}
             </div>
 
-            {/* Modal Bottom Footer Bar with Action CTA */}
-            <div className="px-6 py-4 sm:px-8 bg-white/[0.02] border-t border-white/10 flex items-center justify-between gap-4">
-              <span className="text-[11px] font-mono text-zinc-500 tracking-wider hidden sm:inline">
-                TYPENOVA PROTOCOL v2.4
-              </span>
-              
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                {activeCard.id === 'terms' ? (
+            {/* Modal Bottom Footer Bar with Merged Checkbox & Action CTA */}
+            <div className="px-6 py-4 sm:px-8 bg-[#080b11] border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+              {activeCard.id === 'terms' ? (
+                <>
+                  {/* Merged Checkbox & Label on the Left */}
+                  <label className="flex items-center gap-3 cursor-pointer select-none text-xs text-zinc-300 w-full sm:w-auto">
+                    <input
+                      type="checkbox"
+                      id="modal-terms-agree-checkbox"
+                      checked={hasAgreed}
+                      onChange={(e) => {
+                        setHasAgreed(e.target.checked);
+                        localStorage.setItem('typenova_terms_accepted', e.target.checked ? 'true' : 'false');
+                      }}
+                      className="w-4 h-4 rounded border border-white/20 bg-black/40 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-black accent-cyan-400 cursor-pointer shrink-0"
+                    />
+                    <span className="leading-tight text-xs text-zinc-300">
+                      I confirm that I have read and agree to the <strong className="text-white">Terms of Service</strong> &amp; Anti-Cheat protocols.
+                    </span>
+                  </label>
+
+                  {/* Accept Button on the Right */}
                   <button
                     onClick={handleAcceptTerms}
-                    className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-300 text-black font-sans font-bold text-xs tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full sm:w-auto shrink-0 px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-300 text-black font-sans font-bold text-xs tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm font-bold">check_circle</span>
                     <span>{hasAgreed ? 'Accepted & Continue' : 'I Accept & Continue'}</span>
                   </button>
-                ) : (
+                </>
+              ) : (
+                <>
+                  <span className="text-[11px] font-mono text-zinc-500 tracking-wider">
+                    TYPENOVA PROTOCOL v2.4
+                  </span>
                   <button
                     onClick={onClose}
                     className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-xs font-medium transition-all cursor-pointer"
                   >
                     Close (Esc)
                   </button>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </motion.div>
         </div>

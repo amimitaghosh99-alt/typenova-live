@@ -1,1 +1,28 @@
-{"name": "TypeNova","short_name": "TypeNova","start_url": "/","display": "standalone","background_color": "#09090b","theme_color": "#09090b","icons": [{"src": "/favicon.svg","type": "image/svg+xml","sizes": "192x192 512x512 any","purpose": "any maskable"}]}
+{
+  "name": "TypeNova",
+  "short_name": "TypeNova",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ]
+}

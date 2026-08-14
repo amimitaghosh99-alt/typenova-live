@@ -26,11 +26,12 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
           Welcome to <strong className="text-white">TypeNova</strong>. By accessing or using our platform, you agree to abide by these simple rules. If you do not agree, please stick to offline typing!
         </p>
 
-        <div className="space-y-5 relative before:absolute before:inset-y-0 before:left-[11px] before:w-[1px] before:bg-white/10 ml-2">
+        <div className="space-y-6 relative before:absolute before:inset-y-0 before:left-[11px] before:w-[1px] before:bg-white/10 ml-2">
           
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#22d3ee]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex items-center gap-2">
               <span className="text-cyan-400 font-mono text-[10px] opacity-70">01</span>
@@ -41,9 +42,10 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
             </p>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#22d3ee]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex items-center gap-2">
               <span className="text-cyan-400 font-mono text-[10px] opacity-70">02</span>
@@ -58,9 +60,10 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
             </ul>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#22d3ee]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex items-center gap-2">
               <span className="text-cyan-400 font-mono text-[10px] opacity-70">03</span>
@@ -71,9 +74,10 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
             </p>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#22d3ee]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex items-center gap-2">
               <span className="text-cyan-400 font-mono text-[10px] opacity-70">04</span>
@@ -84,9 +88,10 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
             </p>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#22d3ee]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex items-center gap-2">
               <span className="text-cyan-400 font-mono text-[10px] opacity-70">05</span>
@@ -153,34 +158,40 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
     bannerGradient: 'from-blue-950 via-slate-900 to-black',
     content: (
       <div className="space-y-4 text-sm font-sans">
-        <div className="space-y-5 relative before:absolute before:inset-y-0 before:left-[11px] before:w-[1px] before:bg-white/10 ml-2 mt-2">
+        <div className="space-y-6 relative before:absolute before:inset-y-0 before:left-[11px] before:w-[1px] before:bg-white/10 ml-2 mt-2">
           
-          <div className="relative pl-8">
-            <div className="absolute left-[11px] top-1.5 w-2 h-2 rounded-full bg-emerald-400 translate-x-[-3.5px] translate-y-[-1px] shadow-[0_0_8px_#34d399] animate-pulse"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-emerald-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-emerald-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-emerald-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#34d399] animate-pulse"></div>
             
             <div className="flex items-center justify-between gap-4 mb-1">
               <div className="text-white font-medium text-sm tracking-wide">Multiplayer Relay Engine</div>
-              <span className="text-[10px] font-mono text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shrink-0">99.98% Uptime</span>
+              <span className="text-[10px] font-mono text-emerald-400 px-2 py-0.5 rounded-none bg-emerald-500/10 border border-emerald-500/20 shrink-0">99.98% Uptime</span>
             </div>
             <div className="text-zinc-500 text-xs font-mono">WebSocket low-latency cluster</div>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-[11px] top-1.5 w-2 h-2 rounded-full bg-emerald-400 translate-x-[-3.5px] translate-y-[-1px] shadow-[0_0_8px_#34d399] animate-pulse"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-emerald-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-emerald-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-emerald-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#34d399] animate-pulse"></div>
             
             <div className="flex items-center justify-between gap-4 mb-1">
               <div className="text-white font-medium text-sm tracking-wide">Supabase Database &amp; Auth</div>
-              <span className="text-[10px] font-mono text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shrink-0">Operational</span>
+              <span className="text-[10px] font-mono text-emerald-400 px-2 py-0.5 rounded-none bg-emerald-500/10 border border-emerald-500/20 shrink-0">Operational</span>
             </div>
             <div className="text-zinc-500 text-xs font-mono">Row-level security synced</div>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-[11px] top-1.5 w-2 h-2 rounded-full bg-cyan-400 translate-x-[-3.5px] translate-y-[-1px] shadow-[0_0_8px_#22d3ee] animate-pulse"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee] animate-pulse"></div>
             
             <div className="flex items-center justify-between gap-4 mb-1">
               <div className="text-white font-medium text-sm tracking-wide">AI Inference Pipeline (Groq / Nano)</div>
-              <span className="text-[10px] font-mono text-cyan-400 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 shrink-0">&lt; 150ms P95</span>
+              <span className="text-[10px] font-mono text-cyan-400 px-2 py-0.5 rounded-none bg-cyan-500/10 border border-cyan-500/20 shrink-0">&lt; 150ms P95</span>
             </div>
             <div className="text-zinc-500 text-xs font-mono">Local &amp; Edge Fallback Ready</div>
           </div>
@@ -231,11 +242,12 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
           Meet <strong className="text-white">Aru</strong>, your personal AI typing mentor capable of analyzing key-by-key hesitation metrics and fatigue pacing in real time.
         </p>
         
-        <div className="space-y-5 relative before:absolute before:inset-y-0 before:left-[11px] before:w-[1px] before:bg-white/10 ml-2">
+        <div className="space-y-6 relative before:absolute before:inset-y-0 before:left-[11px] before:w-[1px] before:bg-white/10 ml-2">
           
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#22d3ee]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex flex-wrap items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -249,9 +261,10 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
             </p>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-teal-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#2dd4bf]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-teal-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-teal-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-teal-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#2dd4bf]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex flex-wrap items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -265,9 +278,10 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
             </p>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-0 top-1.5 w-6 h-[1px] bg-white/20"></div>
-            <div className="absolute left-[11px] top-1.5 w-1.5 h-1.5 rounded-full bg-cyan-400 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_8px_#22d3ee]"></div>
+          <div className="relative pl-10">
+            <div className="absolute left-[11px] top-2 w-12 h-[1px] bg-gradient-to-r from-cyan-500/50 to-transparent"></div>
+            <div className="absolute left-[11px] top-2 w-3 h-3 border border-cyan-400/30 rotate-45 translate-x-[-6px] translate-y-[-6px]"></div>
+            <div className="absolute left-[11px] top-2 w-1 h-1 bg-cyan-400 rotate-45 translate-x-[-2px] translate-y-[-2px] shadow-[0_0_10px_#22d3ee]"></div>
             
             <div className="text-white font-semibold text-sm font-display tracking-wide mb-1 flex flex-wrap items-center justify-between gap-2">
               <span className="flex items-center gap-2">

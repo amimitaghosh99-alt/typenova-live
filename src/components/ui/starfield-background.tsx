@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, memo } from 'react';
 
 export interface StarfieldProps {
   starCount?: number;
@@ -9,15 +9,18 @@ export interface StarfieldProps {
   children?: React.ReactNode;
 }
 
-export const StarfieldBackground: React.FC<StarfieldProps> = ({
+const DEFAULT_STAR_COLOR: [number, number, number] = [255, 255, 255];
+
+export const StarfieldBackground: React.FC<StarfieldProps> = memo(({
   starCount = 800,
-  starColor = [255, 255, 255],
+  starColor = DEFAULT_STAR_COLOR,
   speedFactor = 0.05,
   backgroundColor = 'transparent',
   className = '',
   children,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [r, g, b] = starColor;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -46,6 +49,8 @@ export const StarfieldBackground: React.FC<StarfieldProps> = ({
       alpha: Math.random() * 0.8 + 0.2,
     }));
 
+    const colorStylePrefix = `rgba(${r}, ${g}, ${b},`;
+
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -57,7 +62,8 @@ export const StarfieldBackground: React.FC<StarfieldProps> = ({
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
 
-      stars.forEach((star) => {
+      for (let i = 0; i < stars.length; i++) {
+        const star = stars[i];
         star.z -= speedFactor * 15;
         if (star.z <= 0) {
           star.z = canvas.width;
@@ -75,10 +81,10 @@ export const StarfieldBackground: React.FC<StarfieldProps> = ({
 
           ctx.beginPath();
           ctx.arc(px, py, size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${starColor[0]}, ${starColor[1]}, ${starColor[2]}, ${opacity})`;
+          ctx.fillStyle = `${colorStylePrefix} ${opacity})`;
           ctx.fill();
         }
-      });
+      }
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -89,7 +95,7 @@ export const StarfieldBackground: React.FC<StarfieldProps> = ({
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [starCount, starColor, speedFactor, backgroundColor]);
+  }, [starCount, r, g, b, speedFactor, backgroundColor]);
 
   return (
     <div className={`relative w-full h-full overflow-hidden ${className}`}>
@@ -100,6 +106,8 @@ export const StarfieldBackground: React.FC<StarfieldProps> = ({
       {children}
     </div>
   );
-};
+});
+
+StarfieldBackground.displayName = 'StarfieldBackground';
 
 export default StarfieldBackground;

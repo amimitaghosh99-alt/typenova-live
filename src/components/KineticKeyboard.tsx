@@ -242,7 +242,11 @@ export function KineticKeyboard() {
   return (
     <div 
       ref={containerRef} 
-      className="absolute inset-0 z-0 pointer-events-none opacity-60 mix-blend-screen overflow-hidden" 
+      className="absolute inset-0 z-0 pointer-events-none opacity-60 mix-blend-screen overflow-hidden"
+      style={{
+        maskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)'
+      }}
     />
   );
 }

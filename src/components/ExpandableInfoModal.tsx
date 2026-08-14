@@ -66,19 +66,19 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="relative z-10 w-full max-w-2xl max-h-[88vh] flex flex-col bg-[#0c1017]/95 border border-white/15 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8),0_0_40px_rgba(125,244,255,0.1)] backdrop-blur-2xl"
+            className="relative z-10 w-full max-w-2xl max-h-[88vh] flex flex-col bg-[#0c1017]/95 border border-white/15 rounded-md overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8),0_0_40px_rgba(125,244,255,0.1)] backdrop-blur-2xl"
           >
             {/* Modal Header Banner */}
             <div className={`relative px-6 py-6 sm:px-8 sm:py-7 bg-gradient-to-br ${activeCard.bannerGradient} border-b border-white/10 flex items-start justify-between`}>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.08] border border-white/15 flex items-center justify-center shadow-inner">
+                <div className="w-12 h-12 rounded-md bg-white/[0.08] border border-white/15 flex items-center justify-center shadow-inner">
                   <span className="material-symbols-outlined text-secondary-fixed text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
                     {activeCard.icon}
                   </span>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[11px] font-mono uppercase tracking-widest text-secondary-fixed px-2.5 py-0.5 rounded-full bg-secondary-fixed/10 border border-secondary-fixed/20">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-secondary-fixed px-2 py-0.5 rounded-sm bg-secondary-fixed/10 border border-secondary-fixed/20">
                       {activeCard.badge}
                     </span>
                     <span className="text-xs font-mono text-zinc-400">
@@ -87,7 +87,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
                   </div>
                   <motion.h3 
                     layoutId={`card-title-${activeCard.id}`}
-                    className="font-display-lg text-2xl sm:text-3xl font-bold text-white tracking-tight"
+                    className="font-mono text-xl sm:text-2xl font-bold text-white tracking-[0.1em] uppercase"
                   >
                     {activeCard.title}
                   </motion.h3>
@@ -100,7 +100,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
               {/* Top Close Button */}
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-md bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <span className="material-symbols-outlined text-base">close</span>
@@ -126,7 +126,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
                         setHasAgreed(e.target.checked);
                         localStorage.setItem('typenova_terms_accepted', e.target.checked ? 'true' : 'false');
                       }}
-                      className="w-4 h-4 rounded border border-white/20 bg-black/40 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-black accent-cyan-400 cursor-pointer shrink-0"
+                      className="w-4 h-4 rounded-sm border border-white/20 bg-black/40 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-black accent-cyan-400 cursor-pointer shrink-0"
                     />
                     <span className="leading-tight text-xs text-zinc-300">
                       I confirm that I have read and agree to the <strong className="text-white">Terms of Service</strong> &amp; Anti-Cheat protocols.
@@ -136,7 +136,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
                   {/* Accept Button on the Right */}
                   <button
                     onClick={handleAcceptTerms}
-                    className="w-full sm:w-auto shrink-0 px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-300 text-black font-sans font-bold text-xs tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full sm:w-auto shrink-0 px-6 py-2.5 rounded-md bg-gradient-to-r from-cyan-400 to-teal-300 text-black font-sans font-bold text-xs tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm font-bold">check_circle</span>
                     <span>{hasAgreed ? 'Accepted & Continue' : 'I Accept & Continue'}</span>
@@ -149,7 +149,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
                   </span>
                   <button
                     onClick={onClose}
-                    className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-xs font-medium transition-all cursor-pointer"
+                    className="px-5 py-2 rounded-md bg-white/10 hover:bg-white/20 text-white font-mono text-xs font-medium transition-all cursor-pointer"
                   >
                     Close (Esc)
                   </button>

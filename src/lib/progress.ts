@@ -1,10 +1,6 @@
-// Single serialization boundary for all local progress. Every `typezen_*`
-// key the app persists is gathered here into one snapshot, merged with a
-// cloud snapshot on login, and written back. The merge is a "best-of" that
-// is IDEMPOTENT (re-merging the same data yields the same result) and
-// MONOTONIC (values only grow) — safe to run on every login and push.
 import { HISTORY_KEY, HISTORY_CAP } from '@/components/StatsDashboard';
 import type { HistoryEntry } from '@/components/StatsDashboard';
+import { getConsentRecord, recordConsent, type ConsentRecord } from '@/lib/consent';
 
 const K = {
   xp: 'typezen_xp',
@@ -44,6 +40,8 @@ export interface ProgressSnapshot {
   history: HistoryEntry[];
   /** keyed by the suffix after `typezen_pb:` (e.g. "NOVICE:w25") */
   pbs: Record<string, PbEntry>;
+  /** DPDP/GDPR Statutory Consent Audit Record */
+  consent?: ConsentRecord | null;
 }
 
 function safeParse<T>(raw: string | null, fallback: T): T {
@@ -71,6 +69,7 @@ export function readLocalProgress(): ProgressSnapshot {
     quests: safeParse<QuestsState | null>(localStorage.getItem(K.quests), null),
     history: safeParse<HistoryEntry[]>(localStorage.getItem(HISTORY_KEY), []),
     pbs,
+    consent: getConsentRecord(),
   };
 }
 
@@ -86,6 +85,12 @@ export function writeLocalProgress(s: ProgressSnapshot): void {
     for (const [key, pb] of Object.entries(s.pbs)) {
       localStorage.setItem(PB_PREFIX + key, JSON.stringify(pb));
     }
+    if (s.consent && !getConsentRecord()) {
+      localStorage.setItem('typenova_terms_accepted', s.consent.accepted ? 'true' : 'false');
+      localStorage.setItem('typenova_consent_timestamp', s.consent.timestamp);
+      localStorage.setItem('typenova_consent_version', s.consent.version);
+      localStorage.setItem('typenova_consent_record', JSON.stringify(s.consent));
+    }
   } catch { /* quota / disabled — non-fatal */ }
 }
 
@@ -99,6 +104,7 @@ function normalize(p: Partial<ProgressSnapshot> | null | undefined): ProgressSna
     quests: p?.quests ?? null,
     history: Array.isArray(p?.history) ? p!.history : [],
     pbs: (p?.pbs && typeof p.pbs === 'object') ? p.pbs : {},
+    consent: p?.consent ?? null,
   };
 }
 
@@ -143,7 +149,6 @@ export function mergeProgress(
     const eb = B.heatmap[key];
     if (!ea) heatmap[key] = eb;
     else if (!eb) heatmap[key] = ea;
-    // heatmap totals only grow — keep the record with more observed hits
     else heatmap[key] = ea.total >= eb.total ? ea : eb;
   }
 
@@ -171,5 +176,6 @@ export function mergeProgress(
     quests: pickQuests(A.quests, B.quests),
     history,
     pbs,
+    consent: A.consent || B.consent || null,
   };
 }

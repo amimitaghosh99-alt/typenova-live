@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/hooks/useAuth';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { CosmicShaderBackground } from '@/components/CosmicShaderBackground';
 import { KineticKeyboard } from '@/components/KineticKeyboard';
 import { ExpandableInfoModal } from '@/components/ExpandableInfoModal';
 import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 import { BlurText } from '@/components/BlurText';
+import { Download } from 'lucide-react';
 
 export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
+  const { isInstallable, installApp } = usePWAInstall();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -94,7 +97,16 @@ export function Login() {
             Leaderboards
           </button>
         </nav>
-        <div className="hidden md:flex items-center gap-4 z-50">
+        <div className="hidden md:flex items-center gap-3 z-50">
+          {isInstallable && (
+            <button
+              onClick={installApp}
+              className="flex items-center gap-2 font-label-mono text-xs text-primary-fixed hover:text-white transition-all border border-cyan-400/40 hover:border-cyan-400 px-4 py-2 rounded-full backdrop-blur-md bg-cyan-400/10 hover:bg-cyan-400/20 shadow-[0_0_15px_rgba(0,219,233,0.2)] group cursor-pointer"
+            >
+              <Download size={14} className="text-cyan-400 group-hover:-translate-y-0.5 transition-transform" />
+              <span className="font-semibold tracking-wide uppercase">Install App</span>
+            </button>
+          )}
           <a 
             href="https://github.com/amimitaghosh99-alt/typenova-live" 
             target="_blank" 
@@ -126,6 +138,12 @@ export function Login() {
             <button onClick={() => openCard('coach')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">AI Coach</button>
             <button onClick={() => openCard('academy')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">RPG Academy</button>
             <button onClick={() => openCard('leaderboards')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">Leaderboards</button>
+            {isInstallable && (
+              <button onClick={() => { setIsMobileMenuOpen(false); installApp(); }} className="text-cyan-400 hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold uppercase">
+                <Download size={14} />
+                <span>Install App</span>
+              </button>
+            )}
             <a className="text-secondary-fixed hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
               <span>★ Star on GitHub</span>
             </a>

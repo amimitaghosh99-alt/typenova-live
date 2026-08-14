@@ -144,6 +144,16 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
             <li>Custom saved typing themes and preferences.</li>
           </ul>
         </div>
+
+        <div className="p-3.5 bg-emerald-500/5 border border-emerald-500/20 rounded-none mt-4">
+          <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono font-semibold uppercase tracking-wider mb-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            DPDP Act &amp; GDPR Statutory Compliance
+          </div>
+          <p className="text-zinc-400 text-xs leading-relaxed">
+            In compliance with India's <strong>Digital Personal Data Protection (DPDP) Act</strong> and the <strong>EU GDPR</strong>, all affirmative consents are recorded with an immutable ISO 8601 UTC timestamp and version token. You hold the permanent right to data access, rectification, and complete erasure (Right to be Forgotten).
+          </p>
+        </div>
       </div>
     )
   },

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useOutsideClick } from "@/hooks/use-outside-click";
 import { LANDING_CARDS, type LandingCardItem } from "@/data/landingModalContent";
+import { recordConsent, revokeConsent, hasValidConsent } from "@/lib/consent";
 
 interface ExpandableInfoModalProps {
   activeId: string | null;
@@ -11,9 +12,7 @@ interface ExpandableInfoModalProps {
 export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalProps) {
   const activeCard: LandingCardItem | null = activeId ? LANDING_CARDS[activeId] || null : null;
   const modalRef = useRef<HTMLDivElement>(null);
-  const [hasAgreed, setHasAgreed] = useState<boolean>(() => {
-    return localStorage.getItem('typenova_terms_accepted') === 'true';
-  });
+  const [hasAgreed, setHasAgreed] = useState<boolean>(() => hasValidConsent());
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -41,7 +40,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
 
   const handleAcceptTerms = () => {
     setHasAgreed(true);
-    localStorage.setItem('typenova_terms_accepted', 'true');
+    recordConsent('terms_modal_button');
     onClose();
   };
 
@@ -123,8 +122,13 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
                       id="modal-terms-agree-checkbox"
                       checked={hasAgreed}
                       onChange={(e) => {
-                        setHasAgreed(e.target.checked);
-                        localStorage.setItem('typenova_terms_accepted', e.target.checked ? 'true' : 'false');
+                        const checked = e.target.checked;
+                        setHasAgreed(checked);
+                        if (checked) {
+                          recordConsent('terms_modal_button');
+                        } else {
+                          revokeConsent();
+                        }
                       }}
                       className="w-4 h-4 rounded-none border border-white/20 bg-black/40 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-black accent-cyan-400 cursor-pointer shrink-0"
                     />

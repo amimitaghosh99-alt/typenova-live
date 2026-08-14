@@ -7,6 +7,7 @@ import { KineticKeyboard } from '@/components/KineticKeyboard';
 import { ExpandableInfoModal } from '@/components/ExpandableInfoModal';
 import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 import { BlurText } from '@/components/BlurText';
+import { recordConsent, revokeConsent, hasValidConsent } from '@/lib/consent';
 import { Download } from 'lucide-react';
 
 export function Login() {
@@ -16,9 +17,7 @@ export function Login() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
-  const [hasAgreed, setHasAgreed] = useState<boolean>(() => {
-    return localStorage.getItem('typenova_terms_accepted') === 'true';
-  });
+  const [hasAgreed, setHasAgreed] = useState<boolean>(() => hasValidConsent());
   
   useEffect(() => {
     if (authReady && session) {
@@ -243,8 +242,13 @@ export function Login() {
                 id="hero-agree-checkbox"
                 checked={hasAgreed}
                 onChange={(e) => {
-                  setHasAgreed(e.target.checked);
-                  localStorage.setItem('typenova_terms_accepted', e.target.checked ? 'true' : 'false');
+                  const checked = e.target.checked;
+                  setHasAgreed(checked);
+                  if (checked) {
+                    recordConsent('hero_checkbox');
+                  } else {
+                    revokeConsent();
+                  }
                 }}
                 className="w-4 h-4 rounded border border-white/30 bg-black/40 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-black accent-cyan-400 cursor-pointer transition-all hover:border-cyan-400"
               />

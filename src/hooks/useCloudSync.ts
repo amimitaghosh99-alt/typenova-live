@@ -101,6 +101,18 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
       await sb.from('profiles')
         .update({ data: merged, updated_at: new Date().toISOString() })
         .eq('id', uid);
+      
+      if (merged.consent) {
+        // Fire-and-forget insert into immutable audit table (ignores unique constraint duplicates)
+        sb.from('user_consents').insert({
+          user_id: uid,
+          agreed_at: merged.consent.timestamp,
+          legal_version: merged.consent.version,
+          scope: merged.consent.scope,
+          consent_method: merged.consent.consentMethod,
+        }).then();
+      }
+
       if (!active) return;
 
       syncedForUser.current = uid;
@@ -119,12 +131,23 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     const sb = supabase;
     if (!sb || !session) return { ok: false, error: 'Not signed in' };
     const uid = session.user.id;
+    const local = readLocalProgress();
     const { error } = await sb
       .from('profiles')
-      .insert({ id: uid, username: name, data: readLocalProgress() });
+      .insert({ id: uid, username: name, data: local });
     if (error) {
       if (/duplicate|unique/i.test(error.message)) return { ok: false, error: 'That name is taken' };
       return { ok: false, error: 'Could not save name' };
+    }
+    
+    if (local.consent) {
+      sb.from('user_consents').insert({
+        user_id: uid,
+        agreed_at: local.consent.timestamp,
+        legal_version: local.consent.version,
+        scope: local.consent.scope,
+        consent_method: local.consent.consentMethod,
+      }).then();
     }
     
     // H8: Also insert a default row into public_profiles so others don't see 'PLAYER NOT FOUND'

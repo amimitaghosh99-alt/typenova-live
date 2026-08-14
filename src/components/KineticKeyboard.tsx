@@ -62,6 +62,8 @@ export function KineticKeyboard() {
     const height = container.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x080809, 5, 20); // Add fog to fade edges into the background void
+    
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: false });
     renderer.setClearColor(0x000000, 0);
@@ -134,10 +136,10 @@ export function KineticKeyboard() {
         });
     });
 
-    // Tilt it upward more aggressively like a drafting table facing the user
-    group.rotation.x = -Math.PI / 3.2; 
+    // Massive scale, tilted aggressively
+    group.rotation.x = -Math.PI / 3; 
     group.position.y = -3.5;
-    group.scale.set(1.2, 1.2, 1.2); // Reduce scale slightly to prevent edge cutoff
+    group.scale.set(1.5, 1.5, 1.5); 
     scene.add(group);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
@@ -151,8 +153,8 @@ export function KineticKeyboard() {
     purpleLight.position.set(-10, 5, -5);
     scene.add(purpleLight);
 
-    camera.position.z = 12.0; // Zoomed out to ensure the wide keyboard isn't cut off on the sides
-    camera.position.y = 1.0; 
+    camera.position.z = 9.0; // Zoom back in to make it massive
+    camera.position.y = 1.5; 
     camera.lookAt(0, -1.0, 0);
 
     // Interactive Keydown Listener

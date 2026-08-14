@@ -133,9 +133,9 @@ export function KineticKeyboard() {
         });
     });
 
-    group.rotation.x = -Math.PI / 3;
+    group.rotation.x = Math.PI / 8; // Slight tilt towards the camera
     group.position.y = -2.5;
-    group.scale.set(1.0, 1.0, 1.0); // Adjusted scale to fit full 100% keyboard
+    group.scale.set(1.4, 1.4, 1.4); // Scaled up significantly
     scene.add(group);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
@@ -149,9 +149,9 @@ export function KineticKeyboard() {
     purpleLight.position.set(-10, 5, -5);
     scene.add(purpleLight);
 
-    camera.position.z = 11.5; // Zoomed out to show the full board
-    camera.position.y = 3.0; // Angled slightly higher
-    camera.lookAt(0, -2.5, 0);
+    camera.position.z = 9.0; // Zoomed in to make it larger
+    camera.position.y = 2.0; // Angled slightly lower for a more dynamic view
+    camera.lookAt(0, -2.0, 0);
 
     // Interactive Keydown Listener
     const handleKeyDown = (e: KeyboardEvent) => {

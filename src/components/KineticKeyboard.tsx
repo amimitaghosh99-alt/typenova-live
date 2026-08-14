@@ -1,6 +1,22 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
+// Realistic 60% keyboard layout map
+const KEYBOARD_LAYOUT = [
+  [{ id: 'Escape', w: 1 }, { id: '1', w: 1 }, { id: '2', w: 1 }, { id: '3', w: 1 }, { id: '4', w: 1 }, { id: '5', w: 1 }, { id: '6', w: 1 }, { id: '7', w: 1 }, { id: '8', w: 1 }, { id: '9', w: 1 }, { id: '0', w: 1 }, { id: '-', w: 1 }, { id: '=', w: 1 }, { id: 'Backspace', w: 2 }],
+  [{ id: 'Tab', w: 1.5 }, { id: 'q', w: 1 }, { id: 'w', w: 1 }, { id: 'e', w: 1 }, { id: 'r', w: 1 }, { id: 't', w: 1 }, { id: 'y', w: 1 }, { id: 'u', w: 1 }, { id: 'i', w: 1 }, { id: 'o', w: 1 }, { id: 'p', w: 1 }, { id: '[', w: 1 }, { id: ']', w: 1 }, { id: '\\', w: 1.5 }],
+  [{ id: 'CapsLock', w: 1.75 }, { id: 'a', w: 1 }, { id: 's', w: 1 }, { id: 'd', w: 1 }, { id: 'f', w: 1 }, { id: 'g', w: 1 }, { id: 'h', w: 1 }, { id: 'j', w: 1 }, { id: 'k', w: 1 }, { id: 'l', w: 1 }, { id: ';', w: 1 }, { id: "'", w: 1 }, { id: 'Enter', w: 2.25 }],
+  [{ id: 'Shift', w: 2.25 }, { id: 'z', w: 1 }, { id: 'x', w: 1 }, { id: 'c', w: 1 }, { id: 'v', w: 1 }, { id: 'b', w: 1 }, { id: 'n', w: 1 }, { id: 'm', w: 1 }, { id: ',', w: 1 }, { id: '.', w: 1 }, { id: '/', w: 1 }, { id: 'Shift', w: 2.75 }],
+  [{ id: 'Control', w: 1.25 }, { id: 'Meta', w: 1.25 }, { id: 'Alt', w: 1.25 }, { id: ' ', w: 6.25 }, { id: 'Alt', w: 1.25 }, { id: 'Meta', w: 1.25 }, { id: 'ContextMenu', w: 1.25 }, { id: 'Control', w: 1.25 }]
+];
+
+type KeyData = {
+    mesh: THREE.Mesh;
+    activeUntil: number;
+    gridX: number;
+    gridZ: number;
+};
+
 export function KineticKeyboard() {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -21,30 +37,55 @@ export function KineticKeyboard() {
 
     const group = new THREE.Group();
 
-    // Larger, thicker key geometry with higher visibility
-    const keyGeo = new THREE.BoxGeometry(1.0, 0.25, 1.0);
     const material = new THREE.MeshPhongMaterial({
         color: 0x00e5ff,
         emissive: 0x00dbe9,
-        emissiveIntensity: 0.75,
+        emissiveIntensity: 0.5,
         shininess: 120,
         transparent: true,
         opacity: 0.85
     });
 
-    const rows = 6;
-    const cols = 16;
-    const keys: THREE.Mesh[] = [];
+    const keysArray: KeyData[] = [];
+    const keyMap = new Map<string, KeyData[]>();
 
-    for(let i = 0; i < rows; i++) {
-        for(let j = 0; j < cols; j++) {
-            const key = new THREE.Mesh(keyGeo, material.clone());
-            key.position.x = (j - cols / 2) * 1.3;
-            key.position.z = (i - rows / 2) * 1.3;
-            group.add(key);
-            keys.push(key);
-        }
-    }
+    const baseSize = 0.9;
+    const keySpacing = 1.05; 
+    
+    // Calculate total width of Row 0 to perfectly center the keyboard
+    const row0Width = KEYBOARD_LAYOUT[0].reduce((acc, k) => acc + (k.w * baseSize) + (keySpacing - baseSize), 0);
+    
+    KEYBOARD_LAYOUT.forEach((row, rowIndex) => {
+        let currentX = -row0Width / 2;
+        
+        row.forEach((keyDef) => {
+            const w = keyDef.w;
+            const keyWidth = w * baseSize + (w - 1) * (keySpacing - baseSize);
+            
+            const geo = new THREE.BoxGeometry(keyWidth, 0.25, baseSize);
+            const keyMesh = new THREE.Mesh(geo, material.clone());
+            
+            // Center the mesh on its calculated X span
+            keyMesh.position.x = currentX + keyWidth / 2;
+            keyMesh.position.z = (rowIndex - 2.5) * keySpacing;
+            
+            group.add(keyMesh);
+            
+            const keyData = { 
+                mesh: keyMesh, 
+                activeUntil: 0,
+                gridX: keyMesh.position.x,
+                gridZ: keyMesh.position.z
+            };
+            keysArray.push(keyData);
+            
+            const keyId = keyDef.id.toLowerCase();
+            if(!keyMap.has(keyId)) keyMap.set(keyId, []);
+            keyMap.get(keyId)!.push(keyData);
+            
+            currentX += keyWidth + (keySpacing - baseSize);
+        });
+    });
 
     group.rotation.x = -Math.PI / 3;
     group.position.y = -2.2;
@@ -66,19 +107,58 @@ export function KineticKeyboard() {
     camera.position.y = 1.8;
     camera.lookAt(0, -1.8, 0);
 
+    // Interactive Keydown Listener
+    const handleKeyDown = (e: KeyboardEvent) => {
+        const keyId = e.key.toLowerCase();
+        let targets = keyMap.get(keyId);
+        
+        // Handle spacebar mapping
+        if (e.code === 'Space') {
+            targets = keyMap.get(' ');
+        }
+        
+        if(targets) {
+            targets.forEach(t => {
+                t.activeUntil = Date.now() + 150; // Active flash duration
+            });
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     let animationFrameId: number;
     function animate() {
         animationFrameId = requestAnimationFrame(animate);
-        
         const time = Date.now() * 0.001;
         
-        keys.forEach((key) => {
-            const d = Math.sqrt(key.position.x * key.position.x + key.position.z * key.position.z);
-            key.position.y = Math.sin(d * 0.45 - time * 2) * 0.7;
-            (key.material as THREE.MeshPhongMaterial).emissiveIntensity = 0.5 + (key.position.y * 0.6);
+        keysArray.forEach((kData) => {
+            const key = kData.mesh;
+            const d = Math.sqrt(kData.gridX * kData.gridX + kData.gridZ * kData.gridZ);
+            
+            // Base ambient wave
+            const waveY = Math.sin(d * 0.45 - time * 2) * 0.4;
+            
+            // Interaction override
+            const isActive = Date.now() < kData.activeUntil;
+            const targetY = isActive ? waveY - 0.5 : waveY;
+            const targetEmissive = isActive ? 2.5 : 0.4 + (waveY * 0.3);
+            
+            // Smooth spring interpolation for Y position
+            key.position.y += (targetY - key.position.y) * 0.3;
+            
+            // Smooth interpolation for emissive intensity
+            const mat = key.material as THREE.MeshPhongMaterial;
+            mat.emissiveIntensity += (targetEmissive - mat.emissiveIntensity) * 0.3;
+            
+            // Color switch on active
+            if(isActive) {
+                mat.emissive.setHex(0xffffff); // Flash bright white
+            } else {
+                mat.emissive.setHex(0x00dbe9); // Cyan
+            }
         });
 
-        group.rotation.y = Math.sin(time * 0.2) * 0.1;
+        // Slow camera rotation
+        group.rotation.y = Math.sin(time * 0.2) * 0.05;
         
         renderer.render(scene, camera);
     }
@@ -98,31 +178,21 @@ export function KineticKeyboard() {
     // CLEANUP
     return () => {
         window.removeEventListener('resize', handleResize);
+        window.removeEventListener('keydown', handleKeyDown);
         cancelAnimationFrame(animationFrameId);
-        
-        // Dispose Three.js resources to prevent memory leaks
-        keyGeo.dispose();
-        material.dispose();
-        keys.forEach(key => {
-            if (key.material) {
-               (key.material as THREE.Material).dispose();
-            }
+        container.removeChild(renderer.domElement);
+        scene.clear();
+        keysArray.forEach(k => {
+            k.mesh.geometry.dispose();
+            (k.mesh.material as THREE.Material).dispose();
         });
-        
-        renderer.dispose();
-        
-        if (container.contains(renderer.domElement)) {
-            container.removeChild(renderer.domElement);
-        }
     };
   }, []);
 
   return (
     <div 
-        id="hero-3d-container" 
-        ref={containerRef} 
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[120%] z-0 pointer-events-none opacity-90"
-        aria-hidden="true"
+      ref={containerRef} 
+      className="absolute inset-0 z-0 pointer-events-none opacity-50 mix-blend-screen overflow-hidden" 
     />
   );
 }

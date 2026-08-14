@@ -104,8 +104,8 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
 
         </div>
 
-        <p className="text-xs font-mono text-zinc-500 italic pt-2 text-center">
-          *End of Line.*
+        <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-[0.3em] pt-6 pb-2 text-center">
+          End of Line.
         </p>
       </div>
     )

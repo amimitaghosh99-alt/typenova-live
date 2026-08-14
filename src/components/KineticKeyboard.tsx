@@ -134,10 +134,10 @@ export function KineticKeyboard() {
         });
     });
 
-    // Tilt it upward aggressively like a drafting table facing the user
-    group.rotation.x = -Math.PI / 4; 
+    // Tilt it upward more aggressively like a drafting table facing the user
+    group.rotation.x = -Math.PI / 3.2; 
     group.position.y = -3.5;
-    group.scale.set(1.4, 1.4, 1.4); 
+    group.scale.set(1.2, 1.2, 1.2); // Reduce scale slightly to prevent edge cutoff
     scene.add(group);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
@@ -151,7 +151,7 @@ export function KineticKeyboard() {
     purpleLight.position.set(-10, 5, -5);
     scene.add(purpleLight);
 
-    camera.position.z = 10.0; 
+    camera.position.z = 12.0; // Zoomed out to ensure the wide keyboard isn't cut off on the sides
     camera.position.y = 1.0; 
     camera.lookAt(0, -1.0, 0);
 

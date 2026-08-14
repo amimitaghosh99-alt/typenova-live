@@ -1,13 +1,47 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-// Realistic 60% keyboard layout map
-const KEYBOARD_LAYOUT = [
-  [{ id: 'Escape', w: 1 }, { id: '1', w: 1 }, { id: '2', w: 1 }, { id: '3', w: 1 }, { id: '4', w: 1 }, { id: '5', w: 1 }, { id: '6', w: 1 }, { id: '7', w: 1 }, { id: '8', w: 1 }, { id: '9', w: 1 }, { id: '0', w: 1 }, { id: '-', w: 1 }, { id: '=', w: 1 }, { id: 'Backspace', w: 2 }],
-  [{ id: 'Tab', w: 1.5 }, { id: 'q', w: 1 }, { id: 'w', w: 1 }, { id: 'e', w: 1 }, { id: 'r', w: 1 }, { id: 't', w: 1 }, { id: 'y', w: 1 }, { id: 'u', w: 1 }, { id: 'i', w: 1 }, { id: 'o', w: 1 }, { id: 'p', w: 1 }, { id: '[', w: 1 }, { id: ']', w: 1 }, { id: '\\', w: 1.5 }],
-  [{ id: 'CapsLock', w: 1.75 }, { id: 'a', w: 1 }, { id: 's', w: 1 }, { id: 'd', w: 1 }, { id: 'f', w: 1 }, { id: 'g', w: 1 }, { id: 'h', w: 1 }, { id: 'j', w: 1 }, { id: 'k', w: 1 }, { id: 'l', w: 1 }, { id: ';', w: 1 }, { id: "'", w: 1 }, { id: 'Enter', w: 2.25 }],
-  [{ id: 'Shift', w: 2.25 }, { id: 'z', w: 1 }, { id: 'x', w: 1 }, { id: 'c', w: 1 }, { id: 'v', w: 1 }, { id: 'b', w: 1 }, { id: 'n', w: 1 }, { id: 'm', w: 1 }, { id: ',', w: 1 }, { id: '.', w: 1 }, { id: '/', w: 1 }, { id: 'Shift', w: 2.75 }],
-  [{ id: 'Control', w: 1.25 }, { id: 'Meta', w: 1.25 }, { id: 'Alt', w: 1.25 }, { id: ' ', w: 6.25 }, { id: 'Alt', w: 1.25 }, { id: 'Meta', w: 1.25 }, { id: 'ContextMenu', w: 1.25 }, { id: 'Control', w: 1.25 }]
+type LayoutItem = { id?: string, w?: number, gap?: number };
+
+// Realistic 100% full-size keyboard layout map
+const KEYBOARD_LAYOUT: LayoutItem[][] = [
+  // Row 0 (Function Keys)
+  [
+    { id: 'Escape', w: 1 }, { gap: 1 }, 
+    { id: 'F1', w: 1 }, { id: 'F2', w: 1 }, { id: 'F3', w: 1 }, { id: 'F4', w: 1 }, { gap: 0.5 }, 
+    { id: 'F5', w: 1 }, { id: 'F6', w: 1 }, { id: 'F7', w: 1 }, { id: 'F8', w: 1 }, { gap: 0.5 }, 
+    { id: 'F9', w: 1 }, { id: 'F10', w: 1 }, { id: 'F11', w: 1 }, { id: 'F12', w: 1 }, { gap: 0.5 },
+    { id: 'PrintScreen', w: 1 }, { id: 'ScrollLock', w: 1 }, { id: 'Pause', w: 1 }
+  ],
+  // Row 1 (Numbers)
+  [
+    { id: '`', w: 1 }, { id: '1', w: 1 }, { id: '2', w: 1 }, { id: '3', w: 1 }, { id: '4', w: 1 }, { id: '5', w: 1 }, { id: '6', w: 1 }, { id: '7', w: 1 }, { id: '8', w: 1 }, { id: '9', w: 1 }, { id: '0', w: 1 }, { id: '-', w: 1 }, { id: '=', w: 1 }, { id: 'Backspace', w: 2 }, { gap: 0.5 },
+    { id: 'Insert', w: 1 }, { id: 'Home', w: 1 }, { id: 'PageUp', w: 1 }, { gap: 0.5 },
+    { id: 'NumLock', w: 1 }, { id: '/', w: 1 }, { id: '*', w: 1 }, { id: '-', w: 1 }
+  ],
+  // Row 2 (QWERTY)
+  [
+    { id: 'Tab', w: 1.5 }, { id: 'q', w: 1 }, { id: 'w', w: 1 }, { id: 'e', w: 1 }, { id: 'r', w: 1 }, { id: 't', w: 1 }, { id: 'y', w: 1 }, { id: 'u', w: 1 }, { id: 'i', w: 1 }, { id: 'o', w: 1 }, { id: 'p', w: 1 }, { id: '[', w: 1 }, { id: ']', w: 1 }, { id: '\\', w: 1.5 }, { gap: 0.5 },
+    { id: 'Delete', w: 1 }, { id: 'End', w: 1 }, { id: 'PageDown', w: 1 }, { gap: 0.5 },
+    { id: '7', w: 1 }, { id: '8', w: 1 }, { id: '9', w: 1 }, { id: '+', w: 1 }
+  ],
+  // Row 3 (ASDF)
+  [
+    { id: 'CapsLock', w: 1.75 }, { id: 'a', w: 1 }, { id: 's', w: 1 }, { id: 'd', w: 1 }, { id: 'f', w: 1 }, { id: 'g', w: 1 }, { id: 'h', w: 1 }, { id: 'j', w: 1 }, { id: 'k', w: 1 }, { id: 'l', w: 1 }, { id: ';', w: 1 }, { id: "'", w: 1 }, { id: 'Enter', w: 2.25 }, { gap: 3.5 },
+    { id: '4', w: 1 }, { id: '5', w: 1 }, { id: '6', w: 1 }, { gap: 1 }
+  ],
+  // Row 4 (ZXCV)
+  [
+    { id: 'Shift', w: 2.25 }, { id: 'z', w: 1 }, { id: 'x', w: 1 }, { id: 'c', w: 1 }, { id: 'v', w: 1 }, { id: 'b', w: 1 }, { id: 'n', w: 1 }, { id: 'm', w: 1 }, { id: ',', w: 1 }, { id: '.', w: 1 }, { id: '/', w: 1 }, { id: 'Shift', w: 2.75 }, { gap: 1.5 },
+    { id: 'ArrowUp', w: 1 }, { gap: 1 },
+    { id: '1', w: 1 }, { id: '2', w: 1 }, { id: '3', w: 1 }, { id: 'Enter', w: 1 }
+  ],
+  // Row 5 (Spacebar)
+  [
+    { id: 'Control', w: 1.25 }, { id: 'Meta', w: 1.25 }, { id: 'Alt', w: 1.25 }, { id: ' ', w: 6.25 }, { id: 'Alt', w: 1.25 }, { id: 'Meta', w: 1.25 }, { id: 'ContextMenu', w: 1.25 }, { id: 'Control', w: 1.25 }, { gap: 0.5 },
+    { id: 'ArrowLeft', w: 1 }, { id: 'ArrowDown', w: 1 }, { id: 'ArrowRight', w: 1 }, { gap: 0.5 },
+    { id: '0', w: 2.05 }, { id: '.', w: 1 }, { gap: 1 }
+  ]
 ];
 
 type KeyData = {
@@ -37,13 +71,14 @@ export function KineticKeyboard() {
 
     const group = new THREE.Group();
 
+    // Brighter material settings
     const material = new THREE.MeshPhongMaterial({
-        color: 0x00e5ff,
-        emissive: 0x00dbe9,
-        emissiveIntensity: 0.5,
-        shininess: 120,
+        color: 0x22d3ee,
+        emissive: 0x00ffff,
+        emissiveIntensity: 0.8,
+        shininess: 150,
         transparent: true,
-        opacity: 0.85
+        opacity: 0.95
     });
 
     const keysArray: KeyData[] = [];
@@ -52,60 +87,71 @@ export function KineticKeyboard() {
     const baseSize = 0.9;
     const keySpacing = 1.05; 
     
-    // Calculate total width of Row 0 to perfectly center the keyboard
-    const row0Width = KEYBOARD_LAYOUT[0].reduce((acc, k) => acc + (k.w * baseSize) + (keySpacing - baseSize), 0);
+    // Calculate total width of Row 1 to perfectly center the keyboard
+    const row1Width = KEYBOARD_LAYOUT[1].reduce((acc, k) => {
+        if (k.gap) return acc + (k.gap * keySpacing);
+        if (k.w) return acc + (k.w * baseSize) + (k.w - 1) * (keySpacing - baseSize) + (keySpacing - baseSize);
+        return acc;
+    }, 0);
     
     KEYBOARD_LAYOUT.forEach((row, rowIndex) => {
-        let currentX = -row0Width / 2;
+        let currentX = -row1Width / 2;
         
-        row.forEach((keyDef) => {
-            const w = keyDef.w;
-            const keyWidth = w * baseSize + (w - 1) * (keySpacing - baseSize);
-            
-            const geo = new THREE.BoxGeometry(keyWidth, 0.25, baseSize);
-            const keyMesh = new THREE.Mesh(geo, material.clone());
-            
-            // Center the mesh on its calculated X span
-            keyMesh.position.x = currentX + keyWidth / 2;
-            keyMesh.position.z = (rowIndex - 2.5) * keySpacing;
-            
-            group.add(keyMesh);
-            
-            const keyData = { 
-                mesh: keyMesh, 
-                activeUntil: 0,
-                gridX: keyMesh.position.x,
-                gridZ: keyMesh.position.z
-            };
-            keysArray.push(keyData);
-            
-            const keyId = keyDef.id.toLowerCase();
-            if(!keyMap.has(keyId)) keyMap.set(keyId, []);
-            keyMap.get(keyId)!.push(keyData);
-            
-            currentX += keyWidth + (keySpacing - baseSize);
+        row.forEach((item) => {
+            if (item.gap) {
+                currentX += item.gap * keySpacing;
+                return;
+            }
+
+            if (item.w && item.id) {
+                const w = item.w;
+                const keyWidth = w * baseSize + (w - 1) * (keySpacing - baseSize);
+                
+                const geo = new THREE.BoxGeometry(keyWidth, 0.25, baseSize);
+                const keyMesh = new THREE.Mesh(geo, material.clone());
+                
+                // Center the mesh on its calculated X span
+                keyMesh.position.x = currentX + keyWidth / 2;
+                keyMesh.position.z = (rowIndex - 2.5) * keySpacing;
+                
+                group.add(keyMesh);
+                
+                const keyData = { 
+                    mesh: keyMesh, 
+                    activeUntil: 0,
+                    gridX: keyMesh.position.x,
+                    gridZ: keyMesh.position.z
+                };
+                keysArray.push(keyData);
+                
+                const keyId = item.id.toLowerCase();
+                if(!keyMap.has(keyId)) keyMap.set(keyId, []);
+                keyMap.get(keyId)!.push(keyData);
+                
+                currentX += keyWidth + (keySpacing - baseSize);
+            }
         });
     });
 
     group.rotation.x = -Math.PI / 3;
-    group.position.y = -2.2;
-    group.scale.set(1.15, 1.15, 1.15);
+    group.position.y = -2.5;
+    group.scale.set(1.0, 1.0, 1.0); // Adjusted scale to fit full 100% keyboard
     scene.add(group);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     scene.add(ambientLight);
 
-    const pointLight = new THREE.PointLight(0x00dbe9, 3.0, 60);
+    const pointLight = new THREE.PointLight(0x00ffff, 4.0, 80);
     pointLight.position.set(0, 10, 10);
     scene.add(pointLight);
 
-    const purpleLight = new THREE.PointLight(0xd0bcff, 2.0, 60);
+    const purpleLight = new THREE.PointLight(0xd0bcff, 3.0, 80);
     purpleLight.position.set(-10, 5, -5);
     scene.add(purpleLight);
 
-    camera.position.z = 9.5;
-    camera.position.y = 1.8;
-    camera.lookAt(0, -1.8, 0);
+    camera.position.z = 11.5; // Zoomed out to show the full board
+    camera.position.y = 3.0; // Angled slightly higher
+    camera.lookAt(0, -2.5, 0);
 
     // Interactive Keydown Listener
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -140,7 +186,7 @@ export function KineticKeyboard() {
             // Interaction override
             const isActive = Date.now() < kData.activeUntil;
             const targetY = isActive ? waveY - 0.5 : waveY;
-            const targetEmissive = isActive ? 2.5 : 0.4 + (waveY * 0.3);
+            const targetEmissive = isActive ? 3.0 : 0.6 + (waveY * 0.4); // Brighter glow
             
             // Smooth spring interpolation for Y position
             key.position.y += (targetY - key.position.y) * 0.3;
@@ -153,7 +199,7 @@ export function KineticKeyboard() {
             if(isActive) {
                 mat.emissive.setHex(0xffffff); // Flash bright white
             } else {
-                mat.emissive.setHex(0x00dbe9); // Cyan
+                mat.emissive.setHex(0x00ffff); // Vibrant cyan
             }
         });
 
@@ -192,7 +238,7 @@ export function KineticKeyboard() {
   return (
     <div 
       ref={containerRef} 
-      className="absolute inset-0 z-0 pointer-events-none opacity-50 mix-blend-screen overflow-hidden" 
+      className="absolute inset-0 z-0 pointer-events-none opacity-60 mix-blend-screen overflow-hidden" 
     />
   );
 }

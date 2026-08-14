@@ -110,7 +110,8 @@ export function KineticKeyboard() {
                 const geo = new THREE.BoxGeometry(keyWidth, 0.25, baseSize);
                 const keyMesh = new THREE.Mesh(geo, material.clone());
                 
-                // Center the mesh on its calculated X span
+                // Standard Z mapping (Row 0 / F-keys at negative Z / back)
+                // With the -Math.PI/4 tilt, this places the F-keys high and Spacebar low, facing the user
                 keyMesh.position.x = currentX + keyWidth / 2;
                 keyMesh.position.z = (rowIndex - 2.5) * keySpacing;
                 
@@ -133,9 +134,10 @@ export function KineticKeyboard() {
         });
     });
 
-    group.rotation.x = Math.PI / 8; // Slight tilt towards the camera
-    group.position.y = -2.5;
-    group.scale.set(1.4, 1.4, 1.4); // Scaled up significantly
+    // Tilt it upward aggressively like a drafting table facing the user
+    group.rotation.x = -Math.PI / 4; 
+    group.position.y = -3.5;
+    group.scale.set(1.4, 1.4, 1.4); 
     scene.add(group);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
@@ -149,9 +151,9 @@ export function KineticKeyboard() {
     purpleLight.position.set(-10, 5, -5);
     scene.add(purpleLight);
 
-    camera.position.z = 9.0; // Zoomed in to make it larger
-    camera.position.y = 2.0; // Angled slightly lower for a more dynamic view
-    camera.lookAt(0, -2.0, 0);
+    camera.position.z = 10.0; 
+    camera.position.y = 1.0; 
+    camera.lookAt(0, -1.0, 0);
 
     // Interactive Keydown Listener
     const handleKeyDown = (e: KeyboardEvent) => {

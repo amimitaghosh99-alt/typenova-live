@@ -7,6 +7,7 @@ import { ExpandableInfoModal } from '@/components/ExpandableInfoModal';
 import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 import { BlurText } from '@/components/BlurText';
 import { recordConsent, revokeConsent, hasValidConsent } from '@/lib/consent';
+import { CHANGELOG } from '@/data/changelog';
 import { Download } from 'lucide-react';
 
 export function Login() {
@@ -157,7 +158,7 @@ export function Login() {
           <div className="relative z-10 flex flex-col items-center max-w-5xl">
             <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-secondary-fixed/20 bg-secondary-fixed/5 backdrop-blur-md mb-8 sheen overflow-hidden btn-glow-cyan opacity-0 animate-fade-in-up delay-100">
               <span className="w-2 h-2 rounded-full bg-secondary-fixed animate-pulse shadow-[0_0_10px_#7df4ff]"></span>
-              <span className="font-label-mono text-label-caps text-secondary-fixed tracking-widest">System Online v2.4 • Open Source</span>
+              <span className="font-label-mono text-label-caps text-secondary-fixed tracking-widest">System Online {CHANGELOG[0]?.version || 'v2.5.1'} • Open Source</span>
             </div>
             <h1 className="font-display-lg text-headline-xl-mobile md:text-[84px] text-white max-w-5xl leading-[1.05] tracking-tighter text-glow-premium drop-shadow-[0_8px_32px_rgba(0,0,0,0.9)] [text-shadow:_0_4px_24px_rgba(0,0,0,0.95)] flex flex-col items-center justify-center text-center">
               <BlurText text="The Next-Gen" delay={45} className="inline-flex justify-center" />

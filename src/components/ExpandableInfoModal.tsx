@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useOutsideClick } from "@/hooks/use-outside-click";
 import { LANDING_CARDS, type LandingCardItem } from "@/data/landingModalContent";
 import { recordConsent, revokeConsent, hasValidConsent } from "@/lib/consent";
+import { CHANGELOG } from "@/data/changelog";
 
 interface ExpandableInfoModalProps {
   activeId: string | null;
@@ -149,7 +150,7 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
               ) : (
                 <>
                   <span className="text-[11px] font-mono text-zinc-500 tracking-wider">
-                    TYPENOVA PROTOCOL v2.4
+                    TYPENOVA PROTOCOL {CHANGELOG[0]?.version || 'v2.5.1'}
                   </span>
                   <button
                     onClick={onClose}

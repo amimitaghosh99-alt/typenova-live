@@ -15,14 +15,27 @@ export function usePWAInstall() {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already running in standalone mode (installed app)
+    // Check if already running in standalone or fullscreen mode (installed app)
     const isStandaloneMode = 
       window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
       document.referrer.includes('android-app://');
 
     if (isStandaloneMode) {
       setIsInstalled(true);
+
+      const triggerAutoFullscreen = () => {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {
+            // Silently ignore if blocked by browser policy
+          });
+        }
+      };
+
+      window.addEventListener('click', triggerAutoFullscreen, { once: true });
+      window.addEventListener('keydown', triggerAutoFullscreen, { once: true });
+      window.addEventListener('touchstart', triggerAutoFullscreen, { once: true });
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {

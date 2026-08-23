@@ -17,6 +17,8 @@ export interface GameConfigState {
   zenMode: boolean;
   suddenDeath: boolean;
   ghostPacer: boolean;
+  ghostMode: 'pb' | 'target';
+  ghostTargetWpm: number;
   focusMode: boolean;
   blindMode: boolean;
   mirroredMode: boolean;
@@ -40,6 +42,26 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
   const [zenMode, setZenMode] = useState(false);
   const [suddenDeath, setSuddenDeath] = useState(false);
   const [ghostPacer, setGhostPacer] = useState(false);
+  const [ghostMode, setGhostModeState] = useState<'pb' | 'target'>(() => {
+    try { return (localStorage.getItem('typezen_ghost_mode') as 'pb' | 'target') || 'pb'; } catch { return 'pb'; }
+  });
+  const [ghostTargetWpm, setGhostTargetWpmState] = useState<number>(() => {
+    try {
+      const stored = parseInt(localStorage.getItem('typezen_ghost_target_wpm') || '100', 10);
+      return !isNaN(stored) && stored > 0 ? stored : 100;
+    } catch { return 100; }
+  });
+
+  const setGhostMode = useCallback((val: 'pb' | 'target') => {
+    setGhostModeState(val);
+    try { localStorage.setItem('typezen_ghost_mode', val); } catch {}
+  }, []);
+
+  const setGhostTargetWpm = useCallback((val: number) => {
+    setGhostTargetWpmState(val);
+    try { localStorage.setItem('typezen_ghost_target_wpm', val.toString()); } catch {}
+  }, []);
+
   const [focusMode, setFocusMode] = useState(false);
   const [blindMode, setBlindMode] = useState(false);
   const [mirroredMode, setMirroredMode] = useState(false);
@@ -61,7 +83,7 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
 
   // Synchronous ref for keyboard handler / handleReset
   const configRef = useRef<GameConfigState>({
-    zenMode, suddenDeath, ghostPacer, focusMode, blindMode, mirroredMode,
+    zenMode, suddenDeath, ghostPacer, ghostMode, ghostTargetWpm, focusMode, blindMode, mirroredMode,
     codeLanguage, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
     level, wordCount, testMode, duration, withNumbers, withPunctuation,
     dailyActive, customText, microDrillActive,
@@ -69,12 +91,17 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
 
   useEffect(() => {
     configRef.current = {
-      zenMode, suddenDeath, ghostPacer, focusMode, blindMode, mirroredMode,
+      zenMode, suddenDeath, ghostPacer, ghostMode, ghostTargetWpm, focusMode, blindMode, mirroredMode,
       codeLanguage, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
       level, wordCount, testMode, duration, withNumbers, withPunctuation,
       dailyActive, customText, microDrillActive,
     };
-  });
+  }, [
+    zenMode, suddenDeath, ghostPacer, ghostMode, ghostTargetWpm, focusMode, blindMode, mirroredMode,
+    codeLanguage, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
+    level, wordCount, testMode, duration, withNumbers, withPunctuation,
+    dailyActive, customText, microDrillActive,
+  ]);
 
   const changeLevel = useCallback((newLevel: Level) => {
     setLevel(newLevel);
@@ -156,6 +183,8 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     zenMode, setZenMode,
     suddenDeath, setSuddenDeath,
     ghostPacer, setGhostPacer,
+    ghostMode, setGhostMode,
+    ghostTargetWpm, setGhostTargetWpm,
     focusMode, setFocusMode,
     blindMode, setBlindMode,
     mirroredMode, setMirroredMode,

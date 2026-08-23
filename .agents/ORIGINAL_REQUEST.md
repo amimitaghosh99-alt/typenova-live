@@ -1,26 +1,40 @@
 # Original User Request
 
-## 2026-08-12T20:21:01Z
+## Initial Request — 2026-08-21T10:25:58Z
 
-Conduct a comprehensive bug-finding and performance optimization mission across the TypeNova React codebase. The user reports that the whole app is currently stuttering severely and running at 5-10 FPS. Identify and eliminate all sources of performance degradation (e.g. infinite render loops, WebGL context leaks, unthrottled layout recalculations, or heavy CSS filters/animations).
+# Teamwork Project Prompt — Draft
+
+> Status: Step 9 — Ready for launch — awaiting user approval.
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: A small focused team (one self-contained refactor)
+
+Complete Phase 3 of the "Cosmic Liquid Glass UI" transformation by restructuring the main layout into a 70/30 split and integrating the newly built `CosmicNavBar` and `CosmicLiquidShader` components.
 
 Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
 Integrity mode: development
 
 ## Requirements
 
-### R1. Root Cause Identification & Performance Sweep
-Analyze the entire component tree (`App.tsx`, `TypingArea.tsx`, `AIChatBot.tsx`, `SplashCursor.tsx`, `LaserFlow.tsx`, etc.) to find what is causing the massive 5-10 FPS frame drop across the app. Look for rapid state updates, missing memoization, unthrottled resize/scroll/mousemove events, or background WebGL loops.
+### R1. Integrate New Components in App.tsx
+In `src/App.tsx`, replace the `<StarfieldBackground>` component with the new `<CosmicLiquidShader theme={theme} />`. Remove the existing bulky `<header>` section (logo, academy button, profile capsule, action tray) and replace it with the new `<CosmicNavBar>` component, wiring up all the required props (theme, cloud/rpg state, and onOpen modal callbacks).
 
-### R2. Zombie Processes & Resource Leaks
-Identify any hidden timers (`setInterval`, `requestAnimationFrame`), event listeners (`mousemove`, `resize`, `keydown`), or active WebGL contexts that continue running or leak memory.
+### R2. Restructure Main Layout (70/30 Split)
+In `src/App.tsx`, reorganize the main content area (below the nav bar) into a two-column layout on desktop (`md:flex-row`). 
+- **Left column (70%)**: Must contain the config filters, modifier tab, AnimatedHeight typing canvas, and the floating 'PRESS SPACE' pill.
+- **Right column (30%)**: Must contain the leaderboard slab (which displays ALL/TODAY/FRIENDS tabs).
+- On mobile/tablet (`<1024px`), these columns should stack vertically.
+- Ensure the existing modal overlays (Settings, Stats, Race, Replay, etc.) remain intact and functional above this new layout.
 
-### R3. Maintain Visual Quality & Stability
-Fix the lag while targeting a rock-solid **120+ FPS** performance during typing gameplay, without capping FPS artificially.
+### R3. Apply Display Typography
+In `src/components/TypingArea.tsx`, apply the `.font-display` (Space Grotesk) utility class to HUD labels (e.g., live WPM, ACC counters, ghost race text) to distinguish them from the monospace target text.
 
 ## Acceptance Criteria
 
-### Performance & Verification
-- [ ] The app runs at a smooth, stable **120+ FPS** during normal typing, menu navigation, and results screens.
-- [ ] Profiling shows zero infinite render loops or uncontrolled state churn on key presses.
-- [ ] Unmounting components cleanly stops all underlying WebGL/rAF loops and event listeners.
+### Compilation & Type Safety
+- [ ] Running `npx tsc --noEmit` produces zero TypeScript errors across the project.
+- [ ] Running `npm run build` succeeds without failure.
+
+### Visual Layout Verification
+- [ ] `CosmicNavBar` renders at the top of the screen with working callbacks to open existing modals.
+- [ ] The background successfully renders `CosmicLiquidShader` instead of the legacy `StarfieldBackground`.
+- [ ] The main arena properly displays side-by-side (70/30) on large viewports.

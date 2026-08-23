@@ -25,7 +25,7 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
 
 export const AccountMenu = memo(
   ({
-    theme, loggedIn, displayName, avatarUrl, status, elo, onSignIn: _onSignIn, onSignOut,
+    theme, loggedIn, displayName, avatarUrl, status, elo, onSignOut,
   }: AccountMenuProps) => {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);

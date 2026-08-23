@@ -25,11 +25,14 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
   const [sentChallengeTo, setSentChallengeTo] = useState<string | null>(null);
   const channelRef = useRef<ReturnType<SupabaseClient['channel']> | null>(null);
   const expireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tempTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const onAcceptedRef = useRef(onAccepted);
   useEffect(() => { onAcceptedRef.current = onAccepted; }, [onAccepted]);
   useEffect(() => {
     return () => {
       if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
+      tempTimersRef.current.forEach(t => clearTimeout(t));
+      tempTimersRef.current.clear();
     };
   }, []);
 
@@ -105,8 +108,16 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
         language: config?.language,
       },
     });
+    const scheduleUnsubscribe = (ch: any) => {
+      const t = setTimeout(() => {
+        ch.unsubscribe();
+        tempTimersRef.current.delete(t);
+      }, 1000);
+      tempTimersRef.current.add(t);
+    };
+
     // Unsubscribe sender's temp channel after a delay
-    setTimeout(() => targetChannel.unsubscribe(), 1000);
+    scheduleUnsubscribe(targetChannel);
     setSentChallengeTo(friendUsername);
   }, [supabase, username]);
 
@@ -120,7 +131,11 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
       event: 'challenge_accepted',
       payload: { roomCode: pendingChallenge.roomCode, by: username },
     });
-    setTimeout(() => targetChannel.unsubscribe(), 1000);
+    const t = setTimeout(() => {
+      targetChannel.unsubscribe();
+      tempTimersRef.current.delete(t);
+    }, 1000);
+    tempTimersRef.current.add(t);
     if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
     const roomCode = pendingChallenge.roomCode;
     setPendingChallenge(null);
@@ -136,7 +151,11 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
       event: 'challenge_rejected',
       payload: { by: username },
     });
-    setTimeout(() => targetChannel.unsubscribe(), 1000);
+    const t = setTimeout(() => {
+      targetChannel.unsubscribe();
+      tempTimersRef.current.delete(t);
+    }, 1000);
+    tempTimersRef.current.add(t);
     if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
     setPendingChallenge(null);
   }, [supabase, pendingChallenge, username]);

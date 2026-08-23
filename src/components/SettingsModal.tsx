@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { X, Settings, Skull, Ghost, Brain, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Settings, Skull, Ghost, Brain, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, Sparkles, Sun, Sliders, UploadCloud, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { THEMES, THEME_KEYS, SOUND_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
 import { toast } from 'sonner';
 import { AI_KEYS, GROQ_LIMITS, PROVIDER_PRESETS, limitsForModel } from '@/lib/aiClient';
 import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
-import { BgAnimateButton } from '@/components/ui/bg-animate-button';
+import { useShaderConfig, SHADER_MODES, type ShaderSpeed } from '@/hooks/useShaderConfig';
+import { CURATED_WALLPAPERS, type CuratedWallpaper } from '@/hooks/useWallpaperTheme';
+import { ACCENT_SWATCHES } from '@/lib/colorExtractor';
 
 interface SettingsModalProps {
   theme: Theme;
@@ -36,9 +38,20 @@ interface SettingsModalProps {
   selectSoundProfile: (key: string) => void;
   themeFont: string;
   setThemeFont: (font: string) => void;
+  wallpaperUrl: string | null;
+  wallpaperTheme: Theme | null;
+  brightness?: number;
+  setBrightness?: (val: number) => void;
+  blur?: number;
+  setBlur?: (val: number) => void;
+  customAccent?: string;
+  setCustomAccent?: (accent: string) => void;
+  selectCuratedWallpaper?: (preset: CuratedWallpaper) => void;
+  handleFileUpload: (file: File) => void;
+  clearWallpaper: () => void;
 }
 
-export interface ToggleSwitchProps {
+interface ToggleSwitchProps {
   label: string;
   description: string;
   checked: boolean;
@@ -48,23 +61,48 @@ export interface ToggleSwitchProps {
   theme: Theme;
 }
 
-export const ToggleSwitch = ({ label, description, checked, onChange, icon: Icon, danger = false, theme }: ToggleSwitchProps) => (
+const ToggleSwitch = ({ label, description, checked, onChange, icon: Icon, danger = false, theme }: ToggleSwitchProps) => (
   <div
     onClick={() => onChange(!checked)}
-    className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${checked
-        ? danger ? 'bg-red-500/10 border-red-500/30 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]' : `bg-white/10 ${theme.borderHalf} shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]`
-        : 'bg-zinc-900/50 border-zinc-800/50 hover:bg-zinc-800/80 hover:border-zinc-700'
-      }`}
+    style={
+      checked && !danger
+        ? {
+            borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+            backgroundColor: `rgba(${theme.glowPrimary}, 0.08)`,
+            boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.15)`,
+          }
+        : undefined
+    }
+    className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
+      checked
+        ? danger
+          ? 'bg-red-500/10 border-red-500/30 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]'
+          : ''
+        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15'
+    }`}
   >
-    <div className="flex items-center gap-4">
-      <div className={`p-2.5 rounded-xl ${checked
-          ? danger ? 'bg-red-500/20 text-red-400' : 'bg-white/10 text-white'
-          : 'bg-zinc-800 text-zinc-400'
-        }`}>
-        <Icon size={20} />
+    <div className="flex items-center gap-3.5">
+      <div
+        style={
+          checked && !danger
+            ? {
+                backgroundColor: `rgba(${theme.glowPrimary}, 0.2)`,
+                color: `rgb(${theme.glowPrimary})`,
+              }
+            : undefined
+        }
+        className={`p-2.5 rounded-xl transition-all ${
+          checked
+            ? danger
+              ? 'bg-red-500/20 text-red-400'
+              : ''
+            : 'bg-white/5 text-zinc-400'
+        }`}
+      >
+        <Icon size={18} />
       </div>
       <div className="flex flex-col">
-        <span className={`font-black uppercase tracking-widest text-sm ${checked ? (danger ? 'text-red-400' : 'text-white') : 'text-zinc-400'}`}>
+        <span className={`font-bold tracking-wide text-sm ${checked ? (danger ? 'text-red-400' : 'text-white') : 'text-zinc-400'}`}>
           {label}
         </span>
         <span className="text-[11px] font-medium text-zinc-500 mt-0.5 max-w-[250px] leading-relaxed">
@@ -74,13 +112,54 @@ export const ToggleSwitch = ({ label, description, checked, onChange, icon: Icon
     </div>
 
     {/* Switch Track */}
-    <div className={`relative w-12 h-6 rounded-full transition-colors duration-300 ${checked ? (danger ? 'bg-red-500/50' : 'bg-white/30') : 'bg-zinc-800'
-      }`}>
-      <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300 ${checked ? 'translate-x-6 shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'translate-x-0'
-        }`} />
+    <div
+      style={
+        checked && !danger
+          ? {
+              backgroundColor: `rgb(${theme.glowPrimary})`,
+              boxShadow: `0 0 10px rgba(${theme.glowPrimary}, 0.5)`,
+            }
+          : undefined
+      }
+      className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
+        checked ? (danger ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : '') : 'bg-white/10'
+      }`}
+    >
+      <div
+        className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300 ${
+          checked ? 'translate-x-5 shadow-sm' : 'translate-x-0 opacity-70'
+        }`}
+      />
     </div>
   </div>
 );
+
+const TAB_HEADERS: Record<string, { title: string; desc: string }> = {
+  visuals: { title: 'Appearance & Audio', desc: 'Customize your core color theme, typography font, and keystroke audio' },
+  shaders: { title: 'Background Shader Engine', desc: 'Choose real-time WebGL visualizers, animation flow speeds, and mouse physics' },
+  gameplay: { title: 'Gameplay Modifiers', desc: 'Configure challenge modifiers, ghost pacers, and difficulty restrictions' },
+  system: { title: 'System Safeguards', desc: 'Typing engine behavior and input safeguards' },
+  ai: { title: 'Smart Engine', desc: 'Universal Bring-Your-Own-Key configuration and AI provider settings' },
+  usage: { title: 'Local AI Stats & Quotas', desc: 'Monitor your real-time token rate limits and request counts' },
+  report: { title: 'Report an Issue', desc: 'Send diagnostics, bug reports, and UX feedback' },
+};
+
+interface TabItem {
+  id: 'visuals' | 'shaders' | 'gameplay' | 'system' | 'ai' | 'usage' | 'report';
+  label: string;
+  icon: React.ElementType;
+  danger?: boolean;
+}
+
+const TABS: TabItem[] = [
+  { id: 'visuals', label: 'Appearance', icon: Palette },
+  { id: 'shaders', label: 'Shaders & FX', icon: Sparkles },
+  { id: 'gameplay', label: 'Gameplay', icon: Skull },
+  { id: 'system', label: 'System', icon: LayoutGrid },
+  { id: 'ai', label: 'Smart Engine', icon: Brain },
+  { id: 'usage', label: 'AI Stats', icon: BarChart },
+  { id: 'report', label: 'Report Issue', icon: Bug, danger: true },
+];
 
 export const SettingsModal = React.memo(function SettingsModal({
   theme,
@@ -92,11 +171,20 @@ export const SettingsModal = React.memo(function SettingsModal({
   fogMode, setFogMode,
   stickyKeysMode, setStickyKeysMode,
   overclockedMode, setOverclockedMode,
+
   themeIndex, selectTheme,
   soundProfile, selectSoundProfile,
-  themeFont, setThemeFont
+  themeFont, setThemeFont,
+  wallpaperUrl, wallpaperTheme,
+  brightness = 0.7, setBrightness,
+  blur = 0, setBlur,
+  customAccent = 'auto', setCustomAccent,
+  selectCuratedWallpaper,
+  handleFileUpload, clearWallpaper,
 }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'gameplay' | 'visuals' | 'system' | 'ai' | 'usage' | 'report'>('visuals');
+  const [activeTab, setActiveTab] = useState<'gameplay' | 'visuals' | 'shaders' | 'system' | 'ai' | 'usage' | 'report'>('visuals');
+  const [isDragging, setIsDragging] = useState(false);
+  const wallpaperInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     const handler = (e: any) => {
@@ -107,6 +195,8 @@ export const SettingsModal = React.memo(function SettingsModal({
     window.addEventListener('open_settings_tab', handler);
     return () => window.removeEventListener('open_settings_tab', handler);
   }, []);
+
+  const shaderConfig = useShaderConfig();
 
   // AI Settings State
   const engineConfig = useSmartEngineConfig();
@@ -143,124 +233,126 @@ export const SettingsModal = React.memo(function SettingsModal({
         setRollingUsage({ tokens: 0, requests: 0 });
       }
     };
-
-    const handleStorage = () => {
-      setUsageTokens(parseInt(localStorage.getItem(AI_KEYS.usageTokens) || '0', 10));
-      setUsageRequests(parseInt(localStorage.getItem(AI_KEYS.usageRequests) || '0', 10));
-      setDailyTokens(parseInt(localStorage.getItem(AI_KEYS.dailyTokens) || '0', 10));
-      setDailyRequests(parseInt(localStorage.getItem(AI_KEYS.dailyRequests) || '0', 10));
-      updateRolling();
-    };
-
-    // Update immediately, on storage events, and decay every second
     updateRolling();
-    window.addEventListener('storage', handleStorage);
-    const interval = setInterval(updateRolling, 1000);
-
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      clearInterval(interval);
-    };
+    const interval = setInterval(updateRolling, 5000);
+    return () => clearInterval(interval);
   }, []);
-
-
 
   const resetUsageStats = () => {
     localStorage.setItem(AI_KEYS.usageTokens, '0');
     localStorage.setItem(AI_KEYS.usageRequests, '0');
+    localStorage.setItem(AI_KEYS.dailyTokens, '0');
+    localStorage.setItem(AI_KEYS.dailyRequests, '0');
+    localStorage.setItem(AI_KEYS.rollingHistory, '[]');
     setUsageTokens(0);
     setUsageRequests(0);
+    setDailyTokens(0);
+    setDailyRequests(0);
+    setRollingUsage({ tokens: 0, requests: 0 });
     toast.success('Local usage stats reset.');
   };
-
 
   // Bug Report State
   const [reportMsg, setReportMsg] = useState('');
   const [reportFile, setReportFile] = useState<File | null>(null);
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const reportTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (reportTimeoutRef.current) clearTimeout(reportTimeoutRef.current);
+    };
+  }, []);
+
+  const currentHeader = TAB_HEADERS[activeTab] || { title: 'Settings', desc: '' };
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 p-4 sm:p-6 backdrop-blur-xl animate-in fade-in duration-300" onClick={onClose}>
 
       {/* Modal Container */}
       <div
-        className="bg-zinc-900/95 w-full max-w-4xl h-[75vh] rounded-3xl border border-white/5 shadow-2xl flex overflow-hidden lucid-scale"
+        className="glass-panel !bg-zinc-950/90 w-full max-w-4xl h-[80vh] max-h-[720px] rounded-3xl border border-white/10 shadow-2xl flex flex-col md:flex-row overflow-hidden lucid-scale"
         onClick={e => e.stopPropagation()}
       >
 
         {/* Left Sidebar */}
-        <div className="w-64 border-r border-white/5 bg-black/20 flex flex-col p-6 relative">
-          <div className="flex items-center gap-3 mb-10">
-            <Settings size={24} className={theme.text} />
-            <h2 className="text-xl font-black tracking-widest uppercase text-white">Settings</h2>
+        <div className="w-full md:w-60 border-b md:border-b-0 md:border-r border-white/5 bg-black/40 flex flex-col p-5 relative shrink-0">
+          <div className="flex items-center justify-between md:justify-start gap-2.5 mb-4 md:mb-8">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center border"
+              style={{
+                borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
+                color: `rgb(${theme.glowPrimary})`,
+              }}
+            >
+              <Settings size={16} />
+            </div>
+            <h2 className="text-base font-bold tracking-wide text-white">Settings</h2>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => setActiveTab('gameplay')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all ${activeTab === 'gameplay' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-                }`}
-            >
-              <Skull size={16} /> Gameplay
-            </button>
-            <button
-              onClick={() => setActiveTab('visuals')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all ${activeTab === 'visuals' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-                }`}
-            >
-              <Palette size={16} /> Audio & Visuals
-            </button>
-            <button
-              onClick={() => setActiveTab('system')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all ${activeTab === 'system' ? `bg-white/10 ${theme.text}` : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-                }`}
-            >
-              <LayoutGrid size={16} /> System
-            </button>
-            <button
-              onClick={() => setActiveTab('ai')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all ${activeTab === 'ai' ? `bg-indigo-500/10 text-indigo-400 border border-indigo-500/20` : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-                }`}
-            >
-              <Brain size={16} /> Smart Engine
-            </button>
-            <button
-              onClick={() => setActiveTab('usage')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all ${activeTab === 'usage' ? `bg-teal-500/10 text-teal-400 border border-teal-500/20` : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
-                }`}
-            >
-              <BarChart size={16} /> Local AI Stats
-            </button>
-            <div className="my-2 border-t border-white/5" />
-            <button
-              onClick={() => setActiveTab('report')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black uppercase tracking-widest text-[11px] transition-all ${activeTab === 'report' ? `bg-red-500/10 text-red-400 border border-red-500/20` : 'text-red-500/50 hover:text-red-400 hover:bg-red-500/5 border border-transparent'
-                }`}
-            >
-              <Bug size={16} /> Report Issue
-            </button>
+          <div className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  style={
+                    isActive && !tab.danger
+                      ? {
+                          borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                          backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                          color: `rgb(${theme.glowPrimary})`,
+                          boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.15)`,
+                        }
+                      : undefined
+                  }
+                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl font-bold text-xs tracking-wide transition-all shrink-0 cursor-pointer ${
+                    isActive
+                      ? tab.danger
+                        ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                        : 'border'
+                      : tab.danger
+                      ? 'text-red-400/60 hover:text-red-400 hover:bg-red-500/10 border border-transparent'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                  }`}
+                >
+                  <Icon size={15} className="shrink-0" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Right Content */}
-        <div className="flex-1 flex flex-col relative bg-transparent">
+        <div className="flex-1 flex flex-col relative bg-transparent min-w-0">
 
-          <div className="absolute top-6 right-6 z-10">
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-all">
-              <X size={20} />
+          <div className="absolute top-5 right-5 z-10">
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-all cursor-pointer border border-white/5"
+            >
+              <X size={18} />
             </button>
           </div>
 
-          <div className="px-10 py-8 border-b border-white/5">
-            <h3 className="text-2xl font-black tracking-widest uppercase text-white">
-              {activeTab} Parameters
+          {/* Header */}
+          <div className="px-6 sm:px-8 py-5 border-b border-white/5 pr-16">
+            <h3 className="text-lg font-bold tracking-wide text-white">
+              {currentHeader.title}
             </h3>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {currentHeader.desc}
+            </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 custom-scrollbar space-y-7">
 
             {activeTab === 'gameplay' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <ToggleSwitch theme={theme}
                   label="Sudden Death"
                   description="One mistake immediately ends the test."
@@ -309,98 +401,483 @@ export const SettingsModal = React.memo(function SettingsModal({
             )}
 
             {activeTab === 'visuals' && (
-              <>
-                <div className="mt-8 mb-4">
-                  <h4 className="text-sm font-black text-white tracking-widest uppercase mb-1 flex items-center gap-2"><Palette size={16} className={theme.text} /> Theme</h4>
-                  <p className="text-xs text-zinc-500 mb-4">Select the application color scheme.</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <div className="space-y-6">
+                {/* Theme Section */}
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-400 tracking-wider uppercase mb-3 flex items-center gap-2">
+                    <Palette size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Color Theme
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     {THEME_KEYS.map((key, idx) => {
                       const t = THEMES[key];
                       const isActive = idx === themeIndex;
-                      if (key === 'starfield') {
-                        return (
-                          <BgAnimateButton
-                            key={key}
-                            active={isActive}
-                            onClick={() => selectTheme(idx)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm">✨</span>
-                              <span className="uppercase tracking-widest">{t.name}</span>
-                            </div>
-                            {isActive ? <Check size={14} className="text-cyan-300" /> : <Sparkles size={12} className="text-cyan-400 animate-pulse" />}
-                          </BgAnimateButton>
-                        );
-                      }
                       return (
                         <button
                           key={key}
                           onClick={() => selectTheme(idx)}
-                          className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${t.vividText} border border-white/20` : 'text-zinc-400 bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800/80 hover:text-zinc-200'}`}
+                          style={
+                            isActive
+                              ? {
+                                  borderColor: `rgba(${t.glowPrimary}, 0.55)`,
+                                  backgroundColor: `rgba(${t.glowPrimary}, 0.12)`,
+                                  boxShadow: `0 0 15px rgba(${t.glowPrimary}, 0.25)`,
+                                }
+                              : undefined
+                          }
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                            isActive
+                              ? 'border text-white'
+                              : 'text-zinc-400 bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] hover:border-white/15 hover:text-white'
+                          }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${t.solid}`} />
-                            {t.name}
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
+                              style={{
+                                backgroundColor: `rgb(${t.glowPrimary})`,
+                                boxShadow: `0 0 8px rgba(${t.glowPrimary}, 0.6)`,
+                              }}
+                            />
+                            <span className="truncate capitalize">{t.name}</span>
                           </div>
-                          {isActive && <Check size={14} className={t.vividText} />}
+                          {isActive && (
+                            <Check
+                              size={13}
+                              className="shrink-0"
+                              style={{ color: `rgb(${t.glowPrimary})` }}
+                            />
+                          )}
                         </button>
                       );
                     })}
+                    
+                    {/* Custom Wallpaper Special Button */}
+                    <button
+                      onClick={() => {
+                        selectTheme(-1);
+                        if (!wallpaperUrl && wallpaperInputRef.current) {
+                          wallpaperInputRef.current.click();
+                        }
+                      }}
+                      style={
+                        themeIndex === -1
+                          ? {
+                              borderColor: `rgba(${wallpaperTheme?.glowPrimary || '56,189,248'}, 0.55)`,
+                              backgroundColor: `rgba(${wallpaperTheme?.glowPrimary || '56,189,248'}, 0.12)`,
+                              boxShadow: `0 0 15px rgba(${wallpaperTheme?.glowPrimary || '56,189,248'}, 0.25)`,
+                            }
+                          : undefined
+                      }
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                        themeIndex === -1
+                          ? 'border text-white'
+                          : 'text-zinc-400 bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] hover:border-white/15 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <ImagePlus size={14} className={themeIndex === -1 ? 'text-cyan-300' : 'text-zinc-400'} />
+                        <span className="truncate">Custom</span>
+                      </div>
+                      {themeIndex === -1 && (
+                        <Check
+                          size={13}
+                          className="shrink-0"
+                          style={{ color: `rgb(${wallpaperTheme?.glowPrimary || '56,189,248'})` }}
+                        />
+                      )}
+                    </button>
                   </div>
+
+                  {/* Hidden Global File Input */}
+                  <input
+                    ref={wallpaperInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleFileUpload(file);
+                        selectTheme(-1);
+                      }
+                    }}
+                  />
+                  
+                  {/* ═══ Custom Wallpaper Command Deck ═══ */}
+                  {themeIndex === -1 && (
+                    <div className="mt-5 p-5 rounded-2xl bg-zinc-950/80 border border-white/10 flex flex-col gap-5 animate-in fade-in slide-in-from-top-2 shadow-2xl backdrop-blur-xl">
+                      
+                      {/* Active Wallpaper Preview or Dropzone */}
+                      {wallpaperUrl ? (
+                        <div className="w-full relative h-40 rounded-2xl overflow-hidden border border-white/15 shadow-xl group">
+                          <div
+                            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                            style={{ backgroundImage: `url(${wallpaperUrl})` }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end justify-between p-4 backdrop-blur-[2px]">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                              <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                                Active Custom Wallpaper
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => wallpaperInputRef.current?.click()}
+                                className="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 border border-white/20 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-md"
+                              >
+                                <UploadCloud size={13} /> Change Image
+                              </button>
+                              <button
+                                onClick={() => { clearWallpaper(); selectTheme(0); }}
+                                className="p-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-xl transition-all cursor-pointer active:scale-95"
+                                title="Remove Wallpaper"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                              handleFileUpload(file);
+                              selectTheme(-1);
+                            }
+                          }}
+                          onClick={() => wallpaperInputRef.current?.click()}
+                          className={`w-full h-36 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all gap-2.5 p-4 ${
+                            isDragging
+                              ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300 scale-[1.01]'
+                              : 'border-white/20 hover:border-white/40 hover:bg-white/[0.03] text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-cyan-400 shadow-inner">
+                            <UploadCloud size={20} />
+                          </div>
+                          <div className="flex flex-col items-center text-center">
+                            <span className="text-xs font-bold tracking-wider uppercase text-white">
+                              Drop Your Wallpaper Image Here
+                            </span>
+                            <span className="text-[10px] text-zinc-400 mt-0.5">
+                              or click to browse from device (4K & 8K supported via IndexedDB)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Curated High-Res Wallpaper Presets */}
+                      <div className="flex flex-col gap-2.5">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+                          <Sparkles size={11} className="text-cyan-400" /> Curated High-Res Presets
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          {CURATED_WALLPAPERS.map((preset) => {
+                            const isCuratedActive = wallpaperUrl === preset.url;
+                            return (
+                              <button
+                                key={preset.id}
+                                onClick={() => {
+                                  selectCuratedWallpaper?.(preset);
+                                  selectTheme(-1);
+                                }}
+                                className={`relative h-20 rounded-xl overflow-hidden border text-left transition-all group cursor-pointer ${
+                                  isCuratedActive
+                                    ? 'border-cyan-400 ring-2 ring-cyan-400/40 shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-[1.02]'
+                                    : 'border-white/10 hover:border-white/30 opacity-75 hover:opacity-100'
+                                }`}
+                              >
+                                <div
+                                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                                  style={{ backgroundImage: `url(${preset.thumbnail})` }}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                                <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-white truncate drop-shadow-md">
+                                    {preset.name}
+                                  </span>
+                                  {isCuratedActive && (
+                                    <Check size={12} className="text-cyan-400 shrink-0" />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Visual Sliders: Brightness & Blur */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-white/5">
+                        {/* Brightness Slider */}
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                            <span className="flex items-center gap-1.5 text-zinc-400 uppercase text-[10px] tracking-wider">
+                              <Sun size={12} className="text-amber-400" /> Brightness
+                            </span>
+                            <span className="font-mono text-cyan-300 text-[11px]">
+                              {Math.round(brightness * 100)}%
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.2"
+                            max="1.0"
+                            step="0.05"
+                            value={brightness}
+                            onChange={(e) => setBrightness?.(parseFloat(e.target.value))}
+                            className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                          />
+                        </div>
+
+                        {/* Blur Slider */}
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                            <span className="flex items-center gap-1.5 text-zinc-400 uppercase text-[10px] tracking-wider">
+                              <Sliders size={12} className="text-purple-400" /> Ambient Blur
+                            </span>
+                            <span className="font-mono text-purple-300 text-[11px]">
+                              {blur}px
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="16"
+                            step="1"
+                            value={blur}
+                            onChange={(e) => setBlur?.(parseInt(e.target.value, 10))}
+                            className="w-full accent-purple-400 cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Accent Palette Swatches */}
+                      <div className="flex flex-col gap-2 pt-1 border-t border-white/5">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+                          <Palette size={11} className="text-cyan-400" /> UI Neon Accent
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {ACCENT_SWATCHES.map((swatch) => {
+                            const isSelected = customAccent === swatch.id;
+                            return (
+                              <button
+                                key={swatch.id}
+                                onClick={() => setCustomAccent?.(swatch.id)}
+                                className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[11px] font-bold tracking-wide transition-all cursor-pointer border ${
+                                  isSelected
+                                    ? 'bg-white/10 border-white/40 text-white shadow-md'
+                                    : 'bg-white/[0.03] border-white/5 text-zinc-400 hover:text-white hover:bg-white/[0.06]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
+                                    style={{
+                                      backgroundColor: swatch.color,
+                                      boxShadow: isSelected ? `0 0 8px ${swatch.border}` : 'none',
+                                    }}
+                                  />
+                                  <span className="truncate">{swatch.label}</span>
+                                </div>
+                                {isSelected && (
+                                  <Check size={11} style={{ color: swatch.border }} />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-8 mb-4">
-                  <h4 className="text-sm font-black text-white tracking-widest uppercase mb-1 flex items-center gap-2"><Settings size={16} className={theme.text} /> Typography</h4>
-                  <p className="text-xs text-zinc-500 mb-4">Select the application typeface.</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {/* Typography Section */}
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-400 tracking-wider uppercase mb-3 flex items-center gap-2">
+                    <Settings size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Typography Font
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     {[
-                      'JetBrains Mono', 'Fira Code', 'Roboto Mono', 'Space Mono', 'IBM Plex Mono', 'Courier New',
-                      'Victor Mono', 'Share Tech Mono', 'Inconsolata', 'Pacifico'
+                      'JetBrains Mono', 'Fira Code', 'Roboto Mono', 'Space Mono', 'IBM Plex Mono',
+                      'Courier New', 'Victor Mono', 'Share Tech Mono', 'Inconsolata', 'Pacifico'
                     ].map((fontName) => {
                       const isActive = fontName === themeFont;
                       return (
                         <button
                           key={fontName}
                           onClick={() => setThemeFont(fontName)}
-                          className={`flex items-center justify-between p-3 rounded-xl border transition-all ${isActive
-                              ? `bg-white/10 ${theme.borderHalf} shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]`
-                              : 'bg-zinc-900/50 border-zinc-800/50 hover:bg-zinc-800/80 hover:border-zinc-700'
-                            }`}
-                          style={{ fontFamily: `"${fontName}", monospace` }}
+                          style={{
+                            fontFamily: `"${fontName}", monospace`,
+                            ...(isActive
+                              ? {
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                                  color: `rgb(${theme.glowPrimary})`,
+                                  boxShadow: `0 0 12px rgba(${theme.glowPrimary}, 0.2)`,
+                                }
+                              : {}),
+                          }}
+                          className={`px-3 py-2 rounded-xl border text-xs font-medium tracking-wide transition-all cursor-pointer text-center truncate ${
+                            isActive
+                              ? ''
+                              : 'bg-white/[0.03] border-white/5 text-zinc-400 hover:bg-white/[0.07] hover:border-white/15 hover:text-zinc-200'
+                          }`}
+                          title={fontName}
                         >
-                          <span className={`text-[11px] font-black tracking-wider ${isActive ? theme.text : 'text-zinc-400'}`}>
-                            {fontName}
-                          </span>
-                          {isActive && <Check size={14} className={theme.text} />}
+                          {fontName}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="mt-8 mb-4">
-                  <h4 className="text-sm font-black text-white tracking-widest uppercase mb-1 flex items-center gap-2"><Volume2 size={16} className={theme.text} /> Sound Profile</h4>
-                  <p className="text-xs text-zinc-500 mb-4">Select the keystroke sound effect.</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {/* Sound Profile Section */}
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-400 tracking-wider uppercase mb-3 flex items-center gap-2">
+                    <Volume2 size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Keystroke Sound
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                     {SOUND_KEYS.map((key) => {
                       const isActive = key === soundProfile;
                       return (
                         <button
                           key={key}
                           onClick={() => selectSoundProfile(key)}
-                          className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${isActive ? `bg-white/10 ${theme.vividText} border border-white/20` : 'text-zinc-400 bg-zinc-900/50 border border-zinc-800/50 hover:bg-zinc-800/80 hover:text-zinc-200'}`}
+                          style={
+                            isActive
+                              ? {
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                                  color: `rgb(${theme.glowPrimary})`,
+                                  boxShadow: `0 0 12px rgba(${theme.glowPrimary}, 0.2)`,
+                                }
+                              : undefined
+                          }
+                          className={`px-3 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all cursor-pointer text-center ${
+                            isActive
+                              ? ''
+                              : 'bg-white/[0.03] border-white/5 text-zinc-400 hover:bg-white/[0.07] hover:border-white/15 hover:text-zinc-200'
+                          }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full shadow-inner border border-white/10 ${isActive ? theme.solid : 'bg-zinc-600'}`} />
-                            {key}
-                          </div>
-                          {isActive && <Check size={14} className={theme.vividText} />}
+                          {key}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              </>
+              </div>
+            )}
+
+            {activeTab === 'shaders' && (
+              <div className="space-y-6">
+                {/* Shader Preset Selector */}
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-400 tracking-wider uppercase mb-3 flex items-center gap-2">
+                    <Sparkles size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Shader Visualizer Mode
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {SHADER_MODES.map((item) => {
+                      const isActive = shaderConfig.mode === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => shaderConfig.setMode(item.id)}
+                          style={
+                            isActive
+                              ? {
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.55)`,
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                                  boxShadow: `0 0 18px rgba(${theme.glowPrimary}, 0.25)`,
+                                }
+                              : undefined
+                          }
+                          className={`flex flex-col text-left p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                            isActive
+                              ? 'text-white'
+                              : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15 text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{item.icon}</span>
+                              <span className="text-xs font-bold tracking-wide text-white">{item.name}</span>
+                            </div>
+                            {isActive && (
+                              <Check
+                                size={14}
+                                className="shrink-0"
+                                style={{ color: `rgb(${theme.glowPrimary})` }}
+                              />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-500 leading-relaxed line-clamp-2">
+                            {item.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Shader Speed & Interactivity Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2">
+                  {/* Speed Selector */}
+                  <div className="flex flex-col p-4 rounded-2xl border border-white/5 bg-white/[0.03] justify-between gap-3">
+                    <div>
+                      <span className="font-bold tracking-wide text-sm text-white block">
+                        Animation Flow Speed
+                      </span>
+                      <span className="text-[11px] font-medium text-zinc-500 mt-0.5 block leading-relaxed">
+                        Control how fast the background ripples and drifts.
+                      </span>
+                    </div>
+                    <div className="flex gap-1.5 p-1 rounded-xl bg-black/40 border border-white/5">
+                      {(['slow', 'normal', 'fast'] as ShaderSpeed[]).map((spd) => {
+                        const isSpdActive = shaderConfig.speed === spd;
+                        return (
+                          <button
+                            key={spd}
+                            onClick={() => shaderConfig.setSpeed(spd)}
+                            style={
+                              isSpdActive
+                                ? {
+                                    borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                                    backgroundColor: `rgba(${theme.glowPrimary}, 0.18)`,
+                                    color: `rgb(${theme.glowPrimary})`,
+                                  }
+                                : undefined
+                            }
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                              isSpdActive
+                                ? 'border text-white shadow-sm'
+                                : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                          >
+                            {spd}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Interactive Toggle */}
+                  <ToggleSwitch
+                    theme={theme}
+                    label="Mouse Fluid Ripple"
+                    description="Distort and refract liquid light as you move your cursor."
+                    icon={Sparkles}
+                    checked={shaderConfig.interactive}
+                    onChange={shaderConfig.setInteractive}
+                  />
+                </div>
+              </div>
             )}
 
             {activeTab === 'system' && (
@@ -869,7 +1346,8 @@ export const SettingsModal = React.memo(function SettingsModal({
                       setReportStatus('success');
                       setReportMsg('');
                       setReportFile(null);
-                      setTimeout(() => setReportStatus('idle'), 3000);
+                      if (reportTimeoutRef.current) clearTimeout(reportTimeoutRef.current);
+                      reportTimeoutRef.current = setTimeout(() => setReportStatus('idle'), 3000);
                     } catch (e) {
                       console.error("Bug report failed:", e);
                       setReportStatus('error');

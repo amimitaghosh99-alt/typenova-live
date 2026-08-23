@@ -109,7 +109,6 @@ function newId(): string {
 export const AIChatBot = memo(function AIChatBot({
   stats,
   onStartDrill,
-  hideTrigger: _hideTrigger = false,
   theme,
   isOpen,
   onClose,
@@ -135,6 +134,13 @@ export const AIChatBot = memo(function AIChatBot({
     const listRef = useRef<HTMLDivElement>(null);
     const abortRef = useRef<AbortController | null>(null);
     const stickToBottom = useRef(true);
+    const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+      return () => {
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      };
+    }, []);
 
     useEffect(() => {
       const checkKey = () => setKeyConfigured(hasAIKey() || hasNativeAI());
@@ -275,7 +281,8 @@ export const AIChatBot = memo(function AIChatBot({
       try {
         await navigator.clipboard.writeText(msg.content);
         setCopiedId(msg.id);
-        setTimeout(() => setCopiedId((id) => (id === msg.id ? null : id)), 1500);
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = setTimeout(() => setCopiedId((id) => (id === msg.id ? null : id)), 1500);
       } catch {
         toast.error('Could not copy to clipboard');
       }

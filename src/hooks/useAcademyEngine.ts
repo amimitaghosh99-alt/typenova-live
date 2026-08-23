@@ -13,20 +13,19 @@ function getCtx(): AudioContext | null {
   return _ctx;
 }
 
-function beep(freq: number, dur: number, type: OscillatorType = 'sine', gain = 0.2) {
+function beepAt(time: number, freq: number, dur: number, type: OscillatorType = 'sine', gain = 0.2) {
   try {
     const ctx = getCtx();
     if (!ctx) return;
-    const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, now);
-    g.gain.setValueAtTime(gain, now);
-    g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    osc.frequency.setValueAtTime(freq, time);
+    g.gain.setValueAtTime(gain, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
     osc.connect(g).connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + dur);
+    osc.start(time);
+    osc.stop(time + dur);
     osc.onended = () => { osc.disconnect(); g.disconnect(); };
   } catch {
     // Ignore audio context errors
@@ -34,19 +33,27 @@ function beep(freq: number, dur: number, type: OscillatorType = 'sine', gain = 0
 }
 
 function playSuccess() {
-  beep(660, 0.08, 'sine', 0.20);
-  setTimeout(() => beep(880, 0.10, 'sine', 0.15), 50);
+  const ctx = getCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  beepAt(now, 660, 0.08, 'sine', 0.20);
+  beepAt(now + 0.05, 880, 0.10, 'sine', 0.15);
 }
 
 function playError() {
-  beep(140, 0.14, 'sawtooth', 0.25);
+  const ctx = getCtx();
+  if (!ctx) return;
+  beepAt(ctx.currentTime, 140, 0.14, 'sawtooth', 0.25);
 }
 
 function playLessonComplete() {
-  beep(523.25, 0.1, 'triangle', 0.25);
-  setTimeout(() => beep(659.25, 0.1, 'triangle', 0.25), 100);
-  setTimeout(() => beep(783.99, 0.12, 'triangle', 0.25), 200);
-  setTimeout(() => beep(1046.50, 0.3, 'triangle', 0.3), 300);
+  const ctx = getCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  beepAt(now, 523.25, 0.1, 'triangle', 0.25);
+  beepAt(now + 0.10, 659.25, 0.1, 'triangle', 0.25);
+  beepAt(now + 0.20, 783.99, 0.12, 'triangle', 0.25);
+  beepAt(now + 0.30, 1046.50, 0.3, 'triangle', 0.3);
 }
 
 // ── Ignored keys ──────────────────────────────────────────────────
@@ -123,6 +130,13 @@ export function useAcademyEngine(): AcademyEngineState {
   const correctHitsRef = useRef(correctHits);
   const consecutiveMistakesRef = useRef(consecutiveMistakes);
   const drillModeRef = useRef(drillMode);
+  const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+    };
+  }, []);
 
   lessonIdxRef.current = lessonIdx;
   stepIdxRef.current = stepIdx;
@@ -249,7 +263,8 @@ export function useAcademyEngine(): AcademyEngineState {
         if (!isMutedRef.current) playError();
         setMistakes(prev => prev + 1);
         setErrorShake(true);
-        setTimeout(() => setErrorShake(false), 300);
+        if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+        shakeTimeoutRef.current = setTimeout(() => setErrorShake(false), 300);
 
         if (!drillModeRef.current) {
           const newConsecutive = consecutiveMistakesRef.current + 1;

@@ -25,7 +25,7 @@ function orb(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, rgb
   ctx.fillRect(0, 0, W, H);
 }
 
-export async function renderResultCard(data: ShareCardData): Promise<Blob> {
+async function renderResultCard(data: ShareCardData): Promise<Blob> {
   if (typeof document !== 'undefined' && document.fonts) {
     await document.fonts.ready; // make sure JetBrains Mono is usable on canvas
   }

@@ -104,7 +104,7 @@ export const GROQ_LIMITS: Record<string, RateLimits> = {
   'gemma2-9b-it': { rpm: 30, rpd: 14400, tpm: 15000, tpd: 500000 },
 };
 
-export const FALLBACK_LIMITS: RateLimits = { rpm: 30, rpd: 1000, tpm: 6000, tpd: 100000 };
+const FALLBACK_LIMITS: RateLimits = { rpm: 30, rpd: 1000, tpm: 6000, tpd: 100000 };
 
 export function limitsForModel(model: string): RateLimits {
   return GROQ_LIMITS[model] || FALLBACK_LIMITS;
@@ -148,7 +148,7 @@ export function readUsage(): UsageSnapshot {
 
 /** Emitted after every call so open UI (Settings → usage) can refresh in-tab.
  *  A real `storage` event never fires in the tab that wrote the value. */
-export const USAGE_EVENT = 'typenova:usage';
+const USAGE_EVENT = 'typenova:usage';
 
 export type ChatRole = 'system' | 'user' | 'assistant';
 export interface ChatMessage {
@@ -162,7 +162,7 @@ export interface AIConfig {
   model: string;
 }
 
-export function getAIConfig(): AIConfig {
+function getAIConfig(): AIConfig {
   const rawUrl = localStorage.getItem(AI_KEYS.byokUrl) || DEFAULT_BASE_URL;
   const model = localStorage.getItem(AI_KEYS.byokModel) || DEFAULT_MODEL;
 
@@ -184,7 +184,7 @@ export function hasNativeAI(): boolean {
   return !!winAi && !!winAi.languageModel && typeof winAi.languageModel.create === 'function';
 }
 
-export function markModelWorking(model: string): void {
+function markModelWorking(model: string): void {
   if (!model || model.trim() === '') return;
   try {
     let working: string[] = JSON.parse(localStorage.getItem(AI_KEYS.workingModels) || '[]');
@@ -198,7 +198,7 @@ function estimateTokens(chars: number): number {
   return Math.ceil(chars / 4);
 }
 
-export function trackUsage(usage: unknown, fallbackChars: number): void {
+function trackUsage(usage: unknown, fallbackChars: number): void {
   try {
     const reported = (usage as { total_tokens?: number } | undefined)?.total_tokens;
     const tokensUsed = typeof reported === 'number' ? reported : estimateTokens(fallbackChars);

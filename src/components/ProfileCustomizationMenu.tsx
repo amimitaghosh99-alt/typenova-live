@@ -47,9 +47,10 @@ export const ProfileCustomizationMenu = React.memo(function ProfileCustomization
         .from('public_profiles')
         .update({
           avatar_id: selectedAvatar,
-          banner_id: selectedBanner
+          banner_id: selectedBanner,
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
+        .match(user?.id ? { id: user.id } : { username });
       
       if (error) throw error;
       onUpdate(selectedAvatar, selectedBanner);

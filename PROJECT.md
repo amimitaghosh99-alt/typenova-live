@@ -27,10 +27,10 @@
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | M1: Global Contexts & Render Tree Optimization | Memoize `LoaderContext`, `VideoCallContext`, wrap UI components in `React.memo`, stabilize callback props in `App.tsx` | none | PLANNED |
-| 2 | M2: WebGL, Canvas & High-Frequency Visuals | WebGL disposal in `SplashCursor`, 120+ FPS timer precision, pause `LaserFlow` when ChatBot closed, eliminate `GlidingBar` reflows, stabilize `CyberHands` | M1 | PLANNED |
-| 3 | M3: Zombie Processes, Event Listeners & Multiplayer Sync | Fix `VideoCallOverlay` drag listener leak, `useWebRTC` socket listener leak, `useRace` player update thrashing, `useAcademyEngine` timer cleanup | M2 | PLANNED |
-| 4 | M4: Dual-Track E2E Testing & Verification | Build requirement-driven E2E test suite (Tiers 1-4 + Tier 5 adversarial), verify 120+ FPS, clean build & tsc | M3 | PLANNED |
+| 1 | M1: Global Contexts & Render Tree Optimization | Memoize `LoaderContext`, `VideoCallContext`, wrap UI components in `React.memo`, stabilize callback props in `App.tsx` | none | DONE |
+| 2 | M2: WebGL, Canvas & High-Frequency Visuals | WebGL disposal in `SplashCursor`, 120+ FPS timer precision, pause `LaserFlow` when ChatBot closed, eliminate `GlidingBar` reflows, stabilize `CyberHands` | M1 | DONE |
+| 3 | M3: Zombie Processes, Event Listeners & Multiplayer Sync | Fix `VideoCallOverlay` drag listener leak, `useWebRTC` socket listener leak, `useRace` player update thrashing, `useAcademyEngine` timer cleanup | M2 | DONE |
+| 4 | M4: Dual-Track E2E Testing & Verification | Build requirement-driven E2E test suite (Tiers 1-4 + Tier 5 adversarial), verify 120+ FPS, clean build & tsc | M3 | DONE |
 
 ## Interface Contracts
 ### LoaderContext Provider

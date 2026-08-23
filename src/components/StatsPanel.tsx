@@ -13,7 +13,7 @@ interface StatsPanelProps {
   combo: number;
   themeText: string;
   timelinePoints: TimelinePoint[];
-  keystrokeLogLength: number;
+  hasStarted?: boolean;
   isIdle?: boolean;
 }
 
@@ -25,9 +25,10 @@ export const StatsPanel = memo<StatsPanelProps>(
     combo,
     themeText,
     timelinePoints,
-    keystrokeLogLength,
+    hasStarted = false,
     isIdle = false
   }) => {
+    const started = hasStarted;
     
     // Renders the tiny "Pacing" timeline graph inside the card
     const renderGraph = () => {
@@ -60,50 +61,50 @@ export const StatsPanel = memo<StatsPanelProps>(
         
         {/* 1. NET WPM */}
         <div className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`} style={{ '--delay': '0ms' } as React.CSSProperties}>
-          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
+          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase font-display">
             <Activity size={14} className="mr-2" /> Net WPM
           </span>
-          <span className={`text-5xl md:text-6xl font-black leading-none transition-all z-10 ${wpm > 0 ? `${themeText} drop-shadow-[0_0_20px_currentColor]` : 'text-white/20'}`}>
+          <span className={`text-5xl md:text-6xl font-black leading-none transition-all z-10 font-display ${wpm > 0 ? `${themeText} drop-shadow-[0_0_20px_currentColor]` : 'text-white/20'}`}>
             {wpm}
           </span>
         </div>
 
         {/* 2. PACING (Graph) */}
         <div className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex-col items-center justify-end hidden md:flex col-span-1 relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`} style={{ '--delay': '80ms' } as React.CSSProperties}>
-          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
+          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase font-display">
             <Activity size={14} className="mr-2" /> Pacing
           </span>
           <div className="w-full flex-1 flex items-end justify-center">
-            {renderGraph() || <div className="h-12 w-full flex items-center justify-center text-[10px] tracking-widest text-white/30 font-bold drop-shadow-sm z-10 uppercase">Type to Map</div>}
+            {renderGraph() || <div className="h-12 w-full flex items-center justify-center text-[10px] tracking-widest text-white/30 font-bold drop-shadow-sm z-10 uppercase font-display">Type to Map</div>}
           </div>
         </div>
 
         {/* 3. ACCURACY */}
         <div className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`} style={{ '--delay': '160ms' } as React.CSSProperties}>
-          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
+          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase font-display">
             <Target size={14} className="mr-2" /> Accuracy
           </span>
-          <span className={`text-5xl md:text-6xl font-black leading-none drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] z-10 ${keystrokeLogLength > 0 ? 'text-white' : 'text-white/20'}`}>
-            {accuracy}<span className={`text-2xl md:text-3xl ${keystrokeLogLength > 0 ? 'text-zinc-400' : 'text-white/10'}`}>%</span>
+          <span className={`text-5xl md:text-6xl font-black leading-none drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] z-10 font-display ${started ? 'text-white' : 'text-white/20'}`}>
+            {accuracy}<span className={`text-2xl md:text-3xl ${started ? 'text-zinc-400' : 'text-white/10'}`}>%</span>
           </span>
         </div>
 
         {/* 4. CONSISTENCY */}
         <div className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center hidden sm:flex relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`} style={{ '--delay': '240ms' } as React.CSSProperties}>
-          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
+          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase font-display">
             <BarChart2 size={14} className="mr-2" /> Consistency
           </span>
-          <span className={`text-5xl md:text-6xl font-black leading-none transition-all z-10 ${consistency > 80 && keystrokeLogLength > 0 ? `${themeText} drop-shadow-[0_0_20px_currentColor]` : 'text-white/20'}`}>
-            {consistency}<span className={`text-2xl md:text-3xl ${consistency > 80 && keystrokeLogLength > 0 ? 'text-zinc-400' : 'text-white/10'}`}>%</span>
+          <span className={`text-5xl md:text-6xl font-black leading-none transition-all z-10 font-display ${consistency > 80 && started ? `${themeText} drop-shadow-[0_0_20px_currentColor]` : 'text-white/20'}`}>
+            {consistency}<span className={`text-2xl md:text-3xl ${consistency > 80 && started ? 'text-zinc-400' : 'text-white/10'}`}>%</span>
           </span>
         </div>
 
         {/* 5. COMBO */}
         <div className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`} style={{ '--delay': '320ms' } as React.CSSProperties}>
-          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase">
+          <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase font-display">
             <Flame size={14} className="mr-2" /> Combo
           </span>
-          <span className={`text-5xl md:text-6xl font-black leading-none transition-all z-10 ${combo > 20 ? `${themeText} drop-shadow-[0_0_20px_currentColor] scale-110` : 'text-white/20'}`}>
+          <span className={`text-5xl md:text-6xl font-black leading-none transition-all z-10 font-display ${combo > 20 ? `${themeText} drop-shadow-[0_0_20px_currentColor] scale-110` : 'text-white/20'}`}>
             {combo}
           </span>
         </div>
@@ -118,7 +119,7 @@ export const StatsPanel = memo<StatsPanelProps>(
       prevProps.consistency !== nextProps.consistency ||
       prevProps.combo !== nextProps.combo ||
       prevProps.themeText !== nextProps.themeText ||
-      prevProps.keystrokeLogLength !== nextProps.keystrokeLogLength ||
+      prevProps.hasStarted !== nextProps.hasStarted ||
       prevProps.isIdle !== nextProps.isIdle
     ) {
       return false;

@@ -1,0 +1,9 @@
+[
+  {
+    "file": "src/lib/progress.ts",
+    "line": 3,
+    "column": 28,
+    "code": 6133,
+    "message": "'recordConsent' is declared but its value is never read."
+  }
+]

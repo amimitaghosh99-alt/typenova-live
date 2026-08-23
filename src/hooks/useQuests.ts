@@ -1,11 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { readLocalProgress, writeLocalProgress, type Quest, type QuestsState } from '@/lib/progress';
-
-// Helper to get today's date in YYYY-MM-DD
-function getTodayString() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+import { todayKey } from '@/utils/seededRandom';
 
 const QUEST_TEMPLATES = [
   { type: 'races_won', target: 3, xpReward: 1500 },
@@ -26,9 +21,9 @@ function generateDailyQuests(): QuestsState {
   const selected = shuffled.slice(0, 3);
   
   return {
-    lastReset: getTodayString(),
+    lastReset: todayKey(),
     active: selected.map((t, i) => ({
-      id: `quest_${getTodayString()}_${i}`,
+      id: `quest_${todayKey()}_${i}`,
       type: t.type,
       target: t.target,
       progress: 0,
@@ -46,7 +41,7 @@ export function useQuests(grantXp?: (amount: number) => void) {
   // Load and generate quests on mount
   useEffect(() => {
     const progress = readLocalProgress();
-    const today = getTodayString();
+    const today = todayKey();
     
     if (!progress.quests || progress.quests.lastReset !== today) {
       const newQuests = generateDailyQuests();

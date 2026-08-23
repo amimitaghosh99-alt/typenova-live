@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/hooks/useAuth';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
-import { CosmicShaderBackground } from '@/components/CosmicShaderBackground';
 import { KineticKeyboard } from '@/components/KineticKeyboard';
 import { ExpandableInfoModal } from '@/components/ExpandableInfoModal';
 import { TypeNovaLogo } from '@/components/TypeNovaLogo';
@@ -56,8 +55,6 @@ export function Login() {
       className="fixed inset-0 w-screen h-screen overflow-hidden text-on-background bg-[#080809] font-body-md text-body-md antialiased dark flex flex-col justify-between"
       style={{ backgroundColor: '#080809' }}
     >
-      {/* WebGL Cosmic Background Shader */}
-      <CosmicShaderBackground />
 
       {/* Expandable Aceternity Card Modal */}
       <ExpandableInfoModal 

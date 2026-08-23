@@ -1,53 +1,54 @@
-# BRIEFING — 2026-08-09T04:50:30Z
+# BRIEFING — 2026-08-14T14:34:45Z
 
 ## Mission
-Perform code review for Milestone 2: Coordinate System Alignment & Key Mapping
+Independent review and adversarial stress-testing of Milestone 2 deliverables (KineticKeyboard, StarfieldBackground, CosmicShaderBackground, ReplayModal).
 
 ## 🔒 My Identity
-- Archetype: reviewer / critic
+- Archetype: reviewer_critic
 - Roles: reviewer, critic
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_2
-- Original parent: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Milestone: M2
+- Original parent: 412c889d-1ef7-4df9-b65e-a77c07bb1031
+- Milestone: Milestone 2
 - Instance: 2 of 2
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
-- Perform independent verification and stress-testing
-- Produce handoff.md with explicit verdict (APPROVE or REQUEST_CHANGES)
+- Check for integrity violations (hardcoded tests, dummy facades, shortcuts, fabricated verification)
+- Verify correctness, framerate stability (120+ FPS math), WebGL context cleanup, zero memory leaks
+- Run npx tsc --noEmit and npm run build
 
 ## Current Parent
-- Conversation ID: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Updated: 2026-08-09T04:50:30Z
+- Conversation ID: 412c889d-1ef7-4df9-b65e-a77c07bb1031
+- Updated: 2026-08-14T14:34:45Z
 
 ## Review Scope
-- **Files to review**: `src/components/academy/VirtualKeyboard.tsx`, `src/components/academy/CyberHands.tsx`, `src/components/academy/AcademyLayout.tsx`
-- **Interface contracts**: PROJECT.md
-- **Review criteria**: Semicolon key addition, middle finger rest Y=76, spacebar routing logic, sonar ripple null guard, zIndex layering, build & test clean
+- **Files to review**: KineticKeyboard, StarfieldBackground, CosmicShaderBackground, ReplayModal, and worker_m2 changes
+- **Interface contracts**: PROJECT.md, SCOPE.md, ORIGINAL_REQUEST.md
+- **Review criteria**: correctness, framerate stability (120+ FPS math), WebGL context cleanup, zero memory leaks, integrity
 
 ## Review Checklist
 - **Items reviewed**:
-  - `VirtualKeyboard.tsx`: `;` added to `ROWS[1]` & `FINGER_MAP[';'] = 'right-pinky'` — VERIFIED
-  - `CyberHands.tsx`: `left-middle` and `right-middle` rest Y=76 & wireframe lines — VERIFIED
-  - `CyberHands.tsx`: Spacebar thumb routing (`isLeftActive` handles thumb X<=276) — VERIFIED
-  - `CyberHands.tsx`: Sonar target ripple null check (`normalizedKey !== ""`) — VERIFIED
-  - `CyberHands.tsx` / `AcademyLayout.tsx`: Layering `zIndex: 1` vs `zIndex: 2` — VERIFIED
-  - Build & Lint: `npm run build` and `npx eslint` both exit code 0 — VERIFIED
+  - `src/components/KineticKeyboard.tsx`: InstancedMesh (1 draw call), delta-time spring physics, complete WebGL teardown and forceContextLoss.
+  - `src/components/ui/starfield-background.tsx`: 10 opacity buckets, 0 per-frame string allocations, delta-time traversal.
+  - `src/components/CosmicShaderBackground.tsx`: Resolution uniform on resize only, performance.now() clock, WEBGL_lose_context cleanup.
+  - `src/components/ReplayModal.tsx`: `frameIdxRef` guard preventing 120Hz React state churn during keystroke playback.
 - **Verdict**: APPROVE
-- **Unverified claims**: None.
+- **Unverified claims**: None. All builds, types, and logic chains independently verified.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  1. Does `;` key active state highlight correctly? Yes (`normalizedActive === ';'`).
-  2. Does Spacebar active state route left thumb properly when X<=276? Yes.
-  3. Does empty key input `""` hide sonar ripple circles? Yes (`normalizedKey !== ""`).
-  4. Does `zIndex: 1` keep hands behind keyboard (`zIndex: 2`)? Yes.
+  - WebGL context leakage on repeated page navigation / unmounts -> PASSED (both KineticKeyboard and CosmicShaderBackground explicitly call forceContextLoss / loseContext).
+  - Garbage collection stutter at 120+ FPS -> PASSED (reused object buffers, 0 string allocations in render loops).
+  - High refresh-rate velocity scaling -> PASSED (accurate delta-time exponential damping and linear velocity scaling).
+  - React render churn under 120 FPS rAF -> PASSED (ReplayModal state dispatches guarded by integer frame pointer).
 - **Vulnerabilities found**: None.
-- **Untested angles**: None.
+- **Untested angles**: Hardware specific WebGL 1 extensions fallback gracefully.
 
 ## Key Decisions Made
-- Confirmed all M2 requirements are met without integrity violations.
-- Verdict: APPROVE.
+- Confirmed full compliance with Milestone 2 and R2 requirements. Issued APPROVE verdict.
 
 ## Artifact Index
-- handoff.md — final review report and verdict
+- DISPATCH.md — incoming dispatch records
+- progress.md — liveness and step progress
+- BRIEFING.md — persistent situational awareness
+- handoff.md — final review verdict and report

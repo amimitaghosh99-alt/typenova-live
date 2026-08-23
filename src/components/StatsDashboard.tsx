@@ -28,7 +28,7 @@ export function appendHistory(entry: HistoryEntry) {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
 }
 
-export function loadPersonalBests(): Array<{ label: string; wpm: number }> {
+function loadPersonalBests(): Array<{ label: string; wpm: number }> {
   const out: Array<{ label: string; wpm: number }> = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);

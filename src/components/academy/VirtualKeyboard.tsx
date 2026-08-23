@@ -28,28 +28,28 @@ export const FINGER_MAP: Record<string, string> = {
 };
 
 // Inline style objects for finger tints — avoids Tailwind purge issues with dynamic classes
-const FINGER_STYLE: Record<string, { bg: string; border: string; color: string }> = {
-  'left-pinky':   { bg: 'rgba(244,63,94,0.10)',   border: 'rgba(244,63,94,0.30)',   color: 'rgba(253,164,175,0.85)' },
-  'left-ring':    { bg: 'rgba(249,115,22,0.10)',  border: 'rgba(249,115,22,0.30)',  color: 'rgba(253,186,116,0.85)' },
-  'left-middle':  { bg: 'rgba(234,179,8,0.10)',   border: 'rgba(234,179,8,0.30)',   color: 'rgba(253,224,71,0.85)'  },
-  'left-index':   { bg: 'rgba(132,204,22,0.12)',  border: 'rgba(132,204,22,0.35)',  color: 'rgba(190,242,100,0.90)' },
-  'right-index':  { bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.35)', color: 'rgba(110,231,183,0.90)' },
-  'right-middle': { bg: 'rgba(6,182,212,0.10)',   border: 'rgba(6,182,212,0.30)',  color: 'rgba(103,232,249,0.85)' },
-  'right-ring':   { bg: 'rgba(59,130,246,0.10)',  border: 'rgba(59,130,246,0.30)', color: 'rgba(147,197,253,0.85)' },
-  'right-pinky':  { bg: 'rgba(139,92,246,0.10)',  border: 'rgba(139,92,246,0.30)', color: 'rgba(196,181,253,0.85)' },
-  'thumb':        { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.20)', color: 'rgba(252,211,77,0.80)'  },
+const FINGER_STYLE: Record<string, { bg: string; border: string; color: string; indicator: string }> = {
+  'left-pinky':   { bg: 'rgba(244,63,94,0.14)',   border: 'rgba(244,63,94,0.40)',   color: '#fda4af', indicator: '#f43f5e' },
+  'left-ring':    { bg: 'rgba(249,115,22,0.14)',  border: 'rgba(249,115,22,0.40)',  color: '#fdba74', indicator: '#f97316' },
+  'left-middle':  { bg: 'rgba(234,179,8,0.14)',   border: 'rgba(234,179,8,0.40)',   color: '#fde047', indicator: '#eab308' },
+  'left-index':   { bg: 'rgba(132,204,22,0.16)',  border: 'rgba(132,204,22,0.45)',  color: '#bef264', indicator: '#84cc16' },
+  'right-index':  { bg: 'rgba(16,185,129,0.16)',  border: 'rgba(16,185,129,0.45)', color: '#6ee7b7', indicator: '#10b981' },
+  'right-middle': { bg: 'rgba(6,182,212,0.14)',   border: 'rgba(6,182,212,0.40)',  color: '#67e8f9', indicator: '#06b6d4' },
+  'right-ring':   { bg: 'rgba(59,130,246,0.14)',  border: 'rgba(59,130,246,0.40)', color: '#93c5fd', indicator: '#3b82f6' },
+  'right-pinky':  { bg: 'rgba(139,92,246,0.14)',  border: 'rgba(139,92,246,0.40)', color: '#c4b5fd', indicator: '#8b5cf6' },
+  'thumb':        { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.30)', color: '#fcd34d', indicator: '#f59e0b' },
 };
 
 export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, activeFinger }: VirtualKeyboardProps) {
   const normalizedActive = useMemo(() => activeKey.toUpperCase(), [activeKey]);
 
   return (
-    <div className="flex flex-col items-start gap-[7px] select-none w-full">
+    <div className="flex flex-col items-start gap-[8px] select-none w-full p-4 rounded-2xl bg-zinc-950/70 border border-white/10 shadow-2xl backdrop-blur-xl">
       {ROWS.map((row, rowIdx) => (
         <div
           key={rowIdx}
-          className={`flex gap-[7px] ${
-            rowIdx === 1 ? 'ml-[18px]' : rowIdx === 2 ? 'ml-[46px]' : rowIdx === 3 ? 'w-full justify-center' : ''
+          className={`flex gap-[8px] ${
+            rowIdx === 1 ? 'ml-[20px]' : rowIdx === 2 ? 'ml-[48px]' : rowIdx === 3 ? 'w-full justify-center' : ''
           }`}
         >
           {row.map(key => {
@@ -60,48 +60,58 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, active
             const isAnchor  = key === 'F' || key === 'J';
             const fStyle    = FINGER_STYLE[finger];
 
-            const baseStyle: React.CSSProperties = {
-              background: fStyle ? fStyle.bg : 'rgba(255,255,255,0.03)',
-              borderColor: fStyle ? fStyle.border : 'rgba(255,255,255,0.07)',
-              color: fStyle ? fStyle.color : 'rgba(255,255,255,0.25)',
-            };
-
             return (
               <div
                 key={key}
                 style={
                   isActive
                     ? {
-                        background: 'rgba(245,158,11,0.22)',
-                        borderColor: '#f59e0b',
-                        color: '#fef3c7',
-                        boxShadow: '0 0 22px rgba(245,158,11,0.55), inset 0 0 14px rgba(245,158,11,0.25)',
+                        background: 'linear-gradient(135deg, rgba(6,182,212,0.45) 0%, rgba(16,185,129,0.35) 100%)',
+                        borderColor: '#22d3ee',
+                        color: '#ffffff',
+                        boxShadow: '0 0 25px rgba(34,211,238,0.8), inset 0 0 12px rgba(255,255,255,0.5)',
                       }
                     : isHinted
                     ? {
-                        background: fStyle ? fStyle.bg.replace('0.12', '0.18').replace('0.10', '0.16') : 'rgba(255,255,255,0.06)',
-                        borderColor: fStyle ? fStyle.border.replace('0.35', '0.55').replace('0.30', '0.50') : 'rgba(255,255,255,0.18)',
-                        color: fStyle ? fStyle.color : 'rgba(255,255,255,0.6)',
-                        boxShadow: fStyle ? `0 0 12px ${fStyle.bg.replace(/[\d.]+\)$/, '0.4)')}` : 'none',
+                        background: 'rgba(28, 34, 52, 0.95)',
+                        borderColor: fStyle ? `${fStyle.indicator}60` : 'rgba(255,255,255,0.2)',
+                        color: '#ffffff',
+                        boxShadow: fStyle ? `0 0 8px ${fStyle.indicator}25` : 'none',
                       }
-                    : baseStyle
+                    : {
+                        background: 'rgba(16, 20, 32, 0.92)',
+                        borderColor: 'rgba(255, 255, 255, 0.08)',
+                        color: 'rgba(255, 255, 255, 0.80)',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.08)',
+                      }
                 }
                 className={`
-                  relative flex items-center justify-center font-bold rounded-[10px] border
-                  transition-all duration-200 overflow-hidden backdrop-blur-sm
-                  ${isSpace ? 'h-11 text-[10px] tracking-[0.3em] uppercase' : 'w-[46px] h-[46px] text-[13px] tracking-wider'}
+                  relative flex items-center justify-center font-mono font-bold rounded-xl border
+                  transition-all duration-150 overflow-hidden
+                  ${isSpace ? 'h-11 text-[11px] tracking-[0.3em] uppercase' : 'w-[45px] h-[45px] text-[14px]'}
                   ${isSpace ? 'w-64' : ''}
-                  ${isActive ? 'scale-[1.08] z-20' : isHinted ? 'scale-[1.04] z-10' : 'z-0'}
+                  ${isActive ? 'scale-[1.12] z-20 font-black ring-2 ring-cyan-400/50' : isHinted ? 'scale-[1.02] z-10' : 'z-0'}
                 `}
               >
-                {isActive && (
-                  <div className="absolute inset-0 bg-gradient-to-b from-amber-300/20 to-transparent pointer-events-none" />
+                {/* Finger Indicator Dot on top */}
+                {fStyle && !isActive && (
+                  <span 
+                    className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full opacity-60" 
+                    style={{ background: fStyle.indicator }}
+                  />
                 )}
+
+                {isActive && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
+                )}
+                
                 <span className="relative z-10">{isSpace ? 'SPACE' : key}</span>
+                
+                {/* Anchor Key Notch (F & J) */}
                 {isAnchor && (
                   <span
-                    className="absolute bottom-[5px] left-1/2 -translate-x-1/2 w-[5px] h-[5px] rounded-full"
-                    style={{ background: isActive ? 'rgba(245,158,11,0.8)' : 'rgba(255,255,255,0.35)' }}
+                    className="absolute bottom-[4px] left-1/2 -translate-x-1/2 w-3 h-[2px] rounded-full"
+                    style={{ background: isActive ? '#ffffff' : '#22d3ee' }}
                   />
                 )}
               </div>

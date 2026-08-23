@@ -1,19 +1,30 @@
-# Dispatch to Reviewer M4-2
+## 2026-08-14T15:26:55Z
+You are Reviewer 2 (reviewer_m4_2) for Typenova V2 Optimization Milestone 4.
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m4_2
+Project root: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
 
-## Context
-Original User Request: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
-Project Scope: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\PROJECT.md`
-Worker Handoff Report: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m4_1\handoff.md`
-Working Directory: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m4_2\`
+MANDATORY FIRST STEPS:
+1. Initialize your BRIEFING.md and progress.md in your working directory.
+2. Read the following documents before beginning:
+   - Original Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
+   - Project Scope: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_2\PROJECT.md
+   - Predecessor Hand-offs:
+     - c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m2\handoff.md
+     - c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m3_2\handoff.md
 
-## Task
-Perform independent code review for Milestone 4: Premium Holographic Aesthetic Refinement in `src/components/academy/CyberHands.tsx`.
-
-Verify:
-1. SVG filters `holo-emerald-glow` and `holo-cyan-glow` (dual feGaussianBlur stdDeviation 8 and 2).
-2. Wireframe nodes: MCP (`r=4.5/2.5`), PIP (`r=4.0/2.0`), DIP (`r=3.5/1.8`), bone axis rays (`strokeDasharray="none"`), and pulsing active fingertips (`r: [6, 8.5, 6]`).
-3. Scanline overlay pattern `#scanlines` and radial palm fills `holo-palm-l`, `holo-palm-r`.
-4. Sonar target pulse beam over active key coordinates.
-5. Run `npm run build` compilation check.
-
-Write handoff report with explicit verdict (`APPROVE` or `REQUEST_CHANGES`) to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m4_2\handoff.md` and report back.
+YOUR MISSION:
+Perform an in-depth Animation & Rendering Architecture Review across all visual and graphics subsystems.
+Specifically:
+1. Examine `KineticKeyboard.tsx`:
+   - Verify `THREE.InstancedMesh` usage (1 draw call for all keys).
+   - Verify delta-time physics and bounding box / matrix updates.
+   - Verify full WebGL resource disposal on unmount (`renderer.dispose()`, `geometry.dispose()`, `material.dispose()`, context loss handling).
+2. Examine Canvas & Shader backgrounds:
+   - `starfield-background.tsx`: Verify bucketed opacity batching (1-3 fill styles instead of per-star string allocations), zero-GC allocation loop.
+   - `CosmicShaderBackground.tsx` & `LaserFlow.tsx`: Verify rAF cancellation on unmount, WebGL context loss recovery, and uniform update pacing.
+3. Examine UI animations & layout performance:
+   - `CyberHands.tsx`: Verify elimination of SVG animated filter thrashing.
+   - `GlidingBar.tsx`: Verify avoidance of layout thrashing (`getBoundingClientRect` / offset loops).
+   - `StatsPanel.tsx`: Verify memoization and selective updates.
+4. Issue your verdict: APPROVE or REQUEST_CHANGES.
+5. Write your comprehensive report to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m4_2\handoff.md` and send a summary message to caller.

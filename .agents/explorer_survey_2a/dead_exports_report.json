@@ -1,0 +1,551 @@
+[
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "KeyInfo",
+    "line": 10,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "KEY_MAP",
+    "line": 17,
+    "kind": "const/variable",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "HologramFinger",
+    "line": 55,
+    "kind": "type/interface",
+    "internalUsages": 3,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "LEFT_HOLOGRAM_FINGERS",
+    "line": 67,
+    "kind": "const/variable",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "RIGHT_HOLOGRAM_FINGERS",
+    "line": 145,
+    "kind": "const/variable",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/AIChatBot.tsx",
+    "name": "AruWeakKey",
+    "line": 21,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/AIChatBot.tsx",
+    "name": "AruStats",
+    "line": 26,
+    "kind": "type/interface",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/SettingsModal.tsx",
+    "name": "ToggleSwitchProps",
+    "line": 41,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/SettingsModal.tsx",
+    "name": "ToggleSwitch",
+    "line": 51,
+    "kind": "const/variable",
+    "internalUsages": 7,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/StatsDashboard.tsx",
+    "name": "loadPersonalBests",
+    "line": 31,
+    "kind": "function/class",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/SupportTechnician.tsx",
+    "name": "TechnicianCapabilities",
+    "line": 26,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/components/ui/starfield-background.tsx",
+    "name": "StarfieldProps",
+    "line": 3,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/academyCurriculum.ts",
+    "name": "AcademyLesson",
+    "line": 9,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/changelog.ts",
+    "name": "ChangelogEntry",
+    "line": 8,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "MASTER_SNIPPETS",
+    "line": 38,
+    "kind": "const/variable",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "CODE_LIBRARY",
+    "line": 54,
+    "kind": "re-export",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "GenerateOptions",
+    "line": 81,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "PRESET_KEYS",
+    "line": 296,
+    "kind": "const/variable",
+    "internalUsages": 0,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "SoundProfile",
+    "line": 331,
+    "kind": "type/interface",
+    "internalUsages": 0,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "BannerDef",
+    "line": 3,
+    "kind": "type/interface",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "AvatarDef",
+    "line": 18,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "FREE_BANNERS",
+    "line": 29,
+    "kind": "const/variable",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "PREMIUM_BANNERS",
+    "line": 141,
+    "kind": "const/variable",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/data/titles.ts",
+    "name": "TitleBadge",
+    "line": 1,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useAcademyEngine.ts",
+    "name": "AcademyEngineState",
+    "line": 58,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useAudioEngine.ts",
+    "name": "SoundType",
+    "line": 16,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useChallenges.ts",
+    "name": "PendingChallenge",
+    "line": 7,
+    "kind": "type/interface",
+    "internalUsages": 3,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useCloudSync.ts",
+    "name": "HydratePayload",
+    "line": 13,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useCloudSync.ts",
+    "name": "PublicProfileSyncData",
+    "line": 20,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useFriends.ts",
+    "name": "UseFriendsOptions",
+    "line": 4,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useGameConfig.ts",
+    "name": "ResetOverrides",
+    "line": 4,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useMatchmaking.ts",
+    "name": "MatchmakingState",
+    "line": 5,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useMessages.ts",
+    "name": "DirectMessage",
+    "line": 4,
+    "kind": "type/interface",
+    "internalUsages": 6,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useRace.ts",
+    "name": "SocketRoomState",
+    "line": 40,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useRPGSystem.ts",
+    "name": "AchievementState",
+    "line": 12,
+    "kind": "type/interface",
+    "internalUsages": 0,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useSmartEngineConfig.ts",
+    "name": "SmartEngineConfig",
+    "line": 4,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useTypingEngine.ts",
+    "name": "TimelinePoint",
+    "line": 15,
+    "kind": "type/interface",
+    "internalUsages": 6,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/hooks/useTypingEngine.ts",
+    "name": "TypingStats",
+    "line": 21,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "WindowAI",
+    "line": 10,
+    "kind": "type/interface",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ProviderPreset",
+    "line": 42,
+    "kind": "type/interface",
+    "internalUsages": 3,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "FALLBACK_LIMITS",
+    "line": 107,
+    "kind": "const/variable",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "USAGE_EVENT",
+    "line": 151,
+    "kind": "const/variable",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ChatRole",
+    "line": 153,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "AIConfig",
+    "line": 159,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "getAIConfig",
+    "line": 165,
+    "kind": "function/class",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "markModelWorking",
+    "line": 187,
+    "kind": "function/class",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "trackUsage",
+    "line": 201,
+    "kind": "function/class",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "AIError",
+    "line": 244,
+    "kind": "function/class",
+    "internalUsages": 8,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ChatOptions",
+    "line": 289,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ChatResult",
+    "line": 299,
+    "kind": "type/interface",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/consent.ts",
+    "name": "CURRENT_CONSENT_VERSION",
+    "line": 1,
+    "kind": "const/variable",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/consent.ts",
+    "name": "CONSENT_KEYS",
+    "line": 12,
+    "kind": "const/variable",
+    "internalUsages": 10,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/progress.ts",
+    "name": "DailyState",
+    "line": 15,
+    "kind": "type/interface",
+    "internalUsages": 5,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/progress.ts",
+    "name": "PbEntry",
+    "line": 17,
+    "kind": "type/interface",
+    "internalUsages": 4,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "ActionId",
+    "line": 43,
+    "kind": "type/interface",
+    "internalUsages": 3,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "MODIFIER_LABELS",
+    "line": 68,
+    "kind": "const/variable",
+    "internalUsages": 3,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "TechSnapshot",
+    "line": 151,
+    "kind": "type/interface",
+    "internalUsages": 3,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "OfflineResponse",
+    "line": 264,
+    "kind": "type/interface",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/utils/audio.ts",
+    "name": "audioEngine",
+    "line": 149,
+    "kind": "const/variable",
+    "internalUsages": 0,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/utils/shareCard.ts",
+    "name": "ShareCardData",
+    "line": 4,
+    "kind": "type/interface",
+    "internalUsages": 2,
+    "externalUsages": 0,
+    "externalFiles": []
+  },
+  {
+    "file": "src/utils/shareCard.ts",
+    "name": "renderResultCard",
+    "line": 28,
+    "kind": "function/class",
+    "internalUsages": 1,
+    "externalUsages": 0,
+    "externalFiles": []
+  }
+]

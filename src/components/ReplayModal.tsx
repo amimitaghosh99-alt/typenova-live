@@ -41,8 +41,11 @@ export const ReplayModal = ({ targetText, log, theme, onClose }: ReplayModalProp
   const containerRef = useRef<HTMLDivElement>(null);
   // Playback clock: elapsed replay-ms accumulated across pauses/speed changes
   const clockRef = useRef({ elapsed: 0, lastTick: 0 });
+  const frameIdxRef = useRef(0);
 
-  // Drive playback with rAF; advance a monotonic frame pointer.
+  frameIdxRef.current = frameIdx;
+
+  // Drive playback with rAF; advance a monotonic frame pointer only when integer frame progresses
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
@@ -51,11 +54,26 @@ export const ReplayModal = ({ targetText, log, theme, onClose }: ReplayModalProp
       const c = clockRef.current;
       c.elapsed += (now - c.lastTick) * speed;
       c.lastTick = now;
-      // find the last frame at or before elapsed
+
+      // Find the last frame at or before elapsed
       let idx = 0;
       while (idx + 1 < frames.length && frames[idx + 1].t <= c.elapsed) idx++;
-      setFrameIdx(idx);
-      if (c.elapsed >= totalMs) { setPlaying(false); setFrameIdx(frames.length - 1); return; }
+
+      // Guard: only dispatch React state update when integer frame index actually changes
+      if (idx !== frameIdxRef.current) {
+        frameIdxRef.current = idx;
+        setFrameIdx(idx);
+      }
+
+      if (c.elapsed >= totalMs) {
+        setPlaying(false);
+        const lastIdx = frames.length - 1;
+        if (frameIdxRef.current !== lastIdx) {
+          frameIdxRef.current = lastIdx;
+          setFrameIdx(lastIdx);
+        }
+        return;
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -64,11 +82,12 @@ export const ReplayModal = ({ targetText, log, theme, onClose }: ReplayModalProp
 
   const restart = () => {
     clockRef.current.elapsed = 0;
+    frameIdxRef.current = 0;
     setFrameIdx(0);
     setPlaying(true);
   };
 
-  const input = frames[frameIdx].input;
+  const input = frames[frameIdx]?.input ?? '';
 
   // Keep the caret in view as the replay scrolls
   useEffect(() => {
@@ -79,7 +98,7 @@ export const ReplayModal = ({ targetText, log, theme, onClose }: ReplayModalProp
     }
   }, [input.length]);
 
-  const progress = totalMs > 0 ? Math.min(100, (frames[frameIdx].t / totalMs) * 100) : 0;
+  const progress = totalMs > 0 ? Math.min(100, ((frames[frameIdx]?.t ?? 0) / totalMs) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={onClose}>

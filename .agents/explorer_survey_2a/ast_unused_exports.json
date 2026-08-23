@@ -1,0 +1,356 @@
+[
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "KeyInfo",
+    "line": 10,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "KEY_MAP",
+    "line": 17,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "HologramFinger",
+    "line": 55,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "LEFT_HOLOGRAM_FINGERS",
+    "line": 67,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/academy/CyberHands.tsx",
+    "name": "RIGHT_HOLOGRAM_FINGERS",
+    "line": 145,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/AIChatBot.tsx",
+    "name": "AruWeakKey",
+    "line": 21,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/AIChatBot.tsx",
+    "name": "AruStats",
+    "line": 26,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/SettingsModal.tsx",
+    "name": "ToggleSwitchProps",
+    "line": 41,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/SettingsModal.tsx",
+    "name": "ToggleSwitch",
+    "line": 51,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/StatsDashboard.tsx",
+    "name": "loadPersonalBests",
+    "line": 31,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/SupportTechnician.tsx",
+    "name": "TechnicianCapabilities",
+    "line": 26,
+    "isDefault": false
+  },
+  {
+    "file": "src/components/ui/starfield-background.tsx",
+    "name": "StarfieldProps",
+    "line": 3,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/academyCurriculum.ts",
+    "name": "AcademyLesson",
+    "line": 9,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/changelog.ts",
+    "name": "ChangelogEntry",
+    "line": 8,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "MASTER_SNIPPETS",
+    "line": 38,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "GenerateOptions",
+    "line": 81,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "PRESET_KEYS",
+    "line": 296,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/constants.ts",
+    "name": "SoundProfile",
+    "line": 331,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "BannerDef",
+    "line": 3,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "AvatarDef",
+    "line": 18,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "FREE_BANNERS",
+    "line": 29,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/customization.ts",
+    "name": "PREMIUM_BANNERS",
+    "line": 141,
+    "isDefault": false
+  },
+  {
+    "file": "src/data/titles.ts",
+    "name": "TitleBadge",
+    "line": 1,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useAcademyEngine.ts",
+    "name": "AcademyEngineState",
+    "line": 58,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useAudioEngine.ts",
+    "name": "SoundType",
+    "line": 16,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useChallenges.ts",
+    "name": "PendingChallenge",
+    "line": 7,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useCloudSync.ts",
+    "name": "HydratePayload",
+    "line": 13,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useCloudSync.ts",
+    "name": "PublicProfileSyncData",
+    "line": 20,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useFriends.ts",
+    "name": "UseFriendsOptions",
+    "line": 4,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useGameConfig.ts",
+    "name": "ResetOverrides",
+    "line": 4,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useMatchmaking.ts",
+    "name": "MatchmakingState",
+    "line": 5,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useMessages.ts",
+    "name": "DirectMessage",
+    "line": 4,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useRace.ts",
+    "name": "SocketRoomState",
+    "line": 40,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useRPGSystem.ts",
+    "name": "AchievementState",
+    "line": 12,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useSmartEngineConfig.ts",
+    "name": "SmartEngineConfig",
+    "line": 4,
+    "isDefault": false
+  },
+  {
+    "file": "src/hooks/useTypingEngine.ts",
+    "name": "TypingStats",
+    "line": 21,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "WindowAI",
+    "line": 10,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ProviderPreset",
+    "line": 42,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "FALLBACK_LIMITS",
+    "line": 107,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "USAGE_EVENT",
+    "line": 151,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ChatRole",
+    "line": 153,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "AIConfig",
+    "line": 159,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "getAIConfig",
+    "line": 165,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "markModelWorking",
+    "line": 187,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "trackUsage",
+    "line": 201,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "AIError",
+    "line": 244,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ChatOptions",
+    "line": 289,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/aiClient.ts",
+    "name": "ChatResult",
+    "line": 299,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/consent.ts",
+    "name": "CURRENT_CONSENT_VERSION",
+    "line": 1,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/consent.ts",
+    "name": "CONSENT_KEYS",
+    "line": 12,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/progress.ts",
+    "name": "DailyState",
+    "line": 15,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/progress.ts",
+    "name": "PbEntry",
+    "line": 17,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "ActionId",
+    "line": 43,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "MODIFIER_LABELS",
+    "line": 68,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "TechSnapshot",
+    "line": 151,
+    "isDefault": false
+  },
+  {
+    "file": "src/lib/technicianBrain.ts",
+    "name": "OfflineResponse",
+    "line": 264,
+    "isDefault": false
+  },
+  {
+    "file": "src/utils/audio.ts",
+    "name": "audioEngine",
+    "line": 149,
+    "isDefault": false
+  },
+  {
+    "file": "src/utils/shareCard.ts",
+    "name": "ShareCardData",
+    "line": 4,
+    "isDefault": false
+  },
+  {
+    "file": "src/utils/shareCard.ts",
+    "name": "renderResultCard",
+    "line": 28,
+    "isDefault": false
+  }
+]

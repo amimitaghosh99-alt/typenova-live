@@ -1,6 +1,6 @@
 import { HISTORY_KEY, HISTORY_CAP } from '@/components/StatsDashboard';
 import type { HistoryEntry } from '@/components/StatsDashboard';
-import { getConsentRecord, recordConsent, type ConsentRecord } from '@/lib/consent';
+import { getConsentRecord, type ConsentRecord } from '@/lib/consent';
 
 const K = {
   xp: 'typezen_xp',

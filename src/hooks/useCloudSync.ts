@@ -65,7 +65,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     const sb = supabase;
     if (!sb || !session) {
       syncedForUser.current = null;
-      setUsername('');
+      setUsername(null);
       setStatus('idle');
       return;
     }
@@ -151,7 +151,7 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     }
     
     // H8: Also insert a default row into public_profiles so others don't see 'PLAYER NOT FOUND'
-    await sb.from('public_profiles').insert({ username: name });
+    await sb.from('public_profiles').insert({ id: uid, username: name });
     syncedForUser.current = uid;
     setUsername(name);
     setStatus('synced');

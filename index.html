@@ -4,26 +4,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2.4" />
-  <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=2.4" />
-  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2.4" />
+  <link rel="icon" type="image/png" href="/logo.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="TypeNova" />
   <meta name="application-name" content="TypeNova" />
   <meta name="description" content="Next-Gen Gamified Typing Platform with AI Coach, RPG CyberHands, and Global Multiplayer." />
-  <meta name="theme-color" content="#080809" />
   <title>TypeNova | Next-Gen Gamified Typing</title>
   
   <!-- Google Fonts & Icons -->
   <link href="https://fonts.googleapis.com" rel="preconnect" />
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Sora:wght@600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
 </head>
 
-<body class="bg-black text-white">
+<body>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        let swDeleted = false;
+        for(let registration of registrations) {
+          registration.unregister();
+          swDeleted = true;
+        }
+        if (swDeleted) {
+          window.location.reload(true);
+        }
+      });
+    }
+  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

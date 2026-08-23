@@ -1,52 +1,63 @@
-# BRIEFING — 2026-08-09T04:50:50Z
+# BRIEFING — 2026-08-14T14:34:00Z
 
 ## Mission
-Perform code review and adversarial challenge for Milestone 2: Coordinate System Alignment & Key Mapping.
+Independent review and adversarial stress-testing of Milestone 2 (3D KineticKeyboard, Background Shaders & WebGL/Canvas Optimization).
 
 ## 🔒 My Identity
 - Archetype: reviewer_critic
 - Roles: reviewer, critic
-- Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_1\
-- Original parent: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Milestone: Milestone 2 (Coordinate System Alignment & Key Mapping)
+- Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_1
+- Original parent: 412c889d-1ef7-4df9-b65e-a77c07bb1031
+- Milestone: milestone_2
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code directly
-- Must check for integrity violations (hardcoded test results, facade implementations, shortcuts, self-certifying work)
-- Must verify changes via build and test commands
+- Review-only — do NOT modify implementation code
+- Evidence-based findings with direct citations
+- Adversarial challenge: stress-test performance, memory leaks, teardowns, edge cases
 
 ## Current Parent
-- Conversation ID: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Updated: 2026-08-09T04:50:50Z
+- Conversation ID: 412c889d-1ef7-4df9-b65e-a77c07bb1031
+- Updated: 2026-08-14T14:34:00Z
 
 ## Review Scope
 - **Files to review**:
-  - `src/components/academy/VirtualKeyboard.tsx`
-  - `src/components/academy/CyberHands.tsx`
-  - `src/components/academy/AcademyLayout.tsx`
-- **Interface contracts**: PROJECT.md / ORIGINAL_REQUEST.md
-- **Review criteria**: Semicolon key addition, middle finger resting Y coordinates, spacebar routing logic, sonar ripple guard, zIndex layering, build verification.
+  - `src/components/KineticKeyboard.tsx`
+  - `src/components/ui/starfield-background.tsx`
+  - `src/components/CosmicShaderBackground.tsx`
+  - `src/components/ReplayModal.tsx`
+- **Context files**:
+  - `.agents/ORIGINAL_REQUEST.md`
+  - `.agents/worker_m2/changes.md`
+  - `.agents/worker_m2/handoff.md`
+- **Review criteria**: WebGL context disposal, InstancedMesh draw calls, GC elimination via path batching, delta-time physics, throttled frame rendering, build and type safety.
 
 ## Review Checklist
-- **Items reviewed**: VirtualKeyboard.tsx, CyberHands.tsx, AcademyLayout.tsx
+- **Items reviewed**:
+  - `src/components/KineticKeyboard.tsx` — VERIFIED (1 draw call, InstancedMesh, delta-time spring physics, complete WebGL disposal & forceContextLoss)
+  - `src/components/ui/starfield-background.tsx` — VERIFIED (10 opacity buckets, 0 per-frame string allocations, delta-time speed scaling, subpath moveTo/arc batching)
+  - `src/components/CosmicShaderBackground.tsx` — VERIFIED (u_resolution update on resize only, WEBGL_lose_context teardown, performance.now() clock)
+  - `src/components/ReplayModal.tsx` — VERIFIED (frameIdxRef guard preventing unneeded React re-renders, rAF cancellation, empty particles constant)
+  - `npx tsc --noEmit` — Exit code 0 (0 errors)
+  - `npm run build` — Exit code 0 (Vite production build succeeded in 12.29s)
 - **Verdict**: APPROVE
-- **Unverified claims**: None
+- **Unverified claims**: None.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Edge case inputs (empty key, unknown key): handled safely without crash or bogus ripples.
-  - Finger detachment during key reach: prevented by MCP-centered transform origins and kinematic angles.
-  - Layering bugs: resolved via zIndex 1 (CyberHands) vs zIndex 2 (VirtualKeyboard).
-- **Vulnerabilities found**: None.
-- **Untested angles**: Full end-to-end browser user interaction (tested via static review and build/lint compilation).
+  - WebGL context leakage on rapid route navigation → Mitigated by `renderer.forceContextLoss()` and `gl.getExtension('WEBGL_lose_context')?.loseContext()`.
+  - Frame rate dependence on 120Hz/144Hz/240Hz monitors → Mitigated by `1.0 - Math.exp(-20.0 * dt)` and `speedFactor * 900 * dt`.
+  - GC churn causing frame drops at 120 FPS in Starfield → Mitigated by precomputed `bucketStyles` and reusable coordinate arrays (`length = 0`).
+  - React state update cascade in ReplayModal at 120 FPS → Mitigated by `frameIdxRef` guard.
+- **Vulnerabilities found**: None. Implementations are robust, performant, and fully compliant with project standards.
+- **Untested angles**: None.
 
 ## Key Decisions Made
-- Confirmed all M2 requirements verified and passing.
-- Issued APPROVE verdict for Milestone 2.
+- Confirmed full compliance with Milestone 2 and Requirement R2.
+- Approved Milestone 2 changes.
 
 ## Artifact Index
-- `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_1\DISPATCH.md` — Dispatch instructions
-- `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_1\BRIEFING.md` — Working briefing state
-- `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_1\progress.md` — Progress state
-- `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_1\handoff.md` — Handoff report
+- `.agents/reviewer_m2_1/DISPATCH.md` — Incoming task prompt
+- `.agents/reviewer_m2_1/BRIEFING.md` — Agent state and working memory
+- `.agents/reviewer_m2_1/progress.md` — Liveness heartbeat
+- `.agents/reviewer_m2_1/handoff.md` — Complete 5-component review and challenge report

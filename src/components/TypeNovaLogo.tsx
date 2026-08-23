@@ -1,156 +1,127 @@
+import { memo, useRef, useCallback, useEffect } from 'react';
+
 interface TypeNovaLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
   animated?: boolean;
   className?: string;
-  glow?: boolean;
 }
 
-export function TypeNovaLogo({
+export const TypeNovaLogo = memo(function TypeNovaLogo({
   size = 'md',
   showText = true,
   animated = true,
   className = '',
-  glow = true
 }: TypeNovaLogoProps) {
-  // Dimension mapping
   const iconDimensions = {
-    sm: { w: 26, h: 26, textClass: 'text-xl tracking-tight' },
-    md: { w: 34, h: 34, textClass: 'text-2xl tracking-tight' },
-    lg: { w: 44, h: 44, textClass: 'text-3xl tracking-tighter' },
-    xl: { w: 56, h: 56, textClass: 'text-4xl tracking-tighter' }
+    sm: { w: 32, h: 32, textClass: 'text-xl tracking-tight' },
+    md: { w: 42, h: 42, textClass: 'text-2xl tracking-tight' },
+    lg: { w: 54, h: 54, textClass: 'text-3xl tracking-tighter' },
+    xl: { w: 68, h: 68, textClass: 'text-4xl tracking-tighter' }
   }[size];
+
+  const tiltRef = useRef<HTMLDivElement>(null);
+  const rafId = useRef(0);
+  const isHovering = useRef(false);
+
+  // ── 3D Magnetic Tilt (Zero lag, zero blur, direct GPU transforms) ──
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!animated || !tiltRef.current) return;
+    cancelAnimationFrame(rafId.current);
+    rafId.current = requestAnimationFrame(() => {
+      const el = tiltRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const maxDist = 220;
+
+      if (dist > maxDist) {
+        if (isHovering.current) {
+          isHovering.current = false;
+          el.style.transition = 'transform 0.5s cubic-bezier(0.23, 1, 0.32, 1)';
+          el.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) translateZ(0px) scale(1)';
+        }
+        return;
+      }
+
+      isHovering.current = true;
+      el.style.transition = 'none';
+      const strength = 1 - dist / maxDist;
+      const maxAngle = 16;
+      const ry = (dx / maxDist) * maxAngle * strength;
+      const rx = -(dy / maxDist) * maxAngle * strength;
+      const scale = 1 + strength * 0.08;
+
+      el.style.transform = `perspective(800px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateZ(${Math.round(strength * 10)}px) scale(${scale.toFixed(3)})`;
+    });
+  }, [animated]);
+
+  // ── Liquid Wobble on Click ────────────────────────────────────────
+  const handleClick = useCallback(() => {
+    const el = tiltRef.current;
+    if (!animated || !el || el.classList.contains('logo-wobble')) return;
+    el.classList.add('logo-wobble');
+  }, [animated]);
+
+  const handleAnimEnd = useCallback((e: React.AnimationEvent) => {
+    if (e.animationName === 'logo-wobble') {
+      tiltRef.current?.classList.remove('logo-wobble');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!animated) return;
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(rafId.current);
+    };
+  }, [animated, handleMouseMove]);
 
   return (
     <div className={`inline-flex items-center gap-3 select-none group ${className}`}>
-      {/* 3D Isometric Supernova Keycap SVG Emblem */}
-      <div 
-        className={`relative shrink-0 flex items-center justify-center transition-transform duration-300 ${
-          animated ? 'group-hover:scale-105 group-hover:-translate-y-0.5' : ''
-        }`}
-        style={{ width: iconDimensions.w, height: iconDimensions.h }}
+      {/* Interactive 3D Anchor */}
+      <div
+        ref={tiltRef}
+        onClick={handleClick}
+        onAnimationEnd={handleAnimEnd}
+        className="relative shrink-0 flex items-center justify-center cursor-pointer"
+        style={{
+          width: iconDimensions.w,
+          height: iconDimensions.h,
+          transformStyle: 'preserve-3d',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          WebkitFontSmoothing: 'subpixel-antialiased',
+        }}
       >
-        <svg 
-          viewBox="0 0 100 100" 
-          fill="none" 
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full overflow-visible drop-shadow-[0_4px_12px_rgba(0,240,255,0.25)]"
-        >
-          <defs>
-            {/* Ambient Base Shadow */}
-            <filter id="nova-glow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-
-            {/* Radiant Keycap Gradient Fills */}
-            <linearGradient id="keyTopGrad" x1="20%" y1="10%" x2="80%" y2="90%">
-              <stop offset="0%" stopColor="#1e293b" />
-              <stop offset="50%" stopColor="#0f172a" />
-              <stop offset="100%" stopColor="#080d1a" />
-            </linearGradient>
-
-            <linearGradient id="keyLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#0f172a" />
-              <stop offset="100%" stopColor="#020617" />
-            </linearGradient>
-
-            <linearGradient id="keyRightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#090d16" />
-              <stop offset="100%" stopColor="#010308" />
-            </linearGradient>
-
-            {/* Neon Border Edge Gradients */}
-            <linearGradient id="edgeCyan" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#7df4ff" />
-              <stop offset="50%" stopColor="#00f0ff" />
-              <stop offset="100%" stopColor="#3b82f6" />
-            </linearGradient>
-
-            <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="50%" stopColor="#7df4ff" />
-              <stop offset="100%" stopColor="#00f0ff" />
-            </linearGradient>
-
-            <radialGradient id="novaCore" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-              <stop offset="40%" stopColor="#00f0ff" stopOpacity="0.8" />
-              <stop offset="80%" stopColor="#00f0ff" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#00f0ff" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-
-          {/* Ambient Outer Ring/Aura */}
-          {glow && (
-            <circle cx="50" cy="50" r="38" fill="url(#novaCore)" opacity="0.45" />
-          )}
-
-          {/* 3D Isometric Keycap Base */}
-          {/* Bottom Left Bevel Face */}
-          <path 
-            d="M 12 56 L 50 78 L 50 92 L 12 70 Z" 
-            fill="url(#keyLeftGrad)" 
-            stroke="rgba(255,255,255,0.08)" 
-            strokeWidth="0.8"
+        {/* Soft Cosmic Ambient Aura Glow behind the glass (circular, non-rectangular) */}
+        {animated && (
+          <div
+            className="absolute inset-0 pointer-events-none rounded-full"
+            style={{
+              background: 'radial-gradient(circle, rgba(0, 240, 255, 0.45) 0%, rgba(0, 150, 255, 0.15) 50%, transparent 75%)',
+              filter: 'blur(6px)',
+              animation: 'logo-aura-pulse 3s ease-in-out infinite',
+              transform: 'translateZ(-10px)',
+            }}
           />
+        )}
 
-          {/* Bottom Right Bevel Face */}
-          <path 
-            d="M 50 78 L 88 56 L 88 70 L 50 92 Z" 
-            fill="url(#keyRightGrad)" 
-            stroke="rgba(255,255,255,0.08)" 
-            strokeWidth="0.8"
-          />
-
-          {/* Top Isometric Keycap Face */}
-          <path 
-            d="M 50 16 L 88 38 L 50 60 L 12 38 Z" 
-            fill="url(#keyTopGrad)" 
-            stroke="url(#edgeCyan)" 
-            strokeWidth="1.8"
-            strokeLinejoin="round"
-          />
-
-          {/* Inner Inset Key Dish Highlight */}
-          <path 
-            d="M 50 25 L 76 40 L 50 54 L 24 40 Z" 
-            fill="rgba(0, 240, 255, 0.04)" 
-            stroke="rgba(125, 244, 255, 0.3)" 
-            strokeWidth="1"
-            strokeDasharray="1 1"
-          />
-
-          {/* Supernova Starburst Core */}
-          <g transform="translate(50, 40)" filter="url(#nova-glow)">
-            {/* Radiant Cross Flares */}
-            <path 
-              d="M 0 -15 Q 0 0 15 0 Q 0 0 0 15 Q 0 0 -15 0 Q 0 0 0 -15 Z" 
-              fill="url(#starGrad)" 
-              className={animated ? "transition-transform duration-700 group-hover:rotate-90 origin-center" : ""}
-            />
-            {/* Diagonal Star Sparkles */}
-            <path 
-              d="M -7 -7 Q 0 0 7 -7 Q 0 0 7 7 Q 0 0 -7 7 Q 0 0 -7 -7 Z" 
-              fill="#ffffff" 
-              opacity="0.9"
-            />
-            {/* Intense Center Particle */}
-            <circle cx="0" cy="0" r="3.5" fill="#ffffff" />
-          </g>
-
-          {/* Front Edge Light Sweep */}
-          <path 
-            d="M 12 38 L 50 60 L 88 38" 
-            stroke="#7df4ff" 
-            strokeWidth="1.5" 
-            strokeLinecap="round" 
-            opacity="0.9"
-          />
-        </svg>
+        {/* High-Resolution Transparent 3D Liquid Glass Emblem */}
+        <img
+          src="/logo.png"
+          alt="TypeNova Logo"
+          className="relative z-10 w-full h-full object-contain pointer-events-none drop-shadow-[0_4px_12px_rgba(0,240,255,0.35)] transition-all duration-300 group-hover:brightness-110"
+          draggable={false}
+          style={{
+            transform: 'translateZ(5px)',
+          }}
+        />
       </div>
 
       {/* Futuristic Styled Typography */}
@@ -166,4 +137,4 @@ export function TypeNovaLogo({
       )}
     </div>
   );
-}
+});

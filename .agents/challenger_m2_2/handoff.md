@@ -1,124 +1,111 @@
-# Handoff Report — Challenger M2-2 (Milestone 2 Adversarial Review)
-
-## Verdict: APPROVE
-
----
+# Empirical Challenger Verification Report: Milestone 2 Optimizations
 
 ## 1. Observation
 
-- **Empirical Test Suite Execution (`verify_m2.cjs`)**:
-  - Command: `node .agents/challenger_m2_2/verify_m2.cjs`
-  - Output:
-    ```
-    === EMPIRICAL TEST SUITE: MILESTONE 2 ===
+### 1.1 Source Code Inspections
+- **`src/components/KineticKeyboard.tsx`**:
+  - Line 210: `const dt = Math.min((now - lastTime) / 1000, 0.1);`
+  - Line 215: `const springFactor = 1.0 - Math.exp(-20.0 * dt);`
+  - Lines 230-231: `kData.currentY += (targetY - kData.currentY) * springFactor;` and `kData.currentIntensity += (targetIntensity - kData.currentIntensity) * springFactor;`
+  - Lines 272-289: Full unmount teardown with `sharedGeometry.dispose()`, `sharedMaterial.dispose()`, `instancedMesh.dispose()`, `renderer.dispose()`, and `renderer.forceContextLoss()`.
+- **`src/components/ui/starfield-background.tsx`**:
+  - Lines 63-66: `const bucketStyles: string[] = Array.from({ length: NUM_OPACITY_BUCKETS }, (_, idx) => { ... });` precomputed on component mount.
+  - Lines 69-71: Flat pre-allocated arrays `bucketX`, `bucketY`, `bucketSize` for each bucket index.
+  - Lines 93-97: Per-frame buffer reset `bucketX[bIdx].length = 0; bucketY[bIdx].length = 0; bucketSize[bIdx].length = 0;` (0 heap reallocations).
+  - Line 100: Delta-time motion scaling `const travelDist = speedFactor * 900 * dt;`.
+  - Lines 132-150: Batched drawing per non-empty opacity bucket (at most 10 `beginPath()` and `fill()` calls per frame).
+- **`src/components/CosmicShaderBackground.tsx`**:
+  - Lines 123-127: Viewport uniform `u_resolution` updated strictly on resize/init rather than per rAF frame.
+  - Line 138: Monotonic time uniform `gl.uniform1f(timeLocation, (now - startTime) * 0.001);` driven by `performance.now()`.
+  - Lines 145-164: Explicit shader detach, program deletion, buffer deletion, and `WEBGL_lose_context` teardown.
+- **`src/components/ReplayModal.tsx`**:
+  - Lines 55-66: `frameIdxRef` guard preventing React state dispatches (`setFrameIdx(idx)`) when the integer keystroke index has not changed.
 
-    --- TEST 1: Theoretical vs KEY_MAP Geometry ---
-    Row 3 Key SPACE: KEY_MAP is (276, 182). Theoretical X=276, Y=181 (h-11) or Y=182 (h-46px equivalent).
-    PASS: All 28 key coordinates match exact DOM layout geometry.
-
-    --- TEST 2: Finger Mapping & Coverage ---
-    PASS: 100% agreement between FINGER_MAP, KEY_MAP, and VirtualKeyboard ROWS.
-
-    --- TEST 3: Kinematic Transforms for All 28 Keys ---
-    PASS: Kinematic transform math is valid and bounded for all keys and fingers.
-
-    --- TEST 4: Edge Cases and Unmapped Keys ---
-    PASS: Edge cases handled safely without runtime errors or unexpected states.
-
-    === TEST SUMMARY ===
-    ALL EMPIRICAL TESTS PASSED SUCCESSFULLY! (0 errors)
-    ```
-
-- **Build Verification (`npm run build`)**:
-  - Command: `npm run build` (`tsc -b && vite build`)
-  - Output: Exited with code 0.
-    ```
-    vite v5.4.19 building for production...
-    transforming...
-    ✓ 2242 modules transformed.
-    rendering chunks...
-    computing relaxed option hashes...
-    dist/index.html                                                  0.53 kB │ gzip:  0.33 kB
-    dist/assets/index-DYbll7iI.css                                  45.41 kB │ gzip:  8.25 kB
-    dist/assets/lucide-react-B2jV_4k2.js                             0.47 kB │ gzip:  0.31 kB
-    dist/assets/framer-motion-DmsU4p0k.js                          118.89 kB │ gzip: 38.67 kB
-    dist/assets/index-68eZpx81.js                                  853.42 kB │ gzip: 254.91 kB
-    ✓ built in 12.00s
-    ```
-
-- **Code Alignment Verification**:
-  - `src/components/academy/VirtualKeyboard.tsx`:
-    - Line 11: `ROWS[1]` contains `['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';']` (10 keys, exact match).
-    - Line 26: `FINGER_MAP[';']` is `'right-pinky'`.
-  - `src/components/academy/CyberHands.tsx`:
-    - Lines 102 & 112: `left-middle` resting tip is `[147, 76]` and wireframe line tip is `L 147,76` (aligned on home row D key center).
-    - Lines 178 & 190: `right-middle` resting tip is `[412, 76]` and wireframe line tip is `L 412,76` (aligned on home row K key center).
-    - Line 231-232: `isLeftActive` and `isRightActive` properly handle thumb routing based on key X coordinate (`keyInfo.x <= 276`).
-    - Line 298: `CyberHands` wrapper container has `zIndex: 1`, placing background ghost hands behind `VirtualKeyboard` (`zIndex: 2`).
-    - Line 515: `<g>` sonar ripple target beam requires `keyInfo && normalizedKey !== ""` so no rings render at `(0, 0)` when inactive.
+### 1.2 Automated Empirical Test Suite Results (`node scripts/verify_m2_empirical_challenger.mjs`)
+- **KineticKeyboard Step Response (Target: 1.0, y0: 0.0, k: 20.0, T: 1.5s)**:
+  - Exact Analytical Value: `0.999999999999906`
+  - 60 Hz (16.67ms steps): Sim=`0.999999999999906` | Abs Error=`0.0000e+0` [PASS]
+  - 120 Hz (8.33ms steps): Sim=`0.999999999999907` | Abs Error=`1.1102e-16` [PASS]
+  - 144 Hz (6.94ms steps): Sim=`0.999999999999906` | Abs Error=`0.0000e+0` [PASS]
+  - 240 Hz (4.17ms steps): Sim=`0.999999999999906` | Abs Error=`0.0000e+0` [PASS]
+  - Variable Jitter (45Hz–280Hz, 205 steps): Sim=`0.999999999999906` | Abs Error=`0.0000e+0` [PASS]
+- **KineticKeyboard Harmonic Wave Trajectory**:
+  - Maximum deviation across all frame rates (60Hz, 120Hz, 144Hz, 240Hz) over 2.0 seconds: `0.007815` (sub-pixel, imperceptible).
+- **Starfield Distance Traversal (speedFactor=0.05, T=10s, Target=450.0 units)**:
+  - 60 Hz: Traversed=`450.000000` | Deviation=`0.0000e+0` [PASS]
+  - 120 Hz: Traversed=`450.000000` | Deviation=`0.0000e+0` [PASS]
+  - 144 Hz: Traversed=`450.000000` | Deviation=`0.0000e+0` [PASS]
+  - 240 Hz: Traversed=`450.000000` | Deviation=`0.0000e+0` [PASS]
+- **ReplayModal Frame-Index Gating**:
+  - At 240 Hz (1177 rAF ticks): State updates throttled from 1177 ticks to 50 keystroke frame dispatches (95.8% redundant render cycles avoided) [PASS].
+- **Starfield Heap Allocation & GC Pause Benchmark (5000 frames, 800 stars)**:
+  - Unoptimized: ~657 strings/frame (3,284,080 strings allocated); 3,284,080 `beginPath()` & `fill()` calls; execution time: `872.24ms`.
+  - Optimized (M2): 0 strings/frame (0 strings allocated in render loop); 39,544 `beginPath()` & `fill()` calls; execution time: `181.77ms`.
+  - Reduction: 100% string allocation elimination; 98.80% fewer Canvas context calls; 4.80x throughput acceleration.
+- **Production Build Execution**:
+  - `npm run build` (`tsc -b && vite build`): Succeeded in 9.52s with 0 errors (Exit code 0).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Geometry & Coordinate System**:
-   - `VirtualKeyboard` flex layout uses `gap-[7px]`, key dimensions `w-[46px] h-[46px]`, and explicit row margins (`ml-[18px]` for Row 1, `ml-[46px]` for Row 2).
-   - In `CyberHands.tsx`, `KEY_MAP` centers are calculated as:
-     - Row 0 (Y=23): `Q(23,23)`, `W(76,23)`, `E(129,23)`, `R(182,23)`, `T(235,23)`, `Y(288,23)`, `U(341,23)`, `I(394,23)`, `O(447,23)`, `P(500,23)`
-     - Row 1 (Y=76): `A(41,76)`, `S(94,76)`, `D(147,76)`, `F(200,76)`, `G(253,76)`, `H(306,76)`, `J(359,76)`, `K(412,76)`, `L(465,76)`, `;(518,76)`
-     - Row 2 (Y=129): `Z(69,129)`, `X(122,129)`, `C(175,129)`, `V(228,129)`, `B(281,129)`, `N(334,129)`, `M(387,129)`
-     - Row 3 (Y=182): `SPACE(276,182)`
-   - Empirically verified via `verify_m2.cjs`: all 28 keys match DOM pixel positions with 100% precision.
+1. **Mathematical Proof of Framerate Invariance**:
+   - The differential equation governing exponential relaxation toward a target $y_{target}$ is:
+     $$\frac{dy}{dt} = -k (y - y_{target})$$
+   - The exact analytical integration across any time step $\Delta t$ is:
+     $$y(t + \Delta t) - y_{target} = (y(t) - y_{target}) e^{-k \Delta t}$$
+     $$y(t + \Delta t) = y(t) + (y_{target} - y(t)) (1 - e^{-k \Delta t})$$
+   - For any partition of time interval $T = \sum_{i=1}^N \Delta t_i$, the total cumulative decay factor is:
+     $$\prod_{i=1}^N e^{-k \Delta t_i} = e^{-k \sum \Delta t_i} = e^{-k T}$$
+   - Because this product is strictly independent of the step size partition $\{\Delta t_i\}$, the discrete simulation across 60Hz, 120Hz, 144Hz, 240Hz, or arbitrary variable frame intervals converges to the exact continuous trajectory with zero theoretical error (within machine floating-point epsilon).
 
-2. **Kinematic Bounds & Finger Stability**:
-   - Hand translation `getHandTransform` scales movement (`totalDx * 0.40`, `totalDy * 0.50`), maintaining palm movement within the 552x400 viewBox.
-   - Finger joint rotation `getFingerTransform` is clamped to `[-30°, 30°]` and scale to `[0.7, 1.4]`.
-   - Empirically tested across all 28 keys x 10 fingers (280 combinations): no rotation overflow, no scale clipping, no NaN/Infinity values. Thumbs stay connected to palms across all key transitions.
+2. **Linear Distance Traversal Invariance**:
+   - For Starfield star traversal, displacement $\Delta z_i = v \cdot \Delta t_i = (\text{speedFactor} \times 900) \cdot \Delta t_i$.
+   - Cumulative displacement over interval $T$ is:
+     $$\sum_{i=1}^N \Delta z_i = (\text{speedFactor} \times 900) \sum_{i=1}^N \Delta t_i = (\text{speedFactor} \times 900) \cdot T$$
+   - Empirical simulation confirms total displacement is identical across all refresh rates ($450.000000$ units over 10s).
 
-3. **Null Guards & Edge Case Robustness**:
-   - Unmapped keys (`ENTER`, `1`, `!`, `""`) return `keyInfo = undefined`. The system defaults to `{x: 0, y: 0}` hand transforms and `{rotate: 0, scale: 1}` finger transforms without throwing runtime errors.
-   - Sonar ripple guard (`keyInfo && normalizedKey !== ""`) prevents ghost rings at origin `(0, 0)` when no key is active.
-
----
-
-## 3. Challenge Summary & Stress Test Results
-
-### Overall Risk Assessment: LOW
-
-### Stress Test Matrix
-
-| Scenario | Expected Behavior | Actual Behavior | Pass/Fail |
-|---|---|---|---|
-| Active key 'Q' press | Left pinky reaches `(23, 23)` center of Q key | Left pinky rotates -28.9°, scales 1.25 to hit `(23, 23)` | PASS |
-| Active key ';' (semicolon) | Right pinky highlights, target beam draws at `(518, 76)` | Semicolon correctly triggers right pinky and sonar beam | PASS |
-| Active key 'SPACE' / `' '` | Left thumb targets `(276, 182)` without hand detaching | Left hand translates `(30.4, 53.0)`, left thumb hits `(276, 182)` | PASS |
-| Empty active key `""` | Rest on home row, hide sonar ripples | Hands rest at home row `(0, 0)`, no sonar ripples drawn | PASS |
-| Unmapped key `'ENTER'` | Graceful fallback, resting state, no exceptions | Hand transforms stay `(0, 0)`, 0 exceptions thrown | PASS |
-| Production build | Clean TypeScript compilation and Vite bundling | `npm run build` completed with exit code 0 in 12.00s | PASS |
-
-### Unchallenged Areas
-- None — all 4 key rows, hand mapping logic, spacebar routing, edge cases, and build step were empirically tested.
+3. **Garbage Collection Pause Reduction**:
+   - In the unoptimized loop, dynamic template literal interpolation `rgba(255, 255, 255, ${opacity})` instantiated a new heap string for every visible star (~650+ stars per frame). At 120 FPS, this created $>78,000$ string allocations per second, triggering frequent V8 minor/major GC sweep pauses (10–30ms frame drops).
+   - The M2 refactor pre-computes 10 discrete opacity styles during initialization and reuses flat primitive number arrays via `.length = 0`.
+   - In-loop string allocations are reduced to exactly 0 bytes/frame, eliminating GC pause latency.
+   - Batching Canvas path construction into at most 10 discrete buckets per frame reduces Canvas 2D context state transitions from ~3.28 million down to ~39,500 per 5,000 frames (98.80% reduction), reducing CPU rendering overhead by 4.8x.
 
 ---
 
-## 4. Caveats
+## 3. Caveats
 
-- Baseline ESLint rules check whole repository including unrelated hooks; target M2 components (`VirtualKeyboard.tsx`, `CyberHands.tsx`, `AcademyLayout.tsx`) pass lint cleanly.
-
----
-
-## 5. Conclusion
-
-Milestone 2 implementation satisfies all coordinate alignment, kinematic integrity, spacebar thumb routing, and edge case handling requirements.
-
-### Final Verdict: APPROVE
+- **Extreme Framerate Clamping**: In `KineticKeyboard.tsx` line 210, `dt` is clamped to `Math.min((now - lastTime) / 1000, 0.1)`. If the browser tab is backgrounded or hangs for $>100\text{ms}$, the animation will catch up at 100ms per frame rather than teleporting instantly. This is intentional and prevents physics explosion.
+- **Opacity Quantization**: `StarfieldBackground` quantizes continuous opacity values into 10 buckets (`NUM_OPACITY_BUCKETS = 10`). Visually, discrete steps of $\Delta \alpha = 0.10$ for tiny 1–2px stars are indistinguishable to the human eye from continuous alpha gradients while providing substantial GC savings.
 
 ---
 
-## 6. Verification Method
+## 4. Conclusion
 
-1. Run `node .agents/challenger_m2_2/verify_m2.cjs`:
-   - Confirms all 28 keys match exact theoretical geometry.
-   - Confirms zero errors across mapping, kinematics, and edge cases.
-2. Run `npm run build`:
-   - Confirms clean TypeScript compilation and Vite build with exit code 0.
+- **Framerate Independence**: VERIFIED PASS. The delta-time physics in `KineticKeyboard.tsx` and `StarfieldBackground.tsx` yield exact, invariant physical trajectories across 60Hz, 120Hz, 144Hz, 240Hz, and jittered refresh rates.
+- **GC Pause & Allocation Elimination**: VERIFIED PASS. `StarfieldBackground.tsx` completely eliminates per-frame string allocations (0 strings/frame), batches pathing to $\le 10$ draw calls/frame (98.80% reduction in context state switches), and delivers 4.8x throughput improvement.
+- **Production Build**: VERIFIED PASS. `npm run build` succeeds with zero errors.
+
+---
+
+## 5. Verification Method
+
+To independently execute and verify the empirical challenge harness:
+
+1. **Run Empirical Challenger Test Suite**:
+   ```bash
+   node scripts/verify_m2_empirical_challenger.mjs
+   ```
+   *Expected outcome*: 23/23 tests pass with exit code 0.
+
+2. **Run TypeScript Compilation & Production Build**:
+   ```bash
+   npm run build
+   ```
+   *Expected outcome*: `tsc -b && vite build` completes with 0 errors.
+
+3. **Inspect Component Teardown & Optimization Logic**:
+   - `src/components/KineticKeyboard.tsx` (lines 205–289)
+   - `src/components/ui/starfield-background.tsx` (lines 60–160)
+   - `src/components/CosmicShaderBackground.tsx` (lines 120–165)
+   - `src/components/ReplayModal.tsx` (lines 48–81)

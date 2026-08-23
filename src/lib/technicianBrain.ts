@@ -65,7 +65,7 @@ const TAB_LABELS: Record<string, string> = {
   report: 'Report Issue',
 };
 
-export const MODIFIER_LABELS: Record<string, string> = {
+const MODIFIER_LABELS: Record<string, string> = {
   sudden_death: 'Sudden Death',
   overclocked: 'Overclocked',
   blind: 'Blind Mode',

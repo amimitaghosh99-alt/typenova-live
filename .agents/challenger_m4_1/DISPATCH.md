@@ -1,17 +1,22 @@
-# Dispatch to Challenger M4-1
+## 2026-08-14T15:26:55Z
+You are Challenger 1 (challenger_m4_1) for Typenova V2 Optimization Milestone 4.
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m4_1
+Project root: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
 
-## Context
-Original User Request: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
-Project Scope: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\PROJECT.md`
-Worker Handoff Report: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m4_1\handoff.md`
-Working Directory: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m4_1\`
+MANDATORY FIRST STEPS:
+1. Initialize your BRIEFING.md and progress.md in your working directory.
+2. Read the following documents:
+   - Original Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
+   - Project Scope: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_2\PROJECT.md
 
-## Task
-Adversarially challenge and stress-test the Milestone 4 Holographic Aesthetic implementation in `CyberHands.tsx`.
-Focus on:
-1. Verifying glow filter application across active vs inactive states.
-2. Checking wireframe node circles (MCP, PIP, DIP, Tip) and bone axis rays vs cross-phalange lines across both 4-finger hands and thumbs.
-3. Verifying sonar target ripple beam animation over active keys.
-4. Run `npm run build` compilation check.
-
-Write handoff report with explicit verdict (`APPROVE` or `REQUEST_CHANGES`) to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m4_1\handoff.md` and report back.
+YOUR MISSION:
+Perform empirical 120+ FPS framerate profiling, high-speed typing stress testing, and render count benchmarking.
+Specifically:
+1. Write and execute test scripts / benchmarks (e.g. Vitest/Node stress harnesses) to:
+   - Simulate rapid continuous typing (120+ WPM, 1,000+ keystrokes in rapid succession) and measure per-character processing time and re-render counts.
+   - Profile the animation loop budgets (Three.js kinetic physics, Starfield Canvas 2D batching, WebGL shader uniforms) ensuring per-frame execution is well under 8.33ms (targeting 120+ FPS).
+   - Benchmark garbage collection / memory allocation rates per frame during sustained rendering.
+2. Verify zero infinite render loops and zero frame drops under rapid typing state updates.
+3. Record exact empirical numbers, assertions passed, and framerate metrics.
+4. Issue your verdict: PASS or FAIL.
+5. Write your comprehensive report to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m4_1\handoff.md` and send a summary message to caller.

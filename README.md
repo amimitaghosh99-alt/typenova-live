@@ -4,7 +4,7 @@
 
 ### *The Next-Gen Cybernetic Gamified Typing Platform*
 
-[![Version](https://img.shields.io/badge/version-2.5.0-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live)
+[![Version](https://img.shields.io/badge/version-2.5.1-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live)
 [![License: MIT](https://img.shields.io/badge/License-MIT-00f2fe?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![React 19](https://img.shields.io/badge/React-19.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)

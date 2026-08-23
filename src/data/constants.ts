@@ -35,7 +35,7 @@ export const ADEPT_SENTENCES = [
   "Clean code is not just about logic, it is about creating readable architecture."
 ];
 
-export const MASTER_SNIPPETS = [
+const MASTER_SNIPPETS = [
   `The Kubernetes-orchestrated environment leverages containerized micro-services (with dynamic auto-scaling capabilities) to ensure 99.999% uptime—even under significant, unpredictable, cross-region traffic surges.`,
   `To optimize the distributed-ledger architecture, developers must prioritize Byzantine fault tolerance; specifically, the consensus algorithm (e.g., Proof-of-Stake vs. Proof-of-Work) dictates the overall security, latency, and throughput of the chain.`,
   `Implementing a zero-trust security model requires continuous identity-verification, multi-factor authentication (MFA), and micro-segmentation of the network—all while maintaining a seamless user-experience (UX) layer.`,
@@ -51,9 +51,9 @@ export const MASTER_SNIPPETS = [
 ];
 
 import { CODE_LANGUAGES, type CodeLanguage, CODE_LIBRARY } from './codeSnippets';
-export { CODE_LANGUAGES, type CodeLanguage, CODE_LIBRARY };
+export { CODE_LANGUAGES, type CodeLanguage };
 
-export const QUOTES = [
+const QUOTES = [
   `"The only way to do great work is to love what you do." — Steve Jobs`,
   `"In the middle of difficulty lies opportunity." — Albert Einstein`,
   `"It always seems impossible until it is done." — Nelson Mandela`,
@@ -137,14 +137,13 @@ export const generateText = (level: Level, length: number, customText: string = 
 };
 
 // ─── THEMES ─────────────────────────────────────────────
-const rgbMap: Record<string, string> = {
+export const rgbMap: Record<string, string> = {
   cyan: '34,211,238', emerald: '52,211,153', fuchsia: '217,70,239',
   orange: '251,146,60', zinc: '228,228,231', sky: '14,165,233',
   amber: '245,158,11', pink: '236,72,153', red: '239,68,68',
   yellow: '250,204,21', blue: '96,165,250', rose: '244,63,94',
   white: '255,255,255', purple: '168,85,247', indigo: '129,140,248',
-  // NEON EXTENSIONS
-  lime: '163,230,53', teal: '45,212,191', violet: '167,139,250'
+  lime: '163,230,53', teal: '45,212,191', violet: '139,92,246'
 };
 
 export interface Theme {
@@ -168,9 +167,9 @@ export interface Theme {
   glowSecondary: string;
 }
 
-const contrastMap: Record<string, string> = {
+export const contrastMap: Record<string, string> = {
   cyan: '168,85,247',      // purple
-  emerald: '34,211,238',   // cyan
+  emerald: '163,230,53',   // lime green (pure matrix green)
   fuchsia: '236,72,153',   // pink
   orange: '244,63,94',     // rose
   zinc: '156,163,175',     // gray
@@ -189,7 +188,7 @@ const contrastMap: Record<string, string> = {
   violet: '250,204,21'     // yellow (lakers)
 };
 
-const makeTheme = (
+export const makeTheme = (
   name: string, 
   bg: string, 
   text: string, 
@@ -240,60 +239,15 @@ export const THEMES: Record<string, Theme> = {
     glowPrimary: '56, 189, 248',
     glowSecondary: '99, 102, 241'
   },
-  amoled: makeTheme('amoled', 'bg-black', 'text-cyan-400', 'cyan'),
-  matrix: makeTheme('matrix', 'bg-[#001100]', 'text-emerald-400', 'emerald'),
-  cyberpunk: makeTheme('cyberpunk', 'bg-[#110011]', 'text-fuchsia-500', 'fuchsia'),
-  sunset: makeTheme('sunset', 'bg-[#1a0a00]', 'text-orange-400', 'orange'),
-  monochrome: makeTheme('monochrome', 'bg-[#0a0a0a]', 'text-zinc-200', 'zinc'),
-  nord: makeTheme('nord', 'bg-[#1e222a]', 'text-sky-300', 'sky'),
-  vaporwave: makeTheme('vaporwave', 'bg-[#0a001a]', 'text-pink-400', 'pink'),
-  dracula: makeTheme('dracula', 'bg-[#1a0a1a]', 'text-purple-400', 'fuchsia'),
-
-  // Creative Themes
-  galaxy: {
-    name: 'galaxy',
-    bg: 'bg-[#050014]',
-    text: 'text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400',
-    vividText: 'text-fuchsia-400',
-    accent: 'fuchsia',
-    drop: 'drop-shadow-[0_0_12px_rgba(217,70,239,0.6)]',
-    border: 'border-fuchsia-500/30',
-    borderHalf: 'border-fuchsia-500/50',
-    solid: 'bg-gradient-to-r from-purple-500 to-cyan-500',
-    bgAlpha: 'bg-fuchsia-500/10',
-    bgHover: 'hover:bg-fuchsia-500/20',
-    glow: 'shadow-[0_0_25px_rgba(168,85,247,0.5)]',
-    auraHigh: 'shadow-[0_0_120px_rgba(168,85,247,0.4)]',
-    auraMed: 'shadow-[0_0_60px_rgba(217,70,239,0.3)]',
-    auraLow: 'shadow-[0_0_20px_rgba(34,211,238,0.2)]',
-    toastGlow: 'shadow-[0_0_30px_rgba(217,70,239,0.4)]',
-    glowPrimary: '168, 85, 247',
-    glowSecondary: '34, 211, 238',
-  },
-  glitch: {
-    name: 'glitch',
-    bg: 'bg-black',
-    text: 'text-white [text-shadow:3px_0_0_rgba(255,0,80,0.8),-3px_0_0_rgba(0,255,255,0.8)]',
-    vividText: 'text-rose-400',
-    accent: 'rose',
-    drop: 'drop-shadow-[0_0_5px_rgba(255,0,80,0.8)]',
-    border: 'border-fuchsia-500/30',
-    borderHalf: 'border-fuchsia-500/50',
-    solid: 'bg-fuchsia-600',
-    bgAlpha: 'bg-fuchsia-500/10',
-    bgHover: 'hover:bg-fuchsia-500/20',
-    glow: 'shadow-[0_0_15px_rgba(255,0,80,0.5)]',
-    auraHigh: 'shadow-[0_0_100px_rgba(0,255,255,0.4)]',
-    auraMed: 'shadow-[0_0_50px_rgba(255,0,80,0.3)]',
-    auraLow: 'shadow-[0_0_20px_rgba(0,255,255,0.2)]',
-    toastGlow: 'shadow-[0_0_30px_rgba(255,0,80,0.4)]',
-    glowPrimary: '255, 0, 80',
-    glowSecondary: '0, 255, 255'
-  }
+  matrix: makeTheme('matrix', 'bg-[#001100]', 'text-emerald-400', 'emerald', undefined, '52,211,153', '163,230,53'),
+  cyberpunk: makeTheme('cyberpunk', 'bg-[#110011]', 'text-fuchsia-500', 'fuchsia', undefined, '217,70,239', '236,72,153'),
+  sunset: makeTheme('sunset', 'bg-[#1a0a00]', 'text-orange-400', 'orange', undefined, '245,158,11', '244,63,94'),
+  nord: makeTheme('nord', 'bg-[#1e222a]', 'text-sky-300', 'sky', undefined, '14,165,233', '96,165,250'),
+  dracula: makeTheme('dracula', 'bg-[#1a0a1a]', 'text-purple-400', 'purple', undefined, '168,85,247', '217,70,239'),
+  monochrome: makeTheme('monochrome', 'bg-[#0a0a0a]', 'text-zinc-200', 'zinc', undefined, '228,228,231', '156,163,175'),
 };
 
 export const THEME_KEYS = Object.keys(THEMES);
-export const PRESET_KEYS = ['nord', 'matrix', 'spiderman', 'ironman', 'captain', 'madrid', 'barca', 'galaxy', 'synthwave', 'bloodmoon', 'bubblegum'];
 export const SOUND_KEYS = ['thocky', 'linear', 'clicky', 'raindrops', 'arcade', 'modelm', 'alpaca'];
 
 export interface Achievement {

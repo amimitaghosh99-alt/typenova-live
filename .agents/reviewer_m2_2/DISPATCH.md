@@ -1,24 +1,15 @@
-# Dispatch to Reviewer M2-2
+## 2026-08-14T14:32:02Z
 
-## Context
-Original User Request: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
-Project Scope: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\PROJECT.md`
-Worker Handoff Report: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m2_1\handoff.md`
-Working Directory: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_2\`
+You are teamwork_preview_reviewer_m2_2.
+Your working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_2
+Project root: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
+Authoritative Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
+Worker Changes: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m2\changes.md
+Worker Handoff: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m2\handoff.md
 
-## Task
-Perform independent code review for Milestone 2: Coordinate System Alignment & Key Mapping.
-Target files modified:
-- `src/components/academy/VirtualKeyboard.tsx`
-- `src/components/academy/CyberHands.tsx`
-- `src/components/academy/AcademyLayout.tsx`
-
-Verify:
-1. Semicolon key `;` addition to `ROWS[1]` and `FINGER_MAP`.
-2. Middle finger resting Y coordinates (`left-middle` and `right-middle` set to Y=76).
-3. Spacebar routing logic for thumb.
-4. Sonar target ripple null guard (`normalizedKey !== ""`).
-5. `zIndex` layering (`zIndex: 1` on CyberHands, `zIndex: 2` on VirtualKeyboard).
-6. Perform build check (`npm run build`).
-
-Write your handoff report with explicit verdict (`APPROVE` or `REQUEST_CHANGES`) to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_2\handoff.md` and report back.
+Task:
+Perform independent code review of Milestone 2:
+1. Verify correctness, framerate stability (120+ FPS math), WebGL context cleanup, and zero memory leaks across KineticKeyboard, StarfieldBackground, CosmicShaderBackground, and ReplayModal.
+2. Run `npx tsc --noEmit` and `npm run build`.
+3. Record your verdict (APPROVE or REQUEST_CHANGES) in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m2_2\handoff.md`.
+4. Send a completion message to parent.

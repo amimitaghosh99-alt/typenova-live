@@ -10,6 +10,8 @@ interface WpmGraphProps {
   errorTimes: number[];
   durationMs: number;
   theme: Theme;
+  ghostTimeline?: Array<{ t: number; wpm: number }> | null;
+  ghostLabel?: string;
 }
 
 /** WPM at time t, linearly interpolated along the timeline curve. */
@@ -26,16 +28,31 @@ function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): n
   return points[points.length - 1].wpm;
 }
 
-export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId, errorTimes, durationMs, theme }: WpmGraphProps) => {
+export const WpmGraph = ({
+  timelinePoints,
+  competitorTimelines,
+  players,
+  selfId,
+  errorTimes,
+  durationMs,
+  theme,
+  ghostTimeline,
+  ghostLabel,
+}: WpmGraphProps) => {
   const [hoveredTimeMs, setHoveredTimeMs] = useState<number | null>(null);
   const [hoveredOvertakeIdx, setHoveredOvertakeIdx] = useState<number | null>(null);
   const svgRectRef = useRef<DOMRect | null>(null);
 
   const safePts = useMemo(() => Array.isArray(timelinePoints) ? timelinePoints : [], [timelinePoints]);
+  const safeGhostPts = useMemo(() => Array.isArray(ghostTimeline) ? ghostTimeline : [], [ghostTimeline]);
   const safeDuration = Math.max(durationMs || 0, 1000);
 
-  const { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor } = useMemo(() => {
-    let maxW = Math.max(...safePts.map(p => Math.max(p?.wpm || 0, p?.rawWpm || 0)), 10);
+  const { maxW, avgWpm, poly, rawPoly, ghostPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor } = useMemo(() => {
+    let maxW = Math.max(
+      ...safePts.map(p => Math.max(p?.wpm || 0, p?.rawWpm || 0)),
+      ...safeGhostPts.map(p => p?.wpm || 0),
+      10
+    );
     if (competitorTimelines) {
       Object.values(competitorTimelines).forEach(pts => {
         if (Array.isArray(pts)) {
@@ -78,6 +95,7 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
 
     const poly = buildSmoothPath(safePts, 'wpm');
     const rawPoly = buildSmoothPath(safePts, 'rawWpm');
+    const ghostPoly = buildSmoothPath(safeGhostPts, 'wpm');
     
     const compPolys: Record<string, { path: string; color: string }> = {};
     const medalColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
@@ -153,8 +171,8 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
       }
     }
 
-    return { maxW, avgWpm, poly, rawPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor };
-  }, [safePts, competitorTimelines, players, selfId, durationMs]);
+    return { maxW, avgWpm, poly, rawPoly, ghostPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor };
+  }, [safePts, safeGhostPts, competitorTimelines, players, selfId, durationMs]);
 
   if (safePts.length < 2 || safeDuration <= 0) return null;
 
@@ -224,6 +242,21 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
           <path key={`comp-${id}`} fill="none" stroke={comp.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={comp.path} opacity="0.9" />
         ))}
 
+        {/* Ghost curve (Shadow run) */}
+        {ghostPoly && safeGhostPts.length > 0 && (
+          <path
+            fill="none"
+            stroke="#c084fc"
+            strokeWidth="2.5"
+            strokeDasharray="6 4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d={ghostPoly}
+            opacity="0.85"
+            className="filter drop-shadow-[0_0_8px_rgba(192,132,252,0.6)]"
+          />
+        )}
+
         {/* Net WPM curve */}
         <path fill="none" stroke={selfColor || "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={poly} className={selfColor ? "" : theme.text} />
 
@@ -270,7 +303,11 @@ export const WpmGraph = ({ timelinePoints, competitorTimelines, players, selfId,
             });
           } else {
             const wpm = interpolateWpm(timelinePoints, t);
-            rows.push({ name: 'WPM', wpm: Math.round(wpm), color: 'white' });
+            rows.push({ name: 'YOU', wpm: Math.round(wpm), color: 'white' });
+            if (safeGhostPts.length > 0) {
+              const gWpm = interpolateWpm(safeGhostPts, t);
+              rows.push({ name: ghostLabel || 'GHOST', wpm: Math.round(gWpm), color: '#c084fc' });
+            }
           }
 
           const h = rows.length * 16 + 12;

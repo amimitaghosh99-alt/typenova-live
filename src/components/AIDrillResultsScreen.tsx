@@ -95,10 +95,6 @@ export function AIDrillResultsScreen({
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] w-full max-w-4xl mx-auto px-4 animate-in fade-in zoom-in-95 duration-700">
       
-      {/* Background Orbs to refract through the glass */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/30 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/30 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
-      {isFlawless && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-3xl bg-amber-500/20 blur-[150px] rounded-full pointer-events-none mix-blend-screen" />}
 
       {/* Main Container */}
       <div className="relative w-full glass-panel glass-refract rounded-[2.5rem] p-10 md:p-14 overflow-hidden z-10">

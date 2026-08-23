@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AI_KEYS, PROVIDER_PRESETS, DEFAULT_BASE_URL, DEFAULT_MODEL } from '@/lib/aiClient';
 
 export interface SmartEngineConfig {
@@ -42,6 +42,13 @@ export function useSmartEngineConfig(): SmartEngineConfig {
   const [connectionError, setConnectionError] = useState('');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [workingModels, setWorkingModels] = useState<string[]>([]);
+  const glowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (glowTimeoutRef.current) clearTimeout(glowTimeoutRef.current);
+    };
+  }, []);
 
   const testConnection = async (keyToUse = byokKey, urlToUse = byokUrl) => {
     if (!keyToUse.trim()) return;
@@ -73,7 +80,7 @@ export function useSmartEngineConfig(): SmartEngineConfig {
       const data = await response.json();
       if (data && data.data && Array.isArray(data.data)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let models: string[] = data.data.map((m: any) => m.id);
+        const models: string[] = data.data.map((m: any) => m.id);
         
         let working: string[] = [];
         try {
@@ -150,7 +157,8 @@ export function useSmartEngineConfig(): SmartEngineConfig {
     if (newProviderId !== selectedProvider) {
       handleProviderSelect(newProviderId);
       setShowGlow(true);
-      setTimeout(() => setShowGlow(false), 1500);
+      if (glowTimeoutRef.current) clearTimeout(glowTimeoutRef.current);
+      glowTimeoutRef.current = setTimeout(() => setShowGlow(false), 1500);
     }
   };
   const handleModelChange = (val: string) => {

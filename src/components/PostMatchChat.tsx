@@ -1,23 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, MessageSquare, Sparkles } from 'lucide-react';
-import { getSocket } from '../lib/socket';
-import type { RacerState } from '../hooks/useRace';
-
-export interface ChatMessage {
-  id: string;
-  sender: string;
-  senderId?: string;
-  text: string;
-  timestamp: string | number;
-  color?: string;
-}
+import { Send, MessageSquare } from 'lucide-react';
+import type { RacerState, ChatMessage } from '../hooks/useRace';
 
 interface PostMatchChatProps {
   lobbyId: string;
   username: string;
   selfId?: string;
   players?: RacerState[];
-  supabase?: import('@supabase/supabase-js').SupabaseClient | null;
+  chatMessages: ChatMessage[];
+  onSendMessage: (text: string) => void;
 }
 
 const PRESET_MESSAGES = ['gg', 'Rematch?', 'So close!', 'My keyboard lagged!'] as const;
@@ -34,8 +25,9 @@ export function PostMatchChat({
   username,
   selfId,
   players = [],
+  chatMessages,
+  onSendMessage,
 }: PostMatchChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -44,11 +36,11 @@ export function PostMatchChat({
     if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
       const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
-      if (isNearBottom || messages.length <= 1) {
+      if (isNearBottom || chatMessages.length <= 1) {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
       }
     }
-  }, [messages]);
+  }, [chatMessages]);
 
   // Determine sender color based on player position in room
   const getSenderColor = useCallback(
@@ -61,62 +53,19 @@ export function PostMatchChat({
           (p) => p.name?.toLowerCase() === senderName?.toLowerCase()
         );
       }
-      if (idx < 0) idx = 0;
-      return PLAYER_COLORS[idx % PLAYER_COLORS.length];
+      return PLAYER_COLORS[idx >= 0 ? idx % PLAYER_COLORS.length : 0];
     },
     [players]
   );
 
-  // Listen to Socket.io `chat_message` events
-  useEffect(() => {
-    if (!lobbyId) return;
-    const socket = getSocket();
-
-    const handleChatMessage = (msgPayload: { id?: string; sender: string; senderId?: string; text: string; timestamp?: string }) => {
-      const colorObj = getSenderColor(msgPayload.sender, msgPayload.senderId);
-      const newMsg: ChatMessage = {
-        id: msgPayload.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        sender: msgPayload.sender,
-        senderId: msgPayload.senderId,
-        text: msgPayload.text,
-        timestamp: msgPayload.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        color: colorObj.text,
-      };
-
-      setMessages((prev) => {
-        // Prevent duplicate messages
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
-        return [...prev, newMsg];
-      });
-    };
-
-    socket.on('chat_message', handleChatMessage);
-
-    return () => {
-      socket.off('chat_message', handleChatMessage);
-    };
-  }, [lobbyId, getSenderColor]);
-
-  // Send message function via Socket.io `send_message`
   const sendMessage = useCallback(
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !lobbyId) return;
-
-      const socket = getSocket();
-      if (socket.connected) {
-        socket.emit('send_message', {
-          roomId: lobbyId,
-          message: trimmed,
-          sender: username || 'Racer',
-          senderId: selfId,
-          id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
-        });
-      }
-
+      onSendMessage(trimmed);
       setInputText('');
     },
-    [lobbyId, username]
+    [lobbyId, onSendMessage]
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -150,13 +99,13 @@ export function PostMatchChat({
         ref={chatContainerRef}
         className="h-40 overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-2 mb-3 scroll-smooth"
       >
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-xs font-bold gap-1 py-6 opacity-60">
-            <Sparkles size={18} className="text-zinc-600 mb-1 animate-pulse" />
-            <span>Say "gg" or send a quick chat message below!</span>
+        {chatMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-2 opacity-50">
+            <MessageSquare size={20} />
+            <span className="text-[10px] font-bold tracking-widest uppercase">No comms yet</span>
           </div>
         ) : (
-          messages.map((msg) => {
+          chatMessages.map((msg) => {
             const isSelf = msg.senderId && selfId 
               ? msg.senderId === selfId 
               : msg.sender?.toLowerCase() === username?.toLowerCase();

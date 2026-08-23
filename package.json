@@ -1,7 +1,7 @@
 {
   "name": "typenova",
   "private": true,
-  "version": "2.4.0",
+  "version": "2.5.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -47,6 +47,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^13.0.0",
+    "gsap": "^3.15.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.562.0",
     "motion": "^13.1.0",
@@ -58,7 +59,6 @@
     "react-resizable-panels": "^4.2.2",
     "react-router": "^7.6.1",
     "recharts": "^2.15.4",
-    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "three": "^0.185.1",

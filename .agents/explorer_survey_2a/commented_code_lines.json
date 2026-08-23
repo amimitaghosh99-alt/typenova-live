@@ -1,0 +1,7 @@
+[
+  {
+    "file": "src/components/RaceResultsScreen.tsx",
+    "line": 101,
+    "code": "// let both clients resolve the same duel whenever a finish broadcast was"
+  }
+]

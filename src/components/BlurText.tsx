@@ -99,5 +99,3 @@ export const BlurText = ({
     </span>
   );
 };
-
-export default BlurText;

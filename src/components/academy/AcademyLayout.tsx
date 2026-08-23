@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { 
-  ArrowLeft, ChevronRight, Trophy, CheckCircle2, LayoutGrid, Zap, 
-  Volume2, VolumeX, Gauge, Activity, Sparkles
+  ChevronRight, Trophy, CheckCircle2, LayoutGrid, 
+  Volume2, VolumeX, Gauge, Activity
 } from 'lucide-react';
 import { VirtualKeyboard } from './VirtualKeyboard';
 import { CyberHands } from './CyberHands';
@@ -23,18 +23,21 @@ const FINGER_META: Record<string, { dot: string; label: string; pillBg: string; 
   'right-pinky':  { dot: '#8b5cf6', label: 'Right Pinky',  pillBg: 'rgba(139,92,246,0.12)', pillBorder: 'rgba(139,92,246,0.35)', pillText: '#c4b5fd' },
 };
 
-const LEGEND_KEYS = ['left-pinky','left-ring','left-middle','left-index','right-index','right-middle','right-ring','right-pinky'];
-
 interface AcademyLayoutProps { onExit: () => void; }
 
 export function AcademyLayout({ onExit }: AcademyLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeCategory, setActiveCategory] = useState<LessonCategory | 'all'>('all');
-  const [isExiting, setIsExiting] = useState(false);
+  const exitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (exitTimeoutRef.current) clearTimeout(exitTimeoutRef.current);
+    };
+  }, []);
 
   const handleExit = () => {
-    setIsExiting(true);
-    setTimeout(onExit, 400); // Wait for exit animation to complete
+    onExit();
   };
   
   const engine       = useAcademyEngine();
@@ -66,107 +69,77 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
   const rankInfo = getRankBadge(engine.accuracy, engine.wpm);
 
   return (
-    <div className="fixed inset-0 flex flex-col z-[200] overflow-hidden select-none bg-black">
-      <motion.div 
-        initial={{ opacity: 0, scale: 1.05 }}
-        animate={isExiting ? { opacity: 0, scale: 0.9, y: 30 } : { opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: "easeInOut" }}
-        className="w-full h-full flex flex-col"
-      >
-        {/* ── Top progress bar ── */}
-      <div className="h-[3px] w-full shrink-0" style={{ background: 'rgba(255,255,255,0.05)' }}>
+    <div className="w-full h-full flex flex-col overflow-hidden select-none relative z-10 bg-transparent">
+      {/* ── Top progress bar ── */}
+      <div className="h-[2px] w-full shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }}>
         <div
           className="h-full transition-all duration-500 ease-out"
           style={{
             width: `${overallProgress * 100}%`,
             background: 'linear-gradient(90deg, #06b6d4, #00e5ff, #10b981)',
-            boxShadow: '0 0 14px rgba(6,182,212,0.9)',
+            boxShadow: '0 0 12px rgba(6,182,212,0.8)',
           }}
         />
       </div>
 
-      {/* ── Ambient background ── */}
+      {/* ── Ambient background glows ── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <div className="absolute" style={{
-          top: '10%', left: '-5%', width: '55%', height: '60%',
+          top: '10%', left: '15%', width: '40%', height: '40%',
           borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(6,182,212,0.12) 0%, transparent 70%)',
-          filter: 'blur(60px)',
-        }} />
-        <div className="absolute" style={{
-          bottom: '-5%', right: '5%', width: '40%', height: '50%',
-          borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(16,185,129,0.09) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, rgba(6,182,212,0.06) 0%, transparent 70%)',
           filter: 'blur(80px)',
         }} />
-        {/* Diagonal light rays */}
-        {[0,1,2,3,4].map(i => (
-          <div key={i} className="absolute" style={{
-            top: '-20%', left: `${10 + i * 18}%`,
-            width: '1px', height: '140%',
-            background: 'linear-gradient(to bottom, transparent, rgba(6,182,212,0.06), transparent)',
-            transform: 'rotate(25deg)',
-            transformOrigin: 'top center',
-          }} />
-        ))}
-        {/* Grid pattern */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'linear-gradient(rgba(6,182,212,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.04) 1px, transparent 1px)',
-          backgroundSize: '52px 52px',
+        <div className="absolute" style={{
+          bottom: '10%', right: '15%', width: '40%', height: '40%',
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse, rgba(16,185,129,0.05) 0%, transparent 70%)',
+          filter: 'blur(80px)',
         }} />
       </div>
 
-      {/* ── Header ── */}
-      <header className="relative flex items-center justify-between px-5 py-3 shrink-0"
-        style={{ zIndex: 10, borderBottom: '1px solid rgba(6,182,212,0.10)' }}>
-        {/* Left controls */}
-        <div className="flex items-center gap-2">
-          <button onClick={handleExit}
-            className="glass-panel flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400 hover:text-white transition-colors">
-            <ArrowLeft size={11} /> Exit
-          </button>
+      {/* ── Subheader / Control Bar ── */}
+      <header className="relative flex items-center justify-between px-6 py-2.5 shrink-0 bg-zinc-950/80 backdrop-blur-xl border-b border-white/10"
+        style={{ zIndex: 10 }}>
+        {/* Left: Curriculum Toggle Button */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(v => !v)}
-            className={`glass-panel flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] uppercase transition-colors ${sidebarOpen ? 'text-white border-white/20' : 'text-zinc-500 hover:text-zinc-300'}`}>
-            <LayoutGrid size={11} /> Lessons
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-[11px] font-bold tracking-[0.15em] uppercase transition-all active:scale-95 ${sidebarOpen ? 'text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 shadow-[0_0_12px_rgba(34,211,238,0.2)]' : 'text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10'}`}>
+            <LayoutGrid size={13} /> Curriculum
+            <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-white/10 text-zinc-300">
+              {filteredLessons.length}
+            </span>
           </button>
         </div>
 
-        {/* Center — Live Performance Indicators */}
-        <div className="flex items-center gap-4">
-          <div className="glass-panel flex items-center gap-2 px-3 py-1.5 rounded-lg">
-            <Gauge size={12} className="text-zinc-400" />
-            <span className="text-[10px] font-bold tracking-widest text-zinc-200">
-              {engine.wpm} <span className="text-[8px] text-zinc-500">WPM</span>
-            </span>
-          </div>
-          <div className="glass-panel flex items-center gap-2 px-3 py-1.5 rounded-lg">
-            <Activity size={12} className="text-zinc-400" />
-            <span className="text-[10px] font-bold tracking-widest text-zinc-200">
-              {engine.accuracy}% <span className="text-[8px] text-zinc-500">ACC</span>
-            </span>
-          </div>
+        {/* Center: Current Module Info */}
+        <div className="flex items-center gap-2.5 bg-black/40 px-4 py-1 rounded-full border border-white/5 shadow-inner">
+          <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300">
+            Lesson {engine.currentLessonIndex + 1} of {LESSONS.length}
+          </span>
+          <span className="text-zinc-500">•</span>
+          <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-white">
+            {engine.lessonTitle}
+          </span>
         </div>
 
-        {/* Right — Audio Toggle & Branding */}
-        <div className="flex items-center gap-2">
+        {/* Right: Audio Toggle & Rank */}
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:inline-block text-[9px] font-bold tracking-[0.2em] uppercase px-2.5 py-0.5 rounded-full"
+            style={{ color: rankInfo.color, background: rankInfo.bg, border: `1px solid ${rankInfo.color}30` }}>
+            {rankInfo.rank}
+          </span>
           <button
             onClick={engine.toggleMute}
-            className={`glass-panel flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition-colors ${engine.isMuted ? 'text-zinc-500' : 'text-zinc-300 hover:text-white'}`}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold transition-all active:scale-95 ${engine.isMuted ? 'text-zinc-500 bg-white/5 border border-white/5' : 'text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 hover:text-cyan-200'}`}
             title={engine.isMuted ? 'Unmute Cyber SFX' : 'Mute Cyber SFX'}
           >
-            {engine.isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-            <span className="hidden sm:inline tracking-wider uppercase text-[9px]">
-              {engine.isMuted ? 'Muted' : 'SFX ON'}
+            {engine.isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+            <span className="tracking-wider uppercase text-[10px]">
+              {engine.isMuted ? 'Muted' : 'SFX'}
             </span>
           </button>
-
-          <div className="glass-panel flex items-center gap-2 rounded-lg px-3 py-1.5 text-zinc-300">
-            <Zap size={11} className="text-zinc-400" />
-            <span className="text-[10px] font-bold tracking-[0.25em] uppercase">
-              TypeNova
-            </span>
-          </div>
         </div>
       </header>
 
@@ -178,19 +151,19 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
           className="shrink-0 overflow-hidden transition-all duration-300"
           style={{
             width: sidebarOpen ? '280px' : '0px',
-            borderRight: '1px solid rgba(34,211,238,0.15)',
-            background: 'linear-gradient(135deg, rgba(6,182,212,0.05) 0%, rgba(4,6,16,0.9) 100%)',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(8, 10, 18, 0.92)',
             backdropFilter: 'blur(24px)',
-            boxShadow: sidebarOpen ? '1px 0 30px rgba(0,0,0,0.5)' : 'none',
+            boxShadow: sidebarOpen ? '4px 0 30px rgba(0,0,0,0.6)' : 'none',
           }}>
           <div className="w-[280px] h-full flex flex-col py-4 overflow-y-auto custom-scrollbar">
             
             {/* Category Filter Tabs */}
             <div className="px-4 mb-4">
-              <span className="block mb-2 text-[10px] font-bold tracking-[0.25em] uppercase text-zinc-500">
+              <span className="block mb-2 text-[10px] font-bold tracking-[0.25em] uppercase text-zinc-400">
                 Categories
               </span>
-              <div className="flex w-full bg-black/40 p-1 rounded-xl border border-white/5 relative">
+              <div className="flex w-full bg-zinc-900/90 p-1 rounded-xl border border-white/10 relative">
                 {(['all', 'foundations', 'reaches', 'advanced', 'speed'] as const).map((cat) => {
                   const isActive = activeCategory === cat;
                   const label = cat === 'all' ? 'ALL' : cat === 'foundations' ? 'FND' : cat === 'reaches' ? 'RCH' : cat === 'advanced' ? 'ADV' : 'SPD';
@@ -198,12 +171,12 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
                     <button
                       key={cat}
                       onClick={() => setActiveCategory(cat)}
-                      className={`relative flex-1 py-2 text-[9px] font-bold uppercase tracking-wider transition-colors z-10 ${isActive ? 'text-cyan-300' : 'text-zinc-500 hover:text-zinc-300'}`}
+                      className={`relative flex-1 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors z-10 ${isActive ? 'text-cyan-300' : 'text-zinc-400 hover:text-white'}`}
                     >
                       {isActive && (
                         <motion.div
                           layoutId="academy-sidebar-category-pill"
-                          className="absolute inset-0 bg-cyan-500/10 border border-cyan-500/20 rounded-lg shadow-[0_0_12px_rgba(34,211,238,0.15)]"
+                          className="absolute inset-0 bg-cyan-500/20 border border-cyan-500/30 rounded-lg shadow-[0_0_12px_rgba(34,211,238,0.2)]"
                           style={{ zIndex: -1 }}
                           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                         />
@@ -215,190 +188,144 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
               </div>
             </div>
 
-            <div className="h-[1px] w-full bg-white/5 my-2" />
+            <div className="h-[1px] w-full bg-white/5 my-1" />
 
-            <div className="px-4 my-3 flex items-center justify-between">
+            <div className="px-4 my-2 flex items-center justify-between">
               <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-zinc-400">
                 Curriculum
               </span>
-              <span className="text-[9px] font-bold text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+              <span className="text-[9px] font-bold text-zinc-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
                 {filteredLessons.length} MODULES
               </span>
             </div>
 
             {/* Lesson List */}
-            {filteredLessons.map(({ lesson, originalIndex }) => {
-              const done = engine.completedLessons.has(originalIndex);
-              const cur  = originalIndex === engine.currentLessonIndex;
-              const catMeta = CATEGORY_LABELS[lesson.category];
+            <div className="flex flex-col gap-1 px-2">
+              {filteredLessons.map(({ lesson, originalIndex }) => {
+                const done = engine.completedLessons.has(originalIndex);
+                const cur  = originalIndex === engine.currentLessonIndex;
+                const catMeta = CATEGORY_LABELS[lesson.category];
 
-              return (
-                <button key={lesson.id} onClick={() => engine.goToLesson(originalIndex)}
-                  className={`group relative flex items-center gap-3 px-4 py-3 text-left transition-colors duration-300 ${cur ? '' : 'hover:bg-white/5'}`}>
-                  
-                  {/* Sliding Liquid Glass Highlight */}
-                  {cur && (
-                    <motion.div
-                      layoutId="academy-active-lesson-highlight"
-                      className="absolute inset-y-1 left-2 right-2 pointer-events-none rounded-xl"
+                return (
+                  <button key={lesson.id} onClick={() => engine.goToLesson(originalIndex)}
+                    className={`group relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left transition-all duration-200 ${cur ? 'bg-cyan-500/10 border border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.1)]' : done ? 'hover:bg-white/5 border border-transparent' : 'hover:bg-white/5 border border-transparent opacity-75 hover:opacity-100'}`}>
+                    
+                    {/* Badge */}
+                    <div className="w-[24px] h-[24px] rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold transition-colors relative z-10"
                       style={{
-                        background: 'linear-gradient(135deg, rgba(34,211,238,0.15) 0%, rgba(34,211,238,0.02) 100%)',
-                        border: '1px solid rgba(34,211,238,0.3)',
-                        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.3), inset 0 -10px 20px rgba(34,211,238,0.05), 0 4px 12px rgba(0,0,0,0.5)',
-                        backdropFilter: 'blur(12px)',
-                        zIndex: 0
-                      }}
-                      transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
-                    />
-                  )}
-
-                  {/* Badge */}
-                  <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold transition-colors relative z-10"
-                    style={{
-                      background: done ? 'rgba(16,185,129,0.1)' : cur ? 'rgba(34,211,238,0.1)' : 'rgba(255,255,255,0.02)',
-                      border: `1px solid ${done ? 'rgba(16,185,129,0.3)' : cur ? 'rgba(34,211,238,0.3)' : 'rgba(255,255,255,0.05)'}`,
-                      color:  done ? '#34d399' : cur ? '#67e8f9' : 'rgba(255,255,255,0.3)',
-                      boxShadow: cur ? '0 0 10px rgba(34,211,238,0.15)' : 'none',
-                    }}>
-                    {done ? <CheckCircle2 size={12} /> : originalIndex + 1}
-                  </div>
-                  <div className="min-w-0 flex-1 transition-transform duration-300 group-hover:translate-x-1 relative z-10">
-                    <div className="flex items-center justify-between gap-1">
-                      <p className={`text-[12px] font-bold truncate transition-colors duration-300 ${cur ? 'text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]' : done ? 'text-zinc-300 group-hover:text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`}>
-                        {lesson.title}
-                      </p>
+                        background: done ? 'rgba(16,185,129,0.15)' : cur ? 'rgba(34,211,238,0.2)' : 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${done ? 'rgba(16,185,129,0.4)' : cur ? 'rgba(34,211,238,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                        color:  done ? '#34d399' : cur ? '#67e8f9' : 'rgba(255,255,255,0.5)',
+                        boxShadow: cur ? '0 0 10px rgba(34,211,238,0.2)' : 'none',
+                      }}>
+                      {done ? <CheckCircle2 size={13} /> : originalIndex + 1}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[9px] text-zinc-500 font-medium">
-                        {catMeta.name} • {lesson.steps.length} steps
-                      </span>
+                    
+                    <div className="min-w-0 flex-1 relative z-10">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className={`text-[12px] font-bold truncate transition-colors duration-200 ${cur ? 'text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]' : done ? 'text-zinc-200 group-hover:text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+                          {lesson.title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[9px] text-zinc-400 font-medium">
+                          {catMeta.name} • {lesson.steps.length} steps
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </aside>
 
-        {/* ── Main ── */}
-        <main className="flex-1 flex flex-col items-center overflow-y-auto pt-5 pb-10 px-4">
+        {/* ── Main Arena ── */}
+        <main className="flex-1 flex flex-col items-center justify-center p-4 overflow-y-auto custom-scrollbar">
 
-          {/* Lesson Title & Category Banner */}
-          <div className="flex flex-col items-center gap-1 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold tracking-[0.35em] uppercase"
-                style={{ color: 'rgba(6,182,212,0.60)' }}>
-                Lesson {engine.currentLessonIndex + 1} of {LESSONS.length}
-              </span>
-              {LESSONS[engine.currentLessonIndex] && (
-                <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full"
-                  style={{
-                    color: CATEGORY_LABELS[LESSONS[engine.currentLessonIndex].category].color,
-                    background: `${CATEGORY_LABELS[LESSONS[engine.currentLessonIndex].category].color}18`,
-                    border: `1px solid ${CATEGORY_LABELS[LESSONS[engine.currentLessonIndex].category].color}40`,
-                  }}>
-                  {CATEGORY_LABELS[LESSONS[engine.currentLessonIndex].category].icon} {CATEGORY_LABELS[LESSONS[engine.currentLessonIndex].category].name}
-                </span>
-              )}
-            </div>
-
-            <h1 className="text-[22px] font-bold tracking-[0.15em] uppercase text-white text-center">
-              {engine.lessonTitle}
-            </h1>
-            {engine.lessonDescription && (
-              <p className="text-[11px] text-center" style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.05em' }}>
-                {engine.lessonDescription}
-              </p>
-            )}
-          </div>
-
-          {/* Step Dots */}
-          {!engine.lessonComplete && !engine.allComplete && engine.totalSteps > 0 && (
-            <div className="flex items-center gap-1.5 mb-5">
-              {Array.from({ length: engine.totalSteps }).map((_, i) => (
-                <div key={i} className="rounded-full transition-all duration-200"
-                  style={{
-                    width:  i === engine.currentStepIndex ? '10px' : '6px',
-                    height: i === engine.currentStepIndex ? '10px' : '6px',
-                    background: i < engine.currentStepIndex
-                      ? 'rgba(16,185,129,0.8)'
-                      : i === engine.currentStepIndex
-                      ? '#06b6d4'
-                      : 'rgba(255,255,255,0.10)',
-                    boxShadow: i === engine.currentStepIndex ? '0 0 8px rgba(6,182,212,0.9)' : 'none',
-                  }} />
-              ))}
-            </div>
-          )}
-
-          {/* ── Instruction Card ── */}
+          {/* ── Training Area ── */}
           {!engine.lessonComplete && !engine.allComplete && (
-            <div
-              className={`glass-panel relative mb-6 w-full max-w-[480px] rounded-2xl transition-all duration-300 ${engine.errorShake ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
-              style={engine.isDrillMode ? {
-                background: 'rgba(245,158,11,0.1)',
-                border: '1px solid rgba(245,158,11,0.4)',
-                boxShadow: '0 0 30px rgba(245,158,11,0.15), inset 0 0 20px rgba(245,158,11,0.05)',
-              } : {}}>
-              <div className="px-8 py-6 flex flex-col items-center gap-4">
-                
-                {/* Top Pill Bar */}
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center w-full max-w-2xl">
+              
+              {/* Step Dots + Stats Bar Row */}
+              <div className="flex items-center justify-between w-full mb-3 px-2">
+                {/* Step Dots */}
+                <div className="flex items-center gap-1.5">
+                  {Array.from({ length: engine.totalSteps }).map((_, i) => (
+                    <div key={i} className="rounded-full transition-all duration-200"
+                      style={{
+                        width:  i === engine.currentStepIndex ? '8px' : '5px',
+                        height: i === engine.currentStepIndex ? '8px' : '5px',
+                        background: i < engine.currentStepIndex
+                          ? '#10b981'
+                          : i === engine.currentStepIndex
+                          ? '#06b6d4'
+                          : 'rgba(255,255,255,0.15)',
+                        boxShadow: i === engine.currentStepIndex ? '0 0 8px rgba(6,182,212,0.9)' : 'none',
+                      }} />
+                  ))}
+                </div>
+
+                {/* Performance Stats Pills */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-cyan-500/20 bg-zinc-950/80 backdrop-blur-md">
+                    <Gauge size={11} className="text-cyan-400" />
+                    <span className="font-mono text-[11px] tracking-widest text-zinc-300">
+                      WPM: <span className="text-cyan-300 font-bold">{engine.wpm}</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/20 bg-zinc-950/80 backdrop-blur-md">
+                    <Activity size={11} className="text-emerald-400" />
+                    <span className="font-mono text-[11px] tracking-widest text-zinc-300">
+                      ACC: <span className="text-emerald-300 font-bold">{engine.accuracy}%</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Instruction Card ── */}
+              <div
+                className={`relative mb-3 w-full rounded-2xl transition-all duration-300 overflow-hidden ${engine.errorShake ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
+                style={{
+                  background: 'rgba(10, 13, 24, 0.90)',
+                  border: engine.errorShake ? '1px solid rgba(248,113,113,0.5)' : engine.isDrillMode ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(34,211,238,0.25)',
+                  boxShadow: engine.errorShake ? '0 0 20px rgba(248,113,113,0.15)' : engine.isDrillMode ? '0 0 20px rgba(245,158,11,0.15)' : '0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
+                  backdropFilter: 'blur(20px)',
+                }}>
+
+                <div className="px-6 py-3.5 flex flex-col items-center gap-1.5 relative z-10">
+                  {/* Finger Indicator Pill */}
                   {fMeta && (
-                    <div className="glass-panel flex items-center gap-2 rounded-full px-3 py-1">
-                      <span className="w-[6px] h-[6px] rounded-full" style={{ background: fMeta.dot }} />
-                      <span className="text-[9px] font-bold tracking-[0.25em] uppercase text-zinc-300">
+                    <div className="flex items-center gap-1.5 rounded-full px-3 py-0.5 bg-white/10 border border-white/10">
+                      <span className="w-[6px] h-[6px] rounded-full shadow-[0_0_6px_currentColor]" style={{ background: fMeta.dot, color: fMeta.dot }} />
+                      <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-zinc-200">
                         {fMeta.label}
                       </span>
                     </div>
                   )}
 
-                  {engine.wpm > 0 && (
-                    <div className="glass-panel flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] text-zinc-300 font-bold">
-                      <Sparkles size={10} className="text-zinc-400" /> {engine.wpm} WPM
-                    </div>
-                  )}
+                  {/* Instruction Text */}
+                  <h2 className="text-lg md:text-xl font-mono font-bold uppercase tracking-widest text-center transition-colors duration-300"
+                    style={{
+                      color: engine.errorShake ? '#fca5a5' : engine.isDrillMode ? '#fbbf24' : '#ffffff',
+                      textShadow: engine.errorShake
+                        ? '0 0 12px rgba(248,113,113,0.6)'
+                        : engine.isDrillMode
+                          ? '0 0 12px rgba(245,158,11,0.5)'
+                          : '0 0 12px rgba(0,245,255,0.4)',
+                    }}>
+                    {instruction || 'Press the highlighted key'}
+                  </h2>
                 </div>
-
-                {/* Instruction Text */}
-                <p className="text-[20px] md:text-[24px] font-mono font-black uppercase tracking-widest text-center leading-tight transition-colors duration-300"
-                  style={{
-                    color: engine.errorShake ? '#fca5a5' : engine.isDrillMode ? '#fbbf24' : '#ffffff',
-                    textShadow: engine.errorShake
-                      ? '0 0 16px rgba(248,113,113,0.6)'
-                      : engine.isDrillMode
-                        ? '0 0 16px rgba(245,158,11,0.5)'
-                        : '0 0 20px rgba(255,255,255,0.15)',
-                    letterSpacing: '0.04em',
-                  }}>
-                  {instruction || 'Press the highlighted key'}
-                </p>
               </div>
             </div>
           )}
 
-          {/* ── Keyboard + Hands ── */}
+          {/* ── Keyboard & Hands Command Deck ── */}
           {!engine.lessonComplete && !engine.allComplete && (
-            <div className="relative mb-2" style={{ width: 552, height: 400 }}>
-              <div className="relative" style={{ zIndex: 2 }}>
-                <VirtualKeyboard activeKey={activeKey} activeFinger={activeFinger} />
-              </div>
+            <div className="flex flex-col items-center gap-2 w-full max-w-2xl">
+              <VirtualKeyboard activeKey={activeKey} activeFinger={activeFinger} />
               <CyberHands activeKey={activeKey} activeFinger={activeFinger} />
-            </div>
-          )}
-
-          {/* ── Finger Legend ── */}
-          {!engine.lessonComplete && !engine.allComplete && (
-            <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 max-w-lg mt-2">
-              {LEGEND_KEYS.map(f => {
-                const m = FINGER_META[f];
-                return (
-                  <div key={f} className="flex items-center gap-1.5">
-                    <span className="w-[6px] h-[6px] rounded-full" style={{ background: m.dot }} />
-                    <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{m.label}</span>
-                  </div>
-                );
-              })}
             </div>
           )}
 
@@ -489,7 +416,6 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
 
         </main>
       </div>
-    </motion.div>
-  </div>
-);
+    </div>
+  );
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Bot, RotateCcw, AlertTriangle, Square, Copy, Check, Zap } from 'lucide-react';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
 import { hasAIKey, AI_KEYS, PROVIDER_PRESETS } from '@/lib/aiClient';
@@ -60,7 +60,6 @@ const MAX_STORED = 40;
 
 const GREETING = "Look, rookie, I don't have all day. What's busted? Need a key? Don't know what a Ghost Pacer is? Spit it out so I can get back to calibrating the mainframe.";
 
-const EMPTY_STARTERS: string[] = [];
 
 let idCounter = 0;
 function newId(): string {
@@ -99,6 +98,9 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   const stickToBottom = useRef(true);
+  const ranActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeAruTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persist across the settings modal being closed and reopened.
   useEffect(() => {
@@ -120,7 +122,14 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
     if (stickToBottom.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (ranActionTimeoutRef.current) clearTimeout(ranActionTimeoutRef.current);
+      if (wakeAruTimeoutRef.current) clearTimeout(wakeAruTimeoutRef.current);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
 
   // Rebuilt per send, not per render — it reads localStorage and the heatmap.
   const snapshotInputs = useRef({ ai, modifiers });
@@ -128,10 +137,14 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
 
   // Suggestions are drawn from what's actually wrong with this install, so they
   // are built fresh. We show them anytime the AI finishes typing so they are always available.
-  const showStarters = !isTyping && messages[messages.length - 1]?.role !== 'user';
-  const starters = showStarters ? suggestStarters(readTechSnapshot(ai, modifiers)) : EMPTY_STARTERS;
+  const starters = useMemo(() => {
+    const snapshot = readTechSnapshot(ai, modifiers);
+    return suggestStarters(snapshot);
+  }, [ai, modifiers]);
 
-  const runAction = useCallback((action: TechAction) => {
+  const showStarters = !isTyping && messages.length <= 1;
+
+  const executeAction = useCallback((action: TechAction) => {
     const caps = capabilities;
     if (!caps) return;
 
@@ -151,7 +164,8 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
 
     const token = `${action.id}:${action.arg}`;
     setRanAction(token);
-    setTimeout(() => setRanAction(current => (current === token ? null : current)), 2000);
+    if (ranActionTimeoutRef.current) clearTimeout(ranActionTimeoutRef.current);
+    ranActionTimeoutRef.current = setTimeout(() => setRanAction(current => (current === token ? null : current)), 2000);
   }, [capabilities]);
 
   /** Drop actions this host can't perform so the model can't promise vapour. */
@@ -227,7 +241,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
               responseText = "Can't reach the provider, rookie. Check your internet connection. If it persists, try a different provider.";
             }
           }
-        } catch (error) {
+        } catch {
           isValid = false;
           responseText = "Can't reach the provider, rookie. Check your internet connection. If it persists, try a different provider.";
         }
@@ -246,7 +260,10 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
         } else {
           clearInterval(interval);
           setIsTyping(false);
-          if (isValid && onWakeAru) setTimeout(onWakeAru, 1200);
+          if (isValid && onWakeAru) {
+            if (wakeAruTimeoutRef.current) clearTimeout(wakeAruTimeoutRef.current);
+            wakeAruTimeoutRef.current = setTimeout(onWakeAru, 1200);
+          }
         }
       }, 25);
       return;
@@ -329,7 +346,8 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
     try {
       await navigator.clipboard.writeText(msg.content);
       setCopiedId(msg.id);
-      setTimeout(() => setCopiedId(id => (id === msg.id ? null : id)), 1500);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopiedId(id => (id === msg.id ? null : id)), 1500);
     } catch {
       /* clipboard blocked — nothing useful to say about it here */
     }
@@ -439,7 +457,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
                       return (
                         <button
                           key={token}
-                          onClick={() => runAction(action)}
+                          onClick={() => executeAction(action)}
                           className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1.5 ${
                             done
                               ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'

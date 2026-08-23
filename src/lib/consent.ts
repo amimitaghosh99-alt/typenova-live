@@ -1,4 +1,4 @@
-export const CURRENT_CONSENT_VERSION = '2.5.0';
+const CURRENT_CONSENT_VERSION = '2.5.1';
 
 export interface ConsentRecord {
   accepted: boolean;
@@ -9,7 +9,7 @@ export interface ConsentRecord {
   jurisdictionCompliance: ['DPDP_INDIA_2023', 'GDPR_EU', 'CCPA_US'];
 }
 
-export const CONSENT_KEYS = {
+const CONSENT_KEYS = {
   accepted: 'typenova_terms_accepted',
   timestamp: 'typenova_consent_timestamp',
   version: 'typenova_consent_version',

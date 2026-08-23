@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Trophy, LogOut, RotateCcw } from 'lucide-react';
+import { Trophy, LogOut, ArrowLeft } from 'lucide-react';
 import type { RacerState } from '@/hooks/useRace';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
@@ -13,7 +13,6 @@ import { PostMatchChat } from './PostMatchChat';
 interface RaceResultsScreenProps extends ResultsScreenProps {
   players: RacerState[];
   selfId: string;
-  roomSize: number;
   timelines?: Record<string, Array<{ t: number; wpm: number }>>;
   isRanked?: boolean;
   supabase?: SupabaseClient | null;
@@ -21,23 +20,28 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   raceId?: string | null;
   isHost?: boolean;
   onRematch?: () => void;
-  onLeaveRace: () => void;
+  onReturnToRoom?: () => void;
+  onLeaveRace?: () => void;
   onUpdateElo?: (action: SetStateAction<number>) => void;
+  chatMessages: import('../hooks/useRace').ChatMessage[];
+  onSendMessage: (text: string) => void;
 }
 
 export function RaceResultsScreen({
   theme,
   players,
   selfId,
-  roomSize,
   timelines,
   isRanked,
   supabase,
   raceId,
   isHost,
   onRematch,
+  onReturnToRoom,
   onLeaveRace,
   onUpdateElo,
+  chatMessages,
+  onSendMessage,
   ...resultsProps
 }: RaceResultsScreenProps) {
   const ranking = useMemo(() =>
@@ -429,11 +433,12 @@ export function RaceResultsScreen({
         {/* ── POST-MATCH CHAT ────────────────────────────── */}
         <div className="border-t border-zinc-800/50 pt-8 pb-4 animate-in fade-in slide-in-from-bottom-8">
           <PostMatchChat
-            supabase={supabase || null}
             lobbyId={raceId || fallbackLobbyId}
             username={players.find(p => p.id === selfId)?.name || 'Typist'}
             selfId={selfId}
             players={players}
+            chatMessages={chatMessages}
+            onSendMessage={onSendMessage}
           />
         </div>
 
@@ -441,25 +446,30 @@ export function RaceResultsScreen({
         <div className="flex flex-wrap items-center justify-center gap-4 mt-6 pb-12 font-mono">
           {isHost ? (
             <button
-              onClick={() => onRematch?.()}
-              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black tracking-wider text-sm shadow-[0_0_20px_rgba(6,182,212,0.4)] hover:scale-105 active:scale-100 transition-all cursor-pointer"
+              onClick={() => (onReturnToRoom || onRematch)?.()}
+              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black tracking-wider text-sm shadow-[0_0_25px_rgba(6,182,212,0.5)] hover:scale-105 active:scale-100 transition-all cursor-pointer"
             >
-              <RotateCcw size={18} /> REMATCH
+              <ArrowLeft size={18} className="stroke-[2.5]" />
+              <span>RETURN TO ROOM</span>
+              <span className="text-[10px] opacity-75 font-bold uppercase tracking-normal bg-black/20 px-2 py-0.5 rounded-full">(PULLS ALL PLAYERS)</span>
             </button>
           ) : (
             <button
-              disabled
-              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-slate-900/80 border border-white/15 text-zinc-400 font-bold tracking-wider text-sm cursor-not-allowed opacity-80 animate-pulse"
+              onClick={() => (onReturnToRoom || onRematch)?.()}
+              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 font-black tracking-wider text-sm shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:bg-cyan-500/30 hover:scale-105 active:scale-100 transition-all cursor-pointer"
             >
-              <RotateCcw size={18} /> WAITING FOR HOST…
+              <ArrowLeft size={18} className="stroke-[2.5]" />
+              <span>BACK TO ROOM LOBBY</span>
             </button>
           )}
 
           <button
             onClick={onLeaveRace}
-            className="flex items-center gap-2.5 px-8 py-4 glass-panel rounded-2xl text-zinc-300 font-bold tracking-wider text-sm hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
+            className="flex items-center gap-2.5 px-6 py-4 glass-panel rounded-2xl text-zinc-400 font-bold tracking-wider text-sm hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all border border-white/5"
+            title="Leave room and return to solo practice"
           >
-            <LogOut size={16} /> LEAVE ROOM
+            <LogOut size={16} />
+            <span>LEAVE ROOM</span>
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Activity, TrendingUp, RotateCcw, Brain, Share2, Play
+  Activity, TrendingUp, RotateCcw, Brain, Share2, Play, Ghost
 } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { Keystroke } from '@/hooks/useTypingEngine';
@@ -31,6 +31,9 @@ export interface ResultsScreenProps {
   onStartMicroDrill: (keyChar: string) => void;
   onStartSmartDrill: ((keys?: string[]) => void) | null;
   isSmartDrillGenerating?: boolean;
+  ghostTimeline?: Array<{ t: number; wpm: number }> | null;
+  ghostLabel?: string;
+  ghostDeltaS?: number;
   compact?: boolean;
 }
 
@@ -41,6 +44,7 @@ export function ResultsScreen({
   timelinePoints = [], competitorTimelines, errorTimes = [], durationMs = 1000,
   keystrokeLog = [],
   onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill, isSmartDrillGenerating,
+  ghostTimeline, ghostLabel, ghostDeltaS,
   compact = false
 }: ResultsScreenProps) {
   const [shareStatus, setShareStatus] = useState('');
@@ -155,6 +159,20 @@ export function ResultsScreen({
             </div>
           )}
 
+          {/* Ghost Racer Performance Chip */}
+          {ghostTimeline && ghostTimeline.length > 0 && typeof ghostDeltaS === 'number' && (
+            <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs flex items-center gap-2 border shadow-lg ${
+              ghostDeltaS >= 0
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
+            }`}>
+              <Ghost size={14} className={ghostDeltaS >= 0 ? 'text-emerald-300' : 'text-rose-300'} />
+              <span>
+                {ghostDeltaS >= 0 ? `BEAT ${ghostLabel || 'GHOST'} BY +${Math.abs(ghostDeltaS).toFixed(1)}s` : `FELL BEHIND ${ghostLabel || 'GHOST'} BY -${Math.abs(ghostDeltaS).toFixed(1)}s`}
+              </span>
+            </div>
+          )}
+
           {/* Auto-save status */}
           {saveStatus && (
             <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs ${saveStatus.includes('Error') || saveStatus.includes('INVALID') ? 'bg-red-500/20 text-red-400 border border-red-500/30' : `bg-white/5 border border-white/10 ${theme?.text || 'text-cyan-400'}`}`}>
@@ -199,6 +217,8 @@ export function ResultsScreen({
             errorTimes={safeErrorTimes}
             durationMs={safeDurationMs}
             theme={theme || { name: 'CYBERPUNK', bg: 'bg-slate-950', text: 'text-cyan-400', border: 'border-cyan-500/30', glowPrimary: 'rgba(6,182,212,0.4)', glowSecondary: 'rgba(34,211,238,0.3)' }}
+            ghostTimeline={ghostTimeline}
+            ghostLabel={ghostLabel}
           />
         </div>
 
@@ -263,26 +283,24 @@ export function ResultsScreen({
           </button>
 
           {onStartSmartDrill && (
-            <div className="relative group/btn">
-              <button
-                onClick={() => onStartSmartDrill?.(sessionWeakKeys)}
-                disabled={isSmartDrillGenerating || sessionWeakKeys.length === 0}
-                className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl ${theme?.text || 'text-cyan-400'} font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-transparent hover:border-white/10 disabled:opacity-50`}
-              >
-                {isSmartDrillGenerating ? (
-                  <span className="animate-spin text-lg">⚙️</span>
-                ) : (
-                  <Brain size={16} />
-                )}
-                {isSmartDrillGenerating ? 'AI ENGINE...' : 'SMART DRILL'}
-              </button>
-            </div>
+            <button
+              onClick={() => onStartSmartDrill?.(sessionWeakKeys.length > 0 ? sessionWeakKeys : ['E', 'T', 'A', 'O', 'I'])}
+              disabled={isSmartDrillGenerating}
+              className="flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl text-cyan-400 hover:text-cyan-300 font-black tracking-widest text-sm hover:bg-white/10 transition-all border border-transparent hover:border-cyan-500/20 disabled:opacity-50"
+            >
+              {isSmartDrillGenerating ? (
+                <span className="animate-spin text-lg">⚙️</span>
+              ) : (
+                <Brain size={16} />
+              )}
+              {isSmartDrillGenerating ? 'AI ENGINE...' : 'SMART DRILL'}
+            </button>
           )}
 
           <button
             onClick={handleShare}
             disabled={!!shareStatus}
-            className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl transition-all text-sm font-black tracking-widest ${shareStatus ? (theme?.text || 'text-cyan-400') : 'text-zinc-300 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'}`}
+            className={`flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl transition-all text-sm font-black tracking-widest ${shareStatus ? 'text-cyan-400' : 'text-zinc-300 hover:text-white hover:bg-white/10 border-transparent hover:border-white/10'}`}
           >
             <Share2 size={16} /> {shareStatus || 'SHARE CARD'}
           </button>
@@ -301,11 +319,6 @@ export function ResultsScreen({
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
-      {/* Ambient glow effects */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className={`absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[200px] opacity-[0.04]`} style={{ background: theme?.glowPrimary || 'rgba(6,182,212,0.4)' }} />
-        <div className={`absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[200px] opacity-[0.03]`} style={{ background: theme?.glowSecondary || 'rgba(34,211,238,0.3)' }} />
-      </div>
       {content}
     </div>
   );

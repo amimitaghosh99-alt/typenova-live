@@ -121,6 +121,7 @@ module.exports = {
         "container-max": "1440px"
       },
       fontFamily: {
+        sans: ["Space Grotesk", "system-ui", "sans-serif"],
         "headline-xl": ["Sora", "sans-serif"],
         "label-caps": ["JetBrains Mono", "monospace"],
         "body-lg": ["Geist", "sans-serif"],

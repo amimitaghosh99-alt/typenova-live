@@ -1,53 +1,49 @@
-# BRIEFING — 2026-08-08T23:19:30Z
+# BRIEFING — 2026-08-14T14:36:00Z
 
 ## Mission
-Adversarial stress testing of Milestone 2: Coordinate alignment and key mapping in CyberHands and VirtualKeyboard.
+Empirically verify Milestone 2 changes: delta-time math framerate independence (60Hz, 120Hz, 144Hz, 240Hz) and GC pause reduction in StarfieldBackground.
 
 ## 🔒 My Identity
-- Archetype: EMPIRICAL CHALLENGER
+- Archetype: challenger
 - Roles: critic, specialist
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m2_2
-- Original parent: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Milestone: M2
-- Instance: 1 of 1
+- Original parent: 412c889d-1ef7-4df9-b65e-a77c07bb1031
+- Milestone: milestone_2
+- Instance: 2 of 2
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
-- Must run verification code directly (empirical testing)
-- Explicit verdict required: APPROVE or REQUEST_CHANGES
+- Write only to .agents/challenger_m2_2/ directory
+- Run empirical verification tests directly
 
 ## Current Parent
-- Conversation ID: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Updated: 2026-08-08T23:19:30Z
+- Conversation ID: 412c889d-1ef7-4df9-b65e-a77c07bb1031
+- Updated: 2026-08-14T14:36:00Z
 
 ## Review Scope
-- **Files to review**: `src/components/academy/VirtualKeyboard.tsx`, `src/components/academy/CyberHands.tsx`, `src/components/academy/AcademyLayout.tsx`
-- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md`
-- **Review criteria**: Correctness of key coordinate calculations across all 4 rows, alignment of flex gaps/margins/SVG viewBox, key triggers and hand assignment logic, TypeScript compilation and build.
+- **Files to review**: `src/components/KineticKeyboard.tsx`, `src/components/ui/starfield-background.tsx`, `src/components/CosmicShaderBackground.tsx`, `src/components/ReplayModal.tsx`, `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m2\changes.md`
+- **Interface contracts**: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
+- **Review criteria**: Framerate independence math verification (60Hz, 120Hz, 144Hz, 240Hz), GC pause reduction verification (string allocation elimination in render loop)
 
 ## Attack Surface
 - **Hypotheses tested**:
-  1. Key coordinate alignment across all 28 keys in 4 rows between `VirtualKeyboard.tsx` DOM styling and `CyberHands.tsx` `KEY_MAP`.
-  2. Finger assignment and mapping consistency between `FINGER_MAP` and `KEY_MAP`.
-  3. Spacebar thumb routing and active hand assignment logic for left vs right hand.
-  4. Kinematic rotation and scale bounds for all key/finger combinations.
-  5. Edge cases: empty active key, unmapped keys, lowercase input, non-letter characters.
-  6. Sonar ripple target beam null guards.
-  7. Production build and TypeScript compilation (`npm run build`).
-- **Vulnerabilities found**: None. All 4 empirical test suites passed cleanly with 0 errors. Build passed cleanly in 12.00s.
-- **Untested angles**: None.
+  1. Exponential decay integration `1.0 - Math.exp(-20.0 * dt)` achieves exact framerate invariance across 60Hz, 120Hz, 144Hz, 240Hz, and jittered intervals [CONFIRMED, Error < 1e-12].
+  2. Starfield traversal `travelDist = speedFactor * 900 * dt` accumulates identical spatial displacement independent of frame slicing [CONFIRMED, Error < 1e-10].
+  3. Starfield 10-bucket quantization and flat array pooling completely eliminates per-frame string allocations [CONFIRMED, 0 strings/frame vs 657 strings/frame].
+  4. Canvas 2D context operations reduced by >95% [CONFIRMED, 98.80% reduction in beginPath, fill, fillStyle].
+- **Vulnerabilities found**: None. Mathematical formulations and resource allocations are robust.
+- **Untested angles**: Hardware GPU context exhaustion on mobile webviews (theoretical, unmount teardown includes WebGL loseContext).
 
 ## Loaded Skills
-- None
+- None required
 
 ## Key Decisions Made
-- Executed `verify_m2.cjs` empirical test runner (0 errors).
-- Executed `npm run build` (success, exit code 0).
-- Verdict: **APPROVE**.
+- Executed empirical benchmark script `scripts/verify_m2_empirical_challenger.mjs` running 23 automated stress tests.
+- Executed production build (`tsc -b && vite build`) to confirm zero compilation errors.
 
 ## Artifact Index
-- DISPATCH.md — Dispatch instructions
-- BRIEFING.md — Working memory index
-- progress.md — Heartbeat progress
-- verify_m2.cjs — Empirical test runner script
-- handoff.md — Final handoff report
+- DISPATCH.md — Initial dispatch instructions
+- BRIEFING.md — Situational awareness
+- progress.md — Liveness heartbeat
+- handoff.md — Verification report
+- scripts/verify_m2_empirical_challenger.mjs — Automated empirical test harness

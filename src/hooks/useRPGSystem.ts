@@ -9,11 +9,6 @@ const STORAGE_KEYS = {
   heatmap: 'typezen_heatmap',
 };
 
-export interface AchievementState {
-  queue: Achievement[];
-  unlocked: string[];
-}
-
 export const useRPGSystem = () => {
   const [xp, setXp] = useState(() => {
     if (typeof window === 'undefined') return 0;

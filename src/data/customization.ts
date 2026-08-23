@@ -26,7 +26,7 @@ export interface AvatarDef {
 }
 
 // 12 Free Banners — each a COMPLETELY different color identity
-export const FREE_BANNERS: BannerDef[] = [
+const FREE_BANNERS: BannerDef[] = [
   { 
     id: 'basic_dark', 
     name: 'Void', 
@@ -138,7 +138,7 @@ export const FREE_BANNERS: BannerDef[] = [
 ];
 
 // Premium Animated/Skill-based Banners
-export const PREMIUM_BANNERS: BannerDef[] = [
+const PREMIUM_BANNERS: BannerDef[] = [
   { 
     id: 'premium_speed', 
     name: 'Velocity Stream', 

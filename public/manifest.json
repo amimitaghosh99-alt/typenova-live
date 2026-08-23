@@ -1,11 +1,18 @@
 {
-  "name": "TypeNova",
+  "name": "TypeNova - Next-Gen Gamified Typing",
   "short_name": "TypeNova",
+  "description": "Next-Gen Gamified Typing Platform with AI Coach, RPG CyberHands, and Global Multiplayer.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#09090b",
   "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "type": "image/png",
+      "sizes": "32x32",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "type": "image/png",
@@ -19,9 +26,9 @@
       "purpose": "any maskable"
     },
     {
-      "src": "/favicon.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "1024x1024",
       "purpose": "any"
     }
   ]

@@ -46,7 +46,7 @@ export function AcademySkillTree({
   );
 
   return (
-    <div className="w-full h-full flex flex-col overflow-y-auto custom-scrollbar px-4 sm:px-8 md:px-10 lg:px-12 py-6 space-y-6 max-w-[1720px] mx-auto overscroll-contain scroll-smooth">
+    <div className="w-full flex flex-col space-y-6 max-w-[1720px] mx-auto">
       
       {/* ── TOP MASTERY LEVEL & REPUTATION HUD ───────────────────────────── */}
       <motion.div 

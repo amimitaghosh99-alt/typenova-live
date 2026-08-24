@@ -50,11 +50,11 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
   };
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden select-none relative z-10 bg-transparent">
+    <div className="w-full flex flex-col select-none relative z-10 bg-transparent">
       
       {/* ── Stage-Only Control Bar (shown only during live typing) ── */}
       {viewMode === 'stage' && (
-        <header className="relative flex items-center justify-between px-4 sm:px-8 py-2.5 shrink-0 bg-[#0c0d14]/90 border-b border-white/10 z-20 shadow-md">
+        <header className="relative flex items-center justify-between px-4 sm:px-8 py-2.5 shrink-0 bg-[#0c0d14]/75 border border-white/10 rounded-2xl mb-6 z-20 shadow-md backdrop-blur-md">
           {/* Left: Return to Skill Tree */}
           <div className="flex items-center gap-3">
             <button
@@ -115,7 +115,7 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
       )}
 
       {/* ── Main Viewport Switcher ── */}
-      <div className="relative flex-1 min-h-0 overflow-hidden bg-[#08080c]">
+      <div className="relative w-full bg-transparent">
         <AnimatePresence mode="wait">
           {viewMode === 'skill-tree' ? (
             <motion.div
@@ -124,7 +124,7 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full h-full"
+              className="w-full"
             >
               <AcademySkillTree
                 academyLevel={engine.academyLevel}
@@ -144,7 +144,7 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
-              className="w-full h-full flex flex-col items-center justify-center p-4 overflow-y-auto custom-scrollbar"
+              className="w-full flex flex-col items-center justify-center py-4"
             >
               {/* ── Active Practice Stage ── */}
               {!engine.lessonComplete && (

@@ -118,7 +118,7 @@ export interface AcademyEngineState {
   retryLesson: () => void;
 }
 
-export function useAcademyEngine(): AcademyEngineState {
+export function useAcademyEngine(isActive = true): AcademyEngineState {
   const [activeNodeId, setActiveNodeId] = useState<string>(LESSONS[0]?.id || 'fn_home_anchors');
   const [stepIdx, setStepIdx] = useState(0);
   const [errorShake, setErrorShake] = useState(false);
@@ -213,6 +213,7 @@ export function useAcademyEngine(): AcademyEngineState {
   unlockedNodeIds.current = unlockedSet;
 
   // Refs for keydown listener
+  const isActiveRef = useRef(isActive);
   const activeNodeIdRef = useRef(activeNodeId);
   const stepIdxRef = useRef(stepIdx);
   const lessonCompleteRef = useRef(lessonComplete);
@@ -222,14 +223,18 @@ export function useAcademyEngine(): AcademyEngineState {
   const mistakesRef = useRef(mistakes);
   const consecutiveMistakesRef = useRef(consecutiveMistakes);
   const drillModeRef = useRef(drillMode);
+  const academyLevelRef = useRef(academyLevel);
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keystrokeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
+      if (keystrokeTimeoutRef.current) clearTimeout(keystrokeTimeoutRef.current);
     };
   }, []);
 
+  isActiveRef.current = isActive;
   activeNodeIdRef.current = activeNodeId;
   stepIdxRef.current = stepIdx;
   lessonCompleteRef.current = lessonComplete;
@@ -239,6 +244,7 @@ export function useAcademyEngine(): AcademyEngineState {
   mistakesRef.current = mistakes;
   consecutiveMistakesRef.current = consecutiveMistakes;
   drillModeRef.current = drillMode;
+  academyLevelRef.current = academyLevel;
 
   // Active step (Neural Drill takes precedence)
   const currentStep = lessonComplete 
@@ -311,12 +317,13 @@ export function useAcademyEngine(): AcademyEngineState {
   // ── Keydown Listener ─────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Ignore when not in active practice stage or lesson is done
+      if (!isActiveRef.current || lessonCompleteRef.current) return;
+
       if (IGNORED.has(e.key)) return;
 
       e.preventDefault();
       e.stopPropagation();
-
-      if (lessonCompleteRef.current) return;
 
       const currentNodeId = activeNodeIdRef.current;
       const lesson = LESSONS.find(l => l.id === currentNodeId);
@@ -334,12 +341,15 @@ export function useAcademyEngine(): AcademyEngineState {
       const pressed = e.key === ' ' ? ' ' : e.key.toLowerCase();
       const expected = drillModeRef.current ? drillModeRef.current.targetKey.toLowerCase() : step.targetKey.toLowerCase();
 
+      if (keystrokeTimeoutRef.current) clearTimeout(keystrokeTimeoutRef.current);
+
       if (pressed === expected) {
         // ✅ Correct key
         if (!isMutedRef.current) playSuccess();
         setCorrectHits(prev => prev + 1);
         setConsecutiveMistakes(0);
         setLastKeystroke({ key: pressed, isCorrect: true, timestamp: Date.now() });
+        keystrokeTimeoutRef.current = setTimeout(() => setLastKeystroke(null), 300);
 
         if (drillModeRef.current) {
           const rem = drillModeRef.current.remaining - 1;
@@ -403,7 +413,7 @@ export function useAcademyEngine(): AcademyEngineState {
             // Update persistent Academy XP & Level (1-50)
             setAcademyXp(prevXp => {
               const newTotalXp = prevXp + earnedXp;
-              let currentLvl = academyLevel;
+              let currentLvl = academyLevelRef.current;
               let needed = getXpForLevel(currentLvl);
 
               // Level up calculation
@@ -413,6 +423,7 @@ export function useAcademyEngine(): AcademyEngineState {
               }
 
               setAcademyLevel(currentLvl);
+              academyLevelRef.current = currentLvl;
               try {
                 localStorage.setItem('typenova_academy_xp', String(newTotalXp));
                 localStorage.setItem('typenova_academy_level', String(currentLvl));
@@ -435,6 +446,7 @@ export function useAcademyEngine(): AcademyEngineState {
         setMistakes(prev => prev + 1);
         setErrorShake(true);
         setLastKeystroke({ key: pressed, isCorrect: false, timestamp: Date.now() });
+        keystrokeTimeoutRef.current = setTimeout(() => setLastKeystroke(null), 300);
 
         // Record on heatmap
         setKeyErrorHeatmap(prev => ({
@@ -459,7 +471,7 @@ export function useAcademyEngine(): AcademyEngineState {
 
     window.addEventListener('keydown', handler, { capture: true });
     return () => window.removeEventListener('keydown', handler, { capture: true });
-  }, [academyLevel]);
+  }, []);
 
   const totalStars = Object.values(nodeStars).reduce((sum, s) => sum + s, 0);
   const xpToNextLevel = getXpForLevel(academyLevel);

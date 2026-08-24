@@ -32,7 +32,7 @@ interface AcademyLayoutProps {
 
 export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
   const [viewMode, setViewMode] = useState<'skill-tree' | 'stage'>('skill-tree');
-  const engine = useAcademyEngine();
+  const engine = useAcademyEngine(viewMode === 'stage');
   const themeGlow = theme?.glowPrimary || '0, 240, 255';
 
   const activeKey    = engine.currentStep?.targetKey    || '';
@@ -350,13 +350,29 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
                       <span>Retry</span>
                     </button>
 
+                    {!engine.isBossFailed && (
+                      <button
+                        onClick={engine.nextLesson}
+                        style={{
+                          borderColor: `rgba(${themeGlow}, 0.8)`,
+                          backgroundColor: `rgba(${themeGlow}, 0.3)`,
+                          color: '#ffffff',
+                          boxShadow: `0 0 20px rgba(${themeGlow}, 0.4)`
+                        }}
+                        className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border font-mono text-xs font-bold shadow-lg transition-all cursor-pointer hover:brightness-125 hover:scale-[1.02]"
+                      >
+                        <Zap size={13} />
+                        <span>Next Lesson</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => setViewMode('skill-tree')}
                       style={{
                         borderColor: `rgba(${themeGlow}, 0.5)`,
-                        backgroundColor: `rgba(${themeGlow}, 0.2)`,
+                        backgroundColor: `rgba(${themeGlow}, 0.15)`,
                         color: `rgb(${themeGlow})`,
-                        boxShadow: `0 0 16px rgba(${themeGlow}, 0.25)`
+                        boxShadow: `0 0 16px rgba(${themeGlow}, 0.2)`
                       }}
                       className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border font-mono text-xs font-bold shadow-lg transition-all cursor-pointer hover:brightness-110"
                     >

@@ -83,9 +83,9 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
             const hasErrorHeat = errorCount > 0 && !isActive;
 
             // Live Strike feedback
-            const isLastPressed = lastKeystroke && 
-              (isSpace ? lastKeystroke.key === ' ' : lastKeystroke.key.toUpperCase() === key) &&
-              (Date.now() - lastKeystroke.timestamp < 350);
+            const isLastPressed = Boolean(
+              lastKeystroke && (isSpace ? lastKeystroke.key === ' ' : lastKeystroke.key.toUpperCase() === key)
+            );
 
             return (
               <div
@@ -100,10 +100,10 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
                       }
                     : isLastPressed
                     ? {
-                        background: lastKeystroke.isCorrect ? 'rgba(16,185,129,0.45)' : 'rgba(239,68,68,0.55)',
-                        borderColor: lastKeystroke.isCorrect ? '#10b981' : '#ef4444',
+                        background: lastKeystroke?.isCorrect ? 'rgba(16,185,129,0.45)' : 'rgba(239,68,68,0.55)',
+                        borderColor: lastKeystroke?.isCorrect ? '#10b981' : '#ef4444',
                         color: '#ffffff',
-                        boxShadow: lastKeystroke.isCorrect ? '0 0 20px rgba(16,185,129,0.8)' : '0 0 20px rgba(239,68,68,0.8)',
+                        boxShadow: lastKeystroke?.isCorrect ? '0 0 20px rgba(16,185,129,0.8)' : '0 0 20px rgba(239,68,68,0.8)',
                       }
                     : isHinted
                     ? {

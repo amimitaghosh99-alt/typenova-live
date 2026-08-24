@@ -25,20 +25,6 @@
 </head>
 
 <body>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        let swDeleted = false;
-        for(let registration of registrations) {
-          registration.unregister();
-          swDeleted = true;
-        }
-        if (swDeleted) {
-          window.location.reload(true);
-        }
-      });
-    }
-  </script>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

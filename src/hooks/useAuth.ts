@@ -20,6 +20,9 @@ export function useAuth() {
 
     const { data: sub } = sb.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      if (next && window.location.hash && (window.location.hash.includes('access_token=') || window.location.hash.includes('error='))) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     });
 
     return () => { active = false; sub.subscription.unsubscribe(); };

@@ -246,6 +246,7 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
                       activeFinger={activeFinger} 
                       keyErrorHeatmap={engine.keyErrorHeatmap}
                       lastKeystroke={engine.lastKeystroke}
+                      theme={theme}
                     />
                     <CyberHands activeKey={activeKey} activeFinger={activeFinger} />
                   </div>

@@ -1252,14 +1252,14 @@ function MainApp() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: "easeInOut" }}
-              className="absolute inset-0 z-0 bg-cover bg-center pointer-events-none transform-gpu will-change-[filter] [contain:strict]" 
+              transition={{ duration: 0.6, ease: "easeInOut" }}
+              className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none transform-gpu will-change-[filter] [contain:strict]" 
               style={{ 
                 backgroundImage: `url(${wallpaperUrl})`,
                 filter: typing.phase === 'TYPING' 
                   ? `brightness(${Math.min(brightness, 0.45)}) blur(${Math.max(blur, 4)}px)` 
                   : `brightness(${brightness}) blur(${blur}px)`,
-                transition: 'filter 0.6s ease-out'
+                transition: 'filter 0.4s ease-out'
               }} 
             />
           ) : (
@@ -1268,8 +1268,8 @@ function MainApp() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: "easeInOut" }}
-              className="absolute inset-0 z-0 pointer-events-none"
+              transition={{ duration: 0.6, ease: "easeInOut" }}
+              className="fixed inset-0 z-0 pointer-events-none"
             >
               <CosmicLiquidShader theme={theme} isPaused={Boolean(activeModal)} />
             </motion.div>
@@ -1339,7 +1339,7 @@ function MainApp() {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="fixed inset-0 pt-[76px] z-20 flex flex-col bg-black/40 overflow-hidden transform-gpu will-change-transform"
+              className="fixed inset-0 pt-[76px] z-20 flex flex-col bg-transparent overflow-hidden transform-gpu will-change-transform"
             >
               <AcademyLayout onExit={exitAcademy} theme={theme} />
             </motion.div>

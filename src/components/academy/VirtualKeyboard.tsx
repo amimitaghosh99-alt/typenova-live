@@ -1,11 +1,12 @@
-/* eslint-disable react-refresh/only-export-components */
 import { useMemo, memo } from 'react';
+import type { Theme } from '@/data/constants';
 
 interface VirtualKeyboardProps {
   activeKey: string;
   activeFinger: string;
   keyErrorHeatmap?: Record<string, number>;
   lastKeystroke?: { key: string; isCorrect: boolean; timestamp: number } | null;
+  theme?: Theme;
 }
 
 const ROWS = [
@@ -46,12 +47,21 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
   activeKey, 
   activeFinger,
   keyErrorHeatmap,
-  lastKeystroke
+  lastKeystroke,
+  theme,
 }: VirtualKeyboardProps) {
   const normalizedActive = useMemo(() => activeKey.toUpperCase(), [activeKey]);
+  const themeGlow = theme?.glowPrimary || '0, 240, 255';
 
   return (
-    <div className="flex flex-col items-start gap-[8px] select-none w-full p-4 rounded-2xl bg-zinc-950/80 border border-white/10 shadow-2xl backdrop-blur-xl">
+    <div 
+      className="flex flex-col items-start gap-[8px] select-none w-full p-4 rounded-2xl border shadow-2xl backdrop-blur-xl"
+      style={{
+        background: 'rgba(8, 10, 18, 0.45)',
+        borderColor: `rgba(${themeGlow}, 0.25)`,
+        boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(${themeGlow}, 0.12)`
+      }}
+    >
       {ROWS.map((row, rowIdx) => (
         <div
           key={rowIdx}
@@ -83,37 +93,37 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
                 style={
                   isActive
                     ? {
-                        background: 'linear-gradient(135deg, rgba(6,182,212,0.45) 0%, rgba(16,185,129,0.35) 100%)',
-                        borderColor: '#22d3ee',
+                        background: `linear-gradient(135deg, rgba(${themeGlow}, 0.65) 0%, rgba(${themeGlow}, 0.35) 100%)`,
+                        borderColor: `rgb(${themeGlow})`,
                         color: '#ffffff',
-                        boxShadow: '0 0 25px rgba(34,211,238,0.8), inset 0 0 12px rgba(255,255,255,0.5)',
+                        boxShadow: `0 0 25px rgba(${themeGlow}, 0.9), inset 0 0 12px rgba(255,255,255,0.6)`,
                       }
                     : isLastPressed
                     ? {
-                        background: lastKeystroke.isCorrect ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.45)',
+                        background: lastKeystroke.isCorrect ? 'rgba(16,185,129,0.45)' : 'rgba(239,68,68,0.55)',
                         borderColor: lastKeystroke.isCorrect ? '#10b981' : '#ef4444',
                         color: '#ffffff',
-                        boxShadow: lastKeystroke.isCorrect ? '0 0 16px rgba(16,185,129,0.6)' : '0 0 20px rgba(239,68,68,0.8)',
+                        boxShadow: lastKeystroke.isCorrect ? '0 0 20px rgba(16,185,129,0.8)' : '0 0 20px rgba(239,68,68,0.8)',
                       }
                     : isHinted
                     ? {
-                        background: 'rgba(28, 34, 52, 0.95)',
-                        borderColor: fStyle ? `${fStyle.indicator}60` : 'rgba(255,255,255,0.2)',
+                        background: 'rgba(20, 26, 42, 0.70)',
+                        borderColor: fStyle ? `${fStyle.indicator}70` : 'rgba(255,255,255,0.25)',
                         color: '#ffffff',
-                        boxShadow: fStyle ? `0 0 8px ${fStyle.indicator}25` : 'none',
+                        boxShadow: fStyle ? `0 0 10px ${fStyle.indicator}30` : 'none',
                       }
                     : hasErrorHeat
                     ? {
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        borderColor: 'rgba(239, 68, 68, 0.40)',
+                        background: 'rgba(239, 68, 68, 0.25)',
+                        borderColor: 'rgba(239, 68, 68, 0.50)',
                         color: '#fca5a5',
-                        boxShadow: '0 0 8px rgba(239,68,68,0.2)',
+                        boxShadow: '0 0 10px rgba(239,68,68,0.3)',
                       }
                     : {
-                        background: 'rgba(16, 20, 32, 0.92)',
-                        borderColor: 'rgba(255, 255, 255, 0.08)',
-                        color: 'rgba(255, 255, 255, 0.80)',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.08)',
+                        background: 'rgba(14, 16, 26, 0.60)',
+                        borderColor: 'rgba(255, 255, 255, 0.10)',
+                        color: 'rgba(255, 255, 255, 0.85)',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08)',
                       }
                 }
                 className={`
@@ -121,7 +131,7 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
                   transition-all duration-150 overflow-hidden
                   ${isSpace ? 'h-11 text-[11px] tracking-[0.3em] uppercase' : 'w-[45px] h-[45px] text-[14px]'}
                   ${isSpace ? 'w-64' : ''}
-                  ${isActive ? 'scale-[1.12] z-20 font-black ring-2 ring-cyan-400/50' : isHinted ? 'scale-[1.02] z-10' : isLastPressed ? 'scale-[1.05] z-10' : 'z-0'}
+                  ${isActive ? 'scale-[1.14] z-20 font-black ring-2 ring-white/60 animate-pulse' : isHinted ? 'scale-[1.03] z-10' : isLastPressed ? 'scale-[1.08] z-10' : 'z-0'}
                 `}
               >
                 {/* Finger Indicator Dot on top */}

@@ -24,18 +24,6 @@ export function usePWAInstall() {
 
     if (isStandaloneMode) {
       setIsInstalled(true);
-
-      const triggerAutoFullscreen = () => {
-        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-          document.documentElement.requestFullscreen().catch(() => {
-            // Silently ignore if blocked by browser policy
-          });
-        }
-      };
-
-      window.addEventListener('click', triggerAutoFullscreen, { once: true });
-      window.addEventListener('keydown', triggerAutoFullscreen, { once: true });
-      window.addEventListener('touchstart', triggerAutoFullscreen, { once: true });
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {

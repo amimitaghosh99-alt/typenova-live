@@ -3,8 +3,7 @@
   "short_name": "TypeNova",
   "description": "Next-Gen Gamified Typing Platform with AI Coach, RPG CyberHands, and Global Multiplayer.",
   "start_url": "/",
-  "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone", "window-controls-overlay"],
+  "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#09090b",
   "icons": [

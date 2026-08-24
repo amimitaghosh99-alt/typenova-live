@@ -1341,9 +1341,11 @@ function MainApp() {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="relative w-full px-2 md:px-6 pt-20 md:pt-24 pb-12 flex flex-col items-center z-10 max-w-[1720px] mx-auto transform-gpu will-change-transform"
+              className="fixed inset-0 top-[76px] z-20 flex flex-col bg-transparent overflow-y-auto custom-scrollbar"
             >
-              <AcademyLayout onExit={exitAcademy} theme={theme} />
+              <div className="w-full px-4 sm:px-8 md:px-10 lg:px-12 py-6 max-w-[1720px] mx-auto">
+                <AcademyLayout onExit={exitAcademy} theme={theme} />
+              </div>
             </motion.div>
           ) : currentStage === 'compete' && !raceActive ? (
             <motion.div

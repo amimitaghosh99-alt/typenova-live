@@ -4,6 +4,8 @@ import { useMemo, memo } from 'react';
 interface VirtualKeyboardProps {
   activeKey: string;
   activeFinger: string;
+  keyErrorHeatmap?: Record<string, number>;
+  lastKeystroke?: { key: string; isCorrect: boolean; timestamp: number } | null;
 }
 
 const ROWS = [
@@ -40,11 +42,16 @@ const FINGER_STYLE: Record<string, { bg: string; border: string; color: string; 
   'thumb':        { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.30)', color: '#fcd34d', indicator: '#f59e0b' },
 };
 
-export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, activeFinger }: VirtualKeyboardProps) {
+export const VirtualKeyboard = memo(function VirtualKeyboard({ 
+  activeKey, 
+  activeFinger,
+  keyErrorHeatmap,
+  lastKeystroke
+}: VirtualKeyboardProps) {
   const normalizedActive = useMemo(() => activeKey.toUpperCase(), [activeKey]);
 
   return (
-    <div className="flex flex-col items-start gap-[8px] select-none w-full p-4 rounded-2xl bg-zinc-950/70 border border-white/10 shadow-2xl backdrop-blur-xl">
+    <div className="flex flex-col items-start gap-[8px] select-none w-full p-4 rounded-2xl bg-zinc-950/80 border border-white/10 shadow-2xl backdrop-blur-xl">
       {ROWS.map((row, rowIdx) => (
         <div
           key={rowIdx}
@@ -60,6 +67,16 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, active
             const isAnchor  = key === 'F' || key === 'J';
             const fStyle    = FINGER_STYLE[finger];
 
+            // Heatmap error frequency
+            const lowerKey = isSpace ? ' ' : key.toLowerCase();
+            const errorCount = keyErrorHeatmap ? (keyErrorHeatmap[lowerKey] || 0) : 0;
+            const hasErrorHeat = errorCount > 0 && !isActive;
+
+            // Live Strike feedback
+            const isLastPressed = lastKeystroke && 
+              (isSpace ? lastKeystroke.key === ' ' : lastKeystroke.key.toUpperCase() === key) &&
+              (Date.now() - lastKeystroke.timestamp < 350);
+
             return (
               <div
                 key={key}
@@ -71,12 +88,26 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, active
                         color: '#ffffff',
                         boxShadow: '0 0 25px rgba(34,211,238,0.8), inset 0 0 12px rgba(255,255,255,0.5)',
                       }
+                    : isLastPressed
+                    ? {
+                        background: lastKeystroke.isCorrect ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.45)',
+                        borderColor: lastKeystroke.isCorrect ? '#10b981' : '#ef4444',
+                        color: '#ffffff',
+                        boxShadow: lastKeystroke.isCorrect ? '0 0 16px rgba(16,185,129,0.6)' : '0 0 20px rgba(239,68,68,0.8)',
+                      }
                     : isHinted
                     ? {
                         background: 'rgba(28, 34, 52, 0.95)',
                         borderColor: fStyle ? `${fStyle.indicator}60` : 'rgba(255,255,255,0.2)',
                         color: '#ffffff',
                         boxShadow: fStyle ? `0 0 8px ${fStyle.indicator}25` : 'none',
+                      }
+                    : hasErrorHeat
+                    ? {
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        borderColor: 'rgba(239, 68, 68, 0.40)',
+                        color: '#fca5a5',
+                        boxShadow: '0 0 8px rgba(239,68,68,0.2)',
                       }
                     : {
                         background: 'rgba(16, 20, 32, 0.92)',
@@ -90,15 +121,22 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, active
                   transition-all duration-150 overflow-hidden
                   ${isSpace ? 'h-11 text-[11px] tracking-[0.3em] uppercase' : 'w-[45px] h-[45px] text-[14px]'}
                   ${isSpace ? 'w-64' : ''}
-                  ${isActive ? 'scale-[1.12] z-20 font-black ring-2 ring-cyan-400/50' : isHinted ? 'scale-[1.02] z-10' : 'z-0'}
+                  ${isActive ? 'scale-[1.12] z-20 font-black ring-2 ring-cyan-400/50' : isHinted ? 'scale-[1.02] z-10' : isLastPressed ? 'scale-[1.05] z-10' : 'z-0'}
                 `}
               >
                 {/* Finger Indicator Dot on top */}
-                {fStyle && !isActive && (
+                {fStyle && !isActive && !hasErrorHeat && (
                   <span 
                     className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full opacity-60" 
                     style={{ background: fStyle.indicator }}
                   />
+                )}
+
+                {/* Error count badge on heatmap */}
+                {hasErrorHeat && (
+                  <span className="absolute top-0.5 right-1 text-[9px] font-mono text-red-400 font-black">
+                    {errorCount}
+                  </span>
                 )}
 
                 {isActive && (
@@ -122,3 +160,4 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({ activeKey, active
     </div>
   );
 });
+

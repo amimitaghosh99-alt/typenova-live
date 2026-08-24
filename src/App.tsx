@@ -71,7 +71,7 @@ const STAGE_PAGE_ORDER: Record<string, number> = {
 const STAGE_PAGE_VARIANTS: Variants = {
   initial: (dir: number) => ({
     opacity: 0,
-    x: dir * 32,
+    x: dir * 28,
     scale: 0.99,
   }),
   animate: {
@@ -79,17 +79,17 @@ const STAGE_PAGE_VARIANTS: Variants = {
     x: 0,
     scale: 1,
     transition: {
-      duration: 0.22,
-      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+      duration: 0.45,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   },
   exit: (dir: number) => ({
     opacity: 0,
-    x: dir * -32,
+    x: dir * -28,
     scale: 0.99,
     transition: {
-      duration: 0.16,
-      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+      duration: 0.32,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   }),
 };

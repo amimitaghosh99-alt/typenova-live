@@ -123,7 +123,7 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="w-full"
             >
               <AcademySkillTree
@@ -140,10 +140,10 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
           ) : (
             <motion.div
               key="stage-view"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="w-full flex flex-col items-center justify-center py-4"
             >
               {/* ── Active Practice Stage ── */}
@@ -256,8 +256,9 @@ export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
               {/* ── Lesson / Boss Results Summary Modal ── */}
               {engine.lessonComplete && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                  initial={{ opacity: 0, scale: 0.94, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="flex flex-col items-center gap-6 p-6 sm:p-8 rounded-3xl border bg-[#10121a]/95 border-white/15 shadow-2xl backdrop-blur-2xl w-full max-w-md text-center relative overflow-hidden"
                 >
                   {/* Glow Backdrop */}

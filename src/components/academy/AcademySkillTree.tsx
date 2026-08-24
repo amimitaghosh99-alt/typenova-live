@@ -50,9 +50,9 @@ export function AcademySkillTree({
       
       {/* ── TOP MASTERY LEVEL & REPUTATION HUD ───────────────────────────── */}
       <motion.div 
-        initial={{ opacity: 0, y: -10, scale: 0.98 }}
+        initial={{ opacity: 0, y: -12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         className="p-5 sm:p-6 rounded-3xl border shadow-2xl relative overflow-hidden shrink-0"
         style={{
           background: 'rgba(8, 10, 18, 0.60)',
@@ -64,7 +64,7 @@ export function AcademySkillTree({
           {/* Level & Rank Title */}
           <div className="flex items-center gap-4">
             <div 
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center border shadow-lg text-2xl shrink-0 transition-transform duration-300 hover:scale-105"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center border shadow-lg text-2xl shrink-0 transition-transform duration-500 ease-out hover:scale-105"
               style={{ 
                 borderColor: `rgba(${themeGlow}, 0.6)`,
                 backgroundColor: `rgba(${themeGlow}, 0.15)`,
@@ -118,7 +118,7 @@ export function AcademySkillTree({
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${progressPercent}%` }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
                   className="h-full rounded-full"
                   style={{ 
                     backgroundColor: `rgb(${themeGlow})`,
@@ -143,9 +143,9 @@ export function AcademySkillTree({
             <motion.button
               key={trackKey}
               onClick={() => setActiveCategory(trackKey)}
-              whileHover={{ scale: 1.04, y: -1 }}
-              whileTap={{ scale: 0.96 }}
-              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono font-bold tracking-wider uppercase transition-all shrink-0 cursor-pointer ${
+              whileHover={{ scale: 1.03, y: -2, transition: { duration: 0.22, ease: "easeOut" } }}
+              whileTap={{ scale: 0.96, transition: { duration: 0.12 } }}
+              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono font-bold tracking-wider uppercase transition-all duration-300 shrink-0 cursor-pointer ${
                 isActive 
                   ? 'text-white border shadow-md' 
                   : 'text-zinc-300 hover:text-white border border-white/15 bg-[#0a0c16]/65 hover:bg-[#121624]/80'
@@ -166,6 +166,7 @@ export function AcademySkillTree({
       {/* ── INTERACTIVE SKILL TREE NODE MAP (SMOOTH SCROLLING WITH VIEWPORT REVEAL) ── */}
       <motion.div 
         layout
+        transition={{ layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-20"
       >
         <AnimatePresence mode="popLayout">
@@ -179,17 +180,17 @@ export function AcademySkillTree({
               <motion.div
                 key={lesson.id}
                 layout
-                initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                initial={{ opacity: 0, y: 24, scale: 0.95 }}
                 whileInView={{ opacity: 1, y: 0, scale: 1 }}
                 viewport={{ once: true, margin: "-20px" }}
-                exit={{ opacity: 0, scale: 0.94, y: -10 }}
+                exit={{ opacity: 0, scale: 0.94, y: -12 }}
                 transition={{ 
-                  duration: 0.22, 
-                  delay: Math.min(0.18, idx * 0.02),
-                  ease: "easeOut"
+                  duration: 0.45, 
+                  delay: Math.min(0.3, idx * 0.035),
+                  ease: [0.22, 1, 0.36, 1]
                 }}
-                whileHover={isUnlocked ? { scale: 1.025, y: -3, transition: { duration: 0.12 } } : {}}
-                whileTap={isUnlocked ? { scale: 0.98 } : {}}
+                whileHover={isUnlocked ? { scale: 1.02, y: -4, transition: { duration: 0.25, ease: "easeOut" } } : {}}
+                whileTap={isUnlocked ? { scale: 0.98, transition: { duration: 0.12 } } : {}}
                 onClick={() => isUnlocked && onSelectNode(lesson.id)}
                 style={{
                   background: !isUnlocked 

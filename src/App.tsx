@@ -1256,9 +1256,11 @@ function MainApp() {
               className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none transform-gpu will-change-[filter] [contain:strict]" 
               style={{ 
                 backgroundImage: `url(${wallpaperUrl})`,
-                filter: typing.phase === 'TYPING' 
-                  ? `brightness(${Math.min(brightness, 0.45)}) blur(${Math.max(blur, 4)}px)` 
-                  : `brightness(${brightness}) blur(${blur}px)`,
+                filter: currentStage === 'academy'
+                  ? `brightness(${Math.min(brightness, 0.55)}) blur(${Math.max(blur, 8)}px)`
+                  : typing.phase === 'TYPING' 
+                    ? `brightness(${Math.min(brightness, 0.45)}) blur(${Math.max(blur, 4)}px)` 
+                    : `brightness(${brightness}) blur(${blur}px)`,
                 transition: 'filter 0.4s ease-out'
               }} 
             />

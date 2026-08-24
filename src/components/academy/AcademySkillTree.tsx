@@ -46,17 +46,16 @@ export function AcademySkillTree({
   );
 
   return (
-    <div className="w-full h-full flex flex-col overflow-y-auto custom-scrollbar px-4 sm:px-8 md:px-10 lg:px-12 py-5 space-y-6 max-w-[1720px] mx-auto">
+    <div className="w-full h-full flex flex-col overflow-y-auto custom-scrollbar px-4 sm:px-8 md:px-10 lg:px-12 py-6 space-y-6 max-w-[1720px] mx-auto overscroll-contain scroll-smooth">
       
       {/* ── TOP MASTERY LEVEL & REPUTATION HUD ───────────────────────────── */}
       <motion.div 
         initial={{ opacity: 0, y: -10, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="p-5 sm:p-6 rounded-3xl border shadow-2xl relative overflow-hidden shrink-0"
         style={{
-          background: 'rgba(8, 10, 18, 0.45)',
-          backdropFilter: 'blur(16px)',
+          background: 'rgba(8, 10, 18, 0.60)',
           borderColor: `rgba(${themeGlow}, 0.35)`,
           boxShadow: `0 8px 32px rgba(0, 0, 0, 0.4), 0 0 25px rgba(${themeGlow}, 0.18)`
         }}
@@ -95,7 +94,7 @@ export function AcademySkillTree({
           {/* Stars & Level Progress Bar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full md:w-auto">
             {/* Total Stars Counter */}
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border border-amber-500/40 bg-amber-500/15 shadow-lg shrink-0 backdrop-blur-sm">
+            <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border border-amber-500/40 bg-amber-500/15 shadow-lg shrink-0">
               <div className="p-2 rounded-xl bg-amber-500/25 text-amber-300">
                 <Star className="fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" size={18} />
               </div>
@@ -132,8 +131,8 @@ export function AcademySkillTree({
         </div>
       </motion.div>
 
-      {/* ── TRACK SELECTOR FILTER TABS ───────────────────────────────────── */}
-      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 shrink-0">
+      {/* ── TRACK SELECTOR FILTER TABS (NEVER CUT OFF) ───────────────────── */}
+      <div className="flex items-center gap-2.5 flex-wrap py-2.5 px-1 shrink-0 overflow-visible">
         {tracks.map((trackKey) => {
           const isActive = activeCategory === trackKey;
           const label = trackKey === 'all' 
@@ -144,16 +143,16 @@ export function AcademySkillTree({
             <motion.button
               key={trackKey}
               onClick={() => setActiveCategory(trackKey)}
-              whileHover={{ scale: 1.04 }}
+              whileHover={{ scale: 1.04, y: -1 }}
               whileTap={{ scale: 0.96 }}
               className={`relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono font-bold tracking-wider uppercase transition-all shrink-0 cursor-pointer ${
                 isActive 
                   ? 'text-white border shadow-md' 
-                  : 'text-zinc-300 hover:text-white border border-white/10 bg-[#080a14]/40 hover:bg-[#0e1220]/60 backdrop-blur-md'
+                  : 'text-zinc-300 hover:text-white border border-white/15 bg-[#0a0c16]/65 hover:bg-[#121624]/80'
               }`}
               style={isActive ? {
-                borderColor: `rgba(${themeGlow}, 0.75)`,
-                backgroundColor: `rgba(${themeGlow}, 0.22)`,
+                borderColor: `rgba(${themeGlow}, 0.8)`,
+                backgroundColor: `rgba(${themeGlow}, 0.25)`,
                 boxShadow: `0 0 20px rgba(${themeGlow}, 0.35)`
               } : undefined}
             >
@@ -164,10 +163,10 @@ export function AcademySkillTree({
         })}
       </div>
 
-      {/* ── INTERACTIVE SKILL TREE NODE MAP (WIDESCREEN GRID WITH ANIMATIONS) ── */}
+      {/* ── INTERACTIVE SKILL TREE NODE MAP (SMOOTH SCROLLING WITH VIEWPORT REVEAL) ── */}
       <motion.div 
         layout
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-16"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-20"
       >
         <AnimatePresence mode="popLayout">
           {filteredLessons.map((lesson, idx) => {
@@ -180,30 +179,30 @@ export function AcademySkillTree({
               <motion.div
                 key={lesson.id}
                 layout
-                initial={{ opacity: 0, scale: 0.92, y: 15 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -10 }}
+                initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                viewport={{ once: true, margin: "-20px" }}
+                exit={{ opacity: 0, scale: 0.94, y: -10 }}
                 transition={{ 
-                  duration: 0.25, 
-                  delay: Math.min(0.2, idx * 0.025),
-                  ease: [0.16, 1, 0.3, 1]
+                  duration: 0.22, 
+                  delay: Math.min(0.18, idx * 0.02),
+                  ease: "easeOut"
                 }}
-                whileHover={isUnlocked ? { scale: 1.025, y: -3, transition: { duration: 0.15 } } : {}}
+                whileHover={isUnlocked ? { scale: 1.025, y: -3, transition: { duration: 0.12 } } : {}}
                 whileTap={isUnlocked ? { scale: 0.98 } : {}}
                 onClick={() => isUnlocked && onSelectNode(lesson.id)}
                 style={{
                   background: !isUnlocked 
-                    ? 'rgba(6, 8, 14, 0.35)' 
+                    ? 'rgba(8, 10, 16, 0.45)' 
                     : lesson.isBossNode
-                      ? 'rgba(24, 12, 32, 0.55)'
+                      ? 'rgba(28, 14, 38, 0.70)'
                       : isMastered
-                        ? 'rgba(8, 20, 28, 0.50)'
-                        : 'rgba(8, 10, 20, 0.45)',
-                  backdropFilter: 'blur(12px)',
+                        ? 'rgba(10, 24, 34, 0.65)'
+                        : 'rgba(10, 12, 22, 0.60)',
                   borderColor: isUnlocked && isMastered 
-                    ? `rgba(${themeGlow}, 0.55)` 
+                    ? `rgba(${themeGlow}, 0.6)` 
                     : lesson.isBossNode 
-                      ? 'rgba(245, 158, 11, 0.45)' 
+                      ? 'rgba(245, 158, 11, 0.5)' 
                       : 'rgba(255, 255, 255, 0.12)',
                   boxShadow: isUnlocked && isMastered
                     ? `0 8px 24px rgba(0,0,0,0.4), 0 0 20px rgba(${themeGlow}, 0.2)`

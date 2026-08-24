@@ -1339,7 +1339,7 @@ function MainApp() {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="fixed inset-0 pt-[76px] z-20 flex flex-col bg-transparent overflow-hidden transform-gpu will-change-transform"
+              className="fixed inset-0 pt-[76px] z-20 flex flex-col bg-transparent overflow-hidden"
             >
               <AcademyLayout onExit={exitAcademy} theme={theme} />
             </motion.div>

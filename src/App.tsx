@@ -1339,9 +1339,9 @@ function MainApp() {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="fixed inset-0 pt-[78px] z-20 flex flex-col bg-black/25 backdrop-blur-sm overflow-hidden transform-gpu will-change-transform"
+              className="fixed inset-0 pt-[76px] z-20 flex flex-col bg-black/40 overflow-hidden transform-gpu will-change-transform"
             >
-              <AcademyLayout onExit={exitAcademy} />
+              <AcademyLayout onExit={exitAcademy} theme={theme} />
             </motion.div>
           ) : currentStage === 'compete' && !raceActive ? (
             <motion.div

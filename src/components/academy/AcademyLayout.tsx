@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { 
-  ChevronRight, Trophy, LayoutGrid, 
+  Trophy, LayoutGrid, 
   Volume2, VolumeX, Gauge, Activity, ArrowLeft,
   RotateCcw, Star, Zap, ShieldAlert
 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { CyberHands } from './CyberHands';
 import { AcademySkillTree } from './AcademySkillTree';
 import { useAcademyEngine } from '@/hooks/useAcademyEngine';
 import { CATEGORY_LABELS, getMasteryTitle } from '@/data/academyCurriculum';
+import type { Theme } from '@/data/constants';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Finger label metadata
@@ -25,12 +26,14 @@ const FINGER_META: Record<string, { dot: string; label: string; pillBg: string; 
 };
 
 interface AcademyLayoutProps { 
-  onExit: () => void; 
+  onExit?: () => void;
+  theme?: Theme;
 }
 
-export function AcademyLayout({ onExit }: AcademyLayoutProps) {
+export function AcademyLayout({ onExit: _onExit, theme }: AcademyLayoutProps) {
   const [viewMode, setViewMode] = useState<'skill-tree' | 'stage'>('skill-tree');
   const engine = useAcademyEngine();
+  const themeGlow = theme?.glowPrimary || '0, 240, 255';
 
   const activeKey    = engine.currentStep?.targetKey    || '';
   const activeFinger = engine.currentStep?.finger       || '';
@@ -49,75 +52,54 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
   return (
     <div className="w-full h-full flex flex-col overflow-hidden select-none relative z-10 bg-transparent">
       
-      {/* ── Top Header Navigation Bar ── */}
-      <header className="relative flex items-center justify-between px-4 sm:px-6 py-3 shrink-0 bg-[#09090d]/90 backdrop-blur-xl border-b border-white/10 z-20">
-        
-        {/* Left: View Switcher / Return */}
-        <div className="flex items-center gap-3">
-          {viewMode === 'stage' ? (
+      {/* ── Stage-Only Control Bar (shown only during live typing) ── */}
+      {viewMode === 'stage' && (
+        <header className="relative flex items-center justify-between px-4 sm:px-8 py-2.5 shrink-0 bg-[#0c0d14]/90 border-b border-white/10 z-20 shadow-md">
+          {/* Left: Return to Skill Tree */}
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setViewMode('skill-tree')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer active:scale-95"
             >
               <ArrowLeft size={14} />
               <span>Skill Tree</span>
             </button>
-          ) : (
-            <button
-              onClick={onExit}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer"
-            >
-              <ArrowLeft size={14} />
-              <span>Back to Home</span>
-            </button>
-          )}
 
-          {viewMode === 'stage' && engine.currentLesson && (
-            <div className="flex items-center gap-2">
-              <span 
-                className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded-md border"
-                style={{ 
-                  borderColor: `${catInfo.color}40`,
-                  backgroundColor: `${catInfo.color}15`,
-                  color: catInfo.color 
-                }}
-              >
-                {catInfo.name}
-              </span>
-              <span className="text-xs font-mono font-bold text-white hidden sm:inline-block">
-                {engine.lessonTitle}
-              </span>
-            </div>
-          )}
-        </div>
+            {engine.currentLesson && (
+              <div className="flex items-center gap-2">
+                <span 
+                  className="text-[10px] font-mono font-black uppercase px-2.5 py-0.5 rounded-md border"
+                  style={{ 
+                    borderColor: `${catInfo.color}40`,
+                    backgroundColor: `${catInfo.color}15`,
+                    color: catInfo.color 
+                  }}
+                >
+                  {catInfo.name}
+                </span>
+                <span className="text-xs font-mono font-bold text-white hidden sm:inline-block">
+                  {engine.lessonTitle}
+                </span>
+              </div>
+            )}
+          </div>
 
-        {/* Center: Quick Star Count */}
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 shadow-inner">
-          <Star className="fill-amber-400 text-amber-400" size={13} />
-          <span className="text-xs font-mono font-bold text-white">
-            {engine.totalStars} <span className="text-[10px] text-zinc-500 font-normal">STARS</span>
-          </span>
-          <span className="text-zinc-600">•</span>
-          <span className="text-xs font-mono font-bold" style={{ color: masteryTitle.color }}>
-            Lv {engine.academyLevel}
-          </span>
-        </div>
+          {/* Center: Live Mastery Status */}
+          <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/5 border border-white/10 shadow-inner">
+            <Star className="fill-amber-400 text-amber-400" size={13} />
+            <span className="text-xs font-mono font-bold text-white">
+              {engine.totalStars} <span className="text-[10px] text-zinc-500 font-normal">STARS</span>
+            </span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-xs font-mono font-bold" style={{ color: masteryTitle.color }}>
+              Lv {engine.academyLevel}
+            </span>
+          </div>
 
-        {/* Right: Audio Toggle & Quick Stage Return */}
-        <div className="flex items-center gap-3">
-          {viewMode === 'skill-tree' && (
-            <button
-              onClick={() => setViewMode('stage')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 text-xs font-mono font-bold transition-all cursor-pointer"
-            >
-              <span>Practice Stage</span>
-              <ChevronRight size={13} />
-            </button>
-          )}
-
+          {/* Right: Audio Toggle */}
           <button
             onClick={engine.toggleMute}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-mono font-bold transition-all cursor-pointer active:scale-95 ${
               engine.isMuted 
                 ? 'text-zinc-500 bg-white/5 border border-white/5' 
                 : 'text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 hover:text-cyan-200'
@@ -129,11 +111,11 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
               {engine.isMuted ? 'Muted' : 'SFX'}
             </span>
           </button>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* ── Main Viewport Switcher ── */}
-      <div className="relative flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex-1 min-h-0 overflow-hidden bg-[#08080c]">
         <AnimatePresence mode="wait">
           {viewMode === 'skill-tree' ? (
             <motion.div
@@ -152,6 +134,7 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
                 nodeStars={engine.nodeStars}
                 unlockedNodeIds={engine.unlockedNodeIds}
                 onSelectNode={handleSelectNode}
+                theme={theme}
               />
             </motion.div>
           ) : (
@@ -181,9 +164,9 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
                             background: i < engine.currentStepIndex
                               ? '#10b981'
                               : i === engine.currentStepIndex
-                              ? '#06b6d4'
+                              ? `rgb(${themeGlow})`
                               : 'rgba(255,255,255,0.15)',
-                            boxShadow: i === engine.currentStepIndex ? '0 0 8px rgba(6,182,212,0.9)' : 'none',
+                            boxShadow: i === engine.currentStepIndex ? `0 0 8px rgba(${themeGlow}, 0.9)` : 'none',
                           }} 
                         />
                       ))}
@@ -191,13 +174,16 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
 
                     {/* Performance Stats Pills */}
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-cyan-500/20 bg-zinc-950/80 backdrop-blur-md">
-                        <Gauge size={12} className="text-cyan-400" />
+                      <div 
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full border bg-zinc-950/80"
+                        style={{ borderColor: `rgba(${themeGlow}, 0.3)` }}
+                      >
+                        <Gauge size={12} style={{ color: `rgb(${themeGlow})` }} />
                         <span className="font-mono text-[11px] tracking-widest text-zinc-300">
-                          WPM: <span className="text-cyan-300 font-bold">{engine.wpm}</span>
+                          WPM: <span className="font-bold" style={{ color: `rgb(${themeGlow})` }}>{engine.wpm}</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/20 bg-zinc-950/80 backdrop-blur-md">
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/20 bg-zinc-950/80">
                         <Activity size={12} className="text-emerald-400" />
                         <span className="font-mono text-[11px] tracking-widest text-zinc-300">
                           ACC: <span className="text-emerald-300 font-bold">{engine.accuracy}%</span>
@@ -212,18 +198,17 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
                       engine.errorShake ? 'animate-[shake_0.3s_ease-in-out]' : ''
                     }`}
                     style={{
-                      background: 'rgba(10, 13, 24, 0.92)',
+                      background: 'rgba(10, 13, 24, 0.85)',
                       border: engine.errorShake 
                         ? '1px solid rgba(248,113,113,0.6)' 
                         : engine.isDrillMode 
                           ? '1px solid rgba(245,158,11,0.6)' 
-                          : '1px solid rgba(34,211,238,0.3)',
+                          : `1px solid rgba(${themeGlow}, 0.35)`,
                       boxShadow: engine.errorShake 
                         ? '0 0 24px rgba(248,113,113,0.2)' 
                         : engine.isDrillMode 
                           ? '0 0 24px rgba(245,158,11,0.2)' 
-                          : '0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
-                      backdropFilter: 'blur(20px)',
+                          : `0 4px 20px rgba(0,0,0,0.6), 0 0 15px rgba(${themeGlow}, 0.15)`,
                     }}
                   >
                     <div className="px-6 py-4 flex flex-col items-center gap-2 relative z-10">
@@ -246,7 +231,7 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
                             ? '0 0 14px rgba(248,113,113,0.7)'
                             : engine.isDrillMode
                               ? '0 0 14px rgba(245,158,11,0.6)'
-                              : '0 0 14px rgba(0,245,255,0.5)',
+                              : `0 0 14px rgba(${themeGlow}, 0.5)`,
                         }}
                       >
                         {instruction || 'Press the highlighted key'}
@@ -366,7 +351,13 @@ export function AcademyLayout({ onExit }: AcademyLayoutProps) {
 
                     <button
                       onClick={() => setViewMode('skill-tree')}
-                      className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-cyan-500/40 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-mono text-xs font-bold shadow-lg transition-all cursor-pointer"
+                      style={{
+                        borderColor: `rgba(${themeGlow}, 0.5)`,
+                        backgroundColor: `rgba(${themeGlow}, 0.2)`,
+                        color: `rgb(${themeGlow})`,
+                        boxShadow: `0 0 16px rgba(${themeGlow}, 0.25)`
+                      }}
+                      className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border font-mono text-xs font-bold shadow-lg transition-all cursor-pointer hover:brightness-110"
                     >
                       <LayoutGrid size={13} />
                       <span>Skill Tree</span>

@@ -9,6 +9,7 @@ import {
   getMasteryTitle,
   type LessonCategory 
 } from '@/data/academyCurriculum';
+import type { Theme } from '@/data/constants';
 
 interface AcademySkillTreeProps {
   academyLevel: number;
@@ -18,6 +19,7 @@ interface AcademySkillTreeProps {
   nodeStars: Record<string, number>;
   unlockedNodeIds: Set<string>;
   onSelectNode: (nodeId: string) => void;
+  theme?: Theme;
 }
 
 export function AcademySkillTree({
@@ -28,11 +30,13 @@ export function AcademySkillTree({
   nodeStars,
   unlockedNodeIds,
   onSelectNode,
+  theme,
 }: AcademySkillTreeProps) {
   const [activeCategory, setActiveCategory] = useState<LessonCategory | 'all'>('all');
   const masteryTitle = getMasteryTitle(academyLevel);
   const maxPossibleStars = LESSONS.length * 3;
   const progressPercent = Math.min(100, Math.round((academyXp % xpToNextLevel) / xpToNextLevel * 100)) || 0;
+  const themeGlow = theme?.glowPrimary || '0, 240, 255';
 
   // Filter lessons based on track tab
   const tracks: (LessonCategory | 'all')[] = ['all', 'foundations', 'reaches', 'fluency', 'cadence', 'mastery'];
@@ -42,25 +46,28 @@ export function AcademySkillTree({
   );
 
   return (
-    <div className="w-full h-full flex flex-col overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="w-full h-full flex flex-col overflow-y-auto custom-scrollbar px-4 sm:px-8 md:px-10 lg:px-12 py-5 space-y-6 max-w-[1720px] mx-auto">
       
       {/* ── TOP MASTERY LEVEL & REPUTATION HUD ───────────────────────────── */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-5 sm:p-6 rounded-3xl border border-white/12 bg-gradient-to-r from-[#12121c] via-[#161626] to-[#12121c] shadow-2xl relative overflow-hidden"
+        className="p-5 sm:p-6 rounded-3xl border shadow-2xl relative overflow-hidden shrink-0"
+        style={{
+          background: 'rgba(12, 14, 24, 0.75)',
+          borderColor: `rgba(${themeGlow}, 0.3)`,
+          boxShadow: `0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(${themeGlow}, 0.15)`
+        }}
       >
-        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           {/* Level & Rank Title */}
           <div className="flex items-center gap-4">
             <div 
-              className="w-16 h-16 rounded-2xl flex items-center justify-center border shadow-lg text-2xl"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center border shadow-lg text-2xl shrink-0"
               style={{ 
-                borderColor: masteryTitle.color,
-                backgroundColor: `${masteryTitle.color}15`,
-                boxShadow: `0 0 24px ${masteryTitle.color}30`
+                borderColor: `rgba(${themeGlow}, 0.5)`,
+                backgroundColor: `rgba(${themeGlow}, 0.15)`,
+                boxShadow: `0 0 20px rgba(${themeGlow}, 0.3)`
               }}
             >
               <span>{masteryTitle.badge}</span>
@@ -72,7 +79,7 @@ export function AcademySkillTree({
                 </span>
                 <span 
                   className="text-xs font-mono font-bold uppercase tracking-wider"
-                  style={{ color: masteryTitle.color }}
+                  style={{ color: `rgb(${themeGlow})` }}
                 >
                   {masteryTitle.title}
                 </span>
@@ -86,7 +93,7 @@ export function AcademySkillTree({
           {/* Stars & Level Progress Bar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full md:w-auto">
             {/* Total Stars Counter */}
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 shadow-lg">
+            <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 shadow-lg shrink-0">
               <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300">
                 <Star className="fill-amber-400 text-amber-400" size={18} />
               </div>
@@ -95,24 +102,24 @@ export function AcademySkillTree({
                   Mastery Stars
                 </span>
                 <span className="text-lg font-mono font-black text-white">
-                  {totalStars} <span className="text-xs text-zinc-500">/ {maxPossibleStars}</span>
+                  {totalStars} <span className="text-xs text-zinc-400">/ {maxPossibleStars}</span>
                 </span>
               </div>
             </div>
 
             {/* Level XP Bar */}
-            <div className="min-w-[200px] w-full sm:w-56 space-y-1.5">
+            <div className="min-w-[200px] w-full sm:w-60 space-y-1.5 shrink-0">
               <div className="flex items-center justify-between text-xs font-mono">
                 <span className="text-zinc-400">Mastery XP</span>
                 <span className="text-white font-bold">{progressPercent}%</span>
               </div>
-              <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden p-0.5">
+              <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5">
                 <div 
                   className="h-full rounded-full transition-all duration-500"
                   style={{ 
                     width: `${progressPercent}%`,
-                    backgroundColor: masteryTitle.color,
-                    boxShadow: `0 0 10px ${masteryTitle.color}`
+                    backgroundColor: `rgb(${themeGlow})`,
+                    boxShadow: `0 0 12px rgba(${themeGlow}, 0.8)`
                   }}
                 />
               </div>
@@ -122,11 +129,11 @@ export function AcademySkillTree({
       </motion.div>
 
       {/* ── TRACK SELECTOR FILTER TABS ───────────────────────────────────── */}
-      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
+      <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 shrink-0">
         {tracks.map((trackKey) => {
           const isActive = activeCategory === trackKey;
           const label = trackKey === 'all' 
-            ? { name: 'All Mastery Tracks', icon: '🌌', color: '#00f0ff' } 
+            ? { name: 'All Mastery Tracks', icon: '🌌', color: `rgb(${themeGlow})` } 
             : CATEGORY_LABELS[trackKey];
 
           return (
@@ -136,12 +143,12 @@ export function AcademySkillTree({
               className={`relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-mono font-bold tracking-wider uppercase transition-all shrink-0 cursor-pointer ${
                 isActive 
                   ? 'text-white border shadow-md' 
-                  : 'text-zinc-400 hover:text-zinc-200 border border-white/5 bg-[#12121a] hover:bg-[#181824]'
+                  : 'text-zinc-400 hover:text-zinc-200 border border-white/10 bg-[#10121a]/70 hover:bg-[#161a26]/80'
               }`}
               style={isActive ? {
-                borderColor: `${label.color}60`,
-                backgroundColor: `${label.color}18`,
-                boxShadow: `0 0 16px ${label.color}25`
+                borderColor: `rgba(${themeGlow}, 0.6)`,
+                backgroundColor: `rgba(${themeGlow}, 0.18)`,
+                boxShadow: `0 0 16px rgba(${themeGlow}, 0.25)`
               } : undefined}
             >
               <span>{label.icon}</span>
@@ -151,8 +158,8 @@ export function AcademySkillTree({
         })}
       </div>
 
-      {/* ── INTERACTIVE SKILL TREE NODE MAP ──────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pb-12">
+      {/* ── INTERACTIVE SKILL TREE NODE MAP (WIDESCREEN GRID) ─────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-16">
         {filteredLessons.map((lesson, idx) => {
           const isUnlocked = unlockedNodeIds.has(lesson.id);
           const stars = nodeStars[lesson.id] || 0;
@@ -164,24 +171,23 @@ export function AcademySkillTree({
               key={lesson.id}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.04 }}
+              transition={{ delay: idx * 0.03 }}
               whileHover={isUnlocked ? { scale: 1.02, y: -2 } : {}}
               onClick={() => isUnlocked && onSelectNode(lesson.id)}
+              style={isUnlocked && isMastered ? {
+                borderColor: `rgba(${themeGlow}, 0.45)`,
+                boxShadow: `0 0 20px rgba(${themeGlow}, 0.15)`
+              } : undefined}
               className={`relative rounded-3xl p-5 sm:p-6 border transition-all duration-200 flex flex-col justify-between overflow-hidden cursor-pointer group ${
                 !isUnlocked 
-                  ? 'bg-[#0d0d12]/80 border-white/5 opacity-60 grayscale cursor-not-allowed'
+                  ? 'bg-[#0d0d14]/70 border-white/5 opacity-60 grayscale cursor-not-allowed'
                   : lesson.isBossNode
-                    ? 'bg-gradient-to-b from-[#1c1426] to-[#120e1a] border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.15)] hover:border-amber-400'
+                    ? 'bg-[#18121f]/85 border-amber-500/40 shadow-[0_0_25px_rgba(245,158,11,0.15)] hover:border-amber-400'
                     : isMastered
-                      ? 'bg-gradient-to-b from-[#141d24] to-[#0f141a] border-cyan-500/40 shadow-[0_0_25px_rgba(6,182,212,0.15)] hover:border-cyan-400'
-                      : 'bg-[#12121a] hover:bg-[#161624] border-white/10 hover:border-white/20 shadow-lg'
+                      ? 'bg-[#0f1722]/85 hover:bg-[#131d2b]/90'
+                      : 'bg-[#0f121c]/80 hover:bg-[#141824]/90 border-white/10 hover:border-white/20 shadow-lg'
               }`}
             >
-              {/* Boss / Master Glow Header Effect */}
-              {lesson.isBossNode && isUnlocked && (
-                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
-              )}
-
               <div>
                 {/* Node Header Row */}
                 <div className="flex items-center justify-between gap-3 mb-3">
@@ -249,9 +255,12 @@ export function AcademySkillTree({
                   <span>{lesson.targetWpm} WPM</span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-cyan-400 group-hover:translate-x-1 transition-transform">
+                <div 
+                  className="flex items-center gap-1.5 text-xs font-mono font-bold group-hover:translate-x-1 transition-transform"
+                  style={{ color: `rgb(${themeGlow})` }}
+                >
                   <span>{isUnlocked ? (stars > 0 ? 'Replay' : 'Start') : 'Locked'}</span>
-                  {isUnlocked && <Play size={12} className="fill-cyan-400" />}
+                  {isUnlocked && <Play size={12} style={{ fill: `rgb(${themeGlow})` }} />}
                 </div>
               </div>
             </motion.div>

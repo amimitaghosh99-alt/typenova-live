@@ -420,18 +420,6 @@ function MainApp() {
     return () => clearInterval(intervalId);
   }, [auth.session, supabase]);
 
-  // Handle URL share links
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const room = params.get('race');
-    if (room && room.length === 6) {
-      setInitialRaceCode(room.toUpperCase());
-      setShowRace(true);
-      // Clean up URL so it doesn't linger
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
-
   // Multiplayer race: when a race starts, every client (host + guests) drops
   // into a synced countdown on the same text. We reuse the whole typing
   // engine — the race just supplies the text and a shared start moment.
@@ -451,6 +439,21 @@ function MainApp() {
       typing.setCountdownTimer(secsLeft);
     },
   });
+
+  // Handle URL share links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const room = params.get('room') || params.get('race');
+    if (room && room.length === 6) {
+      const roomCode = room.toUpperCase();
+      setInitialRaceCode(roomCode);
+      setRaceActive(false);
+      setCurrentStage('compete');
+      race.joinRoom(roomCode, cloud.username || 'Player', cloud.elo, auth.user?.id);
+      // Clean up URL so it doesn't linger
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [cloud.username, cloud.elo, auth.user?.id, race]);
 
   // Rematch State Sync: when the room status returns to 'lobby' while a race was active,
   // unmount the Results screen and pull all connected clients back into the VS Lobby together!
@@ -1305,7 +1308,7 @@ function MainApp() {
             if (race.status === 'idle') {
               race.createRoom(cloud.username || 'Player', race.roomSize || 4, undefined, cloud.elo, undefined, auth.user?.id);
             }
-            setRaceActive(true);
+            setRaceActive(false);
             setCurrentStage('compete');
           }}
           onOpenSocial={() => isLoggedIn ? setShowSocialModal(true) : toast.error("Sign in to view Community!", { icon: <Lock size={14} /> })}
@@ -1382,6 +1385,9 @@ function MainApp() {
                   handleRaceStart(text);
                 }}
                 onLeave={handleRaceLeave}
+                onJoinRoom={(targetCode) => {
+                  handleRaceJoin(targetCode, cloud.username || 'Player');
+                }}
                 theme={theme}
                 themeTextClass={theme.text}
                 isJoining={race.status === 'joining'}

@@ -203,7 +203,26 @@ module.exports = {
         fadeInUp: {
           '0%': { opacity: '0', transform: 'translateY(30px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
-        }
+        },
+        "key-ripple": {
+          "0%":   { transform: "translate(-50%, -50%) scale(0.35)", opacity: "0.65" },
+          "100%": { transform: "translate(-50%, -50%) scale(2.6)",  opacity: "0" },
+        },
+        "key-press": {
+          "0%":   { transform: "scale(1.14) translateY(0)" },
+          "40%":  { transform: "scale(1.02) translateY(3px)" },
+          "100%": { transform: "scale(1.14) translateY(0)" },
+        },
+        "star-pop": {
+          "0%":   { transform: "scale(0) rotate(-60deg)", opacity: "0" },
+          "55%":  { transform: "scale(1.3) rotate(10deg)", opacity: "1" },
+          "100%": { transform: "scale(1) rotate(0deg)",    opacity: "1" },
+        },
+        "count-glow": {
+          "0%":   { textShadow: "0 0 0px rgba(255,255,255,0)" },
+          "50%":  { textShadow: "0 0 18px rgba(255,255,255,0.7)" },
+          "100%": { textShadow: "0 0 0px rgba(255,255,255,0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -214,6 +233,10 @@ module.exports = {
         "gradient-xy": "gradient-xy 3s ease infinite",
         'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
         'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'key-ripple': 'key-ripple 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'key-press': 'key-press 0.18s ease-out',
+        'star-pop': 'star-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'count-glow': 'count-glow 0.6s ease-out',
       },
     },
   },

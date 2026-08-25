@@ -18,6 +18,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.6.0',
+    date: 'August 25, 2026',
+    title: 'Neural Academy Rebuild — 64 Lessons, Themed Surfaces & Sharp Wallpapers 🎓',
+    changes: [
+      { type: 'feature', description: 'Full Academy Curriculum: 64 lessons across 10 progressive tracks, three-star grading per lesson, boss checks that gate the next track, and a 50-level mastery ladder with titles.' },
+      { type: 'feature', description: 'Live Passage Rail: Multi-word lessons now scroll a real passage with per-character state instead of one key at a time, so drills read like typing rather than flashcards.' },
+      { type: 'feature', description: 'Card-to-Stage Handoff: Launching a lesson hands the card its own geometry into the practice stage as a shared element — no cross-fade, no jump cut.' },
+      { type: 'feature', description: 'Shift & Finger Coaching: Opposite-hand Shift correction, per-finger colour identity across the virtual keyboard and CyberHands, plus a live per-key error heatmap.' },
+      { type: 'tweak', description: 'Single Theme Token Module: Every Academy surface, hairline, chip and scrim now derives from the active theme accent — including wallpaper-derived themes — instead of a fixed grey palette.' },
+      { type: 'tweak', description: 'One Toast Anchor: Coaching, level-ups and unlock notices used to fire at three different screen corners; they now share a bottom-right stack and push each other.' },
+      { type: 'tweak', description: 'Springy Telemetry: WPM, accuracy, XP and star counts count up and rubber-band on change, with full reduced-motion fallbacks throughout.' },
+      { type: 'perf', description: 'Zero Backdrop Filters in the Academy: Opaque themed panels and one static scrim layer replaced the stacked Gaussian backdrop-blurs, so nothing re-blurs during layout springs.' },
+      { type: 'fix', description: 'Sharp Wallpapers in the Academy: The Academy no longer clamps the wallpaper to its own brightness and 8px blur — it stays sharp at the brightness you picked.' },
+      { type: 'fix', description: 'Graded Reading Scrim: The scrim covers the full viewport and grades from the top edge down, fixing the bright wedge and hard seam that showed in the top-left and top-right corners.' },
+      { type: 'fix', description: 'Small-Text Contrast: Micro-labels, star counts and progress rails were sitting on translucent surfaces over a light wallpaper; they now land on the near-black they were designed against.' }
+    ],
+    impact: {
+      fixes: 4,
+      tweaks: 7,
+      linesChanged: 5900,
+      perfGain: 'Zero Per-Frame Backdrop-Filter Passes in the Academy'
+    }
+  },
+  {
     version: 'v2.5.1',
     date: 'August 24, 2026',
     title: 'Master-Detail Changelog, Zero-Lag WebGL Pausing & Push Alerts ⚡',

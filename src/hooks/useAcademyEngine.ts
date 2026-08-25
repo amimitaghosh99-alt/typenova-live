@@ -1,10 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  LESSONS, 
-  getXpForLevel, 
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  LESSONS,
+  getLessonById,
+  getLessonIndex,
+  computeUnlockedIds,
   calculateStars,
-  type AcademyStep, 
-  type AcademyLesson 
+  resolveMastery,
+  baseKeyFor,
+  type AcademyStep,
+  type AcademyLesson,
+  type MasteryProgress,
 } from '@/data/academyCurriculum';
 
 // ── Lightweight Web Audio API Synthesis ─────────────────────────────
@@ -14,7 +19,7 @@ function getCtx(): AudioContext | null {
   const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
   if (!_ctx) _ctx = new AC();
-  if (_ctx.state === 'suspended') _ctx.resume().catch(() => {});
+  if (_ctx.state === 'suspended') _ctx.resume().catch(() => { });
   return _ctx;
 }
 
@@ -71,11 +76,143 @@ function playBossVictory() {
   beepAt(now + 0.36, 880, 0.4, 'triangle', 0.3);
 }
 
+function playLevelUp() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f, i) => {
+    beepAt(now + i * 0.075, f, i === 4 ? 0.45 : 0.12, 'triangle', 0.22);
+  });
+}
+
+function playUnlock() {
+  const ctx = getCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  beepAt(now, 392, 0.09, 'sine', 0.14);
+  beepAt(now + 0.09, 587.33, 0.16, 'sine', 0.16);
+}
+
 // ── Ignored keys ──────────────────────────────────────────────────
 const IGNORED = new Set([
-  'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape', 
+  'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape',
   'Enter', 'Backspace', 'Delete', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'
 ]);
+
+// ── Persistence ───────────────────────────────────────────────────
+const KEY_RECORDS = 'typenova_academy_records';
+const KEY_LEGACY_STARS = 'typenova_academy_node_stars';
+const KEY_XP = 'typenova_academy_xp';
+const KEY_STREAK = 'typenova_academy_streak';
+const KEY_MUTED = 'typenova_academy_muted';
+
+/** Per-lesson personal best, kept for every node the player has attempted. */
+export interface LessonRecord {
+  stars: number;
+  bestWpm: number;
+  bestAccuracy: number;
+  attempts: number;
+  clears: number;
+  /** ISO date (YYYY-MM-DD) of the last attempt. */
+  lastPlayed: string;
+}
+
+export interface DayStreak {
+  current: number;
+  best: number;
+  lastDate: string;
+}
+
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return (parsed && typeof parsed === 'object') ? (parsed as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // storage unavailable / quota — progress stays in-memory for this session
+  }
+}
+
+function todayKey(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function dayDiff(fromKey: string, toKey: string): number {
+  const a = new Date(`${fromKey}T00:00:00`).getTime();
+  const b = new Date(`${toKey}T00:00:00`).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return Number.POSITIVE_INFINITY;
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** Same day → unchanged, next day → +1, any longer gap → streak resets to 1. */
+function advanceStreak(prev: DayStreak): DayStreak {
+  const today = todayKey();
+  if (prev.lastDate === today) return prev;
+  const gap = dayDiff(prev.lastDate, today);
+  const current = gap === 1 ? prev.current + 1 : 1;
+  return { current, best: Math.max(prev.best, current), lastDate: today };
+}
+
+/** Migrate the pre-records star map so existing progress is never lost. */
+function loadRecords(): Record<string, LessonRecord> {
+  const records = readJson<Record<string, LessonRecord>>(KEY_RECORDS, {});
+  if (Object.keys(records).length > 0) return records;
+
+  const legacy = readJson<Record<string, number>>(KEY_LEGACY_STARS, {});
+  const migrated: Record<string, LessonRecord> = {};
+  Object.entries(legacy).forEach(([id, stars]) => {
+    if (typeof stars !== 'number' || stars <= 0) return;
+    migrated[id] = {
+      stars: Math.max(0, Math.min(3, Math.round(stars))),
+      bestWpm: 0,
+      bestAccuracy: 0,
+      attempts: 1,
+      clears: 1,
+      lastPlayed: todayKey(),
+    };
+  });
+  if (Object.keys(migrated).length) writeJson(KEY_RECORDS, migrated);
+  return migrated;
+}
+
+function starsFromRecords(records: Record<string, LessonRecord>): Record<string, number> {
+  const map: Record<string, number> = {};
+  Object.entries(records).forEach(([id, r]) => { map[id] = r.stars; });
+  return map;
+}
+
+// ── Shift discipline ──────────────────────────────────────────────
+export type Hand = 'left' | 'right';
+
+function handOfFinger(finger?: string): Hand | null {
+  if (!finger) return null;
+  if (finger.startsWith('left')) return 'left';
+  if (finger.startsWith('right')) return 'right';
+  return null;
+}
+
+export interface LevelUpEvent {
+  level: number;
+  title: string;
+  badge: string;
+  color: string;
+}
+
+/** Raised when a Shift step was satisfied with the *same* hand as the target key. */
+export interface ShiftCoachEvent {
+  key: string;
+  expectedHand: Hand;
+  usedHand: Hand;
+}
 
 export interface AcademyEngineState {
   // Navigation & Node info
@@ -91,15 +228,36 @@ export interface AcademyEngineState {
   lessonComplete: boolean;
   isBossFailed: boolean;
   starsEarned: number;
-  
+  /** Full passage for the active lesson, so the stage can show context. */
+  passage: string;
+  /** Best previous result for the active lesson (null on a first attempt). */
+  currentRecord: LessonRecord | null;
+  isNewRecord: boolean;
+
   // Progress & Mastery
   nodeStars: Record<string, number>;
+  records: Record<string, LessonRecord>;
   totalStars: number;
   unlockedNodeIds: Set<string>;
   academyLevel: number;
   academyXp: number;
   xpToNextLevel: number;
+  xpIntoLevel: number;
+  levelProgressPercent: number;
+  mastery: MasteryProgress;
   xpGainedThisLesson: number;
+  lessonsCleared: number;
+
+  // Streaks & events
+  comboStreak: number;
+  bestCombo: number;
+  dayStreak: DayStreak;
+  levelUpEvent: LevelUpEvent | null;
+  newlyUnlocked: AcademyLesson[];
+  shiftCoach: ShiftCoachEvent | null;
+  capsLockOn: boolean;
+  dismissLevelUp: () => void;
+  dismissUnlocks: () => void;
 
   // Live Performance
   wpm: number;
@@ -126,37 +284,44 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
   const [isBossFailed, setIsBossFailed] = useState(false);
   const [starsEarned, setStarsEarned] = useState(0);
   const [xpGainedThisLesson, setXpGainedThisLesson] = useState(0);
+  const [isNewRecord, setIsNewRecord] = useState(false);
 
-  // Persistent Stars Record
-  const [nodeStars, setNodeStars] = useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem('typenova_academy_node_stars');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  // Persistent per-lesson records (stars + personal bests). Migrated from the
+  // legacy star-only map on first load so existing progress carries over.
+  const [records, setRecords] = useState<Record<string, LessonRecord>>(loadRecords);
 
-  // Persistent Academy Mastery XP & Level (1-50)
+  // Lifetime Academy XP. Level is always *derived* from this via resolveMastery,
+  // so a stale or corrupted saved level can never desync the HUD.
   const [academyXp, setAcademyXp] = useState<number>(() => {
     try {
-      return parseInt(localStorage.getItem('typenova_academy_xp') || '0', 10);
+      const n = parseInt(localStorage.getItem(KEY_XP) || '0', 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
     } catch {
       return 0;
     }
   });
 
-  const [academyLevel, setAcademyLevel] = useState<number>(() => {
-    try {
-      return Math.max(1, Math.min(50, parseInt(localStorage.getItem('typenova_academy_level') || '1', 10)));
-    } catch {
-      return 1;
-    }
-  });
+  const [dayStreak, setDayStreak] = useState<DayStreak>(() =>
+    readJson<DayStreak>(KEY_STREAK, { current: 0, best: 0, lastDate: '' })
+  );
+
+  // Celebration / coaching events the UI drains
+  const [levelUpEvent, setLevelUpEvent] = useState<LevelUpEvent | null>(null);
+  const [newlyUnlocked, setNewlyUnlocked] = useState<AcademyLesson[]>([]);
+  const [shiftCoach, setShiftCoach] = useState<ShiftCoachEvent | null>(null);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [comboStreak, setComboStreak] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
 
   // Adaptive Drill State
   const [consecutiveMistakes, setConsecutiveMistakes] = useState(0);
-  const [drillMode, setDrillMode] = useState<{ targetKey: string; finger: string; remaining: number } | null>(null);
+  const [drillMode, setDrillMode] = useState<{
+    targetKey: string;
+    finger: string;
+    remaining: number;
+    requiresShift?: boolean;
+    shiftFinger?: string;
+  } | null>(null);
 
   // Real-time telemetry & Heatmaps
   const [correctHits, setCorrectHits] = useState(0);
@@ -169,7 +334,7 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
   // Audio preference
   const [isMuted, setIsMuted] = useState(() => {
     try {
-      return localStorage.getItem('typenova_academy_muted') === 'true';
+      return localStorage.getItem(KEY_MUTED) === 'true';
     } catch {
       return false;
     }
@@ -179,7 +344,7 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     setIsMuted(prev => {
       const next = !prev;
       try {
-        localStorage.setItem('typenova_academy_muted', String(next));
+        localStorage.setItem(KEY_MUTED, String(next));
       } catch {
         // ignore
       }
@@ -188,29 +353,15 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
   }, []);
 
   // Compute Active Lesson
-  const currentLessonIndex = LESSONS.findIndex(l => l.id === activeNodeId);
+  const currentLessonIndex = getLessonIndex(activeNodeId);
   const currentLesson = (currentLessonIndex >= 0 ? LESSONS[currentLessonIndex] : LESSONS[0]) || null;
   const steps = currentLesson?.steps || [];
 
-  // Compute Unlocked Nodes
-  const unlockedNodeIds = useRef<Set<string>>(new Set());
-  const computeUnlockedNodes = useCallback((starsMap: Record<string, number>): Set<string> => {
-    const unlocked = new Set<string>();
-    LESSONS.forEach(lesson => {
-      if (!lesson.prerequisites || lesson.prerequisites.length === 0) {
-        unlocked.add(lesson.id);
-      } else {
-        const allPrereqsMet = lesson.prerequisites.every(prereqId => (starsMap[prereqId] || 0) > 0);
-        if (allPrereqsMet) {
-          unlocked.add(lesson.id);
-        }
-      }
-    });
-    return unlocked;
-  }, []);
-
-  const unlockedSet = computeUnlockedNodes(nodeStars);
-  unlockedNodeIds.current = unlockedSet;
+  // Stars & unlock graph are both derived from the record map
+  const nodeStars = useMemo(() => starsFromRecords(records), [records]);
+  const unlockedSet = useMemo(() => computeUnlockedIds(nodeStars), [nodeStars]);
+  const mastery = useMemo(() => resolveMastery(academyXp), [academyXp]);
+  const academyLevel = mastery.level;
 
   // Refs for keydown listener
   const isActiveRef = useRef(isActive);
@@ -223,43 +374,73 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
   const mistakesRef = useRef(mistakes);
   const consecutiveMistakesRef = useRef(consecutiveMistakes);
   const drillModeRef = useRef(drillMode);
-  const academyLevelRef = useRef(academyLevel);
+  const comboRef = useRef(0);
+  const unlockedRef = useRef(unlockedSet);
+  /** Which Shift key is physically held right now (tracked via KeyboardEvent.location). */
+  const shiftSideRef = useRef<Hand | null>(null);
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keystrokeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shiftCoachTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Latest persisted values, so the keydown handler never reads stale state. */
+  const recordsRef = useRef(records);
+  const xpRef = useRef(academyXp);
+  const streakRef = useRef(dayStreak);
 
   useEffect(() => {
     return () => {
       if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
       if (keystrokeTimeoutRef.current) clearTimeout(keystrokeTimeoutRef.current);
+      if (shiftCoachTimeoutRef.current) clearTimeout(shiftCoachTimeoutRef.current);
     };
   }, []);
 
-  isActiveRef.current = isActive;
-  activeNodeIdRef.current = activeNodeId;
-  stepIdxRef.current = stepIdx;
-  lessonCompleteRef.current = lessonComplete;
-  isMutedRef.current = isMuted;
-  startTimeRef.current = startTime;
-  correctHitsRef.current = correctHits;
-  mistakesRef.current = mistakes;
-  consecutiveMistakesRef.current = consecutiveMistakes;
-  drillModeRef.current = drillMode;
-  academyLevelRef.current = academyLevel;
+  // Mirror render state into refs so the (mount-once) keydown listener always
+  // reads current values. Runs after commit, i.e. before any user keystroke.
+  useEffect(() => {
+    isActiveRef.current = isActive;
+    activeNodeIdRef.current = activeNodeId;
+    stepIdxRef.current = stepIdx;
+    lessonCompleteRef.current = lessonComplete;
+    isMutedRef.current = isMuted;
+    startTimeRef.current = startTime;
+    correctHitsRef.current = correctHits;
+    mistakesRef.current = mistakes;
+    consecutiveMistakesRef.current = consecutiveMistakes;
+    drillModeRef.current = drillMode;
+    unlockedRef.current = unlockedSet;
+    recordsRef.current = records;
+    xpRef.current = academyXp;
+    streakRef.current = dayStreak;
+  }, [
+    isActive, activeNodeId, stepIdx, lessonComplete, isMuted, startTime,
+    correctHits, mistakes, consecutiveMistakes, drillMode, unlockedSet,
+    records, academyXp, dayStreak,
+  ]);
 
   // Active step (Neural Drill takes precedence)
-  const currentStep = lessonComplete 
-    ? null 
-    : drillMode 
-      ? { targetKey: drillMode.targetKey, finger: drillMode.finger, instruction: `[NEURAL DRILL] PRESS '${drillMode.targetKey.toUpperCase()}' ${drillMode.remaining} MORE TIMES` }
+  const currentStep: AcademyStep | null = lessonComplete
+    ? null
+    : drillMode
+      ? {
+        targetKey: drillMode.targetKey,
+        finger: drillMode.finger,
+        instruction: `[NEURAL DRILL] PRESS '${drillMode.targetKey.toUpperCase()}' ${drillMode.remaining} MORE TIMES`,
+        ...(drillMode.requiresShift ? { requiresShift: true, shiftFinger: drillMode.shiftFinger } : {}),
+      }
       : (steps[stepIdx] || null);
 
   // Live accuracy %
   const totalAttempts = correctHits + mistakes;
   const accuracy = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : 100;
 
-  // Live WPM calculation timer
+  // Live WPM calculation timer.
+  //
+  // Gated on isActive as well as startTime: backing out of a lesson mid-way
+  // left this interval running behind the skill tree, and each tick re-rendered
+  // AcademyLayout — and with it all ~60 lesson cards — several times a second
+  // while the learner was trying to scroll. That was the scroll jank.
   useEffect(() => {
-    if (!startTime || lessonComplete) return;
+    if (!isActive || !startTime || lessonComplete) return;
 
     const interval = setInterval(() => {
       const elapsedSec = (Date.now() - startTime) / 1000;
@@ -271,7 +452,7 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     }, 300);
 
     return () => clearInterval(interval);
-  }, [startTime, lessonComplete]);
+  }, [isActive, startTime, lessonComplete]);
 
   const resetStatsForLesson = useCallback(() => {
     setStepIdx(0);
@@ -279,17 +460,23 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     setIsBossFailed(false);
     setStarsEarned(0);
     setXpGainedThisLesson(0);
+    setIsNewRecord(false);
     setCorrectHits(0);
     setMistakes(0);
     setStartTime(null);
+    startTimeRef.current = null;
     setWpm(0);
     setConsecutiveMistakes(0);
     setDrillMode(null);
+    setComboStreak(0);
+    setBestCombo(0);
+    comboRef.current = 0;
+    setShiftCoach(null);
+    setKeyErrorHeatmap({});
   }, []);
 
   const startLessonById = useCallback((nodeId: string) => {
-    const found = LESSONS.find(l => l.id === nodeId);
-    if (found) {
+    if (getLessonById(nodeId)) {
       setActiveNodeId(nodeId);
       resetStatsForLesson();
     }
@@ -306,137 +493,223 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     resetStatsForLesson();
   }, [resetStatsForLesson]);
 
+  /** Advance to the next lesson the player can actually play. */
   const nextLesson = useCallback(() => {
-    const nextIdx = currentLessonIndex + 1;
-    if (nextIdx < LESSONS.length) {
-      setActiveNodeId(LESSONS[nextIdx].id);
+    const unlocked = unlockedRef.current;
+    const next = LESSONS.slice(currentLessonIndex + 1).find(l => unlocked.has(l.id))
+      ?? LESSONS[currentLessonIndex + 1];
+    if (next) {
+      setActiveNodeId(next.id);
       resetStatsForLesson();
     }
   }, [currentLessonIndex, resetStatsForLesson]);
+
+  const dismissLevelUp = useCallback(() => setLevelUpEvent(null), []);
+  const dismissUnlocks = useCallback(() => setNewlyUnlocked([]), []);
+
+  /**
+   * Runs on the final keystroke of a lesson: grades the run, writes the
+   * personal-best record, awards XP, and raises level-up / unlock events.
+   * Reads every persisted value through refs so it stays referentially stable.
+   */
+  const finalizeLesson = useCallback((lesson: AcademyLesson) => {
+    const correct = correctHitsRef.current + 1;
+    const totalAtt = correct + mistakesRef.current;
+    const finalAcc = totalAtt > 0 ? Math.round((correct / totalAtt) * 100) : 100;
+    const elapsedMin = startTimeRef.current ? (Date.now() - startTimeRef.current) / 60000 : 0.1;
+    const finalWpm = Math.round((correct / 5) / Math.max(0.05, elapsedMin));
+    setWpm(finalWpm);
+
+    let earnedStars = calculateStars(finalAcc, finalWpm, lesson.targetWpm, lesson.isBossNode);
+    let bossFailed = false;
+    if (lesson.isBossNode && lesson.bossThresholds) {
+      if (finalAcc < lesson.bossThresholds.minAccuracy || finalWpm < lesson.bossThresholds.minWpm) {
+        bossFailed = true;
+        earnedStars = 0;
+      }
+    }
+    setStarsEarned(earnedStars);
+    setIsBossFailed(bossFailed);
+
+    // ── Per-lesson record (attempts count even on a failed boss run) ──
+    const prevRecords = recordsRef.current;
+    const prevRec = prevRecords[lesson.id];
+    const beatWpm = !bossFailed && finalWpm > (prevRec?.bestWpm ?? 0);
+    const beatStars = !bossFailed && earnedStars > (prevRec?.stars ?? 0);
+    const nextRecords: Record<string, LessonRecord> = {
+      ...prevRecords,
+      [lesson.id]: {
+        stars: Math.max(prevRec?.stars ?? 0, earnedStars),
+        bestWpm: Math.max(prevRec?.bestWpm ?? 0, bossFailed ? 0 : finalWpm),
+        bestAccuracy: Math.max(prevRec?.bestAccuracy ?? 0, bossFailed ? 0 : finalAcc),
+        attempts: (prevRec?.attempts ?? 0) + 1,
+        clears: (prevRec?.clears ?? 0) + (bossFailed ? 0 : 1),
+        lastPlayed: todayKey(),
+      },
+    };
+    recordsRef.current = nextRecords;
+    setRecords(nextRecords);
+    writeJson(KEY_RECORDS, nextRecords);
+    setIsNewRecord(beatWpm || beatStars);
+
+    // ── Newly reachable nodes (prerequisite graph diff) ──
+    if (!bossFailed && earnedStars > 0) {
+      const before = computeUnlockedIds(starsFromRecords(prevRecords));
+      const after = computeUnlockedIds(starsFromRecords(nextRecords));
+      const fresh = LESSONS.filter(l => after.has(l.id) && !before.has(l.id));
+      if (fresh.length) {
+        setNewlyUnlocked(fresh);
+        if (!isMutedRef.current) playUnlock();
+      }
+    }
+
+    // ── XP, level-up ──
+    if (bossFailed) {
+      setXpGainedThisLesson(0);
+      if (!isMutedRef.current) playError();
+    } else {
+      const earnedXp = (lesson.xpReward || 100) + earnedStars * 25;
+      setXpGainedThisLesson(earnedXp);
+
+      const prevXp = xpRef.current;
+      const nextXp = prevXp + earnedXp;
+      xpRef.current = nextXp;
+      setAcademyXp(nextXp);
+      try {
+        localStorage.setItem(KEY_XP, String(nextXp));
+      } catch {
+        // ignore
+      }
+
+      const before = resolveMastery(prevXp);
+      const after = resolveMastery(nextXp);
+      if (after.level > before.level) {
+        setLevelUpEvent({
+          level: after.level,
+          title: after.title.title,
+          badge: after.title.badge,
+          color: after.title.color,
+        });
+        if (!isMutedRef.current) playLevelUp();
+      } else if (!isMutedRef.current) {
+        if (lesson.isBossNode) playBossVictory();
+        else playLessonComplete();
+      }
+    }
+
+    // ── Daily practice streak ──
+    const nextStreak = advanceStreak(streakRef.current);
+    if (nextStreak !== streakRef.current) {
+      streakRef.current = nextStreak;
+      setDayStreak(nextStreak);
+      writeJson(KEY_STREAK, nextStreak);
+    }
+
+    setLessonComplete(true);
+  }, []);
+
+  // ── Modifier tracking (which Shift is held, CapsLock state) ──────
+  useEffect(() => {
+    const sync = (e: KeyboardEvent) => {
+      if (typeof e.getModifierState === 'function') {
+        setCapsLockOn(e.getModifierState('CapsLock'));
+      }
+    };
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') shiftSideRef.current = e.location === 2 ? 'right' : 'left';
+      sync(e);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') shiftSideRef.current = null;
+      sync(e);
+    };
+    const release = () => { shiftSideRef.current = null; };
+
+    window.addEventListener('keydown', down, { capture: true });
+    window.addEventListener('keyup', up, { capture: true });
+    window.addEventListener('blur', release);
+    return () => {
+      window.removeEventListener('keydown', down, { capture: true });
+      window.removeEventListener('keyup', up, { capture: true });
+      window.removeEventListener('blur', release);
+    };
+  }, []);
 
   // ── Keydown Listener ─────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Ignore when not in active practice stage or lesson is done
       if (!isActiveRef.current || lessonCompleteRef.current) return;
-
+      // Never swallow real browser/app shortcuts
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (IGNORED.has(e.key)) return;
 
       e.preventDefault();
       e.stopPropagation();
 
-      const currentNodeId = activeNodeIdRef.current;
-      const lesson = LESSONS.find(l => l.id === currentNodeId);
+      const lesson = getLessonById(activeNodeIdRef.current);
       if (!lesson) return;
 
       const si = stepIdxRef.current;
-      const step = lesson.steps[si];
+      const drill = drillModeRef.current;
+      const step: AcademyStep | undefined = drill
+        ? {
+          targetKey: drill.targetKey,
+          finger: drill.finger,
+          instruction: '',
+          requiresShift: drill.requiresShift,
+          shiftFinger: drill.shiftFinger,
+        }
+        : lesson.steps[si];
       if (!step) return;
 
-      // Start timer on first keypress
+      // Start timer on first keypress (ref first — the completion math reads it)
       if (!startTimeRef.current) {
-        setStartTime(Date.now());
+        const now = Date.now();
+        startTimeRef.current = now;
+        setStartTime(now);
       }
 
-      const pressed = e.key === ' ' ? ' ' : e.key.toLowerCase();
-      const expected = drillModeRef.current ? drillModeRef.current.targetKey.toLowerCase() : step.targetKey.toLowerCase();
+      // Case-sensitive comparison: 'A' and 'a' are different lessons now.
+      const expected = step.targetKey;
+      const pressed = e.key;
+      const isMatch = pressed === expected;
 
       if (keystrokeTimeoutRef.current) clearTimeout(keystrokeTimeoutRef.current);
 
-      if (pressed === expected) {
+      if (isMatch) {
         // ✅ Correct key
         if (!isMutedRef.current) playSuccess();
         setCorrectHits(prev => prev + 1);
         setConsecutiveMistakes(0);
+        comboRef.current += 1;
+        setComboStreak(comboRef.current);
+        setBestCombo(prev => Math.max(prev, comboRef.current));
         setLastKeystroke({ key: pressed, isCorrect: true, timestamp: Date.now() });
         keystrokeTimeoutRef.current = setTimeout(() => setLastKeystroke(null), 300);
 
-        if (drillModeRef.current) {
-          const rem = drillModeRef.current.remaining - 1;
-          if (rem <= 0) {
-            setDrillMode(null);
+        // Right glyph, wrong technique: Shift must come from the opposite hand.
+        if (step.requiresShift) {
+          const expectedHand = handOfFinger(step.shiftFinger);
+          const usedHand = shiftSideRef.current;
+          if (expectedHand && usedHand && usedHand !== expectedHand) {
+            setShiftCoach({ key: expected, expectedHand, usedHand });
+            if (shiftCoachTimeoutRef.current) clearTimeout(shiftCoachTimeoutRef.current);
+            shiftCoachTimeoutRef.current = setTimeout(() => setShiftCoach(null), 2400);
           } else {
-            setDrillMode({ ...drillModeRef.current, remaining: rem });
+            setShiftCoach(null);
           }
+        }
+
+        if (drill) {
+          const rem = drill.remaining - 1;
+          setDrillMode(rem <= 0 ? null : { ...drill, remaining: rem });
           return;
         }
 
         const nextStep = si + 1;
         if (nextStep >= lesson.steps.length) {
-          // Finalize statistics & Stars
-          const totalAtt = correctHitsRef.current + 1 + mistakesRef.current;
-          const finalAcc = Math.round(((correctHitsRef.current + 1) / totalAtt) * 100);
-          const elapsedMin = startTimeRef.current ? (Date.now() - startTimeRef.current) / 60000 : 0.1;
-          const finalWpm = Math.round(((correctHitsRef.current + 1) / 5) / Math.max(0.05, elapsedMin));
-
-          let earnedStars = calculateStars(finalAcc, finalWpm, lesson.targetWpm, lesson.isBossNode);
-          let bossFailed = false;
-
-          if (lesson.isBossNode && lesson.bossThresholds) {
-            if (finalAcc < lesson.bossThresholds.minAccuracy || finalWpm < lesson.bossThresholds.minWpm) {
-              bossFailed = true;
-              earnedStars = 0;
-            }
-          }
-
-          setStarsEarned(earnedStars);
-          setIsBossFailed(bossFailed);
-
-          if (!bossFailed) {
-            if (lesson.isBossNode) {
-              if (!isMutedRef.current) playBossVictory();
-            } else {
-              if (!isMutedRef.current) playLessonComplete();
-            }
-
-            // Award XP & Save Stars
-            const baseReward = lesson.xpReward || 100;
-            const starBonus = earnedStars * 25;
-            const earnedXp = baseReward + starBonus;
-            setXpGainedThisLesson(earnedXp);
-
-            // Update persistent Node Stars
-            setNodeStars(prev => {
-              const prevBest = prev[lesson.id] || 0;
-              if (earnedStars > prevBest) {
-                const updated = { ...prev, [lesson.id]: earnedStars };
-                try {
-                  localStorage.setItem('typenova_academy_node_stars', JSON.stringify(updated));
-                } catch {
-                  // ignore
-                }
-                return updated;
-              }
-              return prev;
-            });
-
-            // Update persistent Academy XP & Level (1-50)
-            setAcademyXp(prevXp => {
-              const newTotalXp = prevXp + earnedXp;
-              let currentLvl = academyLevelRef.current;
-              let needed = getXpForLevel(currentLvl);
-
-              // Level up calculation
-              while (newTotalXp >= needed && currentLvl < 50) {
-                currentLvl++;
-                needed += getXpForLevel(currentLvl);
-              }
-
-              setAcademyLevel(currentLvl);
-              academyLevelRef.current = currentLvl;
-              try {
-                localStorage.setItem('typenova_academy_xp', String(newTotalXp));
-                localStorage.setItem('typenova_academy_level', String(currentLvl));
-              } catch {
-                // ignore
-              }
-              return newTotalXp;
-            });
-          } else {
-            if (!isMutedRef.current) playError();
-          }
-
-          setLessonComplete(true);
+          finalizeLesson(lesson);
         } else {
           setStepIdx(nextStep);
         }
@@ -445,24 +718,34 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
         if (!isMutedRef.current) playError();
         setMistakes(prev => prev + 1);
         setErrorShake(true);
+        comboRef.current = 0;
+        setComboStreak(0);
         setLastKeystroke({ key: pressed, isCorrect: false, timestamp: Date.now() });
         keystrokeTimeoutRef.current = setTimeout(() => setLastKeystroke(null), 300);
 
-        // Record on heatmap
+        // Heatmap is keyed by the *physical* key, so shifted glyphs light the
+        // cap the finger actually missed (`!` heats the `1` key).
+        const heatKey = baseKeyFor(expected);
         setKeyErrorHeatmap(prev => ({
           ...prev,
-          [expected]: (prev[expected] || 0) + 1
+          [heatKey]: (prev[heatKey] || 0) + 1
         }));
 
         if (shakeTimeoutRef.current) clearTimeout(shakeTimeoutRef.current);
         shakeTimeoutRef.current = setTimeout(() => setErrorShake(false), 300);
 
-        if (!drillModeRef.current) {
+        if (!drill) {
           const newConsecutive = consecutiveMistakesRef.current + 1;
           setConsecutiveMistakes(newConsecutive);
-          
+
           if (newConsecutive >= 3) {
-            setDrillMode({ targetKey: expected, finger: step.finger, remaining: 5 });
+            setDrillMode({
+              targetKey: expected,
+              finger: step.finger,
+              remaining: 5,
+              requiresShift: step.requiresShift,
+              shiftFinger: step.shiftFinger,
+            });
             setConsecutiveMistakes(0);
           }
         }
@@ -471,10 +754,12 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
 
     window.addEventListener('keydown', handler, { capture: true });
     return () => window.removeEventListener('keydown', handler, { capture: true });
-  }, []);
+  }, [finalizeLesson]);
 
   const totalStars = Object.values(nodeStars).reduce((sum, s) => sum + s, 0);
-  const xpToNextLevel = getXpForLevel(academyLevel);
+  const lessonsCleared = Object.values(nodeStars).filter(s => s > 0).length;
+  // At max level there is no next span — this reports 0 and the HUD reads mastery.isMax.
+  const xpToNextLevel = mastery.xpForNextLevel;
 
   return {
     currentLesson,
@@ -489,14 +774,32 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     lessonComplete,
     isBossFailed,
     starsEarned,
-    
+    passage: currentLesson?.passage || '',
+    currentRecord: (currentLesson && records[currentLesson.id]) || null,
+    isNewRecord,
+
     nodeStars,
+    records,
     totalStars,
     unlockedNodeIds: unlockedSet,
     academyLevel,
     academyXp,
     xpToNextLevel,
+    xpIntoLevel: mastery.xpIntoLevel,
+    levelProgressPercent: mastery.progressPercent,
+    mastery,
     xpGainedThisLesson,
+    lessonsCleared,
+
+    comboStreak,
+    bestCombo,
+    dayStreak,
+    levelUpEvent,
+    newlyUnlocked,
+    shiftCoach,
+    capsLockOn,
+    dismissLevelUp,
+    dismissUnlocks,
 
     wpm,
     accuracy,

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useMemo, memo } from 'react';
-import { FINGER_MAP } from './VirtualKeyboard';
+import { FINGER_MAP } from './keyboardMap';
 
 interface CyberHandsProps {
   activeKey: string;
@@ -23,28 +23,28 @@ interface FingerDef {
 }
 
 const LEFT_FINGERS: FingerDef[] = [
-  { id: 'left-pinky',  name: 'Pinky',  hand: 'left', homeKey: 'A', color: '#f43f5e', bgGlow: 'rgba(244,63,94,0.4)',  x: 18,  y: 35, height: 55, width: 17, rotation: -12 },
-  { id: 'left-ring',   name: 'Ring',   hand: 'left', homeKey: 'S', color: '#f97316', bgGlow: 'rgba(249,115,22,0.4)', x: 40,  y: 16, height: 75, width: 18, rotation: -5 },
-  { id: 'left-middle', name: 'Middle', hand: 'left', homeKey: 'D', color: '#eab308', bgGlow: 'rgba(234,179,8,0.4)',  x: 63,  y: 6,  height: 85, width: 19, rotation: 0 },
-  { id: 'left-index',  name: 'Index',  hand: 'left', homeKey: 'F', color: '#84cc16', bgGlow: 'rgba(132,204,22,0.4)', x: 87,  y: 18, height: 74, width: 19, rotation: 6 },
-  { id: 'thumb',       name: 'Thumb',  hand: 'left', homeKey: '␣', color: '#f59e0b', bgGlow: 'rgba(245,158,11,0.4)', x: 112, y: 55, height: 48, width: 20, rotation: 28 },
+  { id: 'left-pinky', name: 'Pinky', hand: 'left', homeKey: 'A', color: '#f43f5e', bgGlow: 'rgba(244,63,94,0.4)', x: 18, y: 35, height: 55, width: 17, rotation: -12 },
+  { id: 'left-ring', name: 'Ring', hand: 'left', homeKey: 'S', color: '#f97316', bgGlow: 'rgba(249,115,22,0.4)', x: 40, y: 16, height: 75, width: 18, rotation: -5 },
+  { id: 'left-middle', name: 'Middle', hand: 'left', homeKey: 'D', color: '#eab308', bgGlow: 'rgba(234,179,8,0.4)', x: 63, y: 6, height: 85, width: 19, rotation: 0 },
+  { id: 'left-index', name: 'Index', hand: 'left', homeKey: 'F', color: '#84cc16', bgGlow: 'rgba(132,204,22,0.4)', x: 87, y: 18, height: 74, width: 19, rotation: 6 },
+  { id: 'thumb', name: 'Thumb', hand: 'left', homeKey: '␣', color: '#f59e0b', bgGlow: 'rgba(245,158,11,0.4)', x: 112, y: 55, height: 48, width: 20, rotation: 28 },
 ];
 
 const RIGHT_FINGERS: FingerDef[] = [
-  { id: 'thumb',        name: 'Thumb',  hand: 'right', homeKey: '␣', color: '#f59e0b', bgGlow: 'rgba(245,158,11,0.4)', x: 18,  y: 55, height: 48, width: 20, rotation: -28 },
-  { id: 'right-index',  name: 'Index',  hand: 'right', homeKey: 'J', color: '#10b981', bgGlow: 'rgba(16,185,129,0.4)', x: 44,  y: 18, height: 74, width: 19, rotation: -6 },
-  { id: 'right-middle', name: 'Middle', hand: 'right', homeKey: 'K', color: '#06b6d4', bgGlow: 'rgba(6,182,212,0.4)', x: 68,  y: 6,  height: 85, width: 19, rotation: 0 },
-  { id: 'right-ring',   name: 'Ring',   hand: 'right', homeKey: 'L', color: '#3b82f6', bgGlow: 'rgba(59,130,246,0.4)', x: 92,  y: 16, height: 75, width: 18, rotation: 5 },
-  { id: 'right-pinky',  name: 'Pinky',  hand: 'right', homeKey: ';', color: '#8b5cf6', bgGlow: 'rgba(139,92,246,0.4)', x: 115, y: 35, height: 55, width: 17, rotation: 12 },
+  { id: 'thumb', name: 'Thumb', hand: 'right', homeKey: '␣', color: '#f59e0b', bgGlow: 'rgba(245,158,11,0.4)', x: 18, y: 55, height: 48, width: 20, rotation: -28 },
+  { id: 'right-index', name: 'Index', hand: 'right', homeKey: 'J', color: '#10b981', bgGlow: 'rgba(16,185,129,0.4)', x: 44, y: 18, height: 74, width: 19, rotation: -6 },
+  { id: 'right-middle', name: 'Middle', hand: 'right', homeKey: 'K', color: '#06b6d4', bgGlow: 'rgba(6,182,212,0.4)', x: 68, y: 6, height: 85, width: 19, rotation: 0 },
+  { id: 'right-ring', name: 'Ring', hand: 'right', homeKey: 'L', color: '#3b82f6', bgGlow: 'rgba(59,130,246,0.4)', x: 92, y: 16, height: 75, width: 18, rotation: 5 },
+  { id: 'right-pinky', name: 'Pinky', hand: 'right', homeKey: ';', color: '#8b5cf6', bgGlow: 'rgba(139,92,246,0.4)', x: 115, y: 35, height: 55, width: 17, rotation: 12 },
 ];
 
-function HandGraphic({ 
-  hand, 
-  fingers, 
-  activeFingerId 
-}: { 
-  hand: 'left' | 'right'; 
-  fingers: FingerDef[]; 
+function HandGraphic({
+  hand,
+  fingers,
+  activeFingerId
+}: {
+  hand: 'left' | 'right';
+  fingers: FingerDef[];
   activeFingerId: string;
 }) {
   return (
@@ -57,7 +57,7 @@ function HandGraphic({
       {/* SVG Hand Body */}
       <div className="relative w-[150px] h-[135px] bg-zinc-950/70 rounded-2xl border border-white/10 p-2 shadow-xl backdrop-blur-md overflow-hidden">
         {/* Subtle Palm Mesh */}
-        <div 
+        <div
           className="absolute bottom-1 left-3 right-3 h-16 rounded-t-2xl bg-zinc-900/80 border border-white/5 flex items-center justify-center"
           style={{
             boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.8)',
@@ -181,4 +181,4 @@ export const CyberHands = memo(function CyberHands({ activeKey, activeFinger }: 
       />
     </div>
   );
-});
+});

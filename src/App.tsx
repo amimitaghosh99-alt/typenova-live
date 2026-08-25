@@ -1,4 +1,4 @@
- 
+
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/purity */
@@ -232,9 +232,9 @@ function MainApp() {
       window.dispatchEvent(new Event('storage'));
     }
   }), []);
-  
+
   const [themeFont, setThemeFont] = useState(() => localStorage.getItem('typezen_font') || 'JetBrains Mono');
-  
+
   useEffect(() => {
     document.documentElement.style.setProperty('--typezen-font', `"${themeFont}"`);
   }, [themeFont]);
@@ -477,10 +477,10 @@ function MainApp() {
   } = useWallpaperTheme();
 
   const safeThemeKey = THEME_KEYS[themeIndex] || THEME_KEYS[0];
-  const theme: Theme = (themeIndex === -1 && wallpaperTheme) 
-    ? wallpaperTheme 
+  const theme: Theme = (themeIndex === -1 && wallpaperTheme)
+    ? wallpaperTheme
     : (THEMES[safeThemeKey] || THEMES[THEME_KEYS[0]]);
-    
+
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const soundMenuRef = useRef<HTMLDivElement>(null);
 
@@ -512,7 +512,7 @@ function MainApp() {
   // ─── Initialization ──────────────────────────────────────────────
   useEffect(() => {
     typing.setTargetText(generateText('NOVICE', 25, '', false));
-     
+
   }, []);
 
   // ─── Leaderboard ─────────────────────────────────────────────────
@@ -695,7 +695,7 @@ function MainApp() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 15)
       .map(([k]) => k);
-      
+
     // Shuffle the top 15 worst keys and pick 5 to add variety,
     // otherwise the user sees the exact same 5 keys for weeks
     // since lifetime stats are slow to shift.
@@ -731,7 +731,7 @@ function MainApp() {
       toast.error('Not enough data! Play a few rounds first to generate weak keys.', { icon: '⚠️' });
       return;
     }
-    
+
     try {
       const result = await generateDrill(targetKeys);
       launchDrill(result.text);
@@ -751,7 +751,7 @@ function MainApp() {
     if (game.level === 'CUSTOM' || game.mirroredMode || game.dailyActive) return null;
     try { return JSON.parse(localStorage.getItem(pbStorageKey) || 'null'); } catch { return null; }
     // typing.phase is a deliberate extra dep: reload the PB after each finish
-     
+
   }, [pbStorageKey, game.level, game.mirroredMode, game.dailyActive, typing.phase]);
 
   // ─── Theme / Sound Cycles ────────────────────────────────────────
@@ -759,13 +759,13 @@ function MainApp() {
     setThemeIndex(index);
     setSeenThemes(prev => new Set([...prev, index]));
     setShowThemeMenu(false);
-    try { localStorage.setItem('typezen_theme', index.toString()); } catch {}
+    try { localStorage.setItem('typezen_theme', index.toString()); } catch { }
   }, []);
 
   const selectSoundProfile = useCallback((key: string) => {
     setSoundProfileState(key);
     setShowSoundMenu(false);
-    try { localStorage.setItem('typezen_sound', key); } catch {}
+    try { localStorage.setItem('typezen_sound', key); } catch { }
   }, []);
 
 
@@ -776,7 +776,7 @@ function MainApp() {
     if (log.length === 0 || !typing.startTime) return [];
     const t0 = log[0].time;
     return log.filter(k => k.isError && !k.isBackspace).map(k => k.time - t0);
-     
+
   }, [typing.phase, typing.endTime]);
   const finishDurationMs = typing.startTime && typing.endTime ? typing.endTime - typing.startTime : 0;
 
@@ -874,7 +874,7 @@ function MainApp() {
       else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
       else streakNow = 1;
       localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
-       
+
       setDailyStreak(streakNow);
     }
 
@@ -916,7 +916,7 @@ function MainApp() {
       const backspaceCount = typing.keystrokeLog.current.filter(k => k.key === 'Backspace').length;
       race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, result.updatedHeatmap, errCount, backspaceCount);
     }
-     
+
   }, [typing.phase, typing.endTime]);
 
   // ─── Multiplayer: broadcast live progress while racing ───────────
@@ -946,7 +946,7 @@ function MainApp() {
     return () => clearInterval(interval);
     // `typing` is intentionally excluded — we read it via penaltyTypingRef
     // to prevent the interval from being destroyed on every keystroke.
-     
+
   }, [typing.phase, typing.startTime, game.testMode, game.duration]);
 
   useEffect(() => {
@@ -970,9 +970,8 @@ function MainApp() {
   // Number/punctuation mixing only applies to the plain word pools
   const mutatable = game.level === 'NOVICE' || game.level === 'ADEPT';
 
-  const leaderboardClass = `transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-[opacity,transform] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${
-    shouldHideClutter ? 'w-0 opacity-0 translate-x-12 pointer-events-none p-0 border-transparent m-0 hidden lg:hidden' : 'w-full lg:w-[30%] p-6 md:p-8 opacity-100 translate-x-0'
-  }`;
+  const leaderboardClass = `transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-[opacity,transform] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${shouldHideClutter ? 'w-0 opacity-0 translate-x-12 pointer-events-none p-0 border-transparent m-0 hidden lg:hidden' : 'w-full lg:w-[30%] p-6 md:p-8 opacity-100 translate-x-0'
+    }`;
 
   // ====== MEMOIZED HANDLERS FOR MODALS ======
   const handleCloseModal = useCallback(() => setActiveModal(null), []);
@@ -1227,42 +1226,48 @@ function MainApp() {
             theme.name === 'nebula'
               ? '#050811'
               : theme.name === 'matrix'
-              ? '#001100'
-              : theme.name === 'cyberpunk'
-              ? '#110011'
-              : theme.name === 'sunset'
-              ? '#1a0a00'
-              : theme.name === 'monochrome'
-              ? '#0a0a0a'
-              : theme.name === 'nord'
-              ? '#1e222a'
-              : theme.name === 'vaporwave'
-              ? '#0a001a'
-              : theme.name === 'dracula'
-              ? '#1a0a1a'
-              : theme.name === 'galaxy'
-              ? '#050014'
-              : '#080809',
+                ? '#001100'
+                : theme.name === 'cyberpunk'
+                  ? '#110011'
+                  : theme.name === 'sunset'
+                    ? '#1a0a00'
+                    : theme.name === 'monochrome'
+                      ? '#0a0a0a'
+                      : theme.name === 'nord'
+                        ? '#1e222a'
+                        : theme.name === 'vaporwave'
+                          ? '#0a001a'
+                          : theme.name === 'dracula'
+                            ? '#1a0a1a'
+                            : theme.name === 'galaxy'
+                              ? '#050014'
+                              : '#080809',
         }}
       >
         <AnimatePresence>
           {themeIndex === -1 && wallpaperUrl ? (
-            <motion.div 
+            <motion.div
               key="custom-bg"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.6, ease: "easeInOut" }}
-              className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none transform-gpu will-change-[filter] [contain:strict]" 
-              style={{ 
+              className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none transform-gpu will-change-[filter] [contain:strict]"
+              style={{
                 backgroundImage: `url(${wallpaperUrl})`,
+                /*
+                  The Academy used to clamp the wallpaper to 0.55 brightness and
+                  an 8px blur. It paints its own reading scrim now, so the blur
+                  is pinned off instead — the wallpaper stays sharp behind the
+                  panels, at the brightness the user chose.
+                */
                 filter: currentStage === 'academy'
-                  ? `brightness(${Math.min(brightness, 0.55)}) blur(${Math.max(blur, 8)}px)`
-                  : typing.phase === 'TYPING' 
-                    ? `brightness(${Math.min(brightness, 0.45)}) blur(${Math.max(blur, 4)}px)` 
+                  ? `brightness(${brightness}) blur(0px)`
+                  : typing.phase === 'TYPING'
+                    ? `brightness(${Math.min(brightness, 0.45)}) blur(${Math.max(blur, 4)}px)`
                     : `brightness(${brightness}) blur(${blur}px)`,
                 transition: 'filter 0.4s ease-out'
-              }} 
+              }}
             />
           ) : (
             <motion.div
@@ -1383,7 +1388,7 @@ function MainApp() {
               />
             </motion.div>
           ) : (
-            <motion.div 
+            <motion.div
               key="practice"
               custom={stageDirection}
               variants={STAGE_PAGE_VARIANTS}

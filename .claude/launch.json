@@ -2,8 +2,8 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "TypeNova Academy",
-      "url": "http://localhost:5174"
+      "name": "TypeNova IPv4",
+      "url": "http://127.0.0.1:4321"
     }
   ]
 }

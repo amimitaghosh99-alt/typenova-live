@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Copy, Link, Check, UserPlus, Play, LogOut, Settings, Crown, 
   Radio, MessageSquare, Send, Sparkles, LogIn, X, ClipboardPaste, KeyRound
@@ -696,111 +697,114 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
       </div>
 
       {/* ── 3. JOIN ROOM MODAL OVERLAY ── */}
-      <AnimatePresence>
-        {showJoinModal && (
-          <div 
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
-            onClick={() => setShowJoinModal(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-md bg-zinc-950/95 border border-purple-500/30 rounded-3xl p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(168,85,247,0.15)] flex flex-col gap-5 relative overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showJoinModal && (
+            <div 
+              className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/25 backdrop-blur-sm animate-in fade-in duration-200"
+              onClick={() => setShowJoinModal(false)}
             >
-              {/* Subtle top ambient bar */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.8)]" />
-
-              {/* Close Button */}
-              <button
-                onClick={() => setShowJoinModal(false)}
-                className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white transition-all cursor-pointer"
-                title="Close"
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full max-w-md bg-zinc-950/90 border border-purple-500/30 rounded-3xl p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(168,85,247,0.15)] flex flex-col gap-5 relative overflow-hidden backdrop-blur-xl"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X size={16} />
-              </button>
+                {/* Subtle top ambient bar */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.8)]" />
 
-              {/* Header */}
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.3)]">
-                  <KeyRound size={20} />
-                </div>
-                <div>
-                  <h3 className="font-mono font-black text-white text-base tracking-wider uppercase">JOIN MULTIPLAYER ROOM</h3>
-                  <p className="font-mono text-zinc-400 text-xs">Enter a 6-character room code or paste an invite link.</p>
-                </div>
-              </div>
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowJoinModal(false)}
+                  className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white transition-all cursor-pointer"
+                  title="Close"
+                >
+                  <X size={16} />
+                </button>
 
-              {/* Form */}
-              <form onSubmit={handleJoinSubmit} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className="font-mono text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center justify-between">
-                    <span>ROOM ACCESS CODE</span>
-                    <span className="text-zinc-500">{joinInputCode.length} / 6</span>
-                  </label>
-                  
-                  <div className="relative flex items-center">
-                    <input
-                      ref={joinInputRef}
-                      type="text"
-                      value={joinInputCode}
-                      onChange={(e) => {
-                        const parsed = extractRoomCode(e.target.value);
-                        setJoinInputCode(parsed);
-                        setJoinError('');
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') setShowJoinModal(false);
-                      }}
-                      placeholder="e.g. 3QG5KX"
-                      maxLength={30}
-                      autoFocus
-                      className="w-full px-4 py-3 rounded-2xl bg-black/60 border-2 border-white/15 focus:border-purple-400 focus:shadow-[0_0_25px_rgba(168,85,247,0.35)] text-white font-mono text-xl font-black tracking-[0.25em] text-center uppercase focus:outline-none transition-all placeholder:text-zinc-700 placeholder:tracking-normal placeholder:font-normal placeholder:text-sm"
-                    />
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.3)]">
+                    <KeyRound size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-mono font-black text-white text-base tracking-wider uppercase">JOIN MULTIPLAYER ROOM</h3>
+                    <p className="font-mono text-zinc-400 text-xs">Enter a 6-character room code or paste an invite link.</p>
+                  </div>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={handleJoinSubmit} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="font-mono text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center justify-between">
+                      <span>ROOM ACCESS CODE</span>
+                      <span className="text-zinc-500">{joinInputCode.length} / 6</span>
+                    </label>
                     
-                    <button
-                      type="button"
-                      onClick={handlePasteCode}
-                      className="absolute right-2.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-300 hover:text-white transition-all text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer active:scale-95"
-                      title="Paste from clipboard"
-                    >
-                      <ClipboardPaste size={13} />
-                      <span className="hidden sm:inline">PASTE</span>
-                    </button>
+                    <div className="relative flex items-center">
+                      <input
+                        ref={joinInputRef}
+                        type="text"
+                        value={joinInputCode}
+                        onChange={(e) => {
+                          const parsed = extractRoomCode(e.target.value);
+                          setJoinInputCode(parsed);
+                          setJoinError('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setShowJoinModal(false);
+                        }}
+                        placeholder="e.g. 3QG5KX"
+                        maxLength={30}
+                        autoFocus
+                        className="w-full px-4 py-3 rounded-2xl bg-black/60 border-2 border-white/15 focus:border-purple-400 focus:shadow-[0_0_25px_rgba(168,85,247,0.35)] text-white font-mono text-xl font-black tracking-[0.25em] text-center uppercase focus:outline-none transition-all placeholder:text-zinc-700 placeholder:tracking-normal placeholder:font-normal placeholder:text-sm"
+                      />
+                      
+                      <button
+                        type="button"
+                        onClick={handlePasteCode}
+                        className="absolute right-2.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-300 hover:text-white transition-all text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer active:scale-95"
+                        title="Paste from clipboard"
+                      >
+                        <ClipboardPaste size={13} />
+                        <span className="hidden sm:inline">PASTE</span>
+                      </button>
+                    </div>
+
+                    {joinError && (
+                      <p className="font-mono text-xs text-rose-400 font-bold animate-in fade-in flex items-center gap-1.5 mt-1">
+                        <span>⚠️</span> {joinError}
+                      </p>
+                    )}
                   </div>
 
-                  {joinError && (
-                    <p className="font-mono text-xs text-rose-400 font-bold animate-in fade-in flex items-center gap-1.5 mt-1">
-                      <span>⚠️</span> {joinError}
-                    </p>
-                  )}
-                </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowJoinModal(false)}
+                      className="flex-1 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white font-mono font-bold text-xs tracking-wider uppercase transition-all cursor-pointer"
+                    >
+                      CANCEL
+                    </button>
 
-                <div className="flex items-center gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowJoinModal(false)}
-                    className="flex-1 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white font-mono font-bold text-xs tracking-wider uppercase transition-all cursor-pointer"
-                  >
-                    CANCEL
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={joinInputCode.length < 6}
-                    className="flex-1 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:hover:bg-purple-600 border border-purple-400/50 text-white font-mono font-black text-xs tracking-widest uppercase transition-all shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:shadow-[0_0_35px_rgba(168,85,247,0.6)] cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-98"
-                  >
-                    <LogIn size={15} />
-                    <span>CONNECT & JOIN</span>
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                    <button
+                      type="submit"
+                      disabled={joinInputCode.length < 6}
+                      className="flex-1 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:hover:bg-purple-600 border border-purple-400/50 text-white font-mono font-black text-xs tracking-widest uppercase transition-all shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:shadow-[0_0_35px_rgba(168,85,247,0.6)] cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-98"
+                    >
+                      <LogIn size={15} />
+                      <span>CONNECT & JOIN</span>
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

@@ -51,7 +51,13 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff2,mp3,wav}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff2,mp3,wav}'],
+        // The main bundle just crossed Workbox's 2 MiB default, which made
+        // `vite build` exit non-zero *after* a successful compile — the app was
+        // fine, the service worker simply refused to precache the chunk.
+        // Raised so builds pass; the real fix is splitting the bundle
+        // (framer-motion, recharts and supabase are all in the entry chunk).
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024
       }
     })
   ],

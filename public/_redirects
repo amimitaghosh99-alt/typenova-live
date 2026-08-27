@@ -1,0 +1,10 @@
+# SPA history fallback.
+#
+# `/operator/:username` is a client-side route, so a direct hit or a shared link
+# asks the host for a file that does not exist. Without this rule that is a 404
+# before any JavaScript runs — the router never gets a chance to resolve it.
+#
+# Read by Netlify and Cloudflare Pages. Other hosts need their own equivalent:
+# `vercel.json` (in this repo), `try_files $uri /index.html;` on nginx, or
+# `--single` for `serve`. The dev server and `vite preview` already do this.
+/*  /index.html  200

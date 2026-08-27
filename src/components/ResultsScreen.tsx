@@ -35,7 +35,11 @@ export interface ResultsScreenProps {
   ghostLabel?: string;
   ghostDeltaS?: number;
   compact?: boolean;
+  /** Suppress the solo action row (NEXT TEST / replay / drills) when this panel
+      is embedded inside a screen that owns its own navigation, e.g. a race. */
+  hideActions?: boolean;
 }
+
 
 export function ResultsScreen({
   wpm = 0, rawWpm = 0, accuracy = 0, consistency = 0, flawlessStreak = 0,
@@ -45,8 +49,10 @@ export function ResultsScreen({
   keystrokeLog = [],
   onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill, isSmartDrillGenerating,
   ghostTimeline, ghostLabel, ghostDeltaS,
-  compact = false
+  compact = false,
+  hideActions = false
 }: ResultsScreenProps) {
+
   const [shareStatus, setShareStatus] = useState('');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -56,7 +62,7 @@ export function ResultsScreen({
   const sessionWeakKeys = useMemo(() => {
     const errorCounts: Record<string, number> = {};
     const totalCounts: Record<string, number> = {};
-    
+
     keystrokeLog.forEach(k => {
       // Backspaces have no expected char and are excluded from all accuracy stats.
       if (k.isBackspace) return;
@@ -142,139 +148,140 @@ export function ResultsScreen({
 
   const content = (
     <div className={compact ? '' : 'relative z-10 max-w-6xl mx-auto px-6 py-12'}>
-        {/* Header */}
-        <div className="flex flex-col items-center mb-12">
-          {!compact && (
-            <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 animate-in fade-in zoom-in duration-500">TEST COMPLETE</h1>
-          )}
+      {/* Header */}
+      <div className="flex flex-col items-center mb-12">
+        {!compact && (
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 animate-in fade-in zoom-in duration-500">TEST COMPLETE</h1>
+        )}
 
-          {leveledUp && (
-            <div className="mb-4 bg-amber-500/20 text-amber-400 border border-amber-500/50 px-8 py-3 rounded-full font-black tracking-widest flex items-center animate-bounce shadow-[0_0_30px_rgba(245,158,11,0.5)] text-sm">
-              <TrendingUp size={18} className="mr-3" /> LEVEL UP!
-            </div>
-          )}
-          {xpGainedLast > 0 && !leveledUp && (
-            <div className="mb-4 px-6 py-2 rounded-full bg-white/5 border border-white/10 text-zinc-300 font-black tracking-widest text-sm shadow-xl backdrop-blur-md">
-              +{xpGainedLast} XP
-            </div>
-          )}
+        {leveledUp && (
+          <div className="mb-4 bg-amber-500/20 text-amber-400 border border-amber-500/50 px-8 py-3 rounded-full font-black tracking-widest flex items-center animate-bounce shadow-[0_0_30px_rgba(245,158,11,0.5)] text-sm">
+            <TrendingUp size={18} className="mr-3" /> LEVEL UP!
+          </div>
+        )}
+        {xpGainedLast > 0 && !leveledUp && (
+          <div className="mb-4 px-6 py-2 rounded-full bg-white/5 border border-white/10 text-zinc-300 font-black tracking-widest text-sm shadow-xl backdrop-blur-md">
+            +{xpGainedLast} XP
+          </div>
+        )}
 
-          {/* Ghost Racer Performance Chip */}
-          {ghostTimeline && ghostTimeline.length > 0 && typeof ghostDeltaS === 'number' && (
-            <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs flex items-center gap-2 border shadow-lg ${
-              ghostDeltaS >= 0
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
-                : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
+        {/* Ghost Racer Performance Chip */}
+        {ghostTimeline && ghostTimeline.length > 0 && typeof ghostDeltaS === 'number' && (
+          <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs flex items-center gap-2 border shadow-lg ${ghostDeltaS >= 0
+            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+            : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_20px_rgba(244,63,94,0.25)]'
             }`}>
-              <Ghost size={14} className={ghostDeltaS >= 0 ? 'text-emerald-300' : 'text-rose-300'} />
-              <span>
-                {ghostDeltaS >= 0 ? `BEAT ${ghostLabel || 'GHOST'} BY +${Math.abs(ghostDeltaS).toFixed(1)}s` : `FELL BEHIND ${ghostLabel || 'GHOST'} BY -${Math.abs(ghostDeltaS).toFixed(1)}s`}
-              </span>
-            </div>
-          )}
-
-          {/* Auto-save status */}
-          {saveStatus && (
-            <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs ${saveStatus.includes('Error') || saveStatus.includes('INVALID') ? 'bg-red-500/20 text-red-400 border border-red-500/30' : `bg-white/5 border border-white/10 ${theme?.text || 'text-cyan-400'}`}`}>
-              {saveStatus}
-            </div>
-          )}
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
-            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Grade</span>
-            <span className={`text-6xl font-black ${gradeColor}`}>{grade}</span>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
-            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Net WPM</span>
-            <span className="text-5xl font-black text-white">{wpm}</span>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
-            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Raw WPM</span>
-            <span className="text-5xl font-black text-white">{rawWpm}</span>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
-            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Accuracy</span>
-            <span className="text-5xl font-black text-white">{accuracy}<span className="text-2xl text-zinc-500">%</span></span>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
-            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Consistency</span>
-            <span className="text-5xl font-black text-white">{consistency}<span className="text-2xl text-zinc-500">%</span></span>
-          </div>
-          <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
-            <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Flawless</span>
-            <span className={`text-5xl font-black ${flawlessStreak > 50 ? (theme?.text || 'text-cyan-400') : 'text-white'}`}>{flawlessStreak}</span>
-          </div>
-        </div>
-
-        {/* Graphs Section - Single unified graph */}
-        <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '100ms' }}>
-          <WpmGraph
-            timelinePoints={safeTimelinePoints}
-            competitorTimelines={competitorTimelines}
-            errorTimes={safeErrorTimes}
-            durationMs={safeDurationMs}
-            theme={theme || { name: 'CYBERPUNK', bg: 'bg-slate-950', text: 'text-cyan-400', border: 'border-cyan-500/30', glowPrimary: 'rgba(6,182,212,0.4)', glowSecondary: 'rgba(34,211,238,0.3)' }}
-            ghostTimeline={ghostTimeline}
-            ghostLabel={ghostLabel}
-          />
-        </div>
-
-        {/* Keyboard Heatmap */}
-        <div className="glass-panel rounded-3xl p-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '400ms' }}>
-          <div className="flex w-full justify-between items-end mb-4">
-            <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center">
-              <Activity size={12} className="mr-2" /> KEYBOARD HEATMAP
-            </span>
-            <span className="text-[9px] font-black tracking-widest text-zinc-500 uppercase">
-              Click any red key to practice
+            <Ghost size={14} className={ghostDeltaS >= 0 ? 'text-emerald-300' : 'text-rose-300'} />
+            <span>
+              {ghostDeltaS >= 0 ? `BEAT ${ghostLabel || 'GHOST'} BY +${Math.abs(ghostDeltaS).toFixed(1)}s` : `FELL BEHIND ${ghostLabel || 'GHOST'} BY -${Math.abs(ghostDeltaS).toFixed(1)}s`}
             </span>
           </div>
+        )}
 
-          <div className="flex flex-col items-center gap-2">
-            {heatmapRows.map((row, i) => (
-              <div key={i} className="flex gap-2 justify-center" style={{ marginLeft: i * 20 }}>
-                {row.map(char => {
-                  const stat = testHeatmapData[char];
-                  let bgColor = "bg-black/20 text-zinc-500 border-white/5";
-                  let errorRate = 0;
-                  let canDrill = false;
+        {/* Auto-save status */}
+        {saveStatus && (
+          <div className={`mb-4 px-6 py-2 rounded-full font-black tracking-widest text-xs ${saveStatus.includes('Error') || saveStatus.includes('INVALID') ? 'bg-red-500/20 text-red-400 border border-red-500/30' : `bg-white/5 border border-white/10 ${theme?.text || 'text-cyan-400'}`}`}>
+            {saveStatus}
+          </div>
+        )}
+      </div>
 
-                  if (stat && stat.total > 0) {
-                    errorRate = stat.errors / stat.total;
-                    if (errorRate === 0) {
-                      bgColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-                    } else if (errorRate < 0.05) {
-                      bgColor = "bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-pointer hover:bg-amber-500/20";
-                      canDrill = true;
-                    } else {
-                      bgColor = "bg-red-500/20 text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)] cursor-pointer hover:bg-red-500/30 hover:scale-105 z-10";
-                      canDrill = true;
-                    }
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+          <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Grade</span>
+          <span className={`text-6xl font-black ${gradeColor}`}>{grade}</span>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+          <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Net WPM</span>
+          <span className="text-5xl font-black text-white">{wpm}</span>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+          <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Raw WPM</span>
+          <span className="text-5xl font-black text-white">{rawWpm}</span>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+          <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Accuracy</span>
+          <span className="text-5xl font-black text-white">{accuracy}<span className="text-2xl text-zinc-500">%</span></span>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+          <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Consistency</span>
+          <span className="text-5xl font-black text-white">{consistency}<span className="text-2xl text-zinc-500">%</span></span>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center">
+          <span className="text-zinc-400 text-[10px] font-black tracking-widest mb-3 uppercase">Flawless</span>
+          <span className={`text-5xl font-black ${flawlessStreak > 50 ? (theme?.text || 'text-cyan-400') : 'text-white'}`}>{flawlessStreak}</span>
+        </div>
+      </div>
+
+      {/* Graphs Section - Single unified graph */}
+      <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '100ms' }}>
+        <WpmGraph
+          timelinePoints={safeTimelinePoints}
+          competitorTimelines={competitorTimelines}
+          errorTimes={safeErrorTimes}
+          durationMs={safeDurationMs}
+          theme={theme || { name: 'CYBERPUNK', bg: 'bg-slate-950', text: 'text-cyan-400', border: 'border-cyan-500/30', glowPrimary: 'rgba(6,182,212,0.4)', glowSecondary: 'rgba(34,211,238,0.3)' }}
+          ghostTimeline={ghostTimeline}
+          ghostLabel={ghostLabel}
+        />
+      </div>
+
+      {/* Keyboard Heatmap */}
+      <div className="glass-panel rounded-3xl p-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '400ms' }}>
+        <div className="flex w-full justify-between items-end mb-4">
+          <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center">
+            <Activity size={12} className="mr-2" /> KEYBOARD HEATMAP
+          </span>
+          <span className="text-[9px] font-black tracking-widest text-zinc-500 uppercase">
+            Click any red key to practice
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
+          {heatmapRows.map((row, i) => (
+            <div key={i} className="flex gap-2 justify-center" style={{ marginLeft: i * 20 }}>
+              {row.map(char => {
+                const stat = testHeatmapData[char];
+                let bgColor = "bg-black/20 text-zinc-500 border-white/5";
+                let errorRate = 0;
+                let canDrill = false;
+
+                if (stat && stat.total > 0) {
+                  errorRate = stat.errors / stat.total;
+                  if (errorRate === 0) {
+                    bgColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                  } else if (errorRate < 0.05) {
+                    bgColor = "bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-pointer hover:bg-amber-500/20";
+                    canDrill = true;
+                  } else {
+                    bgColor = "bg-red-500/20 text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)] cursor-pointer hover:bg-red-500/30 hover:scale-105 z-10";
+                    canDrill = true;
                   }
+                }
 
-                  return (
-                    <div
-                      key={char}
-                      onClick={() => { if (canDrill) onStartMicroDrill(char); }}
-                      className={`w-10 h-12 md:w-12 md:h-14 flex flex-col items-center justify-center rounded-xl border transition-all ${bgColor}`}
-                      title={stat && stat.total > 0 ? `${stat.errors} errors in ${stat.total} hits` : 'Not typed yet'}
-                    >
-                      <span className="font-mono font-bold text-sm">{char}</span>
-                      <span className="text-[8px] opacity-50">{stat && stat.total > 0 ? `${Math.round(errorRate * 100)}%` : '-'}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+                return (
+                  <div
+                    key={char}
+                    onClick={() => { if (canDrill) onStartMicroDrill(char); }}
+                    className={`w-10 h-12 md:w-12 md:h-14 flex flex-col items-center justify-center rounded-xl border transition-all ${bgColor}`}
+                    title={stat && stat.total > 0 ? `${stat.errors} errors in ${stat.total} hits` : 'Not typed yet'}
+                  >
+                    <span className="font-mono font-bold text-sm">{char}</span>
+                    <span className="text-[8px] opacity-50">{stat && stat.total > 0 ? `${Math.round(errorRate * 100)}%` : '-'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Action Buttons */}
+      {/* Action Buttons — suppressed when the embedding screen owns navigation */}
+      {!hideActions && (
         <div className="flex flex-wrap justify-center gap-4 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '500ms' }}>
-          
+
+
           <button
             onClick={onWatchReplay}
             className="flex items-center gap-3 px-6 py-4 glass-panel rounded-2xl text-zinc-300 font-black tracking-widest text-sm hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10"
@@ -312,8 +319,10 @@ export function ResultsScreen({
             <RotateCcw size={16} /> PLAY AGAIN
           </button>
         </div>
+      )}
     </div>
   );
+
 
   if (compact) return content;
 

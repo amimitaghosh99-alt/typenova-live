@@ -20,3 +20,18 @@ try {
 }
 
 export const supabase = client;
+
+/**
+ * Attach a rejection handler to a request whose result nobody waits for.
+ *
+ * Query builders are thenables with no `.catch`, so a bare `.then()` — or no
+ * handler at all — leaves a dropped connection or an RLS denial to surface as
+ * an unhandled rejection at window scope. None of these writes is worth
+ * interrupting the user over (the next one retries), so a failure is logged
+ * and dropped.
+ */
+export function fireAndForget(op: PromiseLike<unknown>, context: string): void {
+  op.then(undefined, (err: unknown) => {
+    console.warn(`[supabase] ${context} failed:`, err);
+  });
+}

@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { 
-  Copy, Link, Check, UserPlus, Play, LogOut, Settings, Crown, 
-  Radio, MessageSquare, Send, Sparkles, LogIn, X, ClipboardPaste, KeyRound
+import {
+  Copy, Link, Check, UserPlus, Play, LogOut, Settings, Crown,
+  Radio, MessageSquare, Send, Sparkles, WifiOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { RacerState, RaceConfig, ChatMessage } from '@/hooks/useRace';
+import type { RacerState, RaceConfig, ChatMessage, RaceConnection } from '@/hooks/useRace';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import type { Level, CodeLanguage, Theme } from '@/data/constants';
 import { toast } from 'sonner';
@@ -23,11 +22,29 @@ interface LobbyScreenProps {
   sendChatMessage?: (text: string, senderName: string) => void;
   onStart: () => void;
   onLeave: () => void;
-  onJoinRoom?: (code: string) => void;
   theme?: Theme;
   themeTextClass?: string;
   isJoining?: boolean;
+  /** Realtime failure (bad code, full room, dropped channel). Previously these
+      only reached console.error, so a failed join looked like a no-op. */
+  error?: string | null;
+  /** Shared pre-race countdown, so guests see the launch instead of a frozen lobby. */
+  countdown?: number | null;
+  /** Socket health. A drop now retries in the background instead of destroying
+      the room, so the lobby is where that has to be visible. */
+  connection?: RaceConnection;
+  /** Guests opt in to the next race. The host's readiness is implicit. */
+  onToggleReady?: (ready: boolean) => void;
 }
+
+/** Colour a measured round trip. Anything over ~300ms is a visible handicap. */
+const pingTone = (ping?: number) => {
+  if (typeof ping !== 'number') return 'text-zinc-500';
+  if (ping < 120) return 'text-emerald-400';
+  if (ping < 300) return 'text-amber-400';
+  return 'text-rose-400';
+};
+
 
 const QUICK_EMOJIS = [
   { icon: '🚀', label: 'Rocket' },
@@ -55,22 +72,29 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   sendChatMessage,
   onStart,
   onLeave,
-  onJoinRoom,
   theme,
   themeTextClass = 'text-cyan-400',
-  isJoining = false
+  isJoining = false,
+  error = null,
+  countdown = null,
+  connection = 'live',
+  onToggleReady
 }) => {
+
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [showJoinModal, setShowJoinModal] = useState(false);
-  const [joinInputCode, setJoinInputCode] = useState('');
-  const [joinError, setJoinError] = useState('');
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const joinInputRef = useRef<HTMLInputElement>(null);
 
   const me = players.find(p => p.id === selfId);
   const myName = me?.name || 'Racer';
+
+  // Readiness is real now: every pod used to render a hardcoded READY pill, so
+  // the host had no idea whether anyone was actually at their keyboard.
+  const guests = players.filter(p => !p.isHost);
+  const readyGuests = guests.filter(p => p.ready).length;
+  const allReady = guests.length > 0 && readyGuests === guests.length;
+  const iAmReady = isHost || !!me?.ready;
 
   // Auto-scroll chat to bottom on new message
   useEffect(() => {
@@ -78,71 +102,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [chatMessages]);
-
-  const extractRoomCode = (raw: string): string => {
-    let text = raw.trim().toUpperCase();
-    try {
-      if (text.includes('?')) {
-        const url = new URL(text.startsWith('http') ? text : `https://dummy.com/${text}`);
-        const param = url.searchParams.get('room') || url.searchParams.get('race');
-        if (param) return param.trim().toUpperCase().slice(0, 6);
-      }
-    } catch {
-      // fallback
-    }
-    const match = text.match(/[A-Z0-9]{6}/);
-    if (match) return match[0];
-    return text.replace(/[^A-Z0-9]/g, '').slice(0, 6);
-  };
-
-  const handleOpenJoinModal = () => {
-    setJoinInputCode('');
-    setJoinError('');
-    setShowJoinModal(true);
-  };
-
-  useEffect(() => {
-    if (showJoinModal) {
-      const timer = setTimeout(() => {
-        joinInputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [showJoinModal]);
-
-  const handlePasteCode = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      const parsed = extractRoomCode(text);
-      if (parsed) {
-        setJoinInputCode(parsed);
-        setJoinError('');
-        toast.info(`Pasted code: ${parsed}`);
-      } else {
-        toast.error('No valid 6-character room code found in clipboard');
-      }
-    } catch {
-      toast.error('Failed to read from clipboard. Please paste manually.');
-    }
-  };
-
-  const handleJoinSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const clean = extractRoomCode(joinInputCode);
-    if (clean.length !== 6) {
-      setJoinError('Please enter a valid 6-character room code');
-      return;
-    }
-    if (clean === code.toUpperCase()) {
-      setJoinError('You are already in this room');
-      return;
-    }
-    if (onJoinRoom) {
-      onJoinRoom(clean);
-      setShowJoinModal(false);
-      toast.success(`Connecting to room ${clean}...`);
-    }
-  };
 
   const copyCode = () => {
     navigator.clipboard.writeText(code);
@@ -155,7 +114,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
     navigator.clipboard.writeText(url);
     setCopiedLink(true);
-    toast.success('Invite link copied! Share with friends to race up to 4 players.');
+    toast.success(`Invite link copied! This room seats ${roomSize} racers.`);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
@@ -173,16 +132,30 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
   return (
     <div className="w-full max-w-[1600px] mx-auto relative select-none pb-2 animate-in fade-in duration-300 flex flex-col gap-4">
-      
+
+      {countdown !== null && (
+        <div className="absolute inset-0 z-[55] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md rounded-3xl">
+          <div className={`font-display font-black text-8xl ${themeTextClass} animate-pulse`}>{countdown}</div>
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.3em] text-zinc-400">Race starting — get ready</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="w-full px-4 py-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-mono text-[11px] font-bold uppercase tracking-widest flex items-center gap-2">
+          <span>⚠️</span> {error}
+        </div>
+      )}
+
       {isJoining && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md rounded-3xl">
+
           <div className="w-14 h-14 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mb-4 shadow-[0_0_25px_rgba(6,182,212,0.5)]" />
           <p className="text-cyan-400 font-mono font-bold tracking-widest text-xs uppercase animate-pulse">Establishing quantum telemetry link...</p>
         </div>
       )}
 
       {/* ── 1. Top Match Command Header ── */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
@@ -190,8 +163,19 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
       >
         {/* Live Telemetry Beacon */}
         <div className="flex items-center gap-3 px-4 py-2 rounded-full glass-panel border border-white/15 text-zinc-300 text-xs font-mono font-bold tracking-wider shadow-sm bg-black/40">
-          <Radio size={14} className="text-emerald-400 animate-pulse" />
-          <span className="uppercase font-black text-white">LIVE MULTIPLAYER ARENA</span>
+          {connection === 'live' ? (
+            <>
+              <Radio size={14} className="text-emerald-400 animate-pulse" />
+              <span className="uppercase font-black text-white">LIVE MULTIPLAYER ARENA</span>
+            </>
+          ) : (
+            <>
+              <WifiOff size={14} className="text-amber-400 animate-pulse" />
+              <span className="uppercase font-black text-amber-300" role="status">
+                {connection === 'reconnecting' ? 'RECONNECTING…' : 'LINKING…'}
+              </span>
+            </>
+          )}
           <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
           <span className="text-zinc-400 font-bold">{players.length} / {roomSize} RACERS</span>
         </div>
@@ -200,7 +184,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         <div className="glass-panel px-6 py-1.5 rounded-full border border-white/20 flex items-center gap-4 sm:gap-5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] bg-black/50 flex-wrap sm:flex-nowrap justify-center">
           <div className="flex items-center gap-2.5">
             <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold">ROOM CODE:</span>
-            <span 
+            <span
               className="font-mono text-2xl font-black tracking-[0.2em] text-white select-all"
               style={{
                 textShadow: theme ? `0 0 20px rgba(${theme.glowPrimary}, 0.7)` : '0 0 16px rgba(6,182,212,0.6)'
@@ -229,14 +213,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Link size={14} />}
               <span>{copiedLink ? 'LINK COPIED' : 'INVITE'}</span>
             </button>
-            <button
-              onClick={handleOpenJoinModal}
-              className="px-3.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-200 hover:text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-mono font-bold shadow-[0_0_15px_rgba(168,85,247,0.25)]"
-              title="Enter code to join another room"
-            >
-              <LogIn size={14} className="text-purple-300" />
-              <span>JOIN ROOM</span>
-            </button>
           </div>
         </div>
 
@@ -250,7 +226,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
       {/* ── 2. MAIN WIDESCREEN COCKPIT: TALL LEFT COMMS TERMINAL & RIGHT ARENA STAGE ── */}
       <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        
+
         {/* ════ LEFT COLUMN: EXPANDED TALL NEURAL COMMS TERMINAL (col-span-4) ════ */}
         <motion.div
           initial={{ opacity: 0, x: -20, scale: 0.985 }}
@@ -273,7 +249,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </div>
 
           {/* Tall Scrollable Message Feed */}
-          <div 
+          <div
             ref={chatScrollRef}
             className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 p-3 rounded-2xl bg-black/50 border border-white/10 text-xs font-mono min-h-[240px]"
           >
@@ -302,9 +278,11 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </div>
             ) : (
               chatMessages.map(msg => {
-                const isSenderMe = msg.sender === myName;
-                const senderPlayer = players.find(p => p.name === msg.sender);
-                const isPlayerHost = players[0]?.name === msg.sender;
+                // Identity by id, not display name: two racers called "Player"
+                // used to share bubble alignment and the host crown.
+                const isSenderMe = msg.senderId ? msg.senderId === selfId : msg.sender === myName;
+                const senderPlayer = players.find(p => (msg.senderId ? p.id === msg.senderId : p.name === msg.sender));
+                const isPlayerHost = !!senderPlayer?.isHost;
 
                 return (
                   <div key={msg.id} className={`flex flex-col ${isSenderMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
@@ -320,11 +298,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       )}
                       <span className="text-zinc-500 text-[8px]">• {msg.timestamp}</span>
                     </div>
-                    <div className={`px-3.5 py-1.5 rounded-2xl max-w-[90%] break-words leading-relaxed text-xs font-medium shadow-md ${
-                      isSenderMe 
-                        ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-500/40 rounded-tr-sm' 
-                        : 'bg-white/15 text-zinc-100 border border-white/15 rounded-tl-sm'
-                    }`}>
+                    <div className={`px-3.5 py-1.5 rounded-2xl max-w-[90%] break-words leading-relaxed text-xs font-medium shadow-md ${isSenderMe
+                      ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-500/40 rounded-tr-sm'
+                      : 'bg-white/15 text-zinc-100 border border-white/15 rounded-tl-sm'
+                      }`}>
                       {msg.text}
                     </div>
                   </div>
@@ -364,7 +341,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
             {/* Input Form */}
             <form onSubmit={handleSendCustomChat} className="flex items-center gap-2 mt-0.5">
-              <input 
+              <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
@@ -386,22 +363,23 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
         {/* ════ RIGHT COLUMN: 4 PODIUMS, 3-COLUMN CONFIG & LAUNCH (col-span-8) ════ */}
         <div className="lg:col-span-8 w-full flex flex-col justify-between gap-3.5 lg:h-[550px]">
-          
+
           {/* Starting Grid Section */}
           <div className="w-full flex flex-col gap-2">
             {/* 4 Podiums Across in 4 Columns */}
-            <div className={`w-full grid gap-3.5 ${
-              roomSize === 2 
-                ? 'grid-cols-2' 
-                : roomSize === 3 
-                ? 'grid-cols-3' 
+            <div className={`w-full grid gap-3.5 ${roomSize === 2
+              ? 'grid-cols-2'
+              : roomSize === 3
+                ? 'grid-cols-3'
                 : 'grid-cols-2 sm:grid-cols-4'
-            }`}>
+              }`}>
               <AnimatePresence mode="popLayout">
                 {/* Active Racer Podium Pods */}
                 {players.map((p, idx) => {
                   const isMe = p.id === selfId;
-                  const isPlayerHost = idx === 0;
+                  // Trust the elected host flag rather than slot order, which
+                  // disagrees with it the moment the original host leaves.
+                  const isPlayerHost = p.isHost;
 
                   return (
                     <motion.div
@@ -411,17 +389,16 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       whileHover={{ y: -4, scale: 1.015 }}
-                      transition={{ 
+                      transition={{
                         type: "spring",
                         stiffness: 280,
                         damping: 24,
                         delay: idx * 0.04
                       }}
-                      className={`glass-panel rounded-3xl p-3.5 flex flex-col items-center justify-between min-h-[160px] border transition-all duration-300 relative overflow-hidden text-center group bg-black/40 ${
-                        isMe
-                          ? 'border-white/40 shadow-[0_12px_36px_rgba(0,0,0,0.6),inset_0_0_25px_rgba(255,255,255,0.08)]'
-                          : 'border-white/15 hover:border-white/25'
-                      }`}
+                      className={`glass-panel rounded-3xl p-3.5 flex flex-col items-center justify-between min-h-[160px] border transition-all duration-300 relative overflow-hidden text-center group bg-black/40 ${isMe
+                        ? 'border-white/40 shadow-[0_12px_36px_rgba(0,0,0,0.6),inset_0_0_25px_rgba(255,255,255,0.08)]'
+                        : 'border-white/15 hover:border-white/25'
+                        }`}
                     >
                       {/* Glowing Top Ambient Bar */}
                       {isMe && (
@@ -437,12 +414,16 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       {/* Header Pod Bar: Grid slot & Ping */}
                       <div className="w-full flex items-center justify-between text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">
                         <span>SLOT #{idx + 1}</span>
-                        <span className="text-emerald-400 font-black">24MS</span>
+                        {/* Measured round trip. This was a hardcoded "24MS" on
+                            every pod — decoration dressed up as telemetry. */}
+                        <span className={`font-black ${pingTone(p.ping)}`} title="Measured round-trip time">
+                          {typeof p.ping === 'number' ? `${p.ping}MS` : '—'}
+                        </span>
                       </div>
 
                       {/* Avatar & Host Crown */}
                       <div className="relative my-1">
-                        <div 
+                        <div
                           className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-inner border border-white/20 bg-slate-900/90"
                           style={{
                             boxShadow: isMe && theme ? `0 0 24px rgba(${theme.glowPrimary}, 0.4)` : undefined
@@ -462,7 +443,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                         <div className="font-mono text-sm text-white font-black flex items-center gap-1.5">
                           <span className="truncate max-w-[110px]">{p.name}</span>
                           {isMe && (
-                            <span 
+                            <span
                               className="text-[8px] font-mono font-black border rounded px-1 py-0.2"
                               style={{
                                 backgroundColor: theme ? `rgba(${theme.glowPrimary}, 0.25)` : 'rgba(6,182,212,0.25)',
@@ -479,12 +460,38 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                         </span>
                       </div>
 
-                      {/* Ready Status Pill */}
+                      {/* Ready Status Pill — real state, and clickable for you */}
                       <div className="w-full flex items-center justify-center pt-2 border-t border-white/10">
-                        <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 font-mono text-[9px] font-black uppercase tracking-widest">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>READY</span>
-                        </div>
+                        {isPlayerHost ? (
+                          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 font-mono text-[9px] font-black uppercase tracking-widest">
+                            <Crown size={9} strokeWidth={3} />
+                            <span>HOST</span>
+                          </div>
+                        ) : isMe ? (
+                          <button
+                            type="button"
+                            onClick={() => onToggleReady?.(!p.ready)}
+                            aria-pressed={!!p.ready}
+                            className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full border font-mono text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer active:scale-95 ${p.ready
+                              ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
+                              : 'bg-white/5 border-white/20 text-zinc-300 hover:border-white/40 hover:text-white'
+                              }`}
+                            title={p.ready ? 'Click to un-ready' : 'Click when you are ready to race'}
+                          >
+                            {p.ready
+                              ? <Check size={9} strokeWidth={4} />
+                              : <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />}
+                            <span>{p.ready ? 'READY' : 'READY UP'}</span>
+                          </button>
+                        ) : (
+                          <div className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full border font-mono text-[9px] font-black uppercase tracking-widest ${p.ready
+                            ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
+                            : 'bg-zinc-500/10 border-zinc-500/30 text-zinc-400'
+                            }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${p.ready ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+                            <span>{p.ready ? 'READY' : 'NOT READY'}</span>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -499,7 +506,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     whileHover={{ y: -4, scale: 1.015 }}
-                    transition={{ 
+                    transition={{
                       type: "spring",
                       stiffness: 280,
                       damping: 24,
@@ -526,7 +533,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
           {/* Match Configuration Card (Sleek 3-Column Layout) */}
           {lobbyConfig && updateLobbyConfig && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 16, scale: 0.985 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
@@ -650,7 +657,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           )}
 
           {/* Footer Launch Station */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 16, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 280, damping: 24, delay: 0.15 }}
@@ -659,17 +666,28 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             <div className="flex-1">
               {isHost ? (
                 players.length >= 2 ? (
-                  <button 
+                  <button
                     onClick={onStart}
                     className="w-full font-mono text-sm uppercase tracking-[0.25em] py-3.5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 font-black cursor-pointer shadow-2xl hover:scale-[1.015] active:scale-[0.98]"
-                    style={{
+                    style={allReady ? {
                       backgroundColor: theme ? `rgb(${theme.glowPrimary})` : '#ffffff',
                       boxShadow: theme ? `0 0 35px rgba(${theme.glowPrimary}, 0.55)` : '0 0 35px rgba(255,255,255,0.4)',
                       color: '#080809',
+                    } : {
+                      backgroundColor: 'rgba(245,158,11,0.16)',
+                      border: '1px solid rgba(245,158,11,0.45)',
+                      color: '#fcd34d',
                     }}
+                    title={allReady ? 'Everyone has readied up' : 'Some racers have not readied up yet'}
                   >
                     <Play size={18} className="fill-current" />
-                    <span>START RACE ({players.length}/{roomSize} READY)</span>
+                    {/* The old label counted connections as readiness, so it
+                        always read "n/n READY" no matter who was at the keyboard. */}
+                    <span>
+                      {allReady
+                        ? `START RACE (${players.length}/${players.length} READY)`
+                        : `START ANYWAY (${readyGuests + 1}/${players.length} READY)`}
+                    </span>
                   </button>
                 ) : (
                   <div className="w-full glass-panel py-3 px-5 rounded-2xl border-2 border-white/20 text-white font-mono tracking-widest font-black text-xs flex items-center justify-center gap-3 shadow-xl bg-black/60">
@@ -679,14 +697,24 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   </div>
                 )
               ) : (
-                <div className="w-full glass-panel py-3 px-5 rounded-2xl border-2 border-white/20 text-zinc-200 font-mono tracking-widest font-bold text-xs flex items-center justify-center gap-3 animate-pulse shadow-xl bg-black/60">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                  WAITING FOR HOST TO LAUNCH RACE...
-                </div>
+                iAmReady ? (
+                  <div className="w-full glass-panel py-3 px-5 rounded-2xl border-2 border-white/20 text-zinc-200 font-mono tracking-widest font-bold text-xs flex items-center justify-center gap-3 animate-pulse shadow-xl bg-black/60">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                    WAITING FOR HOST TO LAUNCH RACE...
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onToggleReady?.(true)}
+                    className="w-full py-3.5 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/45 text-emerald-200 font-mono font-black text-sm uppercase tracking-[0.25em] flex items-center justify-center gap-3 transition-all cursor-pointer active:scale-[0.98] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+                  >
+                    <Check size={18} strokeWidth={3} />
+                    <span>I'M READY</span>
+                  </button>
+                )
               )}
             </div>
 
-            <button 
+            <button
               onClick={onLeave}
               className="text-zinc-400 hover:text-rose-400 font-mono text-xs tracking-widest font-bold flex items-center gap-2 transition-all bg-black/30 hover:bg-rose-500/15 px-5 py-3 rounded-2xl border border-white/10 hover:border-rose-500/30 cursor-pointer shrink-0 shadow-md active:scale-95"
             >
@@ -696,115 +724,13 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         </div>
       </div>
 
-      {/* ── 3. JOIN ROOM MODAL OVERLAY ── */}
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {showJoinModal && (
-            <div 
-              className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/25 backdrop-blur-sm animate-in fade-in duration-200"
-              onClick={() => setShowJoinModal(false)}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 15 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full max-w-md bg-zinc-950/90 border border-purple-500/30 rounded-3xl p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(168,85,247,0.15)] flex flex-col gap-5 relative overflow-hidden backdrop-blur-xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Subtle top ambient bar */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.8)]" />
-
-                {/* Close Button */}
-                <button
-                  onClick={() => setShowJoinModal(false)}
-                  className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white transition-all cursor-pointer"
-                  title="Close"
-                >
-                  <X size={16} />
-                </button>
-
-                {/* Header */}
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.3)]">
-                    <KeyRound size={20} />
-                  </div>
-                  <div>
-                    <h3 className="font-mono font-black text-white text-base tracking-wider uppercase">JOIN MULTIPLAYER ROOM</h3>
-                    <p className="font-mono text-zinc-400 text-xs">Enter a 6-character room code or paste an invite link.</p>
-                  </div>
-                </div>
-
-                {/* Form */}
-                <form onSubmit={handleJoinSubmit} className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="font-mono text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center justify-between">
-                      <span>ROOM ACCESS CODE</span>
-                      <span className="text-zinc-500">{joinInputCode.length} / 6</span>
-                    </label>
-                    
-                    <div className="relative flex items-center">
-                      <input
-                        ref={joinInputRef}
-                        type="text"
-                        value={joinInputCode}
-                        onChange={(e) => {
-                          const parsed = extractRoomCode(e.target.value);
-                          setJoinInputCode(parsed);
-                          setJoinError('');
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') setShowJoinModal(false);
-                        }}
-                        placeholder="e.g. 3QG5KX"
-                        maxLength={30}
-                        autoFocus
-                        className="w-full px-4 py-3 rounded-2xl bg-black/60 border-2 border-white/15 focus:border-purple-400 focus:shadow-[0_0_25px_rgba(168,85,247,0.35)] text-white font-mono text-xl font-black tracking-[0.25em] text-center uppercase focus:outline-none transition-all placeholder:text-zinc-700 placeholder:tracking-normal placeholder:font-normal placeholder:text-sm"
-                      />
-                      
-                      <button
-                        type="button"
-                        onClick={handlePasteCode}
-                        className="absolute right-2.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-300 hover:text-white transition-all text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer active:scale-95"
-                        title="Paste from clipboard"
-                      >
-                        <ClipboardPaste size={13} />
-                        <span className="hidden sm:inline">PASTE</span>
-                      </button>
-                    </div>
-
-                    {joinError && (
-                      <p className="font-mono text-xs text-rose-400 font-bold animate-in fade-in flex items-center gap-1.5 mt-1">
-                        <span>⚠️</span> {joinError}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowJoinModal(false)}
-                      className="flex-1 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white font-mono font-bold text-xs tracking-wider uppercase transition-all cursor-pointer"
-                    >
-                      CANCEL
-                    </button>
-
-                    <button
-                      type="submit"
-                      disabled={joinInputCode.length < 6}
-                      className="flex-1 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:hover:bg-purple-600 border border-purple-400/50 text-white font-mono font-black text-xs tracking-widest uppercase transition-all shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:shadow-[0_0_35px_rgba(168,85,247,0.6)] cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-98"
-                    >
-                      <LogIn size={15} />
-                      <span>CONNECT & JOIN</span>
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+      {/* The lobby used to carry a third "JOIN ROOM" action here, next to COPY
+          and INVITE, backed by a code-entry modal. It was a leftover from when
+          the lobby was the only compete surface: hosting a room and then being
+          offered to join one reads as a bug, and using it silently abandoned
+          the room you had just opened (switching channels tears the old one
+          down, dropping anyone who had already joined). Joining by code lives
+          on the entry screen now — LEAVE is the way out of a room. */}
     </div>
   );
 };

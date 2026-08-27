@@ -1,5 +1,7 @@
 {
     "recommendations": [
-        "google.geminicodeassist"
+        "google.geminicodeassist",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint"
     ]
 }

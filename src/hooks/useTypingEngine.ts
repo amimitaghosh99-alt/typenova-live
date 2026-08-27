@@ -206,9 +206,39 @@ export const useTypingEngine = () => {
     finishTestRef.current(finalTimestamp, finalInput);
   }, []);
 
-  // Countdown timer effect
+  /** When set, the countdown ends at this exact wall-clock timestamp instead of
+      after N whole seconds. Races share one `startAt` so every client begins
+      the same millisecond — rounding to seconds let clients drift ~1s apart. */
+  const absoluteStartRef = useRef<number | null>(null);
+  const scheduleStart = useCallback((at: number) => {
+    absoluteStartRef.current = at;
+  }, []);
+
+  // Countdown driven by a shared absolute start time (multiplayer).
   useEffect(() => {
-    if (phase !== 'COUNTDOWN') return;
+    if (phase !== 'COUNTDOWN' || absoluteStartRef.current === null) return;
+    const at = absoluteStartRef.current;
+    let handle: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      const remaining = at - Date.now();
+      if (remaining <= 0) {
+        absoluteStartRef.current = null;
+        setStartTime(at);
+        setPhase('TYPING');
+        return;
+      }
+      setCountdownTimer(Math.max(1, Math.ceil(remaining / 1000)));
+      handle = setTimeout(tick, Math.min(100, remaining));
+    };
+    tick();
+
+    return () => clearTimeout(handle);
+  }, [phase]);
+
+  // Countdown timer effect (solo: plain 1s decrement)
+  useEffect(() => {
+    if (phase !== 'COUNTDOWN' || absoluteStartRef.current !== null) return;
     const timer = setTimeout(() => {
       if (countdownTimer === 1) {
         setPhase('TYPING');
@@ -219,6 +249,7 @@ export const useTypingEngine = () => {
     }, 1000);
     return () => clearTimeout(timer);
   }, [phase, countdownTimer]);
+
 
   // Live stats update during typing.
   // `input`/`timePenalty` are read through a ref so the interval survives
@@ -247,7 +278,9 @@ export const useTypingEngine = () => {
 
   const resetEngine = useCallback(() => {
     isFinishingRef.current = false;
+    absoluteStartRef.current = null;
     inputRef.current = '';
+
     setInput('');
     setStartTime(null);
     setEndTime(null);
@@ -295,7 +328,9 @@ export const useTypingEngine = () => {
     syncComboRef,
     calculateStats,
     finishTest,
+    scheduleStart,
     resetEngine,
     resetKeystrokes,
   };
+
 };

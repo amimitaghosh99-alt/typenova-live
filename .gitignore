@@ -15,6 +15,11 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+# Shared editor config, not personal preference: it silences the CSS language
+# service's false @tailwind/@apply warnings and pins the TS version to the one
+# in devDependencies, so the Problems panel agrees with `npm run build` for
+# everyone rather than only on the machine it was set up on.
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
@@ -22,3 +27,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.freebuff

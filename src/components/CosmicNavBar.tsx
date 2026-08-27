@@ -28,7 +28,7 @@ interface CosmicNavBarProps {
   onOpenSettings: () => void;
   onOpenDailyQuests: () => void;
   // Active page for nav link highlighting
-  activePage?: 'academy' | 'practice' | 'compete' | 'store';
+  activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier';
 }
 
 export const CosmicNavBar = memo(function CosmicNavBar({
@@ -60,9 +60,9 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
   const getNavLinkStyle = (page: 'academy' | 'practice' | 'compete' | 'store') => {
     if (activePage === page) {
-      return { 
-        color: `rgb(${theme.glowPrimary})`, 
-        textShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.6)` 
+      return {
+        color: `rgb(${theme.glowPrimary})`,
+        textShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.6)`
       };
     }
     return {};
@@ -72,24 +72,32 @@ export const CosmicNavBar = memo(function CosmicNavBar({
     { id: 'academy', label: 'Academy', onClick: onOpenAcademy },
     { id: 'practice', label: 'Practice', onClick: onOpenPractice },
     { id: 'compete', label: 'Compete', onClick: onOpenRace },
-    { 
-      id: 'store', 
-      label: 'Store', 
-      badge: 'SOON', 
-      onClick: () => toast.info('TypeNova Store is coming soon! Unlock themes, sound profiles & CyberHands cosmetics.', { icon: '🛍️' }) 
+    {
+      id: 'store',
+      label: 'Store',
+      badge: 'SOON',
+      onClick: () => toast.info('TypeNova Store is coming soon! Unlock themes, sound profiles & CyberHands cosmetics.', { icon: '🛍️' })
     },
   ];
 
   return (
     <>
-      <header className="fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-50 flex items-center justify-between font-display transition-[background-color,border-color,box-shadow] duration-500 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+      {/* data-app-chrome is how useAppChrome finds this element to measure.
+          The header's height is NOT constant — the identity capsule on the
+          right is `hidden lg:flex`, so it is genuinely shorter below lg. Every
+          stage reads the measured --nav-h rather than guessing a pixel value. */}
+      <header
+        data-app-chrome="nav"
+        className="fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-[var(--z-nav)] flex items-center justify-between font-display transition-[background-color,border-color,box-shadow] duration-500 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+      >
+
         {/* Left: Logo & Academy CTA */}
         <div className="flex items-center gap-4">
           <TypeNovaLogo size="md" />
           {activePage !== 'academy' && (
-            <button 
+            <button
               onClick={onOpenAcademy}
-              className="hidden sm:flex items-center gap-2 glass-pill px-4 py-1.5 border-amber-400/30 text-amber-300 hover:border-amber-400/70 transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] group cursor-pointer"
+              className="hidden sm:flex items-center gap-2 nav-pill px-4 py-1.5 border-amber-400/30 text-amber-300 hover:border-amber-400/70 transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] group cursor-pointer"
             >
               <span className="text-base group-hover:scale-110 transition-transform">🎓</span>
               <div className="flex flex-col items-start leading-none text-left">
@@ -111,14 +119,13 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 style={
                   isActive
                     ? {
-                        color: `rgb(${theme.glowPrimary})`,
-                        textShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.6)`,
-                      }
+                      color: `rgb(${theme.glowPrimary})`,
+                      textShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.6)`,
+                    }
                     : undefined
                 }
-                className={`text-sm font-medium tracking-wide transition-all duration-300 relative py-1 cursor-pointer flex items-center gap-1.5 ${
-                  isActive ? 'font-semibold' : 'text-zinc-300 hover:text-white'
-                }`}
+                className={`text-sm font-medium tracking-wide transition-all duration-300 relative py-1 cursor-pointer flex items-center gap-1.5 ${isActive ? 'font-semibold' : 'text-zinc-300 hover:text-white'
+                  }`}
               >
                 <span>{link.label}</span>
                 {link.badge && (
@@ -140,12 +147,16 @@ export const CosmicNavBar = memo(function CosmicNavBar({
           })}
         </div>
 
-        {/* Right Section */}
-        <div className="hidden lg:flex items-center gap-3">
+        {/* Right Section — three groups: identity, streak, tools. */}
+        <div className="hidden lg:flex items-center gap-2.5">
           {/* Identity Capsule */}
           <button
             onClick={() => onOpenProfile(username || 'Guest')}
-            className="group flex items-center px-3.5 py-1.5 glass-pill border-white/15 hover:border-white/30 transition-all cursor-pointer text-left gap-3 hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-[0.98]"
+            // Now that the dossier is a route, the capsule is a nav destination
+            // like the links to its left — so it gets the same active treatment.
+            aria-current={activePage === 'dossier' ? 'page' : undefined}
+            className={`group flex items-center px-3.5 py-1.5 nav-pill transition-all cursor-pointer text-left gap-3 active:scale-[0.98] ${activePage === 'dossier' ? 'border-white/40' : 'hover:border-white/25'}`}
+            style={activePage === 'dossier' ? { boxShadow: `0 0 18px rgba(${theme.glowPrimary}, 0.25)` } : undefined}
             title="View / Edit your Player Profile"
           >
             <div className="relative shrink-0">
@@ -164,7 +175,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 </span>
                 <span className="text-zinc-400 font-semibold text-xs">LVL {userLevel}</span>
                 {activeBadge && (
-                  <div className="glass-pill px-2 py-0.5 text-[10px] text-zinc-300 flex items-center gap-1 border-white/10">
+                  <div className="nav-pill px-2 py-0.5 text-[10px] text-zinc-300 flex items-center gap-1">
                     <span>{activeBadge.icon}</span>
                     <span>{activeBadge.name}</span>
                   </div>
@@ -187,23 +198,30 @@ export const CosmicNavBar = memo(function CosmicNavBar({
           <div className="flex items-center gap-2">
             <button
               onClick={onOpenDailyQuests}
-              className="glass-pill h-10 px-3 flex items-center gap-1.5 text-amber-300 hover:text-amber-200 border-amber-400/30 hover:border-amber-400/60 bg-amber-400/10 text-xs font-mono font-bold transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:scale-105 cursor-pointer"
+              className="nav-pill h-9 px-3 flex items-center gap-1.5 text-amber-300 hover:text-amber-200 border-amber-400/30 hover:border-amber-400/60 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-mono font-bold transition-all cursor-pointer"
               title="Daily Quests & Streaks"
             >
               <Flame size={15} className="animate-pulse" />
               <span>{dailyStreak}d</span>
             </button>
 
-            <ActionButton icon={Trophy} onClick={onOpenTrophies} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
-            <ActionButton icon={BarChart2} onClick={onOpenStats} isLoggedIn={isLoggedIn} title="Stats" theme={theme} />
-            <ActionButton icon={Users} onClick={onOpenSocial} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
-            <ActionButton icon={MessageSquare} onClick={onOpenComms} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
-            <ActionButton icon={Settings} onClick={onOpenSettings} isLoggedIn={true} title="Settings" theme={theme} />
+            {/* No surface at all: the tools sit directly on the bar and only
+                grow a background on hover. They each used to carry a
+                `glass-pill` — a fill darker than the navbar itself, plus a 30px
+                black drop shadow and a backdrop blur nested inside the bar's
+                own — which rendered as five black coins in a row. */}
+            <div className="flex items-center gap-0.5">
+              <ActionButton icon={Trophy} onClick={onOpenTrophies} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
+              <ActionButton icon={BarChart2} onClick={onOpenStats} isLoggedIn={isLoggedIn} title="Stats" theme={theme} />
+              <ActionButton icon={Users} onClick={onOpenSocial} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
+              <ActionButton icon={MessageSquare} onClick={onOpenComms} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
+              <ActionButton icon={Settings} onClick={onOpenSettings} isLoggedIn={true} title="Settings" theme={theme} />
+            </div>
           </div>
         </div>
 
         {/* Mobile Hamburger */}
-        <button 
+        <button
           className="lg:hidden p-2 text-zinc-400 hover:text-white transition-colors cursor-pointer"
           onClick={() => setMobileMenuOpen(true)}
         >
@@ -213,18 +231,23 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[60] flex justify-end md:hidden">
+        // The trigger for this drawer is `lg:hidden`, but the drawer itself
+        // was `md:hidden` — so between 768px and 1023px the hamburger was
+        // visible, opened nothing, and Trophies / Stats / Community / Comms
+        // (all `hidden lg:flex`) were unreachable at that width.
+        <div className="fixed inset-0 z-[var(--z-modal)] flex justify-end lg:hidden">
+
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
           <div className="relative w-80 glass-panel border-l border-white/10 h-full flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
-            <button 
+            <button
               className="absolute top-6 right-6 text-zinc-400 hover:text-white"
               onClick={() => setMobileMenuOpen(false)}
             >
               <X size={24} />
             </button>
-            
+
             <TypeNovaLogo size="sm" />
-            
+
             {/* Identity Capsule in Mobile Drawer */}
             <div className="mt-6">
               <button
@@ -279,12 +302,15 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 <Flame size={14} className="animate-pulse" />
                 <span>{dailyStreak}d</span>
               </button>
-              <ActionButton icon={Trophy} onClick={() => { onOpenTrophies(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
-              <ActionButton icon={BarChart2} onClick={() => { onOpenStats(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Stats" theme={theme} />
-              <ActionButton icon={Swords} onClick={() => { onOpenRace(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Race" theme={theme} />
-              <ActionButton icon={Users} onClick={() => { onOpenSocial(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
-              <ActionButton icon={MessageSquare} onClick={() => { onOpenComms(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
-              <ActionButton icon={Settings} onClick={() => { onOpenSettings(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Settings" theme={theme} />
+              {/* Same bare row as the desktop tray. */}
+              <div className="flex items-center gap-0.5">
+                <ActionButton icon={Trophy} onClick={() => { onOpenTrophies(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
+                <ActionButton icon={BarChart2} onClick={() => { onOpenStats(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Stats" theme={theme} />
+                <ActionButton icon={Swords} onClick={() => { onOpenRace(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Race" theme={theme} />
+                <ActionButton icon={Users} onClick={() => { onOpenSocial(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
+                <ActionButton icon={MessageSquare} onClick={() => { onOpenComms(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
+                <ActionButton icon={Settings} onClick={() => { onOpenSettings(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Settings" theme={theme} />
+              </div>
             </div>
           </div>
         </div>
@@ -293,44 +319,61 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   );
 });
 
-function ActionButton({ 
-  icon: Icon, 
-  onClick, 
-  isLoggedIn, 
+/**
+ * A single icon action in the navbar tool row.
+ *
+ * Draws nothing at rest — no fill, no border, no shadow — and only grows a
+ * faint white wash on hover. Each of these used to be a `glass-pill`, whose
+ * fill is darker than the navbar it sits on, so the row read as five black
+ * coins. The `active` state (any unlocked achievement, so Trophies almost
+ * always) was also loud enough to make its four neighbours look disabled.
+ */
+function ActionButton({
+  icon: Icon,
+  onClick,
+  isLoggedIn,
   title,
   active = false,
   theme
-}: { 
-  icon: React.ElementType, 
-  onClick: () => void, 
-  isLoggedIn: boolean, 
+}: {
+  icon: React.ElementType,
+  onClick: () => void,
+  isLoggedIn: boolean,
   title: string,
   active?: boolean,
   theme: Theme
 }) {
+  const label = isLoggedIn ? title : `Sign in to unlock ${title}`;
+
   return (
     <button
       onClick={isLoggedIn ? onClick : undefined}
-      style={
-        isLoggedIn && active
-          ? {
-              borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
-              color: `rgb(${theme.glowPrimary})`,
-              backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
-              boxShadow: `0 0 18px rgba(${theme.glowPrimary}, 0.35)`,
-            }
-          : undefined
-      }
-      className={`glass-pill w-10 h-10 flex items-center justify-center transition-all cursor-pointer ${
-        !isLoggedIn 
-          ? 'border-white/5 text-zinc-600 cursor-not-allowed opacity-40' 
-          : active 
-            ? ''
-            : 'text-zinc-300 hover:text-white border-white/15 hover:border-white/40 hover:bg-white/10 shadow-sm'
-      }`}
-      title={isLoggedIn ? title : `Sign in to unlock ${title}`}
+      // Not the `disabled` attribute: browsers suppress mouse events on
+      // disabled controls, which would swallow the "sign in to unlock" tooltip.
+      aria-disabled={!isLoggedIn}
+      style={isLoggedIn && active ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+      className={`relative w-9 h-9 rounded-full flex items-center justify-center transition-colors duration-200 ${!isLoggedIn
+        ? 'text-zinc-600 opacity-50 cursor-not-allowed'
+        : active
+          ? 'bg-white/[0.06] hover:bg-white/[0.14] cursor-pointer'
+          : 'text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer'
+        }`}
+      title={label}
+      aria-label={label}
     >
-      {isLoggedIn ? <Icon size={16} /> : <Lock size={14} />}
+      {isLoggedIn ? <Icon size={17} /> : <Lock size={14} />}
+      {/* Accent dot in place of the old ring-plus-18px-glow: it marks the
+          button without out-shouting the rest of the tray. */}
+      {isLoggedIn && active && (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+          style={{
+            backgroundColor: `rgb(${theme.glowPrimary})`,
+            boxShadow: `0 0 6px rgba(${theme.glowPrimary}, 0.9)`,
+          }}
+        />
+      )}
     </button>
   );
 }

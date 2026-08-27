@@ -1,17 +1,13 @@
 import { memo } from 'react';
 import {
-  X, Trophy, Lock, Keyboard, Terminal, Zap, Star, RotateCcw, Skull,
-  Rocket, Crosshair, Shield, EyeOff, Gauge, Flame, Crown, Palette,
-  Swords, Sword, Sparkles, Orbit, Unlock, CalendarCheck, Hourglass
+  X, Trophy, Lock, Keyboard, Terminal, Zap, Star, RotateCcw
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { StatsDashboard } from '@/components/StatsDashboard';
 import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
 import { SocialModal } from '@/components/SocialModal';
 import { ChangelogModal } from '@/components/ChangelogModal';
 import { SettingsModal } from '@/components/SettingsModal';
-import { PlayerProfileModal } from '@/components/PlayerProfileModal';
 import { BugReportsModal } from '@/components/BugReportsModal';
 import { CommsModal } from '@/components/CommsModal';
 import { GhostPacerModal } from '@/components/GhostPacerModal';
@@ -22,36 +18,21 @@ import type { useGameConfig } from '@/hooks/useGameConfig';
 import type { useTypingEngine } from '@/hooks/useTypingEngine';
 import type { useRPGSystem } from '@/hooks/useRPGSystem';
 import type { useQuests } from '@/hooks/useQuests';
-import type { useRace } from '@/hooks/useRace';
+
 import type { useFriends } from '@/hooks/useFriends';
 import type { useChallenges } from '@/hooks/useChallenges';
-
-const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
-  'zap': Zap,
-  'rocket': Rocket,
-  'crosshair': Crosshair,
-  'shield': Shield,
-  'skull': Skull,
-  'eye-off': EyeOff,
-  'gauge': Gauge,
-  'flame': Flame,
-  'star': Star,
-  'crown': Crown,
-  'palette': Palette,
-  'swords': Swords,
-  'sword': Sword,
-  'sparkles': Sparkles,
-  'orbit': Orbit,
-  'unlock': Unlock,
-  'rotate-ccw': RotateCcw,
-  'calendar-check': CalendarCheck,
-  'hourglass': Hourglass,
-};
+import type { ModalKey, ModalState } from '@/lib/layout';
+import { achievementIcon } from '@/lib/achievementIcons';
 
 import type { CuratedWallpaper } from '@/hooks/useWallpaperTheme';
 
 interface AppModalManagerProps {
-  activeModal: string | null;
+  /**
+   * Typed against the single `ModalKey` union in `src/lib/layout.ts`. This was
+   * `string | null`, which is how a `case 'race'` survived in the switch below
+   * long after `'race'` stopped being a value anyone could set.
+   */
+  activeModal: ModalState;
   theme: Theme;
   themeIndex: number;
   soundProfile: SoundProfile;
@@ -82,38 +63,31 @@ interface AppModalManagerProps {
   typing: ReturnType<typeof useTypingEngine>;
   rpg: ReturnType<typeof useRPGSystem>;
   quests: ReturnType<typeof useQuests>;
-  race: ReturnType<typeof useRace>;
   friendsState: ReturnType<typeof useFriends>;
   challenges: ReturnType<typeof useChallenges>;
   dailyStreak: number;
   pbGhost: { wpm: number; samples: PaceSample[] } | null;
-  initialRaceCode?: string;
   isRankedMatch?: boolean;
-  selectedProfileUsername: string | null;
   tetrisEffect: boolean;
   isAruOpen: boolean;
   shouldHideClutter: boolean;
   nameInput: string;
   nameErr: string;
   savingName: boolean;
-  localRPGStatsMemo?: any;
   aruStats?: AruStats;
   techAiState?: any;
   techModifiersMemo?: any;
   techCapabilities?: any;
   // Handlers
   onCloseModal: () => void;
+  /** Swap this dialog for another one (god mode → bug reports). */
+  onOpenModal: (key: ModalKey) => void;
   onSelectTheme: (idx: number) => void;
   onSelectSoundProfile: (prof: SoundProfile) => void;
   onSetThemeFont: (font: string) => void;
   onStartWeaknessDrill: (drillText: string) => void;
   onChallengeFriend: (uname: string) => void;
   onOpenProfile: (username: string) => void;
-  onCloseProfile: () => void;
-  onRaceCreate: (name: string, size?: number, isRanked?: boolean, roomCode?: string) => void;
-  onRaceJoin: (code: string, name: string, isRanked?: boolean) => void;
-  onRaceStart: () => void;
-  onRaceLeave: () => void;
   onSetTetrisEffect: (v: boolean) => void;
   onToggleAru: () => void;
   onCloseAru: () => void;
@@ -148,37 +122,29 @@ export const AppModalManager = memo(function AppModalManager({
   typing,
   rpg,
   quests,
-  race: _race,
   friendsState,
   challenges,
   dailyStreak,
   pbGhost,
-  initialRaceCode: _initialRaceCode,
   isRankedMatch: _isRankedMatch,
-  selectedProfileUsername,
   tetrisEffect,
   isAruOpen,
   shouldHideClutter,
   nameInput,
   nameErr,
   savingName,
-  localRPGStatsMemo,
   aruStats,
   techAiState,
   techModifiersMemo,
   techCapabilities,
   onCloseModal,
+  onOpenModal,
   onSelectTheme,
   onSelectSoundProfile,
   onSetThemeFont,
   onStartWeaknessDrill,
   onChallengeFriend,
   onOpenProfile,
-  onCloseProfile,
-  onRaceCreate: _onRaceCreate,
-  onRaceJoin: _onRaceJoin,
-  onRaceStart: _onRaceStart,
-  onRaceLeave: _onRaceLeave,
   onSetTetrisEffect,
   onCloseAru,
   onStartSmartDrill,
@@ -220,7 +186,7 @@ export const AppModalManager = memo(function AppModalManager({
 
       {/* Achievement Toast */}
       {rpg.achievementQueue.length > 0 && (() => {
-        const ToastIcon = ACHIEVEMENT_ICONS[rpg.achievementQueue[0].icon] ?? Trophy;
+        const ToastIcon = achievementIcon(rpg.achievementQueue[0].icon);
         return (
           <div className="fixed top-6 right-6 z-[600] animate-in slide-in-from-top fade-in duration-300">
             <div className={`bg-zinc-950/90 backdrop-blur-md border ${theme.borderHalf} rounded-2xl p-4 ${theme.toastGlow} flex items-center gap-4 min-w-[300px] lucid-slide`} style={{ '--delay': '0ms' } as React.CSSProperties}>
@@ -332,7 +298,9 @@ export const AppModalManager = memo(function AppModalManager({
             />
           );
 
-          case 'race': return null;
+          // Rendered by App.tsx instead: the replay overlay sits on top of the
+          // results screen, which has already replaced this whole tree.
+          case 'replay': return null;
 
           case 'social': return (
             <SocialModal
@@ -384,17 +352,6 @@ export const AppModalManager = memo(function AppModalManager({
             />
           );
 
-          case 'profile': return (
-            <PlayerProfileModal
-              targetUsername={selectedProfileUsername}
-              onClose={onCloseProfile}
-              supabase={supabase}
-              localUsername={cloud.username}
-              theme={theme}
-              localRPGStats={localRPGStatsMemo}
-            />
-          );
-
           case 'godMode': return (
             <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={onCloseModal}>
               <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -428,8 +385,11 @@ export const AppModalManager = memo(function AppModalManager({
 
                   {/* Admin Bug Reports Button */}
                   <div className="mt-4">
-                    <button 
-                      onClick={() => onOpenProfile('bugReports')} // handled by activeModal switcher
+                    <button
+                      // This called `onOpenProfile('bugReports')`, which opened
+                      // the *player profile* for a user literally named
+                      // "bugReports" — the inbox below was unreachable.
+                      onClick={() => onOpenModal('bugReports')}
                       className="w-full p-6 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all flex items-center justify-center gap-3 text-xs cursor-pointer"
                     >
                       <Terminal size={24} /> Open Admin Bug Reports Inbox
@@ -450,9 +410,9 @@ export const AppModalManager = memo(function AppModalManager({
           );
 
           case 'bugReports': return (
-            <BugReportsModal 
-              supabase={supabase} 
-              onClose={onCloseModal} 
+            <BugReportsModal
+              supabase={supabase}
+              onClose={onCloseModal}
             />
           );
 
@@ -481,7 +441,7 @@ export const AppModalManager = memo(function AppModalManager({
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           {categoryAchievements.map(ach => {
                             const isUnlocked = rpg.unlockedAchievements.includes(ach.id);
-                            const AchIcon = ACHIEVEMENT_ICONS[ach.icon] ?? Trophy;
+                            const AchIcon = achievementIcon(ach.icon);
                             return (
                               <div key={ach.id} className={`p-5 rounded-3xl border transition-all flex flex-col items-center text-center ${isUnlocked ? `bg-zinc-900 ${theme.borderHalf} ${theme.auraLow} hover:-translate-y-1` : 'bg-zinc-950 border-zinc-800/50 opacity-60 grayscale'}`}>
                                 <div className="relative mb-4">
@@ -521,7 +481,14 @@ export const AppModalManager = memo(function AppModalManager({
             />
           );
 
-          default: return null;
+          // Exhaustiveness guard: `activeModal` is `never` here only if every
+          // `ModalKey` above has a case. Add a key to the union in
+          // `src/lib/layout.ts` without handling it here and this line fails to
+          // compile, instead of shipping a dialog that silently never opens.
+          default: {
+            const unhandled: never = activeModal;
+            return unhandled;
+          }
         }
       })()}
 

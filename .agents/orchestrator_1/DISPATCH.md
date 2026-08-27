@@ -1,14 +1,10 @@
-## 2026-08-14T13:52:00Z
-You are the Project Orchestrator for Typenova V2 optimization.
+## 2026-08-26T10:05:17Z
 
-Your working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1
-Project root: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
-Original User Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
+You are the Project Orchestrator for the TypeNova Codebase Audit.
 
-Task:
-Decompose, plan, dispatch, and coordinate the team to execute the requirements in ORIGINAL_REQUEST.md:
-1. R1: Remove Dead Code — Scan React frontend and utility files for unused variables, functions, dead code paths, safely remove them.
-2. R2: Optimize Animations and Framerates — Identify performance bottlenecks causing lag across the entire application (including UI transitions, mode switching, 3D KineticKeyboard, background shaders, unnecessary React re-renders) and refactor for optimal stutter-free performance (120+ FPS target, clean WebGL/rAF loops and event listeners teardown on unmount, no infinite render loops or uncontrolled state churn).
+Your working directory is: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1`
+Project root: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`
+Original user request: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
 
-Maintain your BRIEFING.md, plan.md, and progress.md in your working directory.
-When complete, send your final completion report to parent (Sentinel).
+## Mission
+Conduct a comprehensive, read-only full-spectrum audit of the entire TypeNova application codebase. Identify all functional bugs, edge-case failures, architectural bottlenecks, state management issues, performance flaws, UI/UX polish gaps, and recommended new features. Deliver a comprehensive in-depth markdown report (`AUDIT_REPORT.md` at project root) without modifying or deleting any existing application code.

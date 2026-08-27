@@ -1,6 +1,12 @@
-import { HISTORY_KEY, HISTORY_CAP } from '@/components/StatsDashboard';
-import type { HistoryEntry } from '@/components/StatsDashboard';
+import { HISTORY_KEY, HISTORY_CAP, type HistoryEntry } from '@/lib/history';
+import { PB_PREFIX } from '@/lib/personalBests';
 import { getConsentRecord, type ConsentRecord } from '@/lib/consent';
+import {
+  readAcademyProgress, writeAcademyProgress,
+  mergeAcademyRecords, pickAcademyStreak,
+  normalizeRecords, normalizeStreak,
+  type LessonRecord, type DayStreak,
+} from '@/lib/academyStorage';
 
 const K = {
   xp: 'typezen_xp',
@@ -9,8 +15,9 @@ const K = {
   heatmap: 'typezen_heatmap',
   daily: 'typezen_daily',
   quests: 'typezen_quests',
+  bestCombo: 'typezen_best_combo',
+  racesWon: 'typezen_races_won',
 };
-const PB_PREFIX = 'typezen_pb:';
 
 export interface DailyState { lastDay: string; streak: number; }
 export interface HeatKey { total: number; errors: number; }
@@ -40,6 +47,29 @@ export interface ProgressSnapshot {
   history: HistoryEntry[];
   /** keyed by the suffix after `typezen_pb:` (e.g. "NOVICE:w25") */
   pbs: Record<string, PbEntry>;
+  /**
+   * Lifetime best combo. Part of the snapshot because it gates cosmetics and an
+   * achievement: while it was device-local, signing in elsewhere silently
+   * relocked the combo banners.
+   */
+  bestCombo: number;
+  /**
+   * Lifetime multiplayer wins. Nothing counted these before, so the
+   * "Race Champion" title and the `races_won` daily quests could never be
+   * completed no matter how many duels you took.
+   */
+  racesWon: number;
+  /**
+   * RPG Academy progress, keyed by lesson node id. Kept in the snapshot because
+   * it is player progress like any other: while it was missing, signing in on a
+   * second device showed an Academy reset to zero stars, and the first lesson
+   * cleared there overwrote the cloud row for the original device too.
+   */
+  academyRecords: Record<string, LessonRecord>;
+  /** Lifetime Academy XP. The Academy level is derived from this. */
+  academyXp: number;
+  /** Academy daily-practice streak. */
+  academyStreak: DayStreak;
   /** DPDP/GDPR Statutory Consent Audit Record */
   consent?: ConsentRecord | null;
 }
@@ -50,6 +80,7 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 }
 
 export function readLocalProgress(): ProgressSnapshot {
+  const academy = readAcademyProgress();
   const pbs: Record<string, PbEntry> = {};
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -69,6 +100,11 @@ export function readLocalProgress(): ProgressSnapshot {
     quests: safeParse<QuestsState | null>(localStorage.getItem(K.quests), null),
     history: safeParse<HistoryEntry[]>(localStorage.getItem(HISTORY_KEY), []),
     pbs,
+    bestCombo: parseInt(localStorage.getItem(K.bestCombo) || '0', 10) || 0,
+    racesWon: parseInt(localStorage.getItem(K.racesWon) || '0', 10) || 0,
+    academyRecords: academy.records,
+    academyXp: academy.xp,
+    academyStreak: academy.streak,
     consent: getConsentRecord(),
   };
 }
@@ -82,9 +118,17 @@ export function writeLocalProgress(s: ProgressSnapshot): void {
     if (s.daily) localStorage.setItem(K.daily, JSON.stringify(s.daily));
     if (s.quests) localStorage.setItem(K.quests, JSON.stringify(s.quests));
     localStorage.setItem(HISTORY_KEY, JSON.stringify(s.history.slice(-HISTORY_CAP)));
+    localStorage.setItem(K.bestCombo, String(s.bestCombo));
+    localStorage.setItem(K.racesWon, String(s.racesWon));
     for (const [key, pb] of Object.entries(s.pbs)) {
       localStorage.setItem(PB_PREFIX + key, JSON.stringify(pb));
     }
+    // Owned by `useAcademyEngine`, which re-reads these on PROGRESS_HYDRATED.
+    writeAcademyProgress({
+      records: s.academyRecords,
+      xp: s.academyXp,
+      streak: s.academyStreak,
+    });
     if (s.consent && !getConsentRecord()) {
       localStorage.setItem('typenova_terms_accepted', s.consent.accepted ? 'true' : 'false');
       localStorage.setItem('typenova_consent_timestamp', s.consent.timestamp);
@@ -104,6 +148,11 @@ function normalize(p: Partial<ProgressSnapshot> | null | undefined): ProgressSna
     quests: p?.quests ?? null,
     history: Array.isArray(p?.history) ? p!.history : [],
     pbs: (p?.pbs && typeof p.pbs === 'object') ? p.pbs : {},
+    bestCombo: Number(p?.bestCombo) || 0,
+    racesWon: Number(p?.racesWon) || 0,
+    academyRecords: normalizeRecords(p?.academyRecords),
+    academyXp: Number(p?.academyXp) || 0,
+    academyStreak: normalizeStreak(p?.academyStreak),
     consent: p?.consent ?? null,
   };
 }
@@ -176,6 +225,11 @@ export function mergeProgress(
     quests: pickQuests(A.quests, B.quests),
     history,
     pbs,
+    bestCombo: Math.max(A.bestCombo, B.bestCombo),
+    racesWon: Math.max(A.racesWon, B.racesWon),
+    academyRecords: mergeAcademyRecords(A.academyRecords, B.academyRecords),
+    academyXp: Math.max(A.academyXp, B.academyXp),
+    academyStreak: pickAcademyStreak(A.academyStreak, B.academyStreak),
     consent: A.consent || B.consent || null,
   };
 }

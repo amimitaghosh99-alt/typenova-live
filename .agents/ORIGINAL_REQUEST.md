@@ -1,40 +1,19 @@
 # Original User Request
 
-## Initial Request — 2026-08-21T10:25:58Z
+## Initial Request — 2026-08-26T10:05:17Z
 
-# Teamwork Project Prompt — Draft
+You are the Project Orchestrator for the TypeNova Codebase Audit.
 
-> Status: Step 9 — Ready for launch — awaiting user approval.
-> Goal: Craft prompt → get user approval → delegate to teamwork_preview
-> Requested team: A small focused team (one self-contained refactor)
+Your working directory is: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1`
+Project root: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`
+Original user request: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
 
-Complete Phase 3 of the "Cosmic Liquid Glass UI" transformation by restructuring the main layout into a 70/30 split and integrating the newly built `CosmicNavBar` and `CosmicLiquidShader` components.
+## Mission
+Conduct a comprehensive, read-only full-spectrum audit of the entire TypeNova application codebase. Identify all functional bugs, edge-case failures, architectural bottlenecks, state management issues, performance flaws, UI/UX polish gaps, and recommended new features. Deliver a comprehensive in-depth markdown report (`AUDIT_REPORT.md` at project root) without modifying or deleting any existing application code.
 
-Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
-Integrity mode: development
-
-## Requirements
-
-### R1. Integrate New Components in App.tsx
-In `src/App.tsx`, replace the `<StarfieldBackground>` component with the new `<CosmicLiquidShader theme={theme} />`. Remove the existing bulky `<header>` section (logo, academy button, profile capsule, action tray) and replace it with the new `<CosmicNavBar>` component, wiring up all the required props (theme, cloud/rpg state, and onOpen modal callbacks).
-
-### R2. Restructure Main Layout (70/30 Split)
-In `src/App.tsx`, reorganize the main content area (below the nav bar) into a two-column layout on desktop (`md:flex-row`). 
-- **Left column (70%)**: Must contain the config filters, modifier tab, AnimatedHeight typing canvas, and the floating 'PRESS SPACE' pill.
-- **Right column (30%)**: Must contain the leaderboard slab (which displays ALL/TODAY/FRIENDS tabs).
-- On mobile/tablet (`<1024px`), these columns should stack vertically.
-- Ensure the existing modal overlays (Settings, Stats, Race, Replay, etc.) remain intact and functional above this new layout.
-
-### R3. Apply Display Typography
-In `src/components/TypingArea.tsx`, apply the `.font-display` (Space Grotesk) utility class to HUD labels (e.g., live WPM, ACC counters, ghost race text) to distinguish them from the monospace target text.
-
-## Acceptance Criteria
-
-### Compilation & Type Safety
-- [ ] Running `npx tsc --noEmit` produces zero TypeScript errors across the project.
-- [ ] Running `npm run build` succeeds without failure.
-
-### Visual Layout Verification
-- [ ] `CosmicNavBar` renders at the top of the screen with working callbacks to open existing modals.
-- [ ] The background successfully renders `CosmicLiquidShader` instead of the legacy `StarfieldBackground`.
-- [ ] The main arena properly displays side-by-side (70/30) on large viewports.
+## Key Requirements & Scope
+1. **R1. Full-Spectrum Flaw & Edge-Case Identification**: Deeply inspect core typing engine (input handling, WPM/raw calculation, pause/resume, cursor tracking), multiplayer & lobby synchronization (Supabase Realtime channels, connection dropouts, race conditions), authentication & user sessions, audio synthesis/effects, and theme/styling subsystems. Catalog all bugs, unhandled exceptions, and logic inconsistencies with exact file paths and lines.
+2. **R2. Architecture, State Management & Code Quality Review**: Evaluate codebase architecture, state isolation, Zustand/React store coupling, TypeScript type safety, async/await error handling, asset loading efficiency, and re-rendering hotspots. Detail anti-patterns and performance optimizations.
+3. **R3. UI/UX, Accessibility & Responsiveness Assessment**: Audit keyboard accessibility, ARIA compliance, screen reader support, layout stability on various screen sizes, visual contrast, animation frame drops, and cyber-aesthetic visual consistency.
+4. **R4. Innovation & Feature Gap Analysis**: Compare TypeNova against modern top-tier typing platforms (Monkeytype, Keybr, TypeRacer, NitroType) and propose prioritized, creative new features (custom lesson builders, advanced telemetry/heatmaps, adaptive drill AI, clan/guild leagues, competitive ranked seasons) with estimated impact and feasibility.
+5. **R5. Read-Only Constraint & Deliverable**: Zero source code modifications. Synthesize all findings into `AUDIT_REPORT.md` at the project root with Executive Summary, Severity Matrix (Critical, High, Medium, Low), Detailed Findings (with file paths, root cause, suggested fix), and Prioritized Implementation Roadmap.

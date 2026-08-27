@@ -11,6 +11,21 @@ import {
   type AcademyLesson,
   type MasteryProgress,
 } from '@/data/academyCurriculum';
+import {
+  ACADEMY_KEYS,
+  readAcademyProgress,
+  readAcademyRecords,
+  readAcademyStreak,
+  readAcademyXp,
+  type DayStreak,
+  type LessonRecord,
+} from '@/lib/academyStorage';
+import {
+  ACADEMY_PROGRESS_CHANGED,
+  PROGRESS_HYDRATED,
+  emitSyncEvent,
+  onSyncEvent,
+} from '@/lib/syncEvents';
 
 // ── Lightweight Web Audio API Synthesis ─────────────────────────────
 let _ctx: AudioContext | null = null;
@@ -100,39 +115,18 @@ const IGNORED = new Set([
 ]);
 
 // ── Persistence ───────────────────────────────────────────────────
-const KEY_RECORDS = 'typenova_academy_records';
-const KEY_LEGACY_STARS = 'typenova_academy_node_stars';
-const KEY_XP = 'typenova_academy_xp';
-const KEY_STREAK = 'typenova_academy_streak';
+/**
+ * Mute is the only value this file still owns outright — it is a per-device
+ * preference, not progress.
+ *
+ * Records, XP, and the practice streak moved to `src/lib/academyStorage.ts` so
+ * the cloud snapshot in `src/lib/progress.ts` can read and merge them. While
+ * they were private to this module, nothing outside it could see Academy
+ * progress, and signing in on a second device presented an empty skill tree.
+ */
 const KEY_MUTED = 'typenova_academy_muted';
 
-/** Per-lesson personal best, kept for every node the player has attempted. */
-export interface LessonRecord {
-  stars: number;
-  bestWpm: number;
-  bestAccuracy: number;
-  attempts: number;
-  clears: number;
-  /** ISO date (YYYY-MM-DD) of the last attempt. */
-  lastPlayed: string;
-}
-
-export interface DayStreak {
-  current: number;
-  best: number;
-  lastDate: string;
-}
-
-function readJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return (parsed && typeof parsed === 'object') ? (parsed as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
+export type { LessonRecord, DayStreak };
 
 function writeJson(key: string, value: unknown) {
   try {
@@ -160,28 +154,6 @@ function advanceStreak(prev: DayStreak): DayStreak {
   const gap = dayDiff(prev.lastDate, today);
   const current = gap === 1 ? prev.current + 1 : 1;
   return { current, best: Math.max(prev.best, current), lastDate: today };
-}
-
-/** Migrate the pre-records star map so existing progress is never lost. */
-function loadRecords(): Record<string, LessonRecord> {
-  const records = readJson<Record<string, LessonRecord>>(KEY_RECORDS, {});
-  if (Object.keys(records).length > 0) return records;
-
-  const legacy = readJson<Record<string, number>>(KEY_LEGACY_STARS, {});
-  const migrated: Record<string, LessonRecord> = {};
-  Object.entries(legacy).forEach(([id, stars]) => {
-    if (typeof stars !== 'number' || stars <= 0) return;
-    migrated[id] = {
-      stars: Math.max(0, Math.min(3, Math.round(stars))),
-      bestWpm: 0,
-      bestAccuracy: 0,
-      attempts: 1,
-      clears: 1,
-      lastPlayed: todayKey(),
-    };
-  });
-  if (Object.keys(migrated).length) writeJson(KEY_RECORDS, migrated);
-  return migrated;
 }
 
 function starsFromRecords(records: Record<string, LessonRecord>): Record<string, number> {
@@ -288,22 +260,13 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
 
   // Persistent per-lesson records (stars + personal bests). Migrated from the
   // legacy star-only map on first load so existing progress carries over.
-  const [records, setRecords] = useState<Record<string, LessonRecord>>(loadRecords);
+  const [records, setRecords] = useState<Record<string, LessonRecord>>(readAcademyRecords);
 
   // Lifetime Academy XP. Level is always *derived* from this via resolveMastery,
   // so a stale or corrupted saved level can never desync the HUD.
-  const [academyXp, setAcademyXp] = useState<number>(() => {
-    try {
-      const n = parseInt(localStorage.getItem(KEY_XP) || '0', 10);
-      return Number.isFinite(n) && n > 0 ? n : 0;
-    } catch {
-      return 0;
-    }
-  });
+  const [academyXp, setAcademyXp] = useState<number>(readAcademyXp);
 
-  const [dayStreak, setDayStreak] = useState<DayStreak>(() =>
-    readJson<DayStreak>(KEY_STREAK, { current: 0, best: 0, lastDate: '' })
-  );
+  const [dayStreak, setDayStreak] = useState<DayStreak>(readAcademyStreak);
 
   // Celebration / coaching events the UI drains
   const [levelUpEvent, setLevelUpEvent] = useState<LevelUpEvent | null>(null);
@@ -549,7 +512,7 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     };
     recordsRef.current = nextRecords;
     setRecords(nextRecords);
-    writeJson(KEY_RECORDS, nextRecords);
+    writeJson(ACADEMY_KEYS.records, nextRecords);
     setIsNewRecord(beatWpm || beatStars);
 
     // ── Newly reachable nodes (prerequisite graph diff) ──
@@ -576,7 +539,7 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
       xpRef.current = nextXp;
       setAcademyXp(nextXp);
       try {
-        localStorage.setItem(KEY_XP, String(nextXp));
+        localStorage.setItem(ACADEMY_KEYS.xp, String(nextXp));
       } catch {
         // ignore
       }
@@ -602,11 +565,33 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     if (nextStreak !== streakRef.current) {
       streakRef.current = nextStreak;
       setDayStreak(nextStreak);
-      writeJson(KEY_STREAK, nextStreak);
+      writeJson(ACADEMY_KEYS.streak, nextStreak);
     }
+
+    // Storage is up to date; ask the app shell to push it. Academy sessions used
+    // to reach the cloud only on the next typing test or sign-in, so a player
+    // who spent an evening on lessons and then switched devices still arrived
+    // to stale progress.
+    emitSyncEvent(ACADEMY_PROGRESS_CHANGED);
 
     setLessonComplete(true);
   }, []);
+
+  /**
+   * A cloud merge rewrites the Academy keys underneath this hook. Adopt the
+   * merged values — state *and* the refs the completion handler reads — so the
+   * next cleared lesson builds on them instead of on the copy loaded at mount,
+   * which would silently push local-only progress back over the merge.
+   */
+  useEffect(() => onSyncEvent(PROGRESS_HYDRATED, () => {
+    const fresh = readAcademyProgress();
+    recordsRef.current = fresh.records;
+    xpRef.current = fresh.xp;
+    streakRef.current = fresh.streak;
+    setRecords(fresh.records);
+    setAcademyXp(fresh.xp);
+    setDayStreak(fresh.streak);
+  }), []);
 
   // ── Modifier tracking (which Shift is held, CapsLock state) ──────
   useEffect(() => {

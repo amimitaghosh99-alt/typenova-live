@@ -9,6 +9,12 @@ export interface MatchmakingState {
   opponentName?: string;
   opponentElo?: number;
   isHost?: boolean;
+  /** When the current search began, for the UI's elapsed timer. */
+  startedAt?: number;
+  /** How many clients are sitting in the queue channel, including you. */
+  queueSize?: number;
+  /** Current Elo tolerance. Widens the longer you wait. */
+  eloBand?: number;
 }
 
 /** Where this client sits in the offer → accept → confirm handshake. */
@@ -20,6 +26,28 @@ type Role = 'none' | 'offering' | 'accepting' | 'locked';
 const makeRoomCode = () => Array.from({ length: 6 }, () => ROOM_ALPHABET[Math.floor(Math.random() * ROOM_ALPHABET.length)]).join('');
 
 const HANDSHAKE_TIMEOUT_MS = 3000;
+
+// Elo tolerance. The queue used to pair you with whoever pinged first, which in
+// a "ranked" queue meant a 900-rated typist could be handed a 1600 opponent and
+// bleed Elo through no fault of their own. Start narrow, widen every few
+// seconds, then accept anyone rather than leaving someone stuck forever.
+const ELO_BAND_START = 75;
+const ELO_BAND_STEP = 50;
+const ELO_BAND_INTERVAL_MS = 5000;
+const ELO_BAND_OPEN_MS = 30000;
+/** Deliberately a big finite number: Infinity serializes to null over JSON. */
+const ELO_BAND_OPEN = 100000;
+
+const bandFor = (elapsedMs: number): number => (
+  elapsedMs >= ELO_BAND_OPEN_MS
+    ? ELO_BAND_OPEN
+    : ELO_BAND_START + Math.floor(Math.max(0, elapsedMs) / ELO_BAND_INTERVAL_MS) * ELO_BAND_STEP
+);
+
+/** A pair is allowed when the gap fits inside *either* side's window, so a
+    long-waiting player can pull in someone who just joined the queue. */
+const withinBand = (a: number, b: number, bandA: number, bandB: number) =>
+  Math.abs(a - b) <= Math.max(bandA, bandB);
 
 export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, myName: string, myElo: number) => {
   const [state, setState] = useState<MatchmakingState>({ status: 'idle' });
@@ -35,6 +63,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
   // means a guest only commits to a room the host has actually committed to.
   const roleRef = useRef<Role>('none');
   const targetRef = useRef<string | null>(null);
+  const startedAtRef = useRef(0);
   const pendingOfferRef = useRef<{ hostId: string; roomCode: string; hostName?: string; hostElo?: number } | null>(null);
 
   const clearHandshake = useCallback(() => {
@@ -74,18 +103,37 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
   const search = useCallback(() => {
     if (!supabase) return;
     teardown();
-    setState({ status: 'searching' });
+    startedAtRef.current = Date.now();
+    setState({
+      status: 'searching',
+      startedAt: startedAtRef.current,
+      queueSize: 1,
+      eloBand: ELO_BAND_START,
+    });
 
     const ch = supabase.channel('typenova:ranked-queue', {
       config: { presence: { key: myId }, broadcast: { self: true } }
     });
     channelRef.current = ch;
 
+    const myBand = () => bandFor(Date.now() - startedAtRef.current);
+
     const ping = () => {
       if (channelRef.current !== ch || roleRef.current !== 'none') return;
-      ch.send({ type: 'broadcast', event: 'seek_ping', payload: { id: myId, name: myName, elo: myElo } });
+      const band = myBand();
+      // Surface the widening window so the wait doesn't look like a dead queue.
+      setState(prev => (prev.status === 'searching' && prev.eloBand !== band ? { ...prev, eloBand: band } : prev));
+      ch.send({ type: 'broadcast', event: 'seek_ping', payload: { id: myId, name: myName, elo: myElo, band } });
     };
     pingIntervalRef.current = setInterval(ping, 2000);
+
+    // Queue depth, so the UI can say "2 typists searching" instead of spinning
+    // with no indication of whether anyone else is even here.
+    ch.on('presence', { event: 'sync' }, () => {
+      if (channelRef.current !== ch) return;
+      const size = Object.keys(ch.presenceState()).length;
+      setState(prev => (prev.status === 'searching' && prev.queueSize !== size ? { ...prev, queueSize: size } : prev));
+    });
 
     ch.on('broadcast', { event: 'seek_ping' }, ({ payload }) => {
       if (!payload?.id || payload.id === myId) return;
@@ -93,6 +141,12 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
 
       // Lower UUID hosts, so exactly one side of a pair generates the room.
       if (myId >= payload.id) return;
+
+      // Skill gate. Ignoring a ping is safe: they keep pinging every 2s and
+      // both windows keep widening, so the pair forms as soon as it's fair.
+      const theirElo = typeof payload.elo === 'number' ? payload.elo : myElo;
+      const theirBand = typeof payload.band === 'number' ? payload.band : ELO_BAND_START;
+      if (!withinBand(myElo, theirElo, myBand(), theirBand)) return;
 
       roleRef.current = 'offering';
       targetRef.current = payload.id;
@@ -102,7 +156,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
       ch.send({
         type: 'broadcast',
         event: 'match_offer',
-        payload: { hostId: myId, opponentId: payload.id, roomCode, hostName: myName, hostElo: myElo }
+        payload: { hostId: myId, opponentId: payload.id, roomCode, hostName: myName, hostElo: myElo, band: myBand() }
       });
 
       // Unanswered offer — go back to pinging rather than sitting idle.
@@ -115,6 +169,12 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     ch.on('broadcast', { event: 'match_offer' }, ({ payload }) => {
       if (payload?.opponentId !== myId) return;
       if (roleRef.current !== 'none') return;
+
+      // The offer has to clear this side's window too, otherwise a stale wide
+      // offer could drag a fresh player into a lopsided ranked match.
+      const hostElo = typeof payload.hostElo === 'number' ? payload.hostElo : myElo;
+      const hostBand = typeof payload.band === 'number' ? payload.band : ELO_BAND_START;
+      if (!withinBand(myElo, hostElo, myBand(), hostBand)) return;
 
       roleRef.current = 'accepting';
       pendingOfferRef.current = { hostId: payload.hostId, roomCode: payload.roomCode, hostName: payload.hostName, hostElo: payload.hostElo };

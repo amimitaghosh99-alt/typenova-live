@@ -1,74 +1,66 @@
-# BRIEFING — 2026-08-14T13:52:00Z
+# BRIEFING — 2026-08-26T10:07:00Z
 
 ## Mission
-Orchestrate the full optimization of Typenova V2: dead code elimination and animation/framerate optimization (120+ FPS target, WebGL/rAF cleanup, render optimizations) with dual-track implementation and E2E verification.
+Conduct a comprehensive, read-only full-spectrum audit of the entire TypeNova application codebase, cataloging functional bugs, architectural issues, UI/UX gaps, and feature opportunities into `AUDIT_REPORT.md`.
 
 ## 🔒 My Identity
-- Archetype: orchestrator
+- Archetype: teamwork_preview_orchestrator
 - Roles: orchestrator, user_liaison, human_reporter, successor
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1
-- Original parent: parent (Sentinel)
-- Original parent conversation ID: d48a34be-9c62-4d74-9e34-edd63d9c1d5a
+- Original parent: parent
+- Original parent conversation ID: 97a2b24a-b45c-4309-9846-54d9a3cab461
 
 ## 🔒 My Workflow
-- **Pattern**: Project Pattern
+- **Pattern**: Project Orchestration (Survey -> Decompose & Explore -> Review & Challenge -> Forensic Audit -> Synthesize AUDIT_REPORT.md)
 - **Scope document**: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\PROJECT.md
-1. **Decompose**: Survey codebase across 3 parallel Explorers -> Merge findings into PROJECT.md -> Decompose into modular milestones + E2E Testing Track.
-2. **Dispatch & Execute** (pick ONE):
-   - **Delegate (sub-orchestrator)**: Spawn sub-orchestrator per milestone and for E2E testing track.
-3. **On failure** (in this order):
-   - Retry: nudge stuck agent or re-send task
-   - Replace: spawn fresh agent with partial progress
-   - Skip: proceed without (only if non-critical)
-   - Redistribute: split stuck agent's remaining work
-   - Redesign: re-partition decomposition
-   - Escalate: report to parent (sub-orchestrators only, last resort)
-4. **Succession**: Self-succeed at 16 spawns, write handoff.md, spawn successor.
+1. **Decompose**: Survey full codebase across 3 key audit domains: (1) Core Typing Engine & Audio/Themes, (2) Multiplayer/Realtime, Auth, Database & State Management, (3) UI/UX, A11y, Performance & Feature Innovation.
+2. **Dispatch & Execute**: Dispatch Explorers for deep code inspection -> Reviewers/Critics for verification -> Challenger/Auditor for verification -> Synthesizer Worker for comprehensive AUDIT_REPORT.md.
+3. **On failure**: Retry -> Replace -> Skip -> Redistribute -> Redesign.
+4. **Succession**: Threshold 16 spawns.
 - **Work items**:
-  1. Survey phase (3 Explorers in parallel) [in-progress]
-  2. PROJECT.md & TEST_INFRA.md setup [pending]
-  3. Milestone 1: Dead Code Elimination [pending]
-  4. Milestone 2: 3D KineticKeyboard & WebGL / Shader / rAF Optimization [pending]
-  5. Milestone 3: React Re-renders, State Churn, UI Transitions & Framerate Optimization [pending]
-  6. E2E Testing Track & Final Verification [pending]
-- **Current phase**: 0 (Survey)
-- **Current focus**: Parallel codebase survey via 3 Explorers
+  1. Survey & Codebase Mapping [in-progress]
+  2. Deep Domain Audits (Tracks 1, 2, 3) [in-progress]
+  3. Adversarial Challenge & Verification [pending]
+  4. Synthesis & AUDIT_REPORT.md generation [pending]
+  5. Final Quality Review & Parent Notification [pending]
+- **Current phase**: 1 (Survey & Deep Exploration)
+- **Current focus**: Monitoring 3 parallel exploration tracks
 
 ## 🔒 Key Constraints
-- Never write or modify source code files directly.
-- Never run build/test commands directly.
-- Never explore code directly — delegate all investigation to Explorers.
-- Maintain dual tracks: Implementation Track + Opaque-box E2E Testing Track.
-- Absolute zero tolerance for integrity violations (hard audit veto).
-- Never reuse a subagent after it has delivered its handoff — always spawn fresh.
+- READ-ONLY: ZERO modifications to source code files.
+- All code inspection delegated to subagents.
+- Write output metadata only to `.agents/` and final report to `AUDIT_REPORT.md`.
 
 ## Current Parent
-- Conversation ID: d48a34be-9c62-4d74-9e34-edd63d9c1d5a
-- Updated: 2026-08-14T13:52:00Z
+- Conversation ID: 97a2b24a-b45c-4309-9846-54d9a3cab461
+- Updated: 2026-08-26T10:06:00Z
 
 ## Key Decisions Made
-- Initiated 3-way parallel survey to inspect codebase architecture, dead code surface, and animation/rendering performance bottlenecks.
+- Partitioned audit into 3 primary exploration tracks to cover the 4 requirements (R1, R2, R3, R4) thoroughly.
+- Dispatched 3 parallel domain explorers.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
+| Explorer 1 | teamwork_preview_explorer | Core Typing Engine, Audio, Themes, Metrics | in-progress | d8409ba4-e51e-43f2-8bea-5ad73c2c1cc7 |
+| Explorer 2 | teamwork_preview_explorer | Multiplayer, Realtime, Auth, DB, State | in-progress | 80fd8ce3-f896-499b-bd91-16d94cc380fa |
+| Explorer 3 | teamwork_preview_explorer | UI/UX, A11y, Performance, Feature Gaps | in-progress | 43b47ba3-f2c1-4b32-9557-3347673b52ee |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 0 / 16
-- Pending subagents: none
+- Spawn count: 3 / 16
+- Pending subagents: d8409ba4-e51e-43f2-8bea-5ad73c2c1cc7, 80fd8ce3-f896-499b-bd91-16d94cc380fa, 43b47ba3-f2c1-4b32-9557-3347673b52ee
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: not started
+- Heartbeat cron: c99d8dab-c9d2-4b4d-b3ef-779a8ef9c144/task-11
 - Safety timer: none
-- On succession: kill all timers before spawning successor
-- On context truncation: run `manage_task(Action="list")` — re-create if missing
 
 ## Artifact Index
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md — Original User Request
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1\DISPATCH.md — Orchestrator Assignment
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1\BRIEFING.md — Persistent Working Memory
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1\plan.md — Orchestration Plan
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1\progress.md — Liveness and Progress Log
+- `.agents/ORIGINAL_REQUEST.md` — Original verbatim user request
+- `.agents/orchestrator_1/DISPATCH.md` — Orchestrator incoming dispatch log
+- `.agents/orchestrator_1/BRIEFING.md` — Active briefing and state
+- `.agents/orchestrator_1/progress.md` — Liveness and progress heartbeat
+- `PROJECT.md` — Project scope, audit framework, milestone definitions
+- `AUDIT_REPORT.md` — Final deliverable report

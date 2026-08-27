@@ -12,10 +12,19 @@ export function useAuth() {
     if (!sb) return;
 
     let active = true;
+    // The rejection path matters more than the happy one here: reading the
+    // stored session can fail outright (blocked storage, no network for a token
+    // refresh), and without a handler `authReady` stayed false — so the guard
+    // rendered "LOADING..." for ever, on top of an unhandled rejection.
     sb.auth.getSession().then(({ data }) => {
       if (!active) return;
       setSession(data.session);
       setAuthReady(true);
+    }, (err: unknown) => {
+      console.warn('[auth] getSession failed:', err);
+      if (!active) return;
+      setSession(null);
+      setAuthReady(true); // fall through to the signed-out UI
     });
 
     const { data: sub } = sb.auth.onAuthStateChange((_event, next) => {
@@ -28,19 +37,31 @@ export function useAuth() {
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, []);
 
+  // Both are invoked as `void auth.signIn…()` from click handlers, so a
+  // rejection has nowhere to go: report it in the return value instead.
   const signInWithGoogle = useCallback(async () => {
     const sb = supabase;
     if (!sb) return { error: new Error('Supabase not configured') };
-    return sb.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    });
+    try {
+      return await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+    } catch (err) {
+      console.warn('[auth] signInWithOAuth failed:', err);
+      return { error: err instanceof Error ? err : new Error('Sign-in failed') };
+    }
   }, []);
 
   const signOut = useCallback(async () => {
     const sb = supabase;
     if (!sb) return;
-    await sb.auth.signOut();
+    try {
+      await sb.auth.signOut();
+    } catch (err) {
+      // The local session is cleared regardless; onAuthStateChange follows.
+      console.warn('[auth] signOut failed:', err);
+    }
   }, []);
 
   return {

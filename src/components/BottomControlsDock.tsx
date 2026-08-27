@@ -2,12 +2,13 @@ import { memo } from 'react';
 import { Settings, Sparkles, X, Bot } from 'lucide-react';
 import { AccountMenu } from '@/components/AccountMenu';
 import type { Theme } from '@/data/constants';
+import type { ModalState } from '@/lib/layout';
 import type { SyncStatus } from '@/hooks/useCloudSync';
 
 interface BottomControlsDockProps {
   shouldHideClutter: boolean;
   theme: Theme;
-  activeModal: string | null;
+  activeModal: ModalState;
   isAruOpen: boolean;
   onToggleAru: () => void;
   onOpenSettings: () => void;
@@ -49,7 +50,15 @@ export const BottomControlsDock = memo(function BottomControlsDock({
   return (
     <>
       {/* Floating Bottom-Right Controls Pill */}
-      <div className="fixed bottom-6 right-6 z-[500] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+      {/* z-[500] was the highest number in the codebase and sat above every
+          modal by accident. --z-dock places it below the modal layer, and
+          data-app-chrome lets useAppChrome measure it so content can reserve
+          space instead of scrolling underneath. */}
+      <div
+        data-app-chrome="dock"
+        className="fixed bottom-6 right-6 z-[var(--z-dock)] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300"
+      >
+
         <div className="flex items-center gap-1.5 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.85)]">
           {/* Settings Button */}
           <button
@@ -65,18 +74,17 @@ export const BottomControlsDock = memo(function BottomControlsDock({
           {/* Ask Aru AI Button */}
           <button
             onClick={onToggleAru}
-            className={`relative flex items-center gap-2.5 px-5 py-2 rounded-full transition-all duration-500 group overflow-hidden cursor-pointer ${
-              isAruOpen 
-                ? `bg-[rgba(${theme.glowPrimary},0.2)] border border-[rgba(${theme.glowPrimary},0.5)] shadow-[0_0_30px_rgba(${theme.glowPrimary},0.6)] scale-95` 
-                : 'bg-[#0f0e1a] border border-fuchsia-500/20 hover:border-transparent shadow-[0_0_20px_rgba(217,70,239,0.15)] hover:shadow-[0_0_40px_rgba(34,211,238,0.4)]'
-            }`}
+            className={`relative flex items-center gap-2.5 px-5 py-2 rounded-full transition-all duration-500 group overflow-hidden cursor-pointer ${isAruOpen
+              ? `bg-[rgba(${theme.glowPrimary},0.2)] border border-[rgba(${theme.glowPrimary},0.5)] shadow-[0_0_30px_rgba(${theme.glowPrimary},0.6)] scale-95`
+              : 'bg-[#0f0e1a] border border-fuchsia-500/20 hover:border-transparent shadow-[0_0_20px_rgba(217,70,239,0.15)] hover:shadow-[0_0_40px_rgba(34,211,238,0.4)]'
+              }`}
             title="Ask Aru — AI Typing Coach"
           >
             {/* Spinning Neon Gradient Border (Active on Hover) */}
             {!isAruOpen && (
               <span className="absolute inset-[-1000%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,transparent_0%,#c084fc_33%,#22d3ee_66%,transparent_100%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             )}
-            
+
             {/* Dark Inner Surface */}
             {!isAruOpen && (
               <span className="absolute inset-[1px] rounded-full bg-[#0a0914] z-0 transition-colors duration-500 group-hover:bg-[#0f0e1a]" />
@@ -131,13 +139,14 @@ export const BottomControlsDock = memo(function BottomControlsDock({
       {/* Floating Bottom-Left Version/Changelog Badge */}
       <button
         onClick={onOpenChangelog}
-        className="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full glass-pill border-white/10 hover:border-white/25 text-zinc-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] active:scale-95"
+        className="fixed bottom-6 left-6 z-[var(--z-dock)] flex items-center gap-2 px-3 py-1.5 rounded-full glass-pill border-white/10 hover:border-white/25 text-zinc-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] active:scale-95"
+
         title="View Changelog & Updates"
       >
-        <Sparkles 
-          size={12} 
+        <Sparkles
+          size={12}
           className="shrink-0 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110"
-          style={{ color: `rgb(${theme.glowPrimary})` }} 
+          style={{ color: `rgb(${theme.glowPrimary})` }}
         />
         <span className="text-[10px] font-bold tracking-wider text-zinc-300 group-hover:text-white font-mono">
           {latestVersion}

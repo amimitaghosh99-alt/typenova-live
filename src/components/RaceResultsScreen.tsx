@@ -1,6 +1,8 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { Trophy, LogOut, ArrowLeft } from 'lucide-react';
 import type { RacerState } from '@/hooks/useRace';
+import { compareRacers } from '@/hooks/useRace';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
 import { ResultsScreen } from '@/components/ResultsScreen';
@@ -23,6 +25,8 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   onReturnToRoom?: () => void;
   onLeaveRace?: () => void;
   onUpdateElo?: (action: SetStateAction<number>) => void;
+  /** Fired once when this client is confirmed the winner of a resolved race. */
+  onRaceWon?: () => void;
   chatMessages: import('../hooks/useRace').ChatMessage[];
   onSendMessage: (text: string) => void;
 }
@@ -40,34 +44,67 @@ export function RaceResultsScreen({
   onReturnToRoom,
   onLeaveRace,
   onUpdateElo,
+  onRaceWon,
   chatMessages,
   onSendMessage,
   ...resultsProps
 }: RaceResultsScreenProps) {
-  const ranking = useMemo(() =>
-    [...players]
-      .filter(p => p.finished)
-      .sort((a, b) =>
-        (b.finishWpm ?? 0) - (a.finishWpm ?? 0) ||
-        (a.finishMs ?? Infinity) - (b.finishMs ?? Infinity)
-      ),
-    [players]
-  );
+  // Presence deletes a racer the moment their tab closes, which used to wipe
+  // their card — and their result — off this screen mid-celebration. Keep an
+  // additive snapshot of everyone who was ever in the race instead.
+  const rosterRef = useRef<Map<string, RacerState>>(new Map());
+  const roster = useMemo(() => {
+    const map = rosterRef.current;
+    for (const p of players) {
+      const prev = map.get(p.id);
+      // A late presence frame must never blank out a finish payload we already have.
+      map.set(p.id, prev?.finished && !p.finished ? { ...p, ...prev } : { ...prev, ...p });
+    }
+    return [...map.values()];
+  }, [players]);
+
+  // Ordered with the shared comparator so the podium here always agrees with
+  // the live race HUD and the ranked-duel resolution.
+  const ranking = useMemo(() => roster.filter(p => p.finished).sort(compareRacers), [roster]);
+  const unfinished = useMemo(() => roster.filter(p => !p.finished), [roster]);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(selfId);
   const fallbackLobbyId = useMemo(() => crypto.randomUUID(), []);
 
+  // A racer who quits or stalls used to freeze this screen on "WAITING FOR
+  // OTHERS..." forever: no podium, no awards, no medals. Resolve after a grace
+  // window and mark the stragglers DNF.
+  const [graceExpired, setGraceExpired] = useState(false);
+  const everyoneIn = roster.length > 0 && unfinished.length === 0;
+  useEffect(() => {
+    if (everyoneIn) return;
+    const t = setTimeout(() => setGraceExpired(true), 25000);
+    return () => clearTimeout(t);
+  }, [everyoneIn]);
+
   const myRank = ranking.findIndex(p => p.id === selfId);
-  const allFinished = players.length > 0 && players.every(p => p.finished);
+  const allFinished = everyoneIn || graceExpired;
   const winner = ranking[0];
   const iWon = allFinished ? winner?.id === selfId : false; // for title logic
+
+  // Credit the win exactly once, and only for a race with a real opponent.
+  // Nothing incremented a win counter before this, which is why the
+  // "Race Champion" title and the races_won quests were unreachable.
+  const winCredited = useRef(false);
+  useEffect(() => {
+    if (!iWon || winCredited.current || roster.length < 2) return;
+    winCredited.current = true;
+    onRaceWon?.();
+  }, [iWon, roster.length, onRaceWon]);
+
 
   const rpcCalled = useRef(false);
   const eloSyncDone = useRef(false);
 
   const maxRaceDurationMs = useMemo(() => {
-    return Math.min(Math.max(...players.map(p => p.finishMs ?? 0), resultsProps.durationMs), 300000);
-  }, [players, resultsProps.durationMs]);
+    return Math.min(Math.max(...roster.map(p => p.finishMs ?? 0), resultsProps.durationMs), 300000);
+  }, [roster, resultsProps.durationMs]);
+
 
   const [eloTransfer, setEloTransfer] = useState<{ amount: number; direction: 'up' | 'down' } | null>(null);
   const [eloNote, setEloNote] = useState('');
@@ -135,16 +172,25 @@ export function RaceResultsScreen({
     const syncElo = async (attempts: number) => {
       for (let i = 0; i < attempts; i++) {
         if (!isMounted) return false;
-        const { data } = await supabase.from('profiles').select('elo').eq('id', myUserId).maybeSingle();
-        const value = (data as { elo?: number } | null)?.elo;
-        if (typeof value === 'number' && value !== myStartElo) {
-          if (isMounted) {
-            onUpdateElo?.(() => value);
-            const diff = value - myStartElo;
-            setEloTransfer({ amount: Math.abs(diff), direction: diff >= 0 ? 'up' : 'down' });
+        try {
+          const { data } = await supabase.from('profiles').select('elo').eq('id', myUserId).maybeSingle();
+          const value = (data as { elo?: number } | null)?.elo;
+          if (typeof value === 'number' && value !== myStartElo) {
+            if (isMounted) {
+              onUpdateElo?.(() => value);
+              const diff = value - myStartElo;
+              setEloTransfer({ amount: Math.abs(diff), direction: diff >= 0 ? 'up' : 'down' });
+            }
+            eloSyncDone.current = true;
+            return true;
           }
-          eloSyncDone.current = true;
-          return true;
+        } catch (err) {
+          // A dropped poll is not the end of the loop — the rating is being
+          // written by the other client and the next attempt may well see it.
+          // Left unguarded this rejected out of the loop entirely, and since
+          // nobody handles the returned promise it surfaced as an unhandled
+          // rejection with no "sync pending" note shown.
+          console.warn('[race] elo poll failed:', err);
         }
         await new Promise(r => setTimeout(r, 1500));
       }
@@ -153,7 +199,10 @@ export function RaceResultsScreen({
 
     if (rpcCalled.current) {
       // We already launched the RPC or decided we are the loser. Resume polling if needed.
-      syncElo(6).then(ok => { if (!ok && isMounted && !eloSyncDone.current) setEloNote('ELO SYNC PENDING'); });
+      syncElo(6).then(
+        ok => { if (!ok && isMounted && !eloSyncDone.current) setEloNote('ELO SYNC PENDING'); },
+        err => { console.warn('[race] elo sync failed:', err); if (isMounted) setEloNote('ELO SYNC PENDING'); },
+      );
       return;
     }
 
@@ -172,30 +221,41 @@ export function RaceResultsScreen({
       };
 
       (async () => {
-        let { error, data } = await supabase.rpc('resolve_ranked_duel', { ...baseArgs, p_match_key: raceId ?? null });
-        // PGRST202 = no function with that signature, i.e. the dedupe migration
-        // hasn't been applied yet. Fall back so ranked keeps working (without
-        // double-resolution protection) rather than failing outright.
-        if (error?.code === 'PGRST202') {
-          console.warn('resolve_ranked_duel is missing p_match_key — apply migration 20260728000000_ranked_duel_dedupe.sql');
-          ({ error, data } = await supabase.rpc('resolve_ranked_duel', baseArgs));
-        }
-
-        if (!error && typeof data === 'number') {
-          if (isMounted) {
-            setEloTransfer({ amount: data, direction: 'up' });
-            onUpdateElo?.(prev => prev + data);
+        try {
+          let { error, data } = await supabase.rpc('resolve_ranked_duel', { ...baseArgs, p_match_key: raceId ?? null });
+          // PGRST202 = no function with that signature, i.e. the dedupe migration
+          // hasn't been applied yet. Fall back so ranked keeps working (without
+          // double-resolution protection) rather than failing outright.
+          if (error?.code === 'PGRST202') {
+            console.warn('resolve_ranked_duel is missing p_match_key — apply migration 20260728000000_ranked_duel_dedupe.sql');
+            ({ error, data } = await supabase.rpc('resolve_ranked_duel', baseArgs));
           }
-          return;
+
+          if (!error && typeof data === 'number') {
+            if (isMounted) {
+              setEloTransfer({ amount: data, direction: 'up' });
+              onUpdateElo?.(prev => prev + data);
+            }
+            return;
+          }
+          // Duplicate submission, or a rejected anti-cheat check. Never invent a
+          // delta here — take whatever the server actually recorded.
+          if (error) console.error('Ranked duel RPC failed:', error.message);
+          if (!(await syncElo(4)) && isMounted) setEloNote('ELO UNCHANGED — MATCH NOT COUNTED');
+        } catch (err) {
+          // The RPC itself can reject (connection dropped between finishing and
+          // resolving). Poll for the rating instead of leaving the screen with
+          // no verdict and an unhandled rejection behind it.
+          console.error('Ranked duel RPC rejected:', err);
+          if (!(await syncElo(4)) && isMounted) setEloNote('ELO SYNC PENDING');
         }
-        // Duplicate submission, or a rejected anti-cheat check. Never invent a
-        // delta here — take whatever the server actually recorded.
-        if (error) console.error('Ranked duel RPC failed:', error.message);
-        if (!(await syncElo(4)) && isMounted) setEloNote('ELO UNCHANGED — MATCH NOT COUNTED');
       })();
     } else {
       // The winner's client writes both sides of the transfer; wait for it.
-      syncElo(6).then(ok => { if (!ok && isMounted) setEloNote('ELO SYNC PENDING'); });
+      syncElo(6).then(
+        ok => { if (!ok && isMounted) setEloNote('ELO SYNC PENDING'); },
+        err => { console.warn('[race] elo sync failed:', err); if (isMounted) setEloNote('ELO SYNC PENDING'); },
+      );
     }
 
     return () => {
@@ -280,9 +340,12 @@ export function RaceResultsScreen({
   const selectedPlayer = ranking.find(p => p.id === selectedPlayerId);
   const isSelfSelected = selectedPlayerId === selfId;
 
-  // Derive custom props if viewing a competitor
+  // Derive custom props if viewing a competitor. Everything here now comes from
+  // that racer's own broadcast payload — the panel used to show their headline
+  // numbers on top of MY graph, MY keystroke log and a zero-filled error array.
   const displayProps = useMemo(() => {
     if (isSelfSelected || !selectedPlayer) return resultsProps;
+    const timeline = selectedPlayer.timeline ?? [];
     return {
       ...resultsProps,
       wpm: selectedPlayer.finishWpm ?? 0,
@@ -291,9 +354,24 @@ export function RaceResultsScreen({
       consistency: selectedPlayer.consistency ?? 0,
       durationMs: selectedPlayer.finishMs ?? resultsProps.durationMs,
       heatmapData: selectedPlayer.heatmapData ?? {},
-      errorTimes: new Array(Math.max(0, selectedPlayer.errorCount ?? 0)).fill(0), // Fake error times just for the count
+      // Only the net curve travels over the wire, so the raw line mirrors it.
+      timelinePoints: timeline.map(p => ({ t: p.t, wpm: p.wpm, rawWpm: p.wpm })),
+      errorTimes: selectedPlayer.errorTimes ?? [],
+      // Their raw keystrokes are never broadcast: drop anything derived from
+      // them (replay, per-key weakness) instead of showing mine as theirs.
+      keystrokeLog: [],
+      testStartTime: 0,
+      displayName: selectedPlayer.name,
+      saveStatus: '',
+      leveledUp: false,
+      xpGainedLast: 0,
+      flawlessStreak: 0,
+      ghostTimeline: null,
+      ghostLabel: '',
+      ghostDeltaS: undefined,
     };
   }, [isSelfSelected, selectedPlayer, resultsProps]);
+
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
@@ -335,8 +413,8 @@ export function RaceResultsScreen({
             className={`mx-auto mb-4 ${iWon ? 'text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.6)]' : 'text-zinc-400'}`}
           />
           <h1 className={`text-4xl md:text-6xl font-black tracking-widest uppercase mb-3 ${iWon
-              ? 'text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,0.5)]'
-              : 'text-white'
+            ? 'text-amber-400 drop-shadow-[0_0_40px_rgba(245,158,11,0.5)]'
+            : 'text-white'
             }`}>
             {!allFinished ? 'WAITING FOR OTHERS...' : winner ? `${winner.name} WINS!` : 'RACE OVER'}
           </h1>
@@ -363,10 +441,13 @@ export function RaceResultsScreen({
 
         {/* ── INTERACTIVE SUMMARY CARDS ──────────────────────── */}
         <div className="flex flex-wrap justify-center gap-4 mb-12">
-          {ranking.map((player, idx) => {
+          {/* Stragglers/disconnects are listed as DNF instead of vanishing. */}
+          {[...ranking, ...unfinished].map((player, idx) => {
+            const isDnf = !player.finished;
             const isSelf = player.id === selfId;
-            const isSelected = player.id === selectedPlayerId;
-            const isWinner = idx === 0 && allFinished;
+            const isSelected = !isDnf && player.id === selectedPlayerId;
+            const isWinner = idx === 0 && allFinished && !isDnf;
+
             const colorClass = medalColors[idx] || medalColors[3];
             const strokeColor = medalStrokeColors[idx] || medalStrokeColors[3];
             const award = awards[player.id];
@@ -374,10 +455,12 @@ export function RaceResultsScreen({
             return (
               <button
                 key={player.id}
-                onClick={() => setSelectedPlayerId(player.id)}
+                onClick={() => { if (!isDnf) setSelectedPlayerId(player.id); }}
+                disabled={isDnf}
+
                 className={`relative overflow-hidden group text-left px-6 py-4 rounded-3xl transition-all duration-300 glass-panel ${isWinner ? 'scale-105 saturate-150 shadow-2xl z-20' :
-                    isSelected ? 'scale-100 shadow-xl opacity-100 z-10' :
-                      'scale-95 opacity-50 hover:opacity-80 grayscale-[0.5] z-0'
+                  isSelected ? 'scale-100 shadow-xl opacity-100 z-10' :
+                    'scale-95 opacity-50 hover:opacity-80 grayscale-[0.5] z-0'
                   }`}
                 style={
                   isWinner ? { boxShadow: `0 0 30px ${medalStrokeColors[0]}60`, borderColor: medalStrokeColors[0] } :
@@ -392,7 +475,8 @@ export function RaceResultsScreen({
                 )}
                 <div className="relative z-10 flex flex-col gap-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{isWinner ? '👑' : ['🥇', '🥈', '🥉', '4th'][idx] || '·'}</span>
+                    <span className="text-xl">{isDnf ? '⌛' : isWinner ? '👑' : ['🥇', '🥈', '🥉', '4th'][idx] || '·'}</span>
+
                     <span className={`font-black tracking-widest uppercase ${isSelected || isWinner ? 'text-white' : 'text-zinc-400'}`}>
                       {player.name}
                     </span>
@@ -402,10 +486,11 @@ export function RaceResultsScreen({
                   </div>
                   <div className="flex justify-between items-baseline mt-2">
                     <span className={`text-2xl font-black ${isSelected ? colorClass.split(' ')[0] : 'text-white'}`}>
-                      {player.finishWpm ?? 0} <span className="text-xs text-zinc-500">WPM</span>
+                      {isDnf ? 'DNF' : (player.finishWpm ?? 0)} <span className="text-xs text-zinc-500">{isDnf ? 'NO RESULT' : 'WPM'}</span>
                     </span>
                   </div>
-                  {award && award.title && (
+                  {!isDnf && award?.title && (
+
                     <div className="mt-2 flex items-center gap-1.5 text-[9px] font-black tracking-widest px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 uppercase text-amber-200/80 w-fit">
                       <span className="text-sm">{award.emoji}</span>
                       <span>{award.title}</span>
@@ -427,7 +512,12 @@ export function RaceResultsScreen({
             theme={theme}
             competitorTimelines={undefined}
             compact
+            /* The race screen owns the navigation. Without this the embedded
+               panel also rendered NEXT TEST / drill buttons that quietly tore
+               the room down mid-results. */
+            hideActions
           />
+
         </div>
 
         {/* ── POST-MATCH CHAT ────────────────────────────── */}

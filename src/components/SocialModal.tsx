@@ -4,6 +4,7 @@ import type { Theme, Level, CodeLanguage } from '@/data/constants';
 import type { useFriends } from '@/hooks/useFriends';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { AVATARS } from '@/data/customization';
+import { AvatarArt } from './profile/AvatarKeycap';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface PublicPlayer {
@@ -97,7 +98,7 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
     loadDirectory();
     return () => { active = false; };
   }, [tab, supabase]);
-  
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchInput.trim()) return;
@@ -106,25 +107,23 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
   };
 
   return (
-    <div 
-      className={`fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 overflow-y-auto transition-opacity duration-200 ${
-        isClosing ? 'opacity-0' : 'opacity-100'
-      }`}
+    <div
+      className={`fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4 overflow-y-auto transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'opacity-100'
+        }`}
       onClick={handleClose}
     >
-      <div 
-        className={`glass-panel relative w-full max-w-lg max-h-[85vh] my-auto flex flex-col rounded-2xl border border-white/15 shadow-2xl shadow-cyan-950/30 overflow-hidden p-5 sm:p-6 min-h-0 ${
-          isClosing ? 'lucid-scale-exit' : 'lucid-scale'
-        }`}
+      <div
+        className={`glass-panel relative w-full max-w-lg max-h-[85vh] my-auto flex flex-col rounded-2xl border border-white/15 shadow-2xl shadow-cyan-950/30 overflow-hidden p-5 sm:p-6 min-h-0 ${isClosing ? 'lucid-scale-exit' : 'lucid-scale'
+          }`}
         style={{ '--delay': '0ms' } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Subtle Ambient Glow Backdrop */}
-        <div 
+        <div
           className="absolute -top-32 -left-32 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-20"
           style={{ background: `rgb(${theme.glowPrimary || '6, 182, 212'})` }}
         />
-        <div 
+        <div
           className="absolute -bottom-32 -right-32 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-15"
           style={{ background: `rgb(${theme.glowSecondary || '34, 211, 238'})` }}
         />
@@ -137,8 +136,8 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
             </div>
             Social Hub
           </h2>
-          <button 
-            onClick={handleClose} 
+          <button
+            onClick={handleClose}
             className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white rounded-full transition-all hover:rotate-90"
             aria-label="Close modal"
           >
@@ -157,31 +156,28 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
         <div className="flex bg-slate-900/60 p-1 rounded-xl mb-4 shrink-0 border border-white/10 relative z-10 font-mono">
           <button
             onClick={() => setTab('friends')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${
-              tab === 'friends' 
-                ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]' 
-                : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${tab === 'friends'
+              ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+              : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+              }`}
           >
             <UserCheck size={13} /> Friends ({friendsState.friends.length})
           </button>
           <button
             onClick={() => setTab('add')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${
-              tab === 'add' 
-                ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]' 
-                : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${tab === 'add'
+              ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+              : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+              }`}
           >
             <UserPlus size={13} /> Add
           </button>
           <button
             onClick={() => setTab('inbox')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${
-              tab === 'inbox' 
-                ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]' 
-                : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-mono font-bold transition-colors duration-150 ${tab === 'inbox'
+              ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
+              : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+              }`}
           >
             <Inbox size={13} /> Inbox
             {friendsState.incomingRequests.length > 0 && (
@@ -276,8 +272,8 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                 <div className="flex flex-col items-center justify-center h-44 text-zinc-500 font-mono">
                   <Users size={40} className="mb-3 text-zinc-600 opacity-40" />
                   <span className="text-xs font-bold tracking-wider uppercase text-zinc-400">NO FRIENDS YET</span>
-                  <button 
-                    onClick={() => setTab('add')} 
+                  <button
+                    onClick={() => setTab('add')}
                     className="mt-3 text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-wider"
                   >
                     + FIND FRIENDS
@@ -285,8 +281,8 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                 </div>
               ) : (
                 friendsState.friends.map((friend, i) => (
-                  <div 
-                    key={friend.username} 
+                  <div
+                    key={friend.username}
                     className="lucid-enter group flex justify-between items-center bg-slate-900/50 hover:bg-slate-900/80 border border-white/10 hover:border-cyan-500/30 p-3 rounded-xl transition-colors duration-150"
                     style={{ '--delay': `${i * 20}ms` } as React.CSSProperties}
                   >
@@ -318,13 +314,12 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                         <button
                           onClick={() => friend.isOnline && setChallengingUser(friend.username)}
                           disabled={!friend.isOnline || sentChallengeTo === friend.username}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold font-mono transition-all ${
-                            !friend.isOnline
-                              ? 'text-zinc-600 border border-zinc-800 cursor-not-allowed'
-                              : sentChallengeTo === friend.username
-                                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400 animate-pulse cursor-wait'
-                                : 'bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:shadow-[0_0_10px_rgba(244,63,94,0.2)] hover:scale-105'
-                          }`}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold font-mono transition-all ${!friend.isOnline
+                            ? 'text-zinc-600 border border-zinc-800 cursor-not-allowed'
+                            : sentChallengeTo === friend.username
+                              ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400 animate-pulse cursor-wait'
+                              : 'bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 hover:shadow-[0_0_10px_rgba(244,63,94,0.2)] hover:scale-105'
+                            }`}
                           title={friend.isOnline ? `Challenge ${friend.username}` : 'Friend is offline'}
                         >
                           <Swords size={12} />
@@ -359,8 +354,8 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                   className="w-full bg-slate-900/60 border border-white/15 rounded-xl pl-10 pr-20 py-3 text-xs font-mono text-white placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/40 transition-colors"
                 />
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" size={15} aria-hidden="true" />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={!searchInput.trim() || friendsState.loading}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold tracking-wider transition-colors disabled:opacity-40"
                 >
@@ -387,7 +382,7 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                           <span className="text-xs font-mono text-zinc-300 hover:underline">{u}</span>
                         </button>
                       </div>
-                      <button 
+                      <button
                         onClick={() => friendsState.removeFriend(u, false)}
                         disabled={friendsState.loading}
                         className="p-1 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors disabled:opacity-50"
@@ -429,7 +424,6 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                         const isOutgoing = friendsState.outgoingRequests.some(r => r.toLowerCase() === player.username.toLowerCase());
                         const isIncoming = friendsState.incomingRequests.some(r => r.toLowerCase() === player.username.toLowerCase());
                         const avatarDef = AVATARS.find(a => a.id === player.avatar_id) || AVATARS[0];
-                        const AvatarIconComponent = avatarDef.icon;
 
                         return (
                           <div
@@ -441,9 +435,9 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                               className="flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity"
                               title={`View ${player.username}'s Profile`}
                             >
-                              <div className={`w-8 h-8 rounded-xl ${avatarDef.gradient || 'bg-cyan-600'} border ${avatarDef.borderColor || 'border-cyan-400/60'} flex items-center justify-center ${avatarDef.iconColor || 'text-white'} shadow-sm shrink-0`}>
-                                <AvatarIconComponent size={16} />
-                              </div>
+                              {/* Same keycap the dossier prints, so a player's
+                                  legend looks identical everywhere. */}
+                              <AvatarArt id={avatarDef.id} size={32} glyphScale={0.5} className="shrink-0" />
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-xs font-bold text-white tracking-wide hover:underline hover:text-cyan-300">
@@ -520,7 +514,7 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                       </button>
                     </div>
                     <div className="flex gap-1.5">
-                      <button 
+                      <button
                         onClick={() => friendsState.acceptRequest(u)}
                         disabled={friendsState.loading}
                         className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-lg transition-colors disabled:opacity-50"
@@ -528,7 +522,7 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                       >
                         <Check size={14} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => friendsState.removeFriend(u, true)}
                         disabled={friendsState.loading}
                         className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-lg transition-colors disabled:opacity-50"

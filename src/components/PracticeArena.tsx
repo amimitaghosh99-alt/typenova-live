@@ -49,13 +49,18 @@ export const PracticeArena = memo(function PracticeArena({
   onOpenGhostModal,
   onReset,
 }: PracticeArenaProps) {
+  // The parent is a CSS grid now, so the grid column owns this panel's width.
+  // The root used to declare `lg:w-[70%]` while the leaderboard declared
+  // `lg:w-[30%]`, with a `gap-8` between them — 100% + 2rem, which overflowed
+  // and made both panels shrink unevenly. `min-w-0` lets the typing text wrap
+  // inside the column instead of widening it.
   return (
-    <div className={`w-full ${shouldHideClutter ? 'max-w-4xl mx-auto' : 'lg:w-[70%]'} flex flex-col gap-6`}>
+    <div className={`w-full min-w-0 ${shouldHideClutter ? 'max-w-4xl mx-auto' : ''} flex flex-col gap-6`}>
       {/* Difficulty & Length/Time & Daily Config Bar */}
       <motion.div
         initial={{ opacity: 0, y: -20, scale: 0.985 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: "spring", stiffness: 280, damping: 26 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 26 }}
       >
         <ArenaConfigBar
           game={game}
@@ -92,21 +97,28 @@ export const PracticeArena = memo(function PracticeArena({
         </motion.div>
       )}
 
-      {/* Typing Area & Attached Modifier Tab */}
-      <motion.div 
+      {/* Typing Area & Attached Modifier Tab.
+          `pb-7` reserves room for the ready prompt, which is positioned with a
+          negative offset below the canvas. It used to sit inside a `mb-12`
+          block with nothing reserved, so the prompt overlapped whatever came
+          next at short viewports. */}
+      <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 22 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 270, damping: 24, delay: 0.08 }}
-        className="w-full relative flex flex-col items-center mb-12"
+        transition={{ type: 'spring', stiffness: 270, damping: 24, delay: 0.08 }}
+        className="w-full relative flex flex-col items-center pb-7 mb-6"
       >
-        {/* Mode toggles — clean floating glass modifier dock */}
+        {/* Mode toggles — clean floating glass modifier dock.
+            `flex-wrap` so eight buttons wrap instead of forcing the arena wider
+            than the viewport on phones. */}
         {!shouldHideClutter && (
-          <div className="w-full flex justify-center items-center relative z-20 mb-3">
-            <div className="flex items-center gap-1.5 px-4 py-1.5 glass-panel !bg-black/60 border border-white/15 backdrop-blur-2xl rounded-full text-zinc-400 shadow-xl">
+          <div className="w-full flex justify-center items-center relative z-[var(--z-content-pop)] mb-3">
+            <div className="flex flex-wrap justify-center items-center gap-1.5 px-3 sm:px-4 py-1.5 glass-panel !bg-black/60 border border-white/15 backdrop-blur-2xl rounded-full text-zinc-400 shadow-xl">
               <button
                 onClick={() => game.setSuddenDeath(!game.suddenDeath)}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${game.suddenDeath ? 'bg-red-500/20 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.4)]' : 'hover:text-white hover:bg-white/10'}`}
                 title="1HP: One mistake ends it"
+                aria-pressed={game.suddenDeath}
               >
                 <Skull size={16} />
               </button>
@@ -129,6 +141,7 @@ export const PracticeArena = memo(function PracticeArena({
                     ? `Ghost Racer Active: ${game.ghostMode === 'pb' ? (pbGhost ? `PB (${pbGhost.wpm} WPM)` : 'PB Mode') : `${game.ghostTargetWpm} WPM Bot`} (Right-click or Shift-click for settings)`
                     : 'Ghost Racer 2.0 (Right-click or Shift-click for settings)'
                 }
+                aria-pressed={game.ghostPacer}
               >
                 <Ghost size={16} />
                 {game.ghostPacer && (
@@ -143,6 +156,7 @@ export const PracticeArena = memo(function PracticeArena({
                 onClick={() => game.setFocusMode(!game.focusMode)}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${game.focusMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/10'}`}
                 title="Focus"
+                aria-pressed={!!game.focusMode}
               >
                 <Focus size={16} />
               </button>
@@ -151,6 +165,7 @@ export const PracticeArena = memo(function PracticeArena({
                 onClick={() => game.setBlindMode(!game.blindMode)}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${game.blindMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/10'}`}
                 title="Blind"
+                aria-pressed={game.blindMode}
               >
                 <Brain size={16} />
               </button>
@@ -159,6 +174,7 @@ export const PracticeArena = memo(function PracticeArena({
                 onClick={game.toggleMirror}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${game.mirroredMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/10'}`}
                 title="Mirror"
+                aria-pressed={game.mirroredMode}
               >
                 <FlipHorizontal size={16} />
               </button>
@@ -167,6 +183,7 @@ export const PracticeArena = memo(function PracticeArena({
                 onClick={() => game.setFogMode(!game.fogMode)}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${game.fogMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/10'}`}
                 title="Fog"
+                aria-pressed={game.fogMode}
               >
                 <CloudFog size={16} />
               </button>
@@ -175,6 +192,7 @@ export const PracticeArena = memo(function PracticeArena({
                 onClick={() => game.setStickyKeysMode(!game.stickyKeysMode)}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${game.stickyKeysMode ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/10'}`}
                 title="Sticky Keys"
+                aria-pressed={game.stickyKeysMode}
               >
                 <Magnet size={16} />
               </button>
@@ -183,6 +201,7 @@ export const PracticeArena = memo(function PracticeArena({
                 onClick={() => game.setOverclockedMode(!game.overclockedMode)}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${game.overclockedMode ? 'bg-red-500/20 text-red-400' : 'hover:text-white hover:bg-white/10'}`}
                 title="Overclocked"
+                aria-pressed={game.overclockedMode}
               >
                 <Timer size={16} />
               </button>
@@ -213,9 +232,11 @@ export const PracticeArena = memo(function PracticeArena({
           racePlayers={otherRacePlayers}
         />
 
-        {/* Floating Spacebar Prompt */}
+        {/* Floating Spacebar Prompt. z-[100] here was inert — this element's
+            ancestor already opens a stacking context, so it only ever competed
+            with its own siblings. */}
         {typing.phase === 'CONFIGURING' && (
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 z-[100] flex justify-center pointer-events-none">
+          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-[var(--z-content-pop)] flex justify-center pointer-events-none">
             <button
               onClick={() => { typing.setPhase('READY'); typing.setInput(''); }}
               style={{
@@ -223,9 +244,9 @@ export const PracticeArena = memo(function PracticeArena({
                 backgroundColor: 'rgba(10, 12, 18, 0.92)',
                 boxShadow: `0 12px 35px rgba(0, 0, 0, 0.7), 0 0 25px rgba(${theme.glowPrimary}, 0.4), inset 0 0 15px rgba(${theme.glowPrimary}, 0.15)`,
               }}
-              className="glass-pill px-8 py-3 rounded-full flex items-center gap-3 transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 group pointer-events-auto font-display backdrop-blur-2xl border"
+              className="glass-pill px-6 sm:px-8 py-3 rounded-full flex items-center gap-2 sm:gap-3 transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95 group pointer-events-auto font-display backdrop-blur-2xl border"
             >
-              <span className="text-xs text-zinc-300 tracking-widest font-bold drop-shadow-sm group-hover:text-white transition-colors">PRESS</span>
+              <span className="hidden sm:inline text-xs text-zinc-300 tracking-widest font-bold drop-shadow-sm group-hover:text-white transition-colors">PRESS</span>
               <span
                 className="text-base tracking-widest font-black group-hover:scale-110 transition-transform"
                 style={{
@@ -235,23 +256,27 @@ export const PracticeArena = memo(function PracticeArena({
               >
                 SPACE
               </span>
-              <span className="text-xs text-zinc-300 tracking-widest font-bold drop-shadow-sm group-hover:text-white transition-colors">TO READY UP</span>
+              <span className="text-xs text-zinc-300 tracking-widest font-bold drop-shadow-sm group-hover:text-white transition-colors">
+                TO READY UP
+              </span>
             </button>
           </div>
         )}
       </motion.div>
 
-      {/* Abort Button (only during active test, NOT on finished) */}
-      {(typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
-        <div className="mt-4 flex justify-center w-full z-10 relative">
+      {/* Abort button (only during an active test, never on the results screen).
+          The slot keeps a fixed height so the arena does not jump upward the
+          moment TYPING begins and this row appears. */}
+      <div className="min-h-[3.5rem] flex justify-center items-start w-full relative z-[var(--z-content)]">
+        {(typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN') && (
           <button
             onClick={onReset}
             className="flex items-center space-x-3 px-8 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md cursor-pointer"
           >
-            <RotateCcw size={16} /> <span>ABORT & CONFIGURE (ESC)</span>
+            <RotateCcw size={16} /> <span>ABORT &amp; CONFIGURE (ESC)</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 });

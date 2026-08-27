@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   tests: 'typezen_tests',
   achievements: 'typezen_achievements',
   heatmap: 'typezen_heatmap',
+  bestCombo: 'typezen_best_combo',
 };
 
 export const useRPGSystem = () => {
@@ -18,6 +19,17 @@ export const useRPGSystem = () => {
     if (typeof window === 'undefined') return 0;
     return parseInt(localStorage.getItem(STORAGE_KEYS.tests) || '0', 10) || 0;
   });
+  /**
+   * Lifetime best combo. The typing engine's `maxCombo` is per-test and resets
+   * on the next run, so nothing outside a single result screen could see it —
+   * which left the combo-gated banners in the forge permanently locked and the
+   * "Unbreakable" achievement reachable only within one uninterrupted test.
+   */
+  const [bestCombo, setBestCombo] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    return parseInt(localStorage.getItem(STORAGE_KEYS.bestCombo) || '0', 10) || 0;
+  });
+
   const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.achievements) || '[]'); } catch { return []; }
@@ -40,7 +52,8 @@ export const useRPGSystem = () => {
     localStorage.setItem(STORAGE_KEYS.tests, testsCompleted.toString());
     localStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(unlockedAchievements));
     localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(heatmapData));
-  }, [xp, testsCompleted, unlockedAchievements, heatmapData]);
+    localStorage.setItem(STORAGE_KEYS.bestCombo, bestCombo.toString());
+  }, [xp, testsCompleted, unlockedAchievements, heatmapData, bestCombo]);
 
   // Achievement toast auto-dismiss
   useEffect(() => {
@@ -57,7 +70,7 @@ export const useRPGSystem = () => {
   const processRPG = useCallback((
     finalWpm: number,
     finalAcc: number,
-    _currentMaxCombo: number,
+    currentMaxCombo: number,
     _wordCount: number,
     targetTextLength: number,
     microDrillActive: boolean,
@@ -66,6 +79,10 @@ export const useRPGSystem = () => {
   ) => {
     const newTestsCompleted = testsCompleted + 1;
     setTestsCompleted(newTestsCompleted);
+
+    // Lifetime combo record, so combo unlocks survive past the result screen.
+    const newBestCombo = Math.max(bestCombo, currentMaxCombo);
+    if (newBestCombo !== bestCombo) setBestCombo(newBestCombo);
 
     // Update heatmap (backspace events carry no expected char -> skip them)
     const updatedHeatmap = { ...heatmapData };
@@ -103,8 +120,8 @@ export const useRPGSystem = () => {
       }
     }
 
-    return { newXp, newTestsCompleted, updatedHeatmap };
-  }, [xp, testsCompleted, heatmapData]);
+    return { newXp, newTestsCompleted, updatedHeatmap, newBestCombo };
+  }, [xp, testsCompleted, heatmapData, bestCombo]);
 
   const checkAchievements = useCallback((
     finalWpm: number,
@@ -175,11 +192,13 @@ export const useRPGSystem = () => {
     tests: number;
     achievements: string[];
     heatmap: Record<string, { total: number; errors: number; totalMs?: number }>;
+    bestCombo?: number;
   }) => {
     setXp(snapshot.xp);
     setTestsCompleted(snapshot.tests);
     setUnlockedAchievements(snapshot.achievements);
     setHeatmapData(snapshot.heatmap);
+    if (typeof snapshot.bestCombo === 'number') setBestCombo(snapshot.bestCombo);
   }, []);
 
   const unlockAllAchievements = useCallback(() => {
@@ -193,6 +212,7 @@ export const useRPGSystem = () => {
     setXp(0);
     setTestsCompleted(0);
     setHeatmapData({});
+    setBestCombo(0);
     setAchievementQueue(prev => [...prev, { id: 'reset', title: 'All Progress Reset', desc: '', icon: 'rotate-ccw', category: 'SUPER' }]);
   }, []);
 
@@ -204,6 +224,7 @@ export const useRPGSystem = () => {
     xpGainedLast,
     leveledUp,
     heatmapData,
+    bestCombo,
     userLevel,
     nextLevelXp,
     currentLevelProgress,

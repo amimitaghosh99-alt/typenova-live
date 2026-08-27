@@ -25,6 +25,10 @@ import { useRPGSystem } from '@/hooks/useRPGSystem';
 import { useParticles } from '@/hooks/useParticles';
 import { useQuests } from '@/hooks/useQuests';
 import { useGameConfig } from '@/hooks/useGameConfig';
+import { useAppChrome } from '@/hooks/useAppChrome';
+import { useModals } from '@/hooks/useModals';
+
+
 import { TypingController } from '@/components/TypingController';
 
 import type { PaceSample } from '@/components/TypingArea';
@@ -32,23 +36,32 @@ import { ResultsScreen } from '@/components/ResultsScreen';
 import { RaceResultsScreen } from '@/components/RaceResultsScreen';
 import { AIDrillResultsScreen } from '@/components/AIDrillResultsScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { appendHistory, loadHistory } from '@/components/StatsDashboard';
-import type { HistoryEntry } from '@/components/StatsDashboard';
+import { appendHistory, loadHistory } from '@/lib/history';
+import type { HistoryEntry } from '@/lib/history';
+import { loadPersonalBests } from '@/lib/personalBests';
 import { ReplayModal } from '@/components/ReplayModal';
 import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
 import { useChallenges } from '@/hooks/useChallenges';
 import { useRace, makeRoomCode } from '@/hooks/useRace';
+import { useMatchmaking } from '@/hooks/useMatchmaking';
+import { useRoomDirectory } from '@/hooks/useRoomDirectory';
+import { useRankedHistory } from '@/hooks/useRankedHistory';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
-import { supabase } from '@/lib/supabase';
+import { supabase, fireAndForget } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useCloudSync } from '@/hooks/useCloudSync';
+import { ACADEMY_PROGRESS_CHANGED, onSyncEvent } from '@/lib/syncEvents';
+import { readLocalProgress, writeLocalProgress } from '@/lib/progress';
 import { useFriends } from '@/hooks/useFriends';
 import { PracticeArena } from '@/components/PracticeArena';
 import { LeaderboardSidebar } from '@/components/LeaderboardSidebar';
 import { BottomControlsDock } from '@/components/BottomControlsDock';
 import { AppModalManager } from '@/components/AppModalManager';
-import { Routes, Route, Navigate } from 'react-router';
+import { TimedHud } from '@/components/TimedHud';
+
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router';
 import { Login } from '@/pages/Login';
+import { OperatorDossier } from '@/pages/OperatorDossier';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
@@ -60,6 +73,13 @@ import { AI_KEYS } from '@/lib/aiClient';
 import { CosmicNavBar } from '@/components/CosmicNavBar';
 import CosmicLiquidShader from '@/components/CosmicLiquidShader';
 import { LobbyScreen } from '@/components/LobbyScreen';
+import { CompeteEntryScreen } from '@/components/CompeteEntryScreen';
+import { QuickMatchPanel } from '@/components/QuickMatchPanel';
+import { RoomBrowser } from '@/components/RoomBrowser';
+import { RankedHistoryPanel } from '@/components/RankedHistoryPanel';
+
+import { RaceTrack } from '@/components/RaceTrack';
+
 
 // ─── STAGE PAGE TRANSITION VARIANTS ────────────────────────────────────
 const STAGE_PAGE_ORDER: Record<string, number> = {
@@ -147,44 +167,32 @@ const loadDailyStreak = (): number => {
   } catch { return 0; }
 };
 
-// ─── TIMED-MODE HUD ───────────────────────────────────────────────────
-// Native requestAnimationFrame driver for uncapped display refresh rate.
-function TimedHud({ startTime, duration, theme }: { startTime: number; duration: number; theme: Theme }) {
-  const [elapsed, setElapsed] = useState(() => Math.max(0, Date.now() - startTime));
-
-  useEffect(() => {
-    let animId: number;
-    const tick = () => {
-      setElapsed(Math.max(0, Date.now() - startTime));
-      animId = requestAnimationFrame(tick);
-    };
-    animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
-  }, [startTime]);
-
-  const totalMs = duration * 1000;
-  const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
-  const pct = Math.min(100, (elapsed / totalMs) * 100);
-
-  return (
-    <>
-      <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
-        <div className={`h-full ${theme.solid} ${theme.glow}`} style={{ width: `${pct}%` }} />
-      </div>
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] px-5 py-1.5 rounded-full bg-zinc-950/90 border border-white/10 pointer-events-none font-display shadow-xl">
-        <span className={`font-black text-lg tabular-nums ${remaining <= 5 ? 'text-red-400' : theme.text}`}>{remaining}s</span>
-      </div>
-    </>
-  );
-}
-
 function MainApp() {
+
   // ─── Mode State ──────────────────────────────────────────────────
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showSoundMenu, setShowSoundMenu] = useState(false);
   const [isAruOpen, setIsAruOpen] = useState(false);
 
+  // Measures the navbar and the bottom dock and publishes their real heights
+  // as --nav-h / --dock-h. Every stage derives its top padding from that
+  // variable instead of hardcoding a pixel guess, which is what used to leave
+  // content tucked under the header at some breakpoints.
+  useAppChrome();
+
+  // Dialog layer. The `ModalKey` union lives in `src/lib/layout.ts` so the
+  // switch in AppModalManager is checked against it; there is deliberately no
+  // 'race' member — it used to exist, rendered `null`, and still counted as an
+  // open modal, which made TypingController swallow every keystroke with no
+  // visible dialog to close.
+  const {
+    active: activeModal,
+    open: openModal,
+    close: closeModal,
+  } = useModals();
+
   const [techAiState, setTechAiState] = useState({
+
     apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',
     baseUrl: localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1',
     model: localStorage.getItem(AI_KEYS.byokModel) || 'llama-3.3-70b-versatile',
@@ -219,7 +227,8 @@ function MainApp() {
 
   const techCapabilities = useMemo(() => ({
     openTab: (tabId: string) => {
-      setActiveModal('settings');
+      openModal('settings');
+
       if (openTabTimeoutRef.current) clearTimeout(openTabTimeoutRef.current);
       openTabTimeoutRef.current = setTimeout(() => window.dispatchEvent(new CustomEvent('open_settings_tab', { detail: tabId })), 50);
     },
@@ -231,7 +240,7 @@ function MainApp() {
       localStorage.setItem(AI_KEYS.byokModel, model);
       window.dispatchEvent(new Event('storage'));
     }
-  }), []);
+  }), [openModal]);
 
   const [themeFont, setThemeFont] = useState(() => localStorage.getItem('typezen_font') || 'JetBrains Mono');
 
@@ -240,6 +249,8 @@ function MainApp() {
   }, [themeFont]);
 
   const [dailyStreak, setDailyStreak] = useState(loadDailyStreak);
+  /** Lifetime multiplayer wins, mirrored from the progress snapshot. */
+  const [racesWon, setRacesWon] = useState(() => readLocalProgress().racesWon);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [themeIndex, setThemeIndex] = useState(() => {
@@ -252,24 +263,15 @@ function MainApp() {
     try { const saved = localStorage.getItem('typezen_theme'); return new Set([0, saved ? parseInt(saved, 10) : 0]); } catch { return new Set([0]); }
   });
 
-  type ModalType = 'trophy' | 'godMode' | 'expandedGraph' | 'stats' | 'replay' | 'race' | 'profile' | 'social' | 'comms' | 'quests' | 'settings' | 'changelog' | 'theme' | 'sound' | 'bugReports' | 'ghost' | null;
-  const [activeModal, setActiveModal] = useState<ModalType>(null);
-
-  // Aliases for backward compatibility during refactor
-  const setShowTrophyRoom = useCallback((b: boolean) => setActiveModal(b ? 'trophy' : null), []);
-  const setShowStatsDashboard = useCallback((b: boolean) => setActiveModal(b ? 'stats' : null), []);
-  const setShowRace = useCallback((b: boolean) => setActiveModal(b ? 'race' : null), []);
-  const setShowProfile = useCallback((b: boolean) => setActiveModal(b ? 'profile' : null), []);
-  const setShowSocialModal = useCallback((b: boolean) => setActiveModal(b ? 'social' : null), []);
-  const setShowCommsModal = useCallback((b: boolean) => setActiveModal(b ? 'comms' : null), []);
-  const setShowDailyQuestsModal = useCallback((b: boolean) => setActiveModal(b ? 'quests' : null), []);
-  const setShowSettingsModal = useCallback((b: boolean) => setActiveModal(b ? 'settings' : null), []);
-  const setShowChangelog = useCallback((b: boolean) => setActiveModal(b ? 'changelog' : null), []);
-  const setShowGhostModal = useCallback((b: boolean) => setActiveModal(b ? 'ghost' : null), []);
-
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
+  // A room is only advertised in the public directory when its host opted in.
+  // Challenge and quick-match rooms are never listed.
+  const [listRoomsPublicly, setListRoomsPublicly] = useState(() => {
+    try { return localStorage.getItem('typenova_list_rooms') !== 'false'; } catch { return true; }
+  });
+  const [publicRoom, setPublicRoom] = useState(false);
   const { generateDrill, isGenerating: isSmartDrillGenerating } = useSmartDrills();
   const [currentStage, setCurrentStage] = useState<'practice' | 'compete' | 'academy'>('practice');
   const isAcademyMode = currentStage === 'academy';
@@ -277,8 +279,19 @@ function MainApp() {
   const enterAcademy = useCallback(() => {
     setCurrentStage('academy');
   }, []);
-  const [initialRaceCode, setInitialRaceCode] = useState<string | undefined>();
-  const [selectedProfileUsername, setSelectedProfileUsername] = useState<string | null>(null);
+
+  /**
+   * The dossier is a route now, so the operator on screen comes from the URL
+   * rather than from state. `MainApp` is mounted for `/`, `/operator` and
+   * `/operator/:username` alike — the path is what decides whether the dossier
+   * page is showing, which is what makes back/forward and a shared link work.
+   */
+  const navigate = useNavigate();
+  const { username: routeProfileUsername } = useParams<{ username?: string }>();
+  const location = useLocation();
+  const dossierOpen = location.pathname.startsWith('/operator');
+  /** Null when the URL carries no name, i.e. "my own dossier". */
+  const selectedProfileUsername = routeProfileUsername ?? null;
 
   interface LeaderboardRow {
     username: string;
@@ -336,7 +349,10 @@ function MainApp() {
   const cloud = useCloudSync({
     session: auth.session,
     hydrateRPG: rpg.hydrate,
-    onHydrated: () => setDailyStreak(loadDailyStreak()),
+    onHydrated: () => {
+      setDailyStreak(loadDailyStreak());
+      setRacesWon(readLocalProgress().racesWon);
+    },
   });
   const isLoggedIn = !!auth.session;
   const levelOptions = useMemo(() => (["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM"] as Level[]).map(l => ({
@@ -347,40 +363,64 @@ function MainApp() {
 
   const handleSignIn = useCallback(() => { void auth.signInWithGoogle(); }, [auth]);
   const handleSignOut = useCallback(() => { void auth.signOut(); }, [auth]);
-  const handleUnlockGodMode = useCallback(() => setActiveModal('godMode'), []);
+  const handleUnlockGodMode = useCallback(() => openModal('godMode'), [openModal]);
   const friendsState = useFriends({ supabase, session: auth.session, username: cloud.username });
 
   const challenges = useChallenges({
     supabase,
     username: cloud.username,
     onAccepted: () => {
-      // Challenger: friend accepted — they already joined, we open the race UI
-      setShowSocialModal(false);
-      setShowRace(true);
+      // Challenger: friend accepted — they already joined, so surface the room
+      // lobby. (This used to open a modal that rendered nothing and swallowed
+      // every keystroke.)
+      closeModal();
+      setRaceActive(false);
+      setCurrentStage('compete');
     },
+
   });
 
-  // H10: Memoize localRPGStats to prevent infinite re-renders in PlayerProfileModal
-  // which lists it as a dependency in its useEffect.
+  /**
+   * Local RPG stats for the dossier, memoised so the page's effects don't see a
+   * new object identity on every render.
+   *
+   * `undefined` for anyone else's dossier — that one reads `public_profiles`.
+   * A nameless `/operator` route is always your own, including for guests, who
+   * have no cloud username at all.
+   *
+   * The raw `history`, personal bests and achievement ids ride along because the
+   * dossier draws them directly (trend line, per-mode breakdown, PB board, badge
+   * grid) and localStorage is only worth touching once per open. None of it is
+   * available for a remote operator: `public_profiles` stores aggregates only,
+   * which is why those sections are marked private rather than zeroed.
+   */
   const localRPGStatsMemo = useMemo(() => {
-    if (!cloud.username || !selectedProfileUsername) return undefined;
-    if (selectedProfileUsername.toLowerCase() !== cloud.username.toLowerCase()) return undefined;
+    if (!dossierOpen) return undefined;
+    const isOwn = selectedProfileUsername
+      ? !!cloud.username && selectedProfileUsername.toLowerCase() === cloud.username.toLowerCase()
+      : true;
+    if (!isOwn) return undefined;
     const h: HistoryEntry[] = loadHistory();
+    const recent = h.slice(-20);
     return {
       level: rpg.userLevel,
       xp: rpg.xp,
       currentLevelProgress: rpg.currentLevelProgress,
       xpNeeded: rpg.xpNeeded,
+      bestCombo: rpg.bestCombo,
+      history: h,
+      personalBests: loadPersonalBests(),
+      achievements: rpg.unlockedAchievements,
       skillStats: {
         maxWpm: h.length ? Math.max(...h.map((e) => e.wpm)) : 0,
-        avgAccuracy: h.slice(-20).length ? Math.round(h.slice(-20).reduce((a, e) => a + e.acc, 0) / h.slice(-20).length) : 0,
+        avgAccuracy: recent.length ? Math.round(recent.reduce((a, e) => a + e.acc, 0) / recent.length) : 0,
         dailyStreak,
         testsCompleted: rpg.testsCompleted,
-        racesWon: 0,
+        racesWon,
         totalWordsTyped: h.reduce((a, e) => a + e.size, 0),
       }
     };
-  }, [cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, dailyStreak]);
+  }, [dossierOpen, cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, rpg.bestCombo, rpg.unlockedAchievements, dailyStreak, racesWon]);
 
   const handleChallengeFriend = (
     friendUsername: string,
@@ -389,27 +429,34 @@ function MainApp() {
     if (!cloud.username) return;
     const roomCode = makeRoomCode();
     race.createRoom(cloud.username, 2, undefined, cloud.elo, roomCode, auth.user?.id, false);
+    setPublicRoom(false); // a private duel with one named friend
     if (config) {
       race.updateLobbyConfig(config);
     }
     challenges.sendChallenge(friendUsername, roomCode, cloud.elo, config);
     const modeLabel = config ? `${config.mode}${config.words ? ` (${config.words}w)` : ''}` : '';
     toast.success(`Challenge ${modeLabel} sent to ${friendUsername}! Waiting…`, { icon: '⚔️' });
-    setShowSocialModal(false);
-    setShowRace(true);
+    closeModal();
+    setRaceActive(false);
+    setCurrentStage('compete');
   };
+
 
   // ─── Online Heartbeat ────────────────────────────────────────────
   useEffect(() => {
     if (!supabase || !auth.session?.user.id) return;
 
     const pingPresence = () => {
-      supabase?.from('profiles')
+      const request = supabase?.from('profiles')
         .update({ last_seen: new Date().toISOString() })
         .eq('id', auth.session!.user.id)
         .then(({ error }) => {
           if (error) console.error("Heartbeat error:", error);
         });
+      // A ping every 60s on a flaky connection is the most frequent write in
+      // the app; without this the first dropped one became an unhandled
+      // rejection. Missing a beat only costs a stale "online" dot.
+      if (request) fireAndForget(request, 'presence heartbeat');
     };
 
     // Ping immediately when the session becomes available
@@ -425,20 +472,75 @@ function MainApp() {
   // engine — the race just supplies the text and a shared start moment.
   const race = useRace({
     onStart: (text, startAt) => {
-      setShowRace(false);
       setRaceActive(true);
+      setCurrentStage('compete');
       // Reset engine but keep raceActive; disable modifier modes for fairness
       typing.resetEngine();
       typing.setTargetText(text);
       game.setZenMode(false); game.setMirroredMode(false); game.setDailyActive(false);
       game.setSuddenDeath(false); game.setBlindMode(false); game.setFogMode(false);
       game.setStickyKeysMode(false); game.setOverclockedMode(false);
-      // Sync the countdown to the host's clock so everyone starts together
-      const secsLeft = Math.max(1, Math.ceil((startAt - Date.now()) / 1000));
+      // Everyone counts down to the SAME absolute timestamp. Rounding the
+      // remaining time up to whole seconds used to let clients start up to a
+      // second apart, which quietly skewed the whole race.
+      typing.scheduleStart(startAt);
+      typing.setCountdownTimer(Math.max(1, Math.ceil((startAt - Date.now()) / 1000)));
       typing.setPhase('COUNTDOWN');
-      typing.setCountdownTimer(secsLeft);
     },
+
   });
+
+  // ─── Quick Match ─────────────────────────────────────────────────
+  // Presence key + host election need a stable, unique id per client. Guests
+  // have no auth uid, and two guests sharing one key collide in the queue.
+  const guestQueueId = useMemo(() => `guest-${Math.random().toString(36).slice(2, 10)}`, []);
+  const matchmaking = useMatchmaking(
+    supabase,
+    auth.user?.id || guestQueueId,
+    cloud.username || 'Player',
+    cloud.elo ?? 1000,
+  );
+
+  // ─── Open-room directory ─────────────────────────────────────────
+  // Presence-backed, so an advertised room disappears on its own when the
+  // host's tab closes.
+  const publicRoomAd = useMemo(() => (
+    race.isHost && race.status === 'lobby' && publicRoom && race.code
+      ? {
+        code: race.code,
+        host: cloud.username || 'Player',
+        size: race.roomSize || 4,
+        players: race.players.length,
+        mode: String(race.lobbyConfig.mode),
+        words: race.lobbyConfig.words,
+        ranked: isRankedMatch,
+      }
+      : null
+  ), [race.isHost, race.status, race.code, race.roomSize, race.players.length, race.lobbyConfig.mode, race.lobbyConfig.words, publicRoom, cloud.username, isRankedMatch]);
+
+  const roomDirectory = useRoomDirectory({
+    supabase,
+    publish: publicRoomAd,
+    selfCode: race.code,
+    enabled: currentStage === 'compete',
+  });
+
+  // Ranked history. Keyed on `cloud.elo` so it refetches itself the moment the
+  // ladder RPC hands back a new rating — the audit log has been written since
+  // the Elo migration shipped, but nothing ever read it back.
+  const rankedHistory = useRankedHistory({
+    supabase,
+    userId: auth.user?.id,
+    enabled: currentStage === 'compete' && isLoggedIn,
+    refreshKey: cloud.elo,
+  });
+
+  const toggleListRoomsPublicly = useCallback(() => {
+    const next = !listRoomsPublicly;
+    setListRoomsPublicly(next);
+    setPublicRoom(next);
+    try { localStorage.setItem('typenova_list_rooms', String(next)); } catch { }
+  }, [listRoomsPublicly]);
 
   // Handle URL share links
   useEffect(() => {
@@ -446,14 +548,15 @@ function MainApp() {
     const room = params.get('room') || params.get('race');
     if (room && room.length === 6) {
       const roomCode = room.toUpperCase();
-      setInitialRaceCode(roomCode);
       setRaceActive(false);
       setCurrentStage('compete');
       race.joinRoom(roomCode, cloud.username || 'Player', cloud.elo, auth.user?.id);
       // Clean up URL so it doesn't linger
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [cloud.username, cloud.elo, auth.user?.id, race]);
+    // Depends on `race.joinRoom` (stable), not on the whole `race` object —
+    // that was rebuilt every render, so this re-ran on every keystroke.
+  }, [cloud.username, cloud.elo, auth.user?.id, race.joinRoom]);
 
   // Rematch State Sync: when the room status returns to 'lobby' while a race was active,
   // unmount the Results screen and pull all connected clients back into the VS Lobby together!
@@ -591,7 +694,7 @@ function MainApp() {
         avgAccuracy: (() => { const h: HistoryEntry[] = loadHistory().slice(-20); return h.length ? Math.round(h.reduce((a: number, e: HistoryEntry) => a + e.acc, 0) / h.length) : 0; })(),
         testsCompleted: rpg.testsCompleted,
         dailyStreak,
-        racesWon: 0,
+        racesWon,
         totalWordsTyped: (() => { const h: HistoryEntry[] = loadHistory(); return h.reduce((a: number, e: HistoryEntry) => a + e.size, 0); })(),
       };
       const activeId = activeTitle;
@@ -607,7 +710,17 @@ function MainApp() {
         testsCompleted: stats.testsCompleted,
       });
     }
-  }, [rpg.xp, rpg.userLevel, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, cloud.status, cloud.pushProgress, cloud.username, activeTitle]);
+  }, [rpg.xp, rpg.userLevel, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, racesWon, cloud.status, cloud.pushProgress, cloud.username, activeTitle]);
+
+  // The Academy owns its own storage keys and is mounted well below this
+  // component, so none of its progress appears in the dependency list above.
+  // Until it announced itself, an evening spent entirely on lessons reached the
+  // cloud only on the next typing test or sign-in — and a device switch before
+  // then showed a skill tree missing every star earned that evening.
+  useEffect(() => {
+    if (cloud.status !== 'synced' || !cloud.username) return;
+    return onSyncEvent(ACADEMY_PROGRESS_CHANGED, () => cloud.pushProgress());
+  }, [cloud.status, cloud.username, cloud.pushProgress]);
 
   // Prefill the first-login "choose a name" prompt from the Google profile.
   useEffect(() => {
@@ -654,12 +767,16 @@ function MainApp() {
     game.setZenMode(false);
     setSaveStatus('');
     if (raceActive) {
+      // Dropping the room while the stage is still 'compete' left the user on a
+      // lobby with an empty room code and no way back, so land in practice.
       race.leave();
       setRaceActive(false);
+      setCurrentStage('practice');
     }
+
     rpg.resetRPGFlags();
     particles.clearAll();
-  }, [typing, rpg, particles, race, game.configRef, raceActive]);
+  }, [typing, rpg, particles, race.leave, game.configRef, raceActive]);
 
   useEffect(() => {
     handleResetRef.current = handleReset;
@@ -689,7 +806,9 @@ function MainApp() {
     launchDrill(keyChar === 'ENTER' ? words.join('\n') : words.join(' '));
   }, [launchDrill]);
 
-  // Lifetime-weakest keys (min 10 hits each, letters/digits only)
+  // Lifetime-weakest keys (min 10 hits each). Punctuation and digits are
+  // included on purpose — they are usually the weakest keys, and the drill
+  // generator preserves them.
   const smartDrillKeys = useMemo(() => {
     const worstKeys = Object.entries(rpg.heatmapData || {})
       .filter(([k, v]) => v.total >= 10 && k !== 'SPACE' && k !== 'ENTER')
@@ -789,27 +908,40 @@ function MainApp() {
     if (typing.phase !== 'FINISHED' || !typing.endTime || hasAutoSavedRef.current || game.microDrillActive) return;
     hasAutoSavedRef.current = true;
 
+    if (game.level === 'CUSTOM') {
+      setSaveStatus('CUSTOM MODE — NOT SAVED');
+      return;
+    }
+
     // Auto-save if logged in
     if (autoSave && supabase && auth.session && cloud.username) {
       const wpmVal = Math.round(typing.wpm);
       const accVal = Math.round(typing.accuracy);
       if (wpmVal > 0 && wpmVal <= 300 && accVal >= 0 && accVal <= 100) {
         setSaveStatus('Auto-saving...');
-        supabase.rpc('submit_score', {
-          p_wpm: wpmVal,
-          p_accuracy: accVal,
-          p_time_ms: finishDurationMs + typing.timePenalty,
-          p_log: typing.keystrokeLog.current,
-          p_daily: game.dailyActive,
-          p_day: todayKey(),
-        }).then(({ error }) => {
-          if (error) setSaveStatus(`Error: ${error.message}`);
-          else {
-            setSaveStatus('SCORE SAVED!');
-            fetchLeaderboard();
-            if (game.dailyActive) fetchDailyBoard();
-          }
-        });
+        // The RPC can reject as well as return an error (offline right after a
+        // test, request blocked). Reporting it in the same place keeps the
+        // results screen honest instead of leaving "Auto-saving..." on screen.
+        fireAndForget(
+          supabase.rpc('submit_score', {
+            p_wpm: wpmVal,
+            p_accuracy: accVal,
+            p_time_ms: finishDurationMs + typing.timePenalty,
+            p_log: typing.keystrokeLog.current,
+            p_daily: game.dailyActive,
+            p_day: todayKey(),
+          }).then(({ error }) => {
+            if (error) setSaveStatus(`Error: ${error.message}`);
+            else {
+              setSaveStatus('SCORE SAVED!');
+              fetchLeaderboard();
+              if (game.dailyActive) fetchDailyBoard();
+            }
+          }, () => {
+            setSaveStatus('SAVE FAILED — OFFLINE?');
+          }),
+          'score submit',
+        );
       }
     }
   }, [
@@ -820,6 +952,7 @@ function MainApp() {
     fetchLeaderboard,
     finishDurationMs,
     game.dailyActive,
+    game.level,
     game.microDrillActive,
     supabase,
     typing.accuracy,
@@ -845,6 +978,7 @@ function MainApp() {
     const statsInput = typing.input;
     const timeMs = typing.endTime - typing.startTime;
     const stats = typing.calculateStats(statsInput, timeMs, typing.timePenalty, typing.startTime);
+    const isCustom = game.level === 'CUSTOM';
 
     // Timed tests are rewarded/judged by what was actually typed, not the
     // oversized text buffer they run against.
@@ -853,8 +987,8 @@ function MainApp() {
     const effWordCount = isTimed ? typedWords : game.wordCount;
     const effLength = isTimed ? statsInput.length : typing.targetText.length;
 
-    // Quest Progression
-    if (stats.currentWpm > 0) {
+    // Quest Progression (custom mode excluded)
+    if (stats.currentWpm > 0 && !isCustom) {
       quests.progressQuest('words_typed', stats.currentWpm * (timeMs / 60000));
       quests.progressQuest('wpm_achieved', stats.currentWpm);
       quests.progressQuest('acc_achieved', stats.currentAcc);
@@ -863,13 +997,13 @@ function MainApp() {
     const result = rpg.processRPG(
       stats.currentWpm, stats.currentAcc, typing.maxCombo,
       effWordCount, effLength,
-      game.microDrillActive, typing.keystrokeLog.current,
+      game.microDrillActive || isCustom, typing.keystrokeLog.current,
       () => audio.playSound('levelup')
     );
 
     // Daily Challenge streak
     let streakNow = dailyStreak;
-    if (game.dailyActive && !game.microDrillActive) {
+    if (game.dailyActive && !game.microDrillActive && !isCustom) {
       const today = todayKey();
       let prevDaily: { lastDay: string; streak: number } | null = null;
       try { prevDaily = JSON.parse(localStorage.getItem('typezen_daily') || 'null'); } catch { /* corrupt — treat as fresh */ }
@@ -881,8 +1015,8 @@ function MainApp() {
       setDailyStreak(streakNow);
     }
 
-    // Result history for the stats dashboard (drills excluded)
-    if (!game.microDrillActive) {
+    // Result history for the stats dashboard (drills and custom mode excluded)
+    if (!game.microDrillActive && !isCustom) {
       appendHistory({
         d: new Date().toISOString(),
         wpm: stats.currentWpm, acc: stats.currentAcc, cons: stats.consistency,
@@ -892,7 +1026,7 @@ function MainApp() {
     }
 
     // Personal-best pace recording for the ghost pacer
-    if (!game.microDrillActive && game.level !== 'CUSTOM' && !game.mirroredMode && !game.dailyActive && stats.currentWpm > 0) {
+    if (!game.microDrillActive && !isCustom && !game.mirroredMode && !game.dailyActive && stats.currentWpm > 0) {
       try {
         const existing = JSON.parse(localStorage.getItem(pbStorageKey) || 'null');
         if (!existing || stats.currentWpm > existing.wpm) {
@@ -904,30 +1038,54 @@ function MainApp() {
       } catch { /* storage quota / corrupt entry — non-fatal */ }
     }
 
-    rpg.checkAchievements(
-      stats.currentWpm, stats.currentAcc, typing.maxCombo,
-      result.newXp, effWordCount,
-      game.suddenDeath, game.blindMode, game.fogMode, game.overclockedMode,
-      result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length,
-      isTimed, streakNow
-    );
+    if (!isCustom) {
+      rpg.checkAchievements(
+        // Lifetime record, not just this run's peak — "Unbreakable" (200 combo)
+        // was otherwise only reachable inside one uninterrupted test.
+        stats.currentWpm, stats.currentAcc, result.newBestCombo,
+        result.newXp, effWordCount,
+        game.suddenDeath, game.blindMode, game.fogMode, game.overclockedMode,
+        result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length,
+        isTimed, streakNow
+      );
+    }
 
     // Multiplayer: broadcast the final result. The RaceResultsScreen is
     // rendered automatically when raceActive + phase === FINISHED.
     if (raceActive) {
-      const errCount = typing.keystrokeLog.current.filter(k => k.isError).length;
-      const backspaceCount = typing.keystrokeLog.current.filter(k => k.key === 'Backspace').length;
-      race.sendFinish(stats.currentWpm, stats.currentAcc, timeMs, stats.rawWpm, stats.consistency, result.updatedHeatmap, errCount, backspaceCount);
+      const log = typing.keystrokeLog.current;
+      const errCount = log.filter(k => k.isError && !k.isBackspace).length;
+      const backspaceCount = log.filter(k => k.isBackspace).length;
+      race.sendFinish({
+        wpm: stats.currentWpm,
+        accuracy: stats.currentAcc,
+        timeMs,
+        rawWpm: stats.rawWpm,
+        consistency: stats.consistency,
+        keystrokes: log.length,
+        errorCount: errCount,
+        backspaceCount,
+        heatmap: result.updatedHeatmap,
+        // Without these the race results graph could only ever draw one curve
+        // and every award was computed against opponents "typing" 0 WPM.
+        timeline: typing.timelinePoints.map(p => ({ t: p.t, wpm: p.wpm })),
+        errorTimes,
+      });
     }
 
   }, [typing.phase, typing.endTime]);
 
   // ─── Multiplayer: broadcast live progress while racing ───────────
+  // `race.sendProgress` is a stable reference (see the actions object in
+  // useRace), so it belongs in the dep array. This used to mirror the entire
+  // `race` object into a ref, because `race` was rebuilt on every render and
+  // dragged this effect — and the presence `track()` behind it — along with it.
   useEffect(() => {
     if (!raceActive || typing.phase !== 'TYPING') return;
     const pct = typing.targetText.length > 0 ? (typing.input.length / typing.targetText.length) * 100 : 0;
-    race.sendProgress(pct, typing.wpm);
-  }, [raceActive, typing.phase, typing.input.length, typing.targetText.length, typing.wpm, race]);
+    race.sendProgress(pct, typing.wpm, typing.keystrokeLog.current.length, typing.accuracy);
+  }, [raceActive, typing.phase, typing.input.length, typing.targetText.length, typing.wpm, typing.accuracy, race.sendProgress]);
+
 
   // ─── Ref to always hold the latest typing state ─────────────────
   // Used by both timed-mode countdown and overclocked penalty so their
@@ -973,47 +1131,102 @@ function MainApp() {
   // Number/punctuation mixing only applies to the plain word pools
   const mutatable = game.level === 'NOVICE' || game.level === 'ADEPT';
 
-  const leaderboardClass = `transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-[opacity,transform] shrink-0 glass-panel rounded-[2rem] overflow-hidden ${shouldHideClutter ? 'w-0 opacity-0 translate-x-12 pointer-events-none p-0 border-transparent m-0 hidden lg:hidden' : 'w-full lg:w-[30%] p-6 md:p-8 opacity-100 translate-x-0'
+  // Width is owned by the parent grid's column definition now — this only
+  // controls the collapse animation. It used to also carry `lg:w-[30%]` and
+  // `shrink-0`, which fought with the arena's own `lg:w-[70%]` and left a
+  // rounding gap between the two panels at several widths.
+  const leaderboardClass = `transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-[opacity,transform] glass-panel rounded-[2rem] overflow-hidden ${shouldHideClutter ? 'w-0 opacity-0 translate-x-12 pointer-events-none p-0 border-transparent m-0 hidden lg:hidden' : 'w-full p-6 md:p-8 opacity-100 translate-x-0'
     }`;
 
   // ====== MEMOIZED HANDLERS FOR MODALS ======
-  const handleCloseModal = useCallback(() => setActiveModal(null), []);
   const handleStartWeaknessDrill = useCallback((drillText: string) => {
     typing.setTargetText(drillText);
-    setActiveModal(null);
+    closeModal();
     typing.resetEngine();
-  }, [typing.setTargetText, typing.resetEngine]);
-  const handleRaceCreate = useCallback((name: string, size?: number, isRanked?: boolean, roomCode?: string) => {
+  }, [typing.setTargetText, typing.resetEngine, closeModal]);
+  const handleRaceCreate = useCallback((name: string, size?: number, isRanked?: boolean, roomCode?: string, isPublic?: boolean) => {
     setIsRankedMatch(!!isRanked);
+    // Defaults to unlisted: paths that don't ask for a public room (quick match,
+    // challenges) must never leak one into the directory.
+    setPublicRoom(!!isPublic);
     race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked);
-  }, [race, cloud.elo, auth.user?.id]);
+  }, [race.createRoom, cloud.elo, auth.user?.id]);
   const handleRaceJoin = useCallback((code: string, name: string, isRanked?: boolean) => {
     setIsRankedMatch(!!isRanked);
     race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked);
-  }, [race, cloud.elo, auth.user?.id]);
+  }, [race.joinRoom, cloud.elo, auth.user?.id]);
+
+  // The queue only hands back a room code and a role; somebody still has to
+  // open the room. Nothing did that after RaceModal stopped being rendered,
+  // which is exactly why matchmaking was unreachable dead code.
+  const quickMatchActedRef = useRef<string | null>(null);
+  const handleQuickMatch = useCallback(() => {
+    quickMatchActedRef.current = null;
+    matchmaking.search();
+  }, [matchmaking.search]);
+
+  useEffect(() => {
+    const mm = matchmaking.state;
+    if (mm.status !== 'found' || !mm.roomCode) return;
+    if (quickMatchActedRef.current === mm.roomCode) return;
+    quickMatchActedRef.current = mm.roomCode;
+
+    // Elo can only move when the player has an account to move it on.
+    const ranked = isLoggedIn;
+    if (mm.isHost) {
+      handleRaceCreate(cloud.username || 'Player', 2, ranked, mm.roomCode);
+    } else {
+      handleRaceJoin(mm.roomCode, cloud.username || 'Player', ranked);
+    }
+    setRaceActive(false);
+    setCurrentStage('compete');
+    toast.success(`Matched with ${mm.opponentName || 'an opponent'}!`, { icon: '⚔️' });
+    matchmaking.clearMatch();
+  }, [matchmaking.state, matchmaking.clearMatch, isLoggedIn, cloud.username, handleRaceCreate, handleRaceJoin]);
+
+  // Leaving the compete stage has to leave the queue as well, otherwise a match
+  // can land while you're mid-test in practice and yank you into a race.
+  useEffect(() => {
+    if (currentStage !== 'compete' && matchmaking.state.status === 'searching') {
+      matchmaking.cancel();
+    }
+  }, [currentStage, matchmaking.state.status, matchmaking.cancel]);
   const handleRaceStart = useCallback((text?: string) => {
     race.startRace(text);
-  }, [race]);
+  }, [race.startRace]);
   const handleRaceLeave = useCallback(() => {
     race.leave();
     setRaceActive(false);
     setCurrentStage('practice');
     setIsRankedMatch(false);
-  }, [race]);
-  const previousModalRef = useRef<ModalType>(null);
-  const handleOpenProfile = useCallback((name: string) => {
-    setSelectedProfileUsername(name);
-    // Track the modal we're coming from (but don't record 'profile' as a previous state)
-    setActiveModal(prev => {
-      if (prev !== 'profile') previousModalRef.current = prev;
-      return 'profile';
-    });
-  }, []);
+  }, [race.leave]);
 
-  const handleProfileClose = useCallback(() => {
-    setActiveModal(previousModalRef.current);
-    previousModalRef.current = null;
-  }, []);
+  /**
+   * Opening a dossier is navigation now, not a dialog push. Any dialog on screen
+   * closes first — leaving the social modal mounted behind a full page would put
+   * two competing Escape handlers and two scroll containers on the same view.
+   *
+   * The name is encoded, so an operator whose handle needs escaping still gets a
+   * URL that round-trips.
+   */
+  const handleOpenProfile = useCallback((name: string) => {
+    closeModal();
+    const isSelf = !!cloud.username && name.toLowerCase() === cloud.username.toLowerCase();
+    // 'Guest' is the navbar's stand-in for a signed-out operator, not a handle
+    // anyone can hold, so it resolves to the nameless "my dossier" route.
+    navigate(isSelf || name === 'Guest' ? '/operator' : `/operator/${encodeURIComponent(name)}`);
+  }, [closeModal, cloud.username, navigate]);
+
+  /**
+   * Leaving the dossier. `-1` when there is somewhere to go back to, so the
+   * browser's own history is respected; a direct hit on a shared link has no
+   * such entry, and falls through to the app root.
+   */
+  const handleLeaveDossier = useCallback(() => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate('/', { replace: true });
+  }, [navigate]);
+
 
   const exitAcademy = useCallback(() => {
     setCurrentStage('practice');
@@ -1043,14 +1256,14 @@ function MainApp() {
     else game.changeWordCount(v);
   }, [game]);
   const handleChangeCodeLanguage = useCallback((lang: CodeLanguage) => game.changeCodeLanguage(lang), [game]);
-  const handleWatchReplay = useCallback(() => setActiveModal('replay'), []);
+  const handleWatchReplay = useCallback(() => openModal('replay'), [openModal]);
   const handleRetryDrill = useCallback(() => { launchDrill(typing.targetText); }, [launchDrill, typing.targetText]);
   const handleReturnToRoom = useCallback(() => {
     race.returnToLobby();
     setRaceActive(false);
     setCurrentStage('compete');
     typing.setPhase('CONFIGURING');
-  }, [race, typing.setPhase]);
+  }, [race.returnToLobby, typing.setPhase]);
   const handleRematchRace = handleReturnToRoom;
   const handleLeaveRace = useCallback(() => {
     race.leave();
@@ -1058,8 +1271,22 @@ function MainApp() {
     setIsRankedMatch(false);
     setCurrentStage('practice');
     handleReset();
-  }, [race, handleReset]);
+  }, [race.leave, handleReset]);
   const handleCloseAru = useCallback(() => setIsAruOpen(false), []);
+
+  /**
+   * A confirmed multiplayer win. Persisted through the progress snapshot (so it
+   * syncs and survives a device switch) and pushed into the daily quests, which
+   * have always had `races_won` templates that nothing could ever advance.
+   */
+  const handleRaceWon = useCallback(() => {
+    const snapshot = readLocalProgress();
+    writeLocalProgress({ ...snapshot, racesWon: snapshot.racesWon + 1 });
+    setRacesWon(snapshot.racesWon + 1);
+    quests.progressQuest('races_won', 1);
+    cloud.pushProgress();
+  }, [quests.progressQuest, cloud.pushProgress]);
+
   const handleSetThemeFont = useCallback((font: string) => {
     setThemeFont(font);
     localStorage.setItem('typezen_font', font);
@@ -1153,7 +1380,8 @@ function MainApp() {
             {...resultsProps}
             players={race.players}
             selfId={race.selfId ?? ''}
-            timelines={undefined}
+            timelines={race.timelines}
+
             isRanked={isRankedMatch}
             supabase={supabase}
             raceId={race.raceId}
@@ -1164,13 +1392,14 @@ function MainApp() {
             onReturnToRoom={handleReturnToRoom}
             onLeaveRace={handleLeaveRace}
             onUpdateElo={cloud.setElo}
+            onRaceWon={handleRaceWon}
           />
           {activeModal === 'replay' && (
             <ReplayModal
               targetText={typing.targetText}
               log={typing.keystrokeLog.current}
               theme={theme}
-              onClose={handleCloseModal}
+              onClose={closeModal}
             />
           )}
         </ErrorBoundary>
@@ -1198,7 +1427,7 @@ function MainApp() {
             targetText={typing.targetText}
             log={typing.keystrokeLog.current}
             theme={theme}
-            onClose={handleCloseModal}
+            onClose={closeModal}
           />
         )}
       </ErrorBoundary>
@@ -1215,6 +1444,9 @@ function MainApp() {
         gameConfig={game.configRef.current}
         gameActions={game}
         activeModal={activeModal}
+        // The dossier is a page, not a dialog, so it isn't in `activeModal` —
+        // without this every keystroke on it drove the test underneath.
+        keyboardBlocked={dossierOpen}
         raceActive={raceActive}
         theme={theme}
         tetrisEffect={tetrisEffect}
@@ -1281,7 +1513,13 @@ function MainApp() {
               transition={{ duration: 0.6, ease: "easeInOut" }}
               className="fixed inset-0 z-0 pointer-events-none"
             >
-              <CosmicLiquidShader theme={theme} isPaused={Boolean(activeModal)} />
+              {/* Paused on the dossier route. That page covers the viewport and
+                  paints its own reading scrim over this canvas, so the animation
+                  is work nobody can see — and it is a full-viewport per-pixel
+                  fragment shader (three octaves of simplex noise), so it is the
+                  most expensive thing running on that route. `activeModal`
+                  doesn't cover this case: the dossier is a page, not a dialog. */}
+              <CosmicLiquidShader theme={theme} isPaused={Boolean(activeModal) || dossierOpen} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -1302,20 +1540,21 @@ function MainApp() {
           onOpenPractice={() => {
             setCurrentStage('practice');
           }}
-          onOpenTrophies={() => isLoggedIn ? setShowTrophyRoom(true) : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })}
-          onOpenStats={() => isLoggedIn ? setShowStatsDashboard(true) : toast.error("Sign in to view Stats!", { icon: <Lock size={14} /> })}
+          onOpenTrophies={() => isLoggedIn ? openModal('trophy') : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })}
+          onOpenStats={() => isLoggedIn ? openModal('stats') : toast.error("Sign in to view Stats!", { icon: <Lock size={14} /> })}
           onOpenRace={() => {
-            if (race.status === 'idle') {
-              race.createRoom(cloud.username || 'Player', race.roomSize || 4, undefined, cloud.elo, undefined, auth.user?.id);
-            }
+            // Deliberately does NOT open a room. Auto-creating one here meant a
+            // failed handshake left the user in a lobby with a blank code; the
+            // compete stage now asks whether to host or join first.
             setRaceActive(false);
             setCurrentStage('compete');
           }}
-          onOpenSocial={() => isLoggedIn ? setShowSocialModal(true) : toast.error("Sign in to view Community!", { icon: <Lock size={14} /> })}
-          onOpenComms={() => isLoggedIn ? setShowCommsModal(true) : toast.error("Sign in to use Comms!", { icon: <Lock size={14} /> })}
-          onOpenSettings={() => setShowSettingsModal(true)}
-          onOpenDailyQuests={() => setShowDailyQuestsModal(true)}
-          activePage={currentStage}
+
+          onOpenSocial={() => isLoggedIn ? openModal('social') : toast.error("Sign in to view Community!", { icon: <Lock size={14} /> })}
+          onOpenComms={() => isLoggedIn ? openModal('comms') : toast.error("Sign in to use Comms!", { icon: <Lock size={14} /> })}
+          onOpenSettings={() => openModal('settings')}
+          onOpenDailyQuests={() => openModal('quests')}
+          activePage={dossierOpen ? 'dossier' : currentStage}
         />
 
         {/* Noise texture overlay removed to fix GPU rendering white screen bug */}
@@ -1327,8 +1566,22 @@ function MainApp() {
         {typing.phase === 'TYPING' && game.testMode === 'time' && typing.startTime ? (
           <TimedHud startTime={typing.startTime} duration={game.duration} theme={theme} />
         ) : (
-          <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[150]">
+          <div className="fixed top-0 left-0 h-1 bg-zinc-900 w-full z-[var(--z-hud)]">
             <div className={`h-full ${theme.solid} transition-all duration-200 ease-out ${theme.glow}`} style={{ width: `${progressPercent}%` }} />
+          </div>
+        )}
+
+        {/* Socket health. A dropped channel now retries in the background
+            instead of destroying the room, so it has to be visible somewhere
+            other than the lobby — including mid-race. */}
+        {race.connection === 'reconnecting' && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-[calc(var(--nav-h)+0.5rem)] left-1/2 -translate-x-1/2 z-[var(--z-hud)] flex items-center gap-2 px-4 py-2 rounded-full glass-pill border border-amber-500/40 bg-black/75 text-amber-300 font-mono text-[10px] font-black uppercase tracking-widest shadow-lg"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+            Reconnecting to room {race.code}…
           </div>
         )}
 
@@ -1340,6 +1593,22 @@ function MainApp() {
         )}
 
         {/* ═══ MAIN CONTENT ═══ */}
+        {/* The dossier route replaces the stage rather than covering it: two
+            fixed, scrollable panes on screen at once meant the wrong one caught
+            the wheel, and the stage kept running animations nobody could see.
+            It sits outside the stage `AnimatePresence` because it is not one of
+            the three stages — the presence group there only exists to give the
+            stage swap a direction. */}
+        {dossierOpen ? (
+          <OperatorDossier
+            routeUsername={selectedProfileUsername}
+            onBack={handleLeaveDossier}
+            supabase={supabase}
+            localUsername={cloud.username}
+            theme={theme}
+            localRPGStats={localRPGStatsMemo}
+          />
+        ) : (
         <AnimatePresence mode="wait" custom={stageDirection}>
           {currentStage === 'academy' ? (
             <motion.div
@@ -1349,9 +1618,9 @@ function MainApp() {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="fixed inset-0 top-[76px] z-20 flex flex-col bg-transparent overflow-y-auto custom-scrollbar"
+              className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex flex-col bg-transparent overflow-y-auto custom-scrollbar"
             >
-              <div className="w-full px-4 sm:px-8 md:px-10 lg:px-12 py-6 max-w-[1720px] mx-auto">
+              <div className="w-full px-4 sm:px-8 md:px-10 lg:px-12 py-6 max-w-[var(--w-ultra)] mx-auto">
                 <AcademyLayout onExit={exitAcademy} theme={theme} />
               </div>
             </motion.div>
@@ -1363,35 +1632,110 @@ function MainApp() {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="relative w-full px-2 md:px-6 pt-20 md:pt-22 pb-6 flex flex-col items-center z-10 max-w-[1600px] mx-auto transform-gpu will-change-transform"
+              // Own scroll container pinned under the navbar, like the academy
+              // stage. In document flow the whole page scrolled by ~100px even
+              // though the cockpit almost fits, because nothing capped the
+              // content to the viewport.
+              className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] overflow-y-auto custom-scrollbar transform-gpu will-change-transform"
             >
-              <LobbyScreen
-                code={race.code}
-                players={race.players}
-                roomSize={race.roomSize}
-                selfId={race.selfId ?? ''}
-                isHost={race.isHost}
-                lobbyConfig={race.lobbyConfig}
-                updateLobbyConfig={race.updateLobbyConfig}
-                updateRoomSize={race.updateRoomSize}
-                chatMessages={race.chatMessages}
-                sendChatMessage={race.sendChatMessage}
-                onStart={() => {
-                  if (!race.lobbyConfig) {
-                    handleRaceStart(generateText('ADEPT', 25));
-                    return;
-                  }
-                  const text = generateText(race.lobbyConfig.mode, race.lobbyConfig.words, '', false, { codeLanguage: race.lobbyConfig.language });
-                  handleRaceStart(text);
-                }}
-                onLeave={handleRaceLeave}
-                onJoinRoom={(targetCode) => {
-                  handleRaceJoin(targetCode, cloud.username || 'Player');
-                }}
-                theme={theme}
-                themeTextClass={theme.text}
-                isJoining={race.status === 'joining'}
-              />
+              {/* `xl:h-full` pins the cockpit to exactly one screen — its
+                  columns scroll internally instead of the page. Below xl the
+                  stacked layout genuinely can't fit, so it grows and this
+                  container scrolls. pb clears the fixed dock + changelog badge. */}
+              <div className="w-full max-w-[var(--w-wide)] mx-auto px-2 md:px-6 pt-4 pb-[calc(var(--dock-h)+1rem)] flex flex-col min-h-full xl:h-full">
+                {/* No live room yet → ask whether to host or join. Rendering the
+                  lobby in this state produced a dead screen: blank room code,
+                  empty slots, and a start button that could never fire. */}
+                {race.status === 'idle' || race.status === 'joining' ? (
+                  <CompeteEntryScreen
+                    username={cloud.username || 'Player'}
+                    theme={theme}
+                    themeTextClass={theme.text}
+                    defaultRoomSize={race.roomSize || 4}
+                    isBusy={race.status === 'joining'}
+                    error={race.error}
+                    multiplayerAvailable={!!supabase}
+                    emptyRoomCode={race.emptyRoomCode}
+                    quickMatchSlot={
+                      <QuickMatchPanel
+                        theme={theme}
+                        state={matchmaking.state}
+                        elo={cloud.elo ?? 1000}
+                        isLoggedIn={isLoggedIn}
+                        available={!!supabase}
+                        onSearch={handleQuickMatch}
+                        onCancel={matchmaking.cancel}
+                      />
+                    }
+                    // Browse + history go in the right rail. Stacked in the same
+                    // slot as quick match, they pushed "Create room" and "Join
+                    // room" ~1200px down the page.
+                    sidebarSlot={
+                      <>
+                        <RoomBrowser
+                          theme={theme}
+                          rooms={roomDirectory.rooms}
+                          busy={race.status === 'joining'}
+                          listPublicly={listRoomsPublicly}
+                          onToggleListPublicly={toggleListRoomsPublicly}
+                          onJoin={(targetCode) => {
+                            handleRaceJoin(targetCode, cloud.username || 'Player');
+                          }}
+                        />
+                        {/* Hidden for guests (no ladder to show) and when the Elo
+                          migration hasn't been applied. */}
+                        {isLoggedIn && !rankedHistory.unavailable && (
+                          <RankedHistoryPanel
+                            theme={theme}
+                            matches={rankedHistory.matches}
+                            loading={rankedHistory.loading}
+                            elo={cloud.elo ?? 1000}
+                          />
+                        )}
+                      </>
+                    }
+                    onHostCode={(targetCode) => {
+                      handleRaceCreate(cloud.username || 'Player', race.roomSize || 4, false, targetCode, listRoomsPublicly);
+                    }}
+                    onCreate={(size, isRanked) => {
+                      handleRaceCreate(cloud.username || 'Player', size, isRanked, undefined, listRoomsPublicly);
+                    }}
+                    onJoin={(targetCode) => {
+                      handleRaceJoin(targetCode, cloud.username || 'Player');
+                    }}
+                    onBack={() => setCurrentStage('practice')}
+                  />
+                ) : (
+                  <LobbyScreen
+                    code={race.code}
+                    players={race.players}
+                    roomSize={race.roomSize}
+                    selfId={race.selfId ?? ''}
+                    isHost={race.isHost}
+                    lobbyConfig={race.lobbyConfig}
+                    updateLobbyConfig={race.updateLobbyConfig}
+                    updateRoomSize={race.updateRoomSize}
+                    chatMessages={race.chatMessages}
+                    sendChatMessage={race.sendChatMessage}
+                    onStart={() => {
+                      const cfg = race.lobbyConfig;
+                      const text = generateText(cfg.mode, cfg.words, '', false, { codeLanguage: cfg.language });
+                      handleRaceStart(text);
+                    }}
+                    onLeave={handleRaceLeave}
+                    theme={theme}
+                    themeTextClass={theme.text}
+                    // The handshake spinner belongs to the entry screen now — the
+                    // lobby only renders once the room is actually live.
+                    isJoining={false}
+                    error={race.error}
+                    countdown={race.countdown}
+                    connection={race.connection}
+                    onToggleReady={race.setReady}
+                  />
+
+                )}
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -1401,59 +1745,74 @@ function MainApp() {
               initial="initial"
               animate="animate"
               exit="exit"
-              className={`relative w-full px-2 md:px-6 pt-20 md:pt-24 pb-8 flex flex-col z-10 transition-[max-width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] transform-gpu will-change-transform ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[1600px]'}`}
+              className={`relative w-full px-2 md:px-6 pt-[calc(var(--nav-h)+1.5rem)] pb-8 flex flex-col z-[var(--z-content)] transition-[max-width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] transform-gpu will-change-transform ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[var(--w-wide)]'}`}
             >
-              <main className={`relative z-10 flex flex-col lg:flex-row items-start gap-8 w-full transition-[margin,padding] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-center items-center mt-0' : 'mt-4 pb-20'}`}>
-                <div className="w-full flex flex-col lg:flex-row items-start gap-8">
-                  <PracticeArena
-                    game={game}
-                    typing={typing}
-                    particles={particles}
-                    theme={theme}
-                    shouldHideClutter={shouldHideClutter}
-                    levelOptions={levelOptions}
-                    lengthLocked={lengthLocked}
-                    mutatable={mutatable}
-                    pbGhost={pbGhost}
-                    otherRacePlayers={otherRacePlayers ?? []}
-                    handleChangeLevel={(val) => handleChangeLevel(val as Level)}
-                    handleLockedLevelClick={handleLockedLevelClick}
-                    handleChangeCountOrDuration={(val) => handleChangeCountOrDuration(Number(val))}
-                    handleChangeCodeLanguage={(val) => handleChangeCodeLanguage(val as CodeLanguage)}
-                    onSetCustomTargetText={(text) => typing.setTargetText(text)}
-                    onOpenGhostModal={() => setShowGhostModal(true)}
-                    onReset={() => handleReset()}
-                  />
+              {raceActive && (
+                <RaceTrack
+                  players={race.players}
+                  selfId={race.selfId ?? ''}
+                  theme={theme}
+                  roomCode={race.code}
+                  targetLength={typing.targetText.length}
+                  myProgress={progressPercent}
+                  myWpm={typing.wpm}
+                  myAccuracy={typing.accuracy}
+                  phase={typing.phase}
+                  countdown={typing.countdownTimer}
+                />
+              )}
+              {/* One grid, not a flex row wrapping a second identical flex row.
+                  The duplicated wrapper meant the arena/leaderboard split was
+                  described twice and the two descriptions could disagree. */}
+              <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-start gap-8 transition-[margin,padding] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_minmax(18rem,30%)] mt-4 pb-20'}`}>
+                <PracticeArena
+                  game={game}
+                  typing={typing}
+                  particles={particles}
+                  theme={theme}
+                  shouldHideClutter={shouldHideClutter}
+                  levelOptions={levelOptions}
+                  lengthLocked={lengthLocked}
+                  mutatable={mutatable}
+                  pbGhost={pbGhost}
+                  otherRacePlayers={otherRacePlayers ?? []}
+                  handleChangeLevel={(val) => handleChangeLevel(val as Level)}
+                  handleLockedLevelClick={handleLockedLevelClick}
+                  handleChangeCountOrDuration={(val) => handleChangeCountOrDuration(Number(val))}
+                  handleChangeCodeLanguage={(val) => handleChangeCodeLanguage(val as CodeLanguage)}
+                  onSetCustomTargetText={(text) => typing.setTargetText(text)}
+                  onOpenGhostModal={() => openModal('ghost')}
+                  onReset={() => handleReset()}
+                />
 
-                  <LeaderboardSidebar
-                    leaderboardClass={leaderboardClass}
-                    theme={theme}
-                    boardTab={boardTab}
-                    isLoggedIn={isLoggedIn}
-                    leaderboard={leaderboard}
-                    dailyBoard={dailyBoard}
-                    friendsBoard={friendsBoard}
-                    currentUsername={cloud.username}
-                    onTabChange={(tab) => {
-                      setBoardTab(tab);
-                      if (tab === 'today') fetchDailyBoard();
-                    }}
-                    onProfileClick={(uname) => {
-                      setSelectedProfileUsername(uname);
-                      setShowProfile(true);
-                    }}
-                    onChallengeFriend={(_uname) => {
-                      race.createRoom(cloud.username || 'Player', 2, undefined, cloud.elo, undefined, auth.user?.id);
-                      setRaceActive(true);
-                      setShowRace(true);
-                    }}
-                    onRemoveFriend={(uname) => friendsState.removeFriend(uname)}
-                  />
-                </div>
+                <LeaderboardSidebar
+                  leaderboardClass={leaderboardClass}
+                  theme={theme}
+                  boardTab={boardTab}
+                  isLoggedIn={isLoggedIn}
+                  leaderboard={leaderboard}
+                  dailyBoard={dailyBoard}
+                  friendsBoard={friendsBoard}
+                  currentUsername={cloud.username}
+                  onTabChange={(tab) => {
+                    setBoardTab(tab);
+                    if (tab === 'today') fetchDailyBoard();
+                  }}
+                  onProfileClick={handleOpenProfile}
+                  onChallengeFriend={(uname) => {
+                    // Opens a 1v1 room and shows the lobby. This used to flip
+                    // `raceActive` on with no race running, which dropped the
+                    // user into a keyboard-dead screen.
+                    handleChallengeFriend(uname);
+                  }}
+
+                  onRemoveFriend={(uname) => friendsState.removeFriend(uname)}
+                />
               </main>
             </motion.div>
           )}
         </AnimatePresence>
+        )}
 
         {/* Floating Bottom Controls */}
         <BottomControlsDock
@@ -1462,8 +1821,8 @@ function MainApp() {
           activeModal={activeModal}
           isAruOpen={isAruOpen}
           onToggleAru={() => setIsAruOpen(!isAruOpen)}
-          onOpenSettings={() => setShowSettingsModal(true)}
-          onOpenChangelog={() => setShowChangelog(true)}
+          onOpenSettings={() => openModal('settings')}
+          onOpenChangelog={() => openModal('changelog')}
           latestVersion={CHANGELOG[0].version}
           cloud={cloud}
           auth={auth}
@@ -1497,38 +1856,32 @@ function MainApp() {
           typing={typing}
           rpg={rpg}
           quests={quests}
-          race={race}
           friendsState={friendsState}
           challenges={challenges}
           dailyStreak={dailyStreak}
           pbGhost={pbGhost}
-          initialRaceCode={initialRaceCode}
           isRankedMatch={isRankedMatch}
-          selectedProfileUsername={selectedProfileUsername}
           tetrisEffect={tetrisEffect}
           isAruOpen={isAruOpen}
           shouldHideClutter={shouldHideClutter}
           nameInput={nameInput}
           nameErr={nameErr}
           savingName={savingName}
-          localRPGStatsMemo={localRPGStatsMemo}
           aruStats={aruStats}
           techAiState={techAiState}
           techModifiersMemo={techModifiersMemo}
           techCapabilities={techCapabilities}
-          onCloseModal={handleCloseModal}
+          onCloseModal={closeModal}
+          onOpenModal={openModal}
           onSelectTheme={selectTheme}
+
           onSelectSoundProfile={selectSoundProfile}
           onSetThemeFont={handleSetThemeFont}
           onStartWeaknessDrill={handleStartWeaknessDrill}
           onChallengeFriend={handleChallengeFriend}
           onOpenProfile={handleOpenProfile}
-          onCloseProfile={handleProfileClose}
-          onRaceCreate={handleRaceCreate}
-          onRaceJoin={handleRaceJoin}
-          onRaceStart={handleRaceStart}
-          onRaceLeave={handleRaceLeave}
           onSetTetrisEffect={setTetrisEffect}
+
           onToggleAru={() => setIsAruOpen(!isAruOpen)}
           onCloseAru={handleCloseAru}
           onStartSmartDrill={startSmartDrill}
@@ -1566,7 +1919,19 @@ export default function App() {
     <>
       <Routes>
         <Route path="/" element={<AuthGuard><MainApp /></AuthGuard>} />
+        {/*
+          The dossier mounts the same `MainApp`, so navigating to it keeps the
+          typing engine, the race channel and the cloud sync alive — it is a
+          view swap inside the running app, not a fresh boot that would drop an
+          in-progress room. Two paths: nameless for your own, named for anyone
+          else's shareable link.
+        */}
+        <Route path="/operator" element={<AuthGuard><MainApp /></AuthGuard>} />
+        <Route path="/operator/:username" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route path="/login" element={<Login />} />
+        {/* Anything else is a typo or a dead bookmark — send it home rather
+            than rendering a blank screen with no navigation. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster position="top-center" theme="dark" />
     </>

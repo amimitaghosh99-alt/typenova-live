@@ -1,0 +1,27 @@
+{
+    // Tailwind's directives are not part of the CSS standard, so VS Code's
+    // built-in CSS language service flags every one of them in src/index.css:
+    // the three @tailwind at the top and the two @apply inside @layer base.
+    // PostCSS processes them at build time (see postcss.config.js), so the
+    // warnings are noise -- but five permanent warnings train you to ignore the
+    // Problems panel, which is where real CSS mistakes would also show up.
+    "css.lint.unknownAtRules": "ignore",
+    "less.lint.unknownAtRules": "ignore",
+    "scss.lint.unknownAtRules": "ignore",
+
+    // Use the project's own TypeScript, not whichever version the editor
+    // bundles, so the Problems panel and `npm run build` cannot disagree about
+    // the same file.
+    "typescript.tsdk": "node_modules/typescript/lib",
+
+    // Vite resolves `@/*` to `src/*` through tsconfig paths; matching that here
+    // keeps auto-imports writing `@/lib/history` rather than a relative path.
+    "typescript.preferences.importModuleSpecifier": "non-relative",
+
+    // Renames and deletes are frequent here (the player profile modal became a
+    // route; history and personal-best storage moved into src/lib). Without
+    // these, the language server keeps reporting diagnostics for files that no
+    // longer exist and leaves imports pointing at the old paths.
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "javascript.updateImportsOnFileMove.enabled": "always"
+}

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase, fireAndForget } from '@/lib/supabase';
 import {
   readLocalProgress, writeLocalProgress, mergeProgress,
   type ProgressSnapshot, type HeatKey,
 } from '@/lib/progress';
+import { emitSyncEvent, PROGRESS_HYDRATED } from '@/lib/syncEvents';
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'needs-username';
 
@@ -15,6 +16,8 @@ export interface HydratePayload {
   tests: number;
   achievements: string[];
   heatmap: Record<string, HeatKey>;
+  /** Lifetime combo record — merged like every other progress value. */
+  bestCombo: number;
 }
 
 export interface PublicProfileSyncData {
@@ -76,48 +79,66 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     let active = true;
     (async () => {
       setStatus('syncing');
-      const { data, error } = await sb
-        .from('profiles')
-        .select('username, elo, data')
-        .eq('id', uid)
-        .maybeSingle();
-      if (!active) return;
+      // Every await below can reject outright (dropped connection, blocked
+      // request), not just return an `error` field. Unguarded, that rejected
+      // the whole IIFE — an unhandled rejection at window scope — and left the
+      // status pinned on 'syncing', so the UI showed a sync that never ended.
+      try {
+        const { data, error } = await sb
+          .from('profiles')
+          .select('username, elo, data')
+          .eq('id', uid)
+          .maybeSingle();
+        if (!active) return;
 
-      if (error) { setStatus('error'); return; }
-      if (!data) { setStatus('needs-username'); return; }
+        if (error) { setStatus('error'); return; }
+        if (!data) { setStatus('needs-username'); return; }
 
-      const row = data as unknown as ProfileRow;
-      setElo(row.elo ?? 1000);
-      const merged = mergeProgress(readLocalProgress(), row.data);
-      writeLocalProgress(merged);
-      hydrateRPG({
-        xp: merged.xp,
-        tests: merged.tests,
-        achievements: merged.achievements,
-        heatmap: merged.heatmap,
-      });
-      onHydratedRef.current?.();
+        const row = data as unknown as ProfileRow;
+        setElo(row.elo ?? 1000);
+        const merged = mergeProgress(readLocalProgress(), row.data);
+        writeLocalProgress(merged);
+        hydrateRPG({
+          xp: merged.xp,
+          tests: merged.tests,
+          achievements: merged.achievements,
+          heatmap: merged.heatmap,
+          bestCombo: merged.bestCombo,
+        });
+        // Academy progress is owned by a hook mounted inside the Academy page
+        // rather than by this one, and it loads from storage at mount. Signing in
+        // with the Academy already open would otherwise leave it holding the
+        // pre-merge copy, which the next cleared lesson would write straight back
+        // over the cloud values.
+        emitSyncEvent(PROGRESS_HYDRATED);
+        onHydratedRef.current?.();
 
-      await sb.from('profiles')
-        .update({ data: merged, updated_at: new Date().toISOString() })
-        .eq('id', uid);
-      
-      if (merged.consent) {
-        // Fire-and-forget insert into immutable audit table (ignores unique constraint duplicates)
-        sb.from('user_consents').insert({
-          user_id: uid,
-          agreed_at: merged.consent.timestamp,
-          legal_version: merged.consent.version,
-          scope: merged.consent.scope,
-          consent_method: merged.consent.consentMethod,
-        }).then();
+        await sb.from('profiles')
+          .update({ data: merged, updated_at: new Date().toISOString() })
+          .eq('id', uid);
+
+        if (merged.consent) {
+          // Insert into the immutable audit table (duplicates hit a unique
+          // constraint, which is fine — the row is already there).
+          fireAndForget(sb.from('user_consents').insert({
+            user_id: uid,
+            agreed_at: merged.consent.timestamp,
+            legal_version: merged.consent.version,
+            scope: merged.consent.scope,
+            consent_method: merged.consent.consentMethod,
+          }), 'consent audit insert');
+        }
+
+        if (!active) return;
+
+        syncedForUser.current = uid;
+        setUsername(row.username);
+        setStatus('synced');
+      } catch (err) {
+        console.warn('[cloudSync] initial sync failed:', err);
+        // Leave syncedForUser unset so the next session event retries.
+        if (active) setStatus('error');
       }
-
-      if (!active) return;
-
-      syncedForUser.current = uid;
-      setUsername(row.username);
-      setStatus('synced');
     })();
 
     return () => { active = false; };
@@ -132,26 +153,58 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     if (!sb || !session) return { ok: false, error: 'Not signed in' };
     const uid = session.user.id;
     const local = readLocalProgress();
-    const { error } = await sb
-      .from('profiles')
-      .insert({ id: uid, username: name, data: local });
-    if (error) {
-      if (/duplicate|unique/i.test(error.message)) return { ok: false, error: 'That name is taken' };
-      return { ok: false, error: 'Could not save name' };
+    // A rejected insert (offline, blocked request) used to escape as a rejected
+    // promise: the caller's `await` threw inside a click handler, so the modal
+    // kept its spinner forever and the rejection landed at window scope.
+    try {
+      const { error } = await sb
+        .from('profiles')
+        .insert({ id: uid, username: name, data: local });
+      if (error) {
+        // A 23505 on the primary key means this account already has a profile
+        // (a second tab got there first) — the name is not what's wrong, so
+        // don't send the user off to invent a new one.
+        if (error.code === '23505' && /pkey|primary key/i.test(`${error.message} ${error.details ?? ''}`)) {
+          return { ok: false, error: 'Profile already created — reload the page' };
+        }
+        if (/duplicate|unique/i.test(error.message)) return { ok: false, error: 'That name is taken' };
+        return { ok: false, error: 'Could not save name' };
+      }
+
+      if (local.consent) {
+        fireAndForget(sb.from('user_consents').insert({
+          user_id: uid,
+          agreed_at: local.consent.timestamp,
+          legal_version: local.consent.version,
+          scope: local.consent.scope,
+          consent_method: local.consent.consentMethod,
+        }), 'consent audit insert');
+      }
+
+      // H8: Also seed a row in public_profiles so others don't see 'PLAYER NOT FOUND'.
+      //
+      // Upsert, not insert. This runs whenever `profiles` has no row for the
+      // account, which does not guarantee `public_profiles` has none either —
+      // the two are written separately, nothing rolls one back if the other
+      // fails, and 20260806000001 backfilled this table on its own. An insert
+      // in that state died on the primary key with 23505, leaving the account
+      // invisible to everyone else.
+      //
+      // Only `id` and `username` are in the payload, so ON CONFLICT DO UPDATE
+      // rewrites those two columns and leaves accumulated stats intact. RLS
+      // allows it: the table has both a self-insert and a self-update policy
+      // (20260806000000), and an upsert needs the pair. `username` carries its
+      // own unique constraint, so a name held by a *different* row still fails
+      // — logged and dropped, since the name is already claimed in `profiles`
+      // by the time we get here.
+      fireAndForget(
+        sb.from('public_profiles').upsert({ id: uid, username: name }, { onConflict: 'id' }),
+        'public profile seed',
+      );
+    } catch (err) {
+      console.warn('[cloudSync] saveUsername failed:', err);
+      return { ok: false, error: 'Network error — try again' };
     }
-    
-    if (local.consent) {
-      sb.from('user_consents').insert({
-        user_id: uid,
-        agreed_at: local.consent.timestamp,
-        legal_version: local.consent.version,
-        scope: local.consent.scope,
-        consent_method: local.consent.consentMethod,
-      }).then();
-    }
-    
-    // H8: Also insert a default row into public_profiles so others don't see 'PLAYER NOT FOUND'
-    await sb.from('public_profiles').insert({ id: uid, username: name });
     syncedForUser.current = uid;
     setUsername(name);
     setStatus('synced');
@@ -165,36 +218,41 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     const uid = session.user.id;
     if (pushTimer.current) clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(() => {
-      sb.from('profiles')
-        .update({ data: readLocalProgress(), updated_at: new Date().toISOString() })
-        .eq('id', uid)
-        .then(undefined, () => { /* offline / transient — next push retries */ });
+      // Offline / transient failures are expected here; the next push retries.
+      fireAndForget(
+        sb.from('profiles')
+          .update({ data: readLocalProgress(), updated_at: new Date().toISOString() })
+          .eq('id', uid),
+        'progress push',
+      );
 
       if (extraData && username) {
-        sb.from('public_profiles')
-          .upsert({
-            id: uid,
-            username,
-            level: extraData.level || 1,
-            xp: extraData.xp || 0,
-            equipped_title: extraData.equippedTitle || 'novice',
-            unlocked_badges: extraData.unlockedBadges || ['novice'],
-            max_wpm: extraData.maxWpm || 0,
-            avg_acc: extraData.avgAcc || 0,
-            tests_completed: extraData.testsCompleted || 0,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'id' })
-          .then(undefined, () => {});
+        fireAndForget(
+          sb.from('public_profiles')
+            .upsert({
+              id: uid,
+              username,
+              level: extraData.level || 1,
+              xp: extraData.xp || 0,
+              equipped_title: extraData.equippedTitle || 'novice',
+              unlocked_badges: extraData.unlockedBadges || ['novice'],
+              max_wpm: extraData.maxWpm || 0,
+              avg_acc: extraData.avgAcc || 0,
+              tests_completed: extraData.testsCompleted || 0,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'id' }),
+          'public profile push',
+        );
       }
     }, PUSH_DEBOUNCE_MS);
   }, [session, username]);
 
-  return { 
-    username: session ? username : null, 
+  return {
+    username: session ? username : null,
     elo: session ? elo : 1000,
     setElo,
-    status: session ? status : 'idle', 
-    saveUsername, 
-    pushProgress 
+    status: session ? status : 'idle',
+    saveUsername,
+    pushProgress
   };
 }

@@ -6,6 +6,13 @@ export interface TitleBadge {
   icon: string;
   color: string;
   isUnlocked: (stats: UserSkillStats) => boolean;
+  /**
+   * Progress toward the unlock, read by the dossier's title registry so a
+   * locked row can show *how close* you are instead of a bare padlock. Reads
+   * the same thresholds `isUnlocked` checks — omitted for titles that are
+   * granted outright.
+   */
+  progress?: (stats: UserSkillStats) => { current: number; target: number; unit: string };
 }
 
 export interface UserSkillStats {
@@ -35,6 +42,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '⚡',
     color: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
     isUnlocked: (s) => s.maxWpm >= 90,
+    progress: (s) => ({ current: s.maxWpm, target: 90, unit: 'WPM' }),
   },
   {
     id: 'lightning',
@@ -44,6 +52,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '🌩️',
     color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
     isUnlocked: (s) => s.maxWpm >= 120,
+    progress: (s) => ({ current: s.maxWpm, target: 120, unit: 'WPM' }),
   },
   {
     id: 'warp_speed',
@@ -53,6 +62,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '🚀',
     color: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
     isUnlocked: (s) => s.maxWpm >= 150,
+    progress: (s) => ({ current: s.maxWpm, target: 150, unit: 'WPM' }),
   },
   {
     id: 'precision_master',
@@ -62,6 +72,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '🎯',
     color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
     isUnlocked: (s) => s.avgAccuracy >= 98 && s.testsCompleted >= 5,
+    progress: (s) => ({ current: s.avgAccuracy, target: 98, unit: '% ACC' }),
   },
   {
     id: 'marathoner',
@@ -71,6 +82,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '🏃',
     color: 'text-sky-400 border-sky-500/30 bg-sky-500/10',
     isUnlocked: (s) => s.testsCompleted >= 50,
+    progress: (s) => ({ current: s.testsCompleted, target: 50, unit: 'TESTS' }),
   },
   {
     id: 'iron_will',
@@ -80,6 +92,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '🛡️',
     color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10',
     isUnlocked: (s) => s.testsCompleted >= 200,
+    progress: (s) => ({ current: s.testsCompleted, target: 200, unit: 'TESTS' }),
   },
   {
     id: 'streak_master',
@@ -89,6 +102,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '🔥',
     color: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
     isUnlocked: (s) => s.dailyStreak >= 7,
+    progress: (s) => ({ current: s.dailyStreak, target: 7, unit: 'DAYS' }),
   },
   {
     id: 'race_champion',
@@ -98,6 +112,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     icon: '🏆',
     color: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
     isUnlocked: (s) => s.racesWon >= 5,
+    progress: (s) => ({ current: s.racesWon, target: 5, unit: 'WINS' }),
   },
 ];
 

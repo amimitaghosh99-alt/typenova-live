@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.0] - 2026-08-27
+
+### Added
+- **Dedicated Operator Dossier**: Full-route `/operator/:username` and `/operator` profile deck with sticky identity rail, level rings, title equip system, and smooth panel transitions.
+- **Per-Key Error & Speed Heatmap**: 27-key interactive keyboard telemetry view with hesitation/typo tracking and procedural & AI drill generation.
+- **Catmull-Rom History Sparklines**: 1:1 SVG trend graphs with accurate stroke draw-on physics, peak drop indicators, and glow highlights.
+- **Tactical Compete Arena Overhaul**: Widescreen room browser, quick match system, live lobby chat & telemetry stream, and persistent post-race retention.
+- **Cosmetic Forge & Banner Upgrades**: Complete banner/avatar progression system with live theme-reactive particle and shader sync.
+- **Unified App Chrome (`useAppChrome`)**: Consolidated layout offsets and pinned `CosmicNavBar`.
+
+### Changed
+- Converted profile modal to dedicated full-page dossier.
+- Upgraded theme token system for dynamic accent color derivation.
+
+### Fixed
+- Fixed SVG sparkline non-scaling geometry bug across variable card widths.
+- Fixed JSX comment syntax in HistorySparkline.
+
+## [2.6.0] - 2026-08-25
+
+### Added
+- Full Academy Curriculum: 64 lessons across 10 progressive tracks with 3-star grading.
+- Live Passage Rail with per-character state.
+- Card-to-Stage Handoff animations.
+
 ## [2.1.0] - 2026-08-10
 
 ### Added

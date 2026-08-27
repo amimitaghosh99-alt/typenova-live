@@ -2,48 +2,10 @@ import { useMemo, memo, useState } from 'react';
 import { X, BarChart2, Activity, Target, Clock, Trophy, TrendingUp, CheckCircle, Keyboard, Zap, Loader2 } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import { readLocalProgress } from '@/lib/progress';
+import { loadPersonalBests } from '@/lib/personalBests';
+import { loadHistory, type HistoryEntry } from '@/lib/history';
 import { useSmartDrills } from '@/hooks/useSmartDrills';
 import { toast } from 'sonner';
-
-export interface HistoryEntry {
-  /** ISO date */
-  d: string;
-  wpm: number;
-  acc: number;
-  cons: number;
-  level: string;
-  mode: 'words' | 'time';
-  size: number;
-}
-
-export const HISTORY_KEY = 'typezen_history';
-export const HISTORY_CAP = 500;
-
-export function loadHistory(): HistoryEntry[] {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
-}
-
-export function appendHistory(entry: HistoryEntry) {
-  const next = [...loadHistory(), entry].slice(-HISTORY_CAP);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-}
-
-function loadPersonalBests(): Array<{ label: string; wpm: number }> {
-  const out: Array<{ label: string; wpm: number }> = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key?.startsWith('typezen_pb:')) continue;
-    try {
-      const pb = JSON.parse(localStorage.getItem(key) || 'null');
-      if (!pb?.wpm) continue;
-      const [, level, cfg] = key.split(':');
-      const label = `${level} · ${cfg.startsWith('t') ? cfg.slice(1) + 's' : cfg.slice(1) + ' words'}`;
-      out.push({ label, wpm: pb.wpm });
-    } catch { /* ignore corrupt entries */ }
-  }
-  return out.sort((a, b) => b.wpm - a.wpm);
-}
-
 
 // Simple polyline over the last N entries, same visual language as the
 // expanded pacing graph in App.tsx.

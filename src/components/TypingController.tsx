@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Theme } from '@/data/constants';
+import type { ModalState } from '@/lib/layout';
 import type { useTypingEngine } from '@/hooks/useTypingEngine';
 import type { useAudioEngine } from '@/hooks/useAudioEngine';
 import type { useRPGSystem } from '@/hooks/useRPGSystem';
@@ -15,7 +16,20 @@ interface TypingControllerProps {
   gameConfig: GameConfigState;
   gameActions: ReturnType<typeof useGameConfig>;
 
-  activeModal: string | null;
+  /**
+   * Any open dialog swallows keystrokes. Typed against the shared union so a
+   * modal key that no longer exists can't be passed in — a `'race'` value that
+   * rendered nothing used to make this component eat every key with no visible
+   * dialog to close.
+   */
+  activeModal: ModalState;
+  /**
+   * A full-page route that owns the keyboard (the operator dossier). Dialogs are
+   * covered by `activeModal`, but a page is not in that union — and this
+   * controller is mounted app-wide, so without this every keystroke on the
+   * dossier still drove the typing test underneath it.
+   */
+  keyboardBlocked?: boolean;
   raceActive: boolean;
   theme: Theme;
   tetrisEffect: boolean;
@@ -33,6 +47,7 @@ export function TypingController({
   gameConfig,
   gameActions,
   activeModal,
+  keyboardBlocked = false,
   raceActive,
   theme,
   tetrisEffect,
@@ -40,21 +55,21 @@ export function TypingController({
   onReset,
   onExitMicroDrill,
 }: TypingControllerProps) {
-  
+
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use a ref to store the latest props so the keydown listener doesn't need to re-bind
   // and trigger GC thrashing on every keystroke.
   const stateRef = useRef({
     typing, audio, rpg, particles, gameConfig, gameActions,
-    activeModal, raceActive, theme, tetrisEffect,
+    activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
     onUnlockGodMode, onReset, onExitMicroDrill
   });
-  
+
   useEffect(() => {
     Object.assign(stateRef.current, {
       typing, audio, rpg, particles, gameConfig, gameActions,
-      activeModal, raceActive, theme, tetrisEffect,
+      activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
       onUnlockGodMode, onReset, onExitMicroDrill
     });
   });
@@ -70,18 +85,21 @@ export function TypingController({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const s = stateRef.current;
-      const { 
-        typing, audio, rpg, particles, gameConfig, gameActions, 
-        activeModal, raceActive, theme, tetrisEffect,
+      const {
+        typing, audio, rpg, particles, gameConfig, gameActions,
+        activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
         onUnlockGodMode, onReset, onExitMicroDrill
       } = s;
-      
+
       const cfg = gameConfig;
 
       // Modal escape handling is now ONLY for typing flow interruptions here.
       // Global modal closing (Escape to close settings) should ideally be handled by App.tsx,
       // but we ignore keystrokes if a modal is open.
       if (activeModal) return;
+      // Same for a route that owns the keyboard, e.g. the operator dossier —
+      // it has its own Escape and arrow-key handling.
+      if (keyboardBlocked) return;
 
       // Any focused text field owns the keyboard — the floating Aru chat widget
       // is not part of the activeModal machine, so without this the phase

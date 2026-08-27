@@ -5,7 +5,75 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── LAYOUT TOKENS ──────────────────────────────────────────────────
+   Mirrors `Z`, `CONTAINER` and `CHROME_VARS` in src/lib/layout.ts.
+   Deliberately outside @layer so these are never purged and are always
+   resolvable from Tailwind arbitrary values like `z-[var(--z-nav)]`.
+
+   Before these existed the app carried 20 ad-hoc z-index values, four
+   different hardcoded guesses at the navbar height, and five unexplained
+   content widths. Do not add a raw z-index or a pixel nav offset — add a
+   layer here and in layout.ts, in the same commit. */
+:root {
+  /* Stacking order, lowest first. */
+  --z-canvas: 0;
+  /* shader, wallpaper, grid overlay */
+  --z-content: 10;
+  /* stage pages */
+  --z-content-pop: 20;
+  /* in-stage popovers, dropdowns, card overlays */
+  --z-nav: 100;
+  /* CosmicNavBar */
+  --z-dock: 200;
+  /* BottomControlsDock, changelog badge, toasts stack */
+  --z-hud: 300;
+  /* progress bar, timed HUD, reconnect banner */
+  --z-countdown: 400;
+  /* fullscreen race countdown — must cover the nav */
+  --z-modal: 500;
+  /* Dialog overlay + content */
+  --z-modal-nested: 600;
+  /* a dialog opened from a dialog */
+  --z-palette: 700;
+  /* command palette */
+  --z-aru: 800;
+  /* AI assistant panel */
+  --z-toast: 900;
+  /* sonner */
+  --z-transition: 1000;
+  /* full-screen wipes */
+
+  /* The only three content widths in the app. */
+  --w-narrow: 1100px;
+  /* forms, entry cards, results */
+  --w-wide: 1600px;
+  /* practice arena, compete lobby */
+  --w-ultra: 1720px;
+  /* academy skill tree */
+
+  /* First-paint fallbacks ONLY — useAppChrome measures the real elements
+     with a ResizeObserver and overwrites both on mount. The navbar is not a
+     fixed height: its tallest child is `hidden lg:flex`, so it genuinely
+     shrinks below the lg breakpoint. */
+  --nav-h: 76px;
+  --dock-h: 72px;
+
+  /* Typing surface, written by useTypingPrefs. */
+  --type-size: 24px;
+  --type-leading: 1.8;
+}
+
+/* Visible keyboard focus. Every interactive surface in the app previously
+   relied on `focus:outline-none` with no replacement indicator, which made
+   keyboard navigation untrackable. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid rgb(125 244 255);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
 @layer base {
+
   :root {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
@@ -146,6 +214,27 @@
   border-color: rgba(255, 255, 255, 0.5);
   box-shadow: 0 0 30px rgba(255, 255, 255, 0.2), inset 0 0 15px rgba(255, 255, 255, 0.15);
 }
+
+/* Nav Pill — capsule for controls that sit ON the navbar glass.
+   .glass-pill is built to float over page content, so its fill
+   (rgba(10,12,18,0.75)) is darker than the bar it was being dropped into
+   (.glass-panel is rgba(18,18,22,0.65) plus a white sheen). Every pill in the
+   header therefore read as a black hole punched through it. This is the same
+   capsule lifted the other way — lighter than its parent, no black drop
+   shadow, and no nested backdrop blur, since the bar already blurs. */
+.nav-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.nav-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
 
 /* Text glow utilities */
 .text-glow {
@@ -311,6 +400,367 @@
     background-image:
       linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.05) 35%, rgba(255, 255, 255, 0.02) 60%, rgba(255, 255, 255, 0.08) 100%);
   }
+}
+
+/* ─── LIQUID GLASS: .glass-card ───────────────────────────────────────
+   A panel that sits *inside* another glass surface.
+
+   `.glass-panel` cannot be nested cheaply: it carries its own
+   backdrop-filter, and a blurred layer inside an already-blurred layer
+   both costs a second full-surface filter pass and reads muddy, because
+   the child samples a backdrop that has already lost its detail. The
+   operator dossier stacks up to a dozen cards inside one glass shell,
+   which is exactly that case.
+
+   So this tier keeps everything that makes the material read as glass —
+   the diagonal wash, the specular rim, the inner shadow — and drops the
+   blur, letting the parent's blur show through. Use `.glass-panel` for a
+   surface that floats over page content, `.glass-card` for a surface
+   inside one.
+   ────────────────────────────────────────────────────────────────── */
+.glass-card {
+  position: relative;
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.025) 42%, rgba(255, 255, 255, 0.01) 70%, rgba(255, 255, 255, 0.05) 100%),
+    rgba(255, 255, 255, 0.018);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -14px 24px -20px rgba(0, 0, 0, 0.45),
+    0 2px 10px rgba(0, 0, 0, 0.22);
+  transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.glass-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 1px 1px 1px -1px rgba(255, 255, 255, 0.4),
+    inset -1px -1px 1px -1px rgba(255, 255, 255, 0.16);
+}
+
+/* ─── Sparkline ───────────────────────────────────────────────────────
+   The form curve's draw-on. Previously a framer `pathLength` tween, which
+   writes `stroke-dasharray` from JS every frame — and, combined with the
+   chart's `preserveAspectRatio="none"` stretch and `non-scaling-stroke`,
+   computed the dash pattern in a different coordinate space from the path
+   length it was derived from. That is what left the line stopping partway
+   across the card. The chart now draws 1:1 and the dash is declarative.
+   ────────────────────────────────────────────────────────────────── */
+@keyframes spark-draw {
+  from {
+    stroke-dashoffset: var(--spark-len, 1000);
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.spark-line {
+  /* One dash long enough to cover the whole path, then one gap of the same
+     length — so offsetting by `--spark-len` hides it and 0 reveals all of it,
+     with no repeat to produce a visible seam. */
+  stroke-dasharray: var(--spark-len, 1000) var(--spark-len, 1000);
+  animation: spark-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes spark-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.spark-area {
+  animation: spark-fade 600ms ease-out 200ms backwards;
+}
+
+@keyframes spark-head-in {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+
+.spark-head {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spark-head-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) 700ms backwards;
+}
+
+/* ─── Dossier ambience ────────────────────────────────────────────────
+   The decorative loops on the dossier — the conic halo behind the avatar,
+   the hex-dump marquee, the live-link ping, the banner's drift — were all
+   framer-motion `repeat: Infinity` animations. Those are driven from JS, so
+   they were writing styles on every single frame the page was open,
+   including every frame a tab switch needed. Nothing here is interactive or
+   data-driven, so none of it needed to be in JS.
+   ────────────────────────────────────────────────────────────────── */
+@keyframes fx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fx-spin {
+  animation: fx-spin var(--fx-spin-dur, 11s) linear infinite;
+}
+
+/* Hex-dump ribbon. The row is rendered twice, so -50% is a seamless loop. */
+@keyframes fx-marquee {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.fx-marquee {
+  animation: fx-marquee var(--fx-marquee-dur, 22s) linear infinite;
+  will-change: transform;
+}
+
+/* Expanding ring on the "link live" dot. */
+@keyframes fx-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+
+  70%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.fx-ping {
+  animation: fx-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* A slow parallax breath on the identity banner. One composited transform on
+   the whole scene, in place of up to fourteen JS-animated motes inside it. */
+@keyframes fx-banner-drift {
+
+  0%,
+  100% {
+    transform: scale(1.06) translate3d(-1%, 0, 0);
+  }
+
+  50% {
+    transform: scale(1.06) translate3d(1%, -1.5%, 0);
+  }
+}
+
+.fx-banner-drift {
+  animation: fx-banner-drift 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Segmented XP meter. Each lit segment pops in on a per-index delay, set
+   inline — the delay is data (segment count varies), the animation is not. */
+@keyframes fx-segment-pop {
+  from {
+    opacity: 0;
+    transform: scaleY(0.35);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.fx-segment {
+  animation: fx-segment-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+/* Keycap RGB bleed. Blurred *and* looping, so as a JS animation it re-rendered
+   a filtered layer every frame — 24 of them at once in the loadout forge. */
+@keyframes fx-bleed {
+
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 0.95;
+  }
+}
+
+.fx-bleed {
+  animation: fx-bleed 3.4s ease-in-out infinite;
+}
+
+/* Loading-bar shimmer, staggered by an inline per-index delay. */
+@keyframes fx-pulse {
+
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.fx-pulse {
+  animation: fx-pulse 1.1s ease-in-out infinite;
+}
+
+/* Sliding indicator under the tab strip.
+
+   Replaces a framer `layoutId` pair. Shared-layout projection measures the
+   outgoing *and* incoming element and writes transforms from JS on the one
+   frame React is also mounting a whole new panel — the single most expensive
+   moment on the page, made worse by the effect meant to smooth it. Position
+   and width come from two custom properties instead, so the slide is one
+   composited transform the compositor owns. */
+.dossier-glider {
+  position: absolute;
+  left: 0;
+  transform: translate3d(var(--glider-x, 0), 0, 0);
+  width: var(--glider-w, 0);
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, width;
+}
+
+/* Before the first measurement lands there is no meaningful position, so the
+   indicator must not animate in from x=0 — it would visibly fly across the
+   strip on mount. */
+.dossier-glider[data-ready="false"] {
+  opacity: 0;
+  transition: none;
+}
+
+/* ─── Operator dossier motion ─────────────────────────────────────────
+   The dossier's cards used to enter through framer-motion variants: a
+   `listParent`/`listChild` stagger, one JS-driven spring per card. Opening
+   the Badges tab meant 17 concurrent springs — plus 17 layout projections
+   from `layout="position"` on the Titles tab — running on the main thread
+   on the very frames React was mounting the panel. That is what the tab
+   switch felt like.
+
+   Same entrances, as CSS animations: the compositor runs them off the main
+   thread, the stagger is a bounded `nth-child` cascade, and the cost of the
+   eighteenth card is zero.
+   ────────────────────────────────────────────────────────────────── */
+@keyframes dossier-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Put this on a grid or column; its direct children rise in sequence.
+
+   `backwards`, not `both`. A filled-forwards animation keeps ownership of
+   `transform` after it finishes, and animations beat declared styles — so with
+   `both` the hover lift on every stat tile and title card was silently dead
+   once its entrance had played. `backwards` holds the from-state through the
+   delay and then releases the property. */
+.dossier-stagger>* {
+  animation: dossier-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.dossier-stagger>*:nth-child(1) {
+  animation-delay: 20ms;
+}
+
+.dossier-stagger>*:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.dossier-stagger>*:nth-child(3) {
+  animation-delay: 100ms;
+}
+
+.dossier-stagger>*:nth-child(4) {
+  animation-delay: 140ms;
+}
+
+.dossier-stagger>*:nth-child(5) {
+  animation-delay: 180ms;
+}
+
+.dossier-stagger>*:nth-child(6) {
+  animation-delay: 220ms;
+}
+
+.dossier-stagger>*:nth-child(7) {
+  animation-delay: 260ms;
+}
+
+/* Everything past the seventh shares one delay. An unbounded cascade gave a
+   17-badge grid a 700ms tail, so the last cards arrived long after the tab
+   had stopped feeling like it was still loading. */
+.dossier-stagger>*:nth-child(n+8) {
+  animation-delay: 300ms;
+}
+
+/* The panel itself. Direction comes from `data-dir`, so tabbing right slides
+   the new panel in from the right and tabbing left from the left — the
+   carousel read the old framer variant was going for, at a composited 14px
+   instead of a JS-driven 46px with a blur tween on a full-width element. */
+@keyframes dossier-panel-fwd {
+  from {
+    opacity: 0;
+    transform: translate3d(14px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes dossier-panel-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-14px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dossier-panel-in {
+  animation: dossier-panel-fwd 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.dossier-panel-in[data-dir="-1"] {
+  animation-name: dossier-panel-back;
+}
+
+/* Meters fill with a transform, never `width`. Animating width relayouts the
+   row on every frame, and one panel can hold fourteen meters; `scaleX` from a
+   left origin is composited. The resting value is set inline so the bar is
+   correct with the animation removed. */
+@keyframes dossier-meter {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.dossier-meter {
+  transform-origin: left center;
+  transform: scaleX(var(--meter-fill, 1));
+  /* `backwards`: the resting transform above is already the animation's end
+     state, so there is nothing to hold forwards — and not holding it keeps the
+     property free. */
+  animation: dossier-meter 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: var(--meter-delay, 120ms);
 }
 
 /* ─── Animations ──────────────────────────────────────────────────── */
@@ -499,14 +949,94 @@
   will-change: transform;
 }
 
+/* Respect the OS "reduce motion" setting app-wide. This block previously
+   covered only the three academy animations, while the app's most
+   motion-heavy effects — the lucid-* entrance family, the staggered stat
+   cards, the blinking caret, the matrix banner and the logo wobble — kept
+   animating regardless. */
 @media (prefers-reduced-motion: reduce) {
 
   .animate-key-ripple,
   .animate-star-pop,
-  .animate-count-glow {
+  .animate-count-glow,
+  .lucid-enter,
+  .lucid-scale,
+  .lucid-scale-exit,
+  .lucid-slide,
+  .stat-card,
+  .caret-lucid,
+  .banner-matrix,
+  .academy-portal-circle,
+  .logo-wobble,
+  .dossier-stagger>*,
+  .dossier-panel-in,
+  .dossier-meter,
+  .fx-spin,
+  .fx-marquee,
+  .fx-ping,
+  .fx-banner-drift,
+  .fx-segment,
+  .fx-pulse,
+  .fx-bleed,
+  .spark-line,
+  .spark-area,
+  .spark-head {
     animation: none !important;
   }
+
+  /* Entrance animations start at opacity: 0 and rely on the animation to
+     reveal their element — with the animation removed they must be visible
+     and in place instead of invisible forever. */
+  .lucid-enter,
+  .lucid-scale,
+  .lucid-slide,
+  .stat-card,
+  .dossier-stagger>*,
+  .dossier-panel-in {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* The tab indicator must jump, not slide. Its position is still correct —
+     only the travel is dropped. */
+  .dossier-glider {
+    transition: none !important;
+  }
+
+  /* Without the draw-on the dash pattern must not hide the line. */
+  .spark-line {
+    stroke-dasharray: none !important;
+  }
+
+  /* A meter's fill is data, not decoration, so it keeps its scale — only the
+     tween to it is dropped. */
+  .dossier-meter {
+    transform: scaleX(var(--meter-fill, 1)) !important;
+  }
+
+  /* The banner scene is cropped by its `scale(1.06)`; without it the SVG
+     would resize rather than simply stop drifting. */
+  .fx-banner-drift {
+    transform: scale(1.06) !important;
+  }
+
+  .theme-transition,
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="menuitem"],
+  [role="tab"] {
+    transition-duration: 1ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
 }
+
 
 .lucid-enter {
   animation: lucid-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -582,6 +1112,20 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* A scroll container with no visible scrollbar. For strips that scroll
+   horizontally as an overflow fallback — the operator dossier's tab rail on a
+   phone — where a 6px bar under the tabs reads as a stray divider. The content
+   is still reachable by wheel, drag, and the tablist's own arrow keys. */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .stats-idle-dim {

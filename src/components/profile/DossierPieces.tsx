@@ -74,7 +74,7 @@ export function DossierCard({
 }) {
     return (
         <section
-            className={`glass-card relative overflow-hidden rounded-[22px] ${variant === 'flush' ? '' : padding} ${className}`}
+            className={`glass-card dossier-card relative overflow-hidden rounded-[22px] ${variant === 'flush' ? '' : padding} ${className}`}
             style={{ borderColor: rgba(accent, 0.18) }}
         >
             {children}

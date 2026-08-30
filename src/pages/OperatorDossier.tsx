@@ -34,7 +34,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
-  Activity, ArrowLeft, Award, BarChart3, Check, ChevronRight, Crosshair, Flame, Gauge, Layers,
+  Activity, ArrowLeft, Award, BarChart3, Check, ChevronRight, Crosshair, Flame, Gauge, Keyboard, Layers,
   Link2, Loader2, Lock, Medal, RefreshCw, ShieldCheck, Sliders, Sparkles, Target, Timer,
   TrendingUp, Trophy, Type, User, WifiOff, Zap,
 } from 'lucide-react';
@@ -55,6 +55,7 @@ import {
   DossierCard, EmptyNote, MeterRow, PanelHeading, StatTile,
 } from '@/components/profile/DossierPieces';
 import { HistorySparkline } from '@/components/profile/HistorySparkline';
+import { KeyHeatmap, type HeatmapData } from '@/components/profile/KeyHeatmap';
 import type { HistoryEntry } from '@/lib/history';
 import {
   bannerToast, chipSwap, deckIn, pulseHaptic, railIn, shellIn,
@@ -105,8 +106,21 @@ export interface OperatorDossierProps {
     personalBests?: Array<{ label: string; wpm: number }>;
     /** Unlocked achievement ids, for the badge grid. */
     achievements?: string[];
+    /**
+     * Per-key accuracy and speed, straight from the typing engine.
+     *
+     * Lives on the dossier because the standalone stats modal it used to live in
+     * is gone: that panel showed a strict subset of what this page already shows,
+     * behind a nav button most people never pressed.
+     */
+    heatmap?: HeatmapData;
     skillStats: UserSkillStats;
   };
+  /**
+   * Loads a generated drill into the arena and leaves the page. Absent for a
+   * guest or a remote dossier, which is also what hides the drill button.
+   */
+  onStartDrill?: (text: string) => void;
 }
 
 /**
@@ -179,6 +193,7 @@ export const OperatorDossier = React.memo(function OperatorDossier({
   supabase,
   localUsername,
   localRPGStats,
+  onStartDrill,
 }: OperatorDossierProps) {
   const reduce = useReducedMotion();
 
@@ -623,6 +638,32 @@ export const OperatorDossier = React.memo(function OperatorDossier({
   }, [trend]);
 
   /**
+   * Rough total time at the keyboard, in minutes.
+   *
+   * A timed run's `size` *is* its duration in seconds, so that half is exact. A
+   * words run only stores its word count, so its duration is derived from the
+   * WPM it was typed at — which is the definition of WPM rearranged, and the
+   * best available without storing durations that were never recorded.
+   */
+  const minutesTyped = useMemo(
+    () => Math.round(history.reduce(
+      (total, e) => total + (e.mode === 'time' ? e.size / 60 : e.wpm > 0 ? e.size / e.wpm : 0),
+      0,
+    )),
+    [history]
+  );
+
+  /** Per-key stats, and whether there are enough of them to draw a board. */
+  const heatmap = useMemo(
+    () => (isOwnProfile ? localRPGStats?.heatmap ?? {} : {}),
+    [isOwnProfile, localRPGStats]
+  );
+  const hasHeatmap = useMemo(
+    () => Object.values(heatmap).some((stat) => stat && stat.total > 0),
+    [heatmap]
+  );
+
+  /**
    * Per-difficulty breakdown. Keyed by the `level` field the history entries
    * already carry, so it needs no new storage — and it answers the question the
    * aggregates cannot: whether that max WPM came from NOVICE or from CODE.
@@ -741,10 +782,15 @@ export const OperatorDossier = React.memo(function OperatorDossier({
       >
         {/* Full-bleed: no container, no rounded shell, no card shadow. The
             page IS the surface now — header, content and footer are siblings
-            in one flex column that spans the app edge to edge, mirroring the
+            in one column that spans the app edge to edge, mirroring the
             academy and compete stages. Bottom padding still clears the
-            floating controls dock. */}
-        <div className="relative flex min-h-full flex-col pb-[calc(var(--dock-h)+1.75rem)]">
+            floating controls dock.
+
+            Deliberately not `min-h-full`: a full-height flex column is what let
+            the footer's `mt-auto` strand it at the bottom of the viewport with a
+            band of empty page above it. The column is now exactly as tall as its
+            content, so the footer always sits against the last card. */}
+        <div className="relative flex flex-col pb-[calc(var(--dock-h)+1.75rem)]">
           {/* Reading scrim.
               Two jobs. First contrast: the cards are glass, so between and
               around them the raw shader/wallpaper came straight through, and
@@ -1477,7 +1523,7 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                                           series="acc"
                                         />
 
-                                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                           <div className="glass-card rounded-xl p-3">
                                             <div className="font-mono text-[8px] uppercase tracking-[0.2em] text-white/35">Window band</div>
                                             <div className="mt-1.5 font-sans text-sm font-black text-white">
@@ -1507,6 +1553,19 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                                               </span>
                                             </div>
                                           </div>
+                                          {/* Was "Minutes Typed" in the old stats modal.
+                                              It belongs beside the curve rather than in a
+                                              panel of its own — it is the denominator for
+                                              everything else on this tab. */}
+                                          <div className="glass-card rounded-xl p-3">
+                                            <div className="font-mono text-[8px] uppercase tracking-[0.2em] text-white/35">Time typed</div>
+                                            <div className="mt-1.5 font-sans text-sm font-black text-white">
+                                              {minutesTyped >= 60
+                                                ? `${Math.floor(minutesTyped / 60)}h ${minutesTyped % 60}m`
+                                                : `${minutesTyped}m`}
+                                              <span className="ml-1 font-mono text-[9px] font-bold text-white/30">lifetime</span>
+                                            </div>
+                                          </div>
                                         </div>
                                         <p className="mt-3 font-mono text-[9px] leading-relaxed text-white/25">
                                           WPM is scaled to the band above rather than to zero, so the shape
@@ -1519,6 +1578,32 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                                       <EmptyNote icon={BarChart3}>
                                         Two or more completed tests are needed to draw a curve. Custom texts are
                                         excluded from history, so drills do not count here.
+                                      </EmptyNote>
+                                    )}
+                                  </DossierCard>
+
+                                  {/* ── Key heatmap ──
+                                      The whole reason the stats modal existed. It is
+                                      the one view here that answers "what should I
+                                      practise next", so it sits directly under the
+                                      curve that raises the question. */}
+                                  <DossierCard accent={accent}>
+                                    <PanelHeading
+                                      icon={Keyboard}
+                                      title="Key Heatmap"
+                                      hint={hasHeatmap ? 'Per key' : undefined}
+                                      accent={accent}
+                                    />
+                                    {hasHeatmap ? (
+                                      <KeyHeatmap
+                                        data={heatmap}
+                                        accent={accent}
+                                        onStartDrill={onStartDrill}
+                                      />
+                                    ) : (
+                                      <EmptyNote icon={Keyboard}>
+                                        Per-key accuracy and timing are recorded as you type. Finish a
+                                        standard test and the board lights up.
                                       </EmptyNote>
                                     )}
                                   </DossierCard>
@@ -1630,7 +1715,7 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                                          reorder on equip now snaps instead of gliding;
                                          the burst and the "Equipped" chip already say
                                          what happened. */
-                                      className={`group relative isolate overflow-hidden rounded-2xl p-4 text-left outline-none transition-transform duration-200 ease-out focus-visible:ring-2 focus-visible:ring-white/40 motion-reduce:transition-none ${unlocked ? 'glass-card' : 'cursor-not-allowed border border-white/[0.06] bg-black/40'} ${interactive ? 'cursor-pointer hover:-translate-y-[3px] active:translate-y-0 active:scale-[0.985] motion-reduce:hover:translate-y-0' : ''}`}
+                                      className={`group dossier-tile relative isolate overflow-hidden rounded-2xl p-4 text-left outline-none transition-transform duration-200 ease-out focus-visible:ring-2 focus-visible:ring-white/40 motion-reduce:transition-none ${unlocked ? 'glass-card' : 'cursor-not-allowed border border-white/[0.06] bg-black/40'} ${interactive ? 'cursor-pointer hover:-translate-y-[3px] active:translate-y-0 active:scale-[0.985] motion-reduce:hover:translate-y-0' : ''}`}
                                       style={{
                                         borderColor: isSelected ? rgba(accent, 0.6) : undefined,
                                         boxShadow: isSelected ? `0 0 22px ${rgba(accent, 0.2)}, inset 0 0 24px ${rgba(accent, 0.08)}` : undefined,
@@ -1750,7 +1835,7 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                                           return (
                                             <div
                                               key={ach.id}
-                                              className={`relative overflow-hidden rounded-2xl p-4 transition-transform duration-200 ease-out motion-reduce:transition-none ${earnedThis ? 'glass-card hover:-translate-y-[3px] motion-reduce:hover:translate-y-0' : 'border border-white/[0.06] bg-black/40'}`}
+                                              className={`dossier-tile relative overflow-hidden rounded-2xl p-4 transition-transform duration-200 ease-out motion-reduce:transition-none ${earnedThis ? 'glass-card hover:-translate-y-[3px] motion-reduce:hover:translate-y-0' : 'border border-white/[0.06] bg-black/40'}`}
                                               style={{
                                                 borderColor: earnedThis ? rgba(accent, 0.32) : undefined,
                                                 boxShadow: earnedThis ? `inset 0 0 26px ${rgba(accent, 0.07)}` : undefined,
@@ -1842,11 +1927,16 @@ export const OperatorDossier = React.memo(function OperatorDossier({
               )}
 
               {/* ─── Footer ─── */}
-              {/* An end-of-page line inside the flow, pinning to the bottom of
-                  short pages via `mt-auto` — not a status bar riveted to a
-                  dialog's bottom edge. */}
+              {/* Sits directly under the content, not pinned to the bottom of the
+                  viewport. It used to carry `mt-auto` inside a `min-h-full` flex
+                  column, which on any tab shorter than the screen — and on every
+                  tab once the sticky rail stops growing — pushed it away from the
+                  content with a band of bare page between the two. That gap is
+                  what read as the bar being detached from the page. A page footer
+                  belongs to the end of the content; the scroller already handles
+                  the case where that lands above the fold. */}
               <footer
-                className="relative z-30 mt-auto shrink-0 border-t bg-black/25 font-mono text-[9px] uppercase tracking-[0.2em] text-white/30"
+                className="relative z-30 shrink-0 border-t bg-black/25 font-mono text-[9px] uppercase tracking-[0.2em] text-white/30"
                 style={{ borderColor: rgba(accent, 0.12) }}
               >
                 {/* Width-capped and gutter-matched like the header, so the two

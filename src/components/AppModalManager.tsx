@@ -3,7 +3,6 @@ import {
   X, Trophy, Lock, Keyboard, Terminal, Zap, Star, RotateCcw
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { StatsDashboard } from '@/components/StatsDashboard';
 import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
 import { SocialModal } from '@/components/SocialModal';
 import { ChangelogModal } from '@/components/ChangelogModal';
@@ -12,7 +11,8 @@ import { BugReportsModal } from '@/components/BugReportsModal';
 import { CommsModal } from '@/components/CommsModal';
 import { GhostPacerModal } from '@/components/GhostPacerModal';
 import { AIChatBot, type AruStats } from '@/components/AIChatBot';
-import { type PaceSample } from '@/components/TypingArea';
+import { type PaceSample, type RivalPace } from '@/components/TypingArea';
+import type { ModeScoreRow } from '@/hooks/useModeLeaderboard';
 import { ACHIEVEMENTS, type Theme, type SoundProfile } from '@/data/constants';
 import type { useGameConfig } from '@/hooks/useGameConfig';
 import type { useTypingEngine } from '@/hooks/useTypingEngine';
@@ -67,6 +67,14 @@ interface AppModalManagerProps {
   challenges: ReturnType<typeof useChallenges>;
   dailyStreak: number;
   pbGhost: { wpm: number; samples: PaceSample[] } | null;
+  /** Ghost Net wiring for the ghost pacer dialog. */
+  modeKey: string | null;
+  modeBoard: ModeScoreRow[];
+  modeBoardLoading: boolean;
+  modeBoardUnavailable: boolean;
+  rivalGhost: (RivalPace & { userId: string }) | null;
+  rivalPendingId: string | null;
+  onSelectRival: (row: ModeScoreRow) => void;
   isRankedMatch?: boolean;
   tetrisEffect: boolean;
   isAruOpen: boolean;
@@ -85,7 +93,6 @@ interface AppModalManagerProps {
   onSelectTheme: (idx: number) => void;
   onSelectSoundProfile: (prof: SoundProfile) => void;
   onSetThemeFont: (font: string) => void;
-  onStartWeaknessDrill: (drillText: string) => void;
   onChallengeFriend: (uname: string) => void;
   onOpenProfile: (username: string) => void;
   onSetTetrisEffect: (v: boolean) => void;
@@ -126,6 +133,13 @@ export const AppModalManager = memo(function AppModalManager({
   challenges,
   dailyStreak,
   pbGhost,
+  modeKey,
+  modeBoard,
+  modeBoardLoading,
+  modeBoardUnavailable,
+  rivalGhost,
+  rivalPendingId,
+  onSelectRival,
   isRankedMatch: _isRankedMatch,
   tetrisEffect,
   isAruOpen,
@@ -142,7 +156,6 @@ export const AppModalManager = memo(function AppModalManager({
   onSelectTheme,
   onSelectSoundProfile,
   onSetThemeFont,
-  onStartWeaknessDrill,
   onChallengeFriend,
   onOpenProfile,
   onSetTetrisEffect,
@@ -278,16 +291,6 @@ export const AppModalManager = memo(function AppModalManager({
                 <div className="mt-6 text-center text-sm text-zinc-500 font-black">Click outside to close</div>
               </div>
             </div>
-          );
-
-          case 'stats': return (
-            <StatsDashboard
-              theme={theme}
-              testsCompleted={rpg.testsCompleted}
-              heatmapData={rpg.heatmapData}
-              onClose={onCloseModal}
-              onStartWeaknessDrill={onStartWeaknessDrill}
-            />
           );
 
           case 'quests': return (
@@ -478,6 +481,14 @@ export const AppModalManager = memo(function AppModalManager({
               setGhostTargetWpm={game.setGhostTargetWpm}
               pbGhost={pbGhost}
               theme={theme}
+              modeKey={modeKey}
+              rivals={modeBoard}
+              rivalsLoading={modeBoardLoading}
+              rivalsUnavailable={modeBoardUnavailable}
+              rivalGhost={rivalGhost}
+              rivalPendingId={rivalPendingId}
+              onSelectRival={onSelectRival}
+              currentUsername={cloud.username}
             />
           );
 

@@ -223,6 +223,28 @@ module.exports = {
           "50%":  { textShadow: "0 0 18px rgba(255,255,255,0.7)" },
           "100%": { textShadow: "0 0 0px rgba(255,255,255,0)" },
         },
+        /* ── Compete screen animations ── */
+        "glass-shimmer": {
+          "0%":   { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { opacity: "0.4", transform: "scale(1)" },
+          "50%":      { opacity: "1",   transform: "scale(1.08)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%":      { transform: "translateY(-4px)" },
+        },
+        "slide-in-right": {
+          "0%":   { opacity: "0", transform: "translateX(24px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "badge-pop": {
+          "0%":   { transform: "scale(0.6)", opacity: "0" },
+          "60%":  { transform: "scale(1.15)", opacity: "1" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -237,6 +259,11 @@ module.exports = {
         'key-press': 'key-press 0.18s ease-out',
         'star-pop': 'star-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         'count-glow': 'count-glow 0.6s ease-out',
+        'glass-shimmer': 'glass-shimmer 2.5s ease-in-out infinite',
+        'glow-pulse': 'glow-pulse 2.5s ease-in-out infinite',
+        'float': 'float 3s ease-in-out infinite',
+        'slide-in-right': 'slide-in-right 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'badge-pop': 'badge-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
       },
     },
   },

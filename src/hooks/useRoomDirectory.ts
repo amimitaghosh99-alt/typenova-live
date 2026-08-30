@@ -35,6 +35,16 @@ const DIRECTORY_CHANNEL = 'typenova:rooms';
  */
 export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }: UseRoomDirectoryOptions) => {
     const [rooms, setRooms] = useState<OpenRoom[]>([]);
+    /**
+     * Whether the presence channel has actually subscribed.
+     *
+     * `readyRef` below already tracked this, but a ref cannot drive a render, so
+     * consumers had no way to tell "the directory has not answered yet" from
+     * "there are no rooms" — both are `rooms.length === 0`. `RoomBrowser` was
+     * therefore printing "No active public rooms right now" during the subscribe
+     * window, which is a claim it had not yet earned.
+     */
+    const [connected, setConnected] = useState(false);
     const channelRef = useRef<RealtimeChannel | null>(null);
     const readyRef = useRef(false);
     // Latest advertisement, read by the subscribe callback and the track effect
@@ -83,6 +93,7 @@ export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }
         ch.subscribe((status) => {
             if (status !== 'SUBSCRIBED' || channelRef.current !== ch) return;
             readyRef.current = true;
+            setConnected(true);
             // A room opened before the socket was ready still has to appear.
             if (publishRef.current) void ch.track(publishRef.current);
             sync();
@@ -91,6 +102,7 @@ export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }
         return () => {
             channelRef.current = null;
             readyRef.current = false;
+            setConnected(false);
             supabase.removeChannel(ch);
         };
     }, [supabase, enabled]);
@@ -113,5 +125,14 @@ export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }
             : []
     ), [rooms, selfCode, enabled]);
 
-    return { rooms: visibleRooms };
+    return {
+        rooms: visibleRooms,
+        /**
+         * True once the channel is live. Two cases never connect and must not
+         * park a consumer on a loading state forever: the browser being disabled
+         * (nothing to wait for) and Supabase being absent (nothing to connect
+         * to — the entry screen already explains that separately).
+         */
+        connected: !enabled || !supabase ? true : connected,
+    };
 };

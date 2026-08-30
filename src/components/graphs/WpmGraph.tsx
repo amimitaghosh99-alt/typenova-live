@@ -2,11 +2,18 @@ import { useMemo, useState, useRef } from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 
+/**
+ * Solo result graph: your net and raw WPM, your errors, and an optional ghost.
+ *
+ * Multiplayer lives in `components/race/RaceChart` instead. The competitor
+ * support that used to be bolted on here keyed colours off ranking position,
+ * sampled overtakes only at *your* timestamps, and returned `null` for the
+ * whole chart when your own timeline was short — so one missing payload erased
+ * every opponent line too. Those props are gone rather than deprecated, so the
+ * broken path cannot be wired up again by accident.
+ */
 interface WpmGraphProps {
   timelinePoints: Array<{ t: number; wpm: number; rawWpm: number }>;
-  competitorTimelines?: Record<string, Array<{ t: number; wpm: number }>>;
-  players?: { id: string; name: string }[];
-  selfId?: string;
   errorTimes: number[];
   durationMs: number;
   theme: Theme;
@@ -30,9 +37,6 @@ function interpolateWpm(points: Array<{ t: number; wpm: number }>, t: number): n
 
 export const WpmGraph = ({
   timelinePoints,
-  competitorTimelines,
-  players,
-  selfId,
   errorTimes,
   durationMs,
   theme,
@@ -40,26 +44,18 @@ export const WpmGraph = ({
   ghostLabel,
 }: WpmGraphProps) => {
   const [hoveredTimeMs, setHoveredTimeMs] = useState<number | null>(null);
-  const [hoveredOvertakeIdx, setHoveredOvertakeIdx] = useState<number | null>(null);
   const svgRectRef = useRef<DOMRect | null>(null);
 
   const safePts = useMemo(() => Array.isArray(timelinePoints) ? timelinePoints : [], [timelinePoints]);
   const safeGhostPts = useMemo(() => Array.isArray(ghostTimeline) ? ghostTimeline : [], [ghostTimeline]);
   const safeDuration = Math.max(durationMs || 0, 1000);
 
-  const { maxW, avgWpm, poly, rawPoly, ghostPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor } = useMemo(() => {
-    let maxW = Math.max(
+  const { maxW, avgWpm, poly, rawPoly, ghostPoly, gradientPoly, yLabels, xLabels } = useMemo(() => {
+    const maxW = Math.max(
       ...safePts.map(p => Math.max(p?.wpm || 0, p?.rawWpm || 0)),
       ...safeGhostPts.map(p => p?.wpm || 0),
       10
     );
-    if (competitorTimelines) {
-      Object.values(competitorTimelines).forEach(pts => {
-        if (Array.isArray(pts)) {
-          maxW = Math.max(maxW, ...pts.map(p => p?.wpm || 0));
-        }
-      });
-    }
 
     const avgWpm = safePts.length
       ? Math.round(safePts.reduce((s, p) => s + (p?.wpm || 0), 0) / safePts.length)
@@ -68,11 +64,19 @@ export const WpmGraph = ({
     const px = (t: number) => ((t || 0) / safeDuration) * 700 + 60;
     const py = (w: number) => 30 + (1 - (w || 0) / (maxW || 1)) * 180;
 
-    const buildSmoothPath = (pts: Array<any>, key: string) => {
+    /**
+     * Builds one smooth curve. `key` selects which field to plot, so the net and
+     * raw lines share this code — `rawWpm` is optional because the ghost curve
+     * only carries `wpm`.
+     */
+    const buildSmoothPath = (
+      pts: Array<{ t: number; wpm: number; rawWpm?: number }>,
+      key: 'wpm' | 'rawWpm',
+    ) => {
       if (pts.length === 0) return '';
-      if (pts.length === 1) return `M ${px(pts[0].t)},${py(pts[0][key])}`;
-      
-      const m = pts.map(p => ({ x: px(p.t), y: py(p[key]) }));
+      if (pts.length === 1) return `M ${px(pts[0].t)},${py(pts[0][key] ?? 0)}`;
+
+      const m = pts.map(p => ({ x: px(p.t), y: py(p[key] ?? 0) }));
       let d = `M ${m[0].x},${m[0].y}`;
       
       const tension = 0.15;
@@ -96,22 +100,6 @@ export const WpmGraph = ({
     const poly = buildSmoothPath(safePts, 'wpm');
     const rawPoly = buildSmoothPath(safePts, 'rawWpm');
     const ghostPoly = buildSmoothPath(safeGhostPts, 'wpm');
-    
-    const compPolys: Record<string, { path: string; color: string }> = {};
-    const medalColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
-    let selfColor = '';
-
-    if (competitorTimelines && players) {
-      const selfIdx = players.findIndex(p => p.id === selfId);
-      if (selfIdx >= 0) selfColor = medalColors[selfIdx] || medalColors[3];
-      
-      Object.entries(competitorTimelines).forEach(([id, pts]) => {
-        if (id === selfId || pts.length < 2) return;
-        const playerIdx = players.findIndex(p => p.id === id);
-        const color = playerIdx >= 0 ? medalColors[playerIdx] || medalColors[3] : '#71717a';
-        compPolys[id] = { path: buildSmoothPath(pts, 'wpm'), color };
-      });
-    }
 
     // Gradient fill area (close the path at the bottom)
     const gradientPoly = poly ? poly + ` L ${px(safePts[safePts.length - 1]?.t ?? safeDuration)},210 L ${px(safePts[0]?.t ?? 0)},210 Z` : '';
@@ -132,47 +120,8 @@ export const WpmGraph = ({
       xLabels.push({ sec: s, x: px(s * 1000) });
     }
 
-    // Calculate Overtakes
-    const overtakes: Array<{ t: number; prevLeaderName: string; newLeaderName: string }> = [];
-    if (players && selfId && players.length > 1 && safePts.length > 0) {
-      let currentLeaderId: string | null = null;
-      for (const p of safePts) {
-        if (p.t === 0) continue;
-        let bestWpm = -1;
-        let newLeaderId: string | null = null;
-        
-        players.forEach(player => {
-          let wpm = 0;
-          if (player.id === selfId) {
-            wpm = p.wpm;
-          } else if (competitorTimelines?.[player.id]) {
-            wpm = interpolateWpm(competitorTimelines[player.id], p.t);
-          }
-          if (wpm > bestWpm) {
-            bestWpm = wpm;
-            newLeaderId = player.id;
-          }
-        });
-        
-        if (currentLeaderId === null) {
-          currentLeaderId = newLeaderId;
-        } else if (newLeaderId && newLeaderId !== currentLeaderId && bestWpm > 0) {
-          const prevPlayer = players.find(pl => pl.id === currentLeaderId);
-          const newPlayer = players.find(pl => pl.id === newLeaderId);
-          if (prevPlayer && newPlayer) {
-            overtakes.push({
-              t: p.t,
-              prevLeaderName: prevPlayer.id === selfId ? 'YOU' : prevPlayer.name.substring(0, 8),
-              newLeaderName: newPlayer.id === selfId ? 'YOU' : newPlayer.name.substring(0, 8),
-            });
-          }
-          currentLeaderId = newLeaderId;
-        }
-      }
-    }
-
-    return { maxW, avgWpm, poly, rawPoly, ghostPoly, gradientPoly, yLabels, xLabels, compPolys, overtakes, selfColor };
-  }, [safePts, safeGhostPts, competitorTimelines, players, selfId, durationMs]);
+    return { maxW, avgWpm, poly, rawPoly, ghostPoly, gradientPoly, yLabels, xLabels };
+  }, [safePts, safeGhostPts, durationMs, safeDuration]);
 
   if (safePts.length < 2 || safeDuration <= 0) return null;
 
@@ -197,7 +146,7 @@ export const WpmGraph = ({
         viewBox="0 0 800 250"
         className="w-full relative"
         onMouseEnter={(e) => { svgRectRef.current = e.currentTarget.getBoundingClientRect(); }}
-        onMouseLeave={() => { svgRectRef.current = null; setHoveredTimeMs(null); setHoveredOvertakeIdx(null); }}
+        onMouseLeave={() => { svgRectRef.current = null; setHoveredTimeMs(null); }}
         onMouseMove={(e) => {
           const rect = svgRectRef.current || e.currentTarget.getBoundingClientRect();
           const svgX = ((e.clientX - rect.left) / rect.width) * 800;
@@ -232,15 +181,8 @@ export const WpmGraph = ({
         {/* Gradient fill */}
         <path fill="url(#wpmGradient)" d={gradientPoly} className={theme.text} opacity="0.5" />
 
-        {/* Raw WPM curve (Hide in VS mode) */}
-        {!competitorTimelines && (
-          <path fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" strokeLinejoin="round" d={rawPoly} className="text-zinc-600" opacity="0.6" />
-        )}
-
-        {/* Competitor curves */}
-        {Object.entries(compPolys).map(([id, comp]) => (
-          <path key={`comp-${id}`} fill="none" stroke={comp.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={comp.path} opacity="0.9" />
-        ))}
+        {/* Raw WPM curve */}
+        <path fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" strokeLinejoin="round" d={rawPoly} className="text-zinc-600" opacity="0.6" />
 
         {/* Ghost curve (Shadow run) */}
         {ghostPoly && safeGhostPts.length > 0 && (
@@ -258,7 +200,7 @@ export const WpmGraph = ({
         )}
 
         {/* Net WPM curve */}
-        <path fill="none" stroke={selfColor || "currentColor"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={poly} className={selfColor ? "" : theme.text} />
+        <path fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={poly} className={theme.text} />
 
         {/* Error dots on curve */}
         {errorTimes.map((t, i) => {
@@ -277,37 +219,14 @@ export const WpmGraph = ({
           const t = hoveredTimeMs;
           const tx = Math.min(Math.max(px(t), 80), 720);
           
-          // Determine tooltip rows (WPMs for each player)
+          // Determine tooltip rows
           const rows: { name: string; wpm: number; color: string; isRaw?: boolean }[] = [];
-          
-          if (players && selfId) {
-            const medalStrokeColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
-            players.forEach((player, idx) => {
-              const color = medalStrokeColors[idx] || medalStrokeColors[3];
-              if (player.id === selfId) {
-                if (t <= (timelinePoints[timelinePoints.length - 1]?.t ?? durationMs)) {
-                  rows.push({ name: 'YOU', wpm: Math.round(interpolateWpm(timelinePoints, t)), color });
-                } else {
-                  rows.push({ name: 'YOU 🏁', wpm: Math.round(timelinePoints[timelinePoints.length - 1]?.wpm ?? 0), color });
-                }
-              } else if (competitorTimelines?.[player.id]) {
-                const pts = competitorTimelines[player.id];
-                if (pts.length > 0) {
-                  if (t <= pts[pts.length - 1].t) {
-                    rows.push({ name: player.name.substring(0, 8), wpm: Math.round(interpolateWpm(pts, t)), color });
-                  } else {
-                    rows.push({ name: player.name.substring(0, 8) + ' 🏁', wpm: Math.round(pts[pts.length - 1].wpm), color });
-                  }
-                }
-              }
-            });
-          } else {
-            const wpm = interpolateWpm(timelinePoints, t);
-            rows.push({ name: 'YOU', wpm: Math.round(wpm), color: 'white' });
-            if (safeGhostPts.length > 0) {
-              const gWpm = interpolateWpm(safeGhostPts, t);
-              rows.push({ name: ghostLabel || 'GHOST', wpm: Math.round(gWpm), color: '#c084fc' });
-            }
+
+          const wpm = interpolateWpm(timelinePoints, t);
+          rows.push({ name: 'YOU', wpm: Math.round(wpm), color: 'white' });
+          if (safeGhostPts.length > 0) {
+            const gWpm = interpolateWpm(safeGhostPts, t);
+            rows.push({ name: ghostLabel || 'GHOST', wpm: Math.round(gWpm), color: '#c084fc' });
           }
 
           const h = rows.length * 16 + 12;
@@ -329,57 +248,16 @@ export const WpmGraph = ({
 
               {/* Draw hover dots for each row */}
               {rows.map((row, i) => (
-                !row.name.includes('🏁') && (
-                  <circle
-                    key={`dot-${i}`}
-                    cx={px(t)}
-                    cy={py(row.wpm)}
-                    r="4"
-                    fill="black"
-                    stroke={row.color}
-                    strokeWidth="2"
-                  />
-                )
+                <circle
+                  key={`dot-${i}`}
+                  cx={px(t)}
+                  cy={py(row.wpm)}
+                  r="4"
+                  fill="black"
+                  stroke={row.color}
+                  strokeWidth="2"
+                />
               ))}
-            </g>
-          );
-        })()}
-        {/* Overtakes */}
-        {overtakes.map((overtake, i) => (
-          <g key={`overtake-${i}`}>
-            <text
-              x={px(overtake.t)}
-              y="225"
-              textAnchor="middle"
-              fontSize="12"
-              className="drop-shadow-[0_0_8px_rgba(251,191,36,0.8)] cursor-help animate-pulse"
-              onMouseEnter={() => setHoveredOvertakeIdx(i)}
-              onMouseLeave={() => setHoveredOvertakeIdx(null)}
-            >
-              ⚔️
-            </text>
-            <circle
-              cx={px(overtake.t)}
-              cy="221"
-              r="12"
-              fill="transparent"
-              className="cursor-help"
-              onMouseEnter={() => setHoveredOvertakeIdx(i)}
-              onMouseLeave={() => setHoveredOvertakeIdx(null)}
-            />
-          </g>
-        ))}
-
-        {/* Overtake Tooltip */}
-        {hoveredOvertakeIdx !== null && overtakes[hoveredOvertakeIdx] && (() => {
-          const o = overtakes[hoveredOvertakeIdx];
-          const tx = Math.min(Math.max(px(o.t), 100), 700);
-          return (
-            <g>
-              <rect x={tx - 75} y="180" width="150" height="24" rx="4" fill="rgba(0,0,0,0.9)" stroke="rgba(251,191,36,0.5)" strokeWidth="1" />
-              <text x={tx} y="196" textAnchor="middle" fill="white" fontSize="9" fontWeight="800">
-                <tspan fill="#fbbf24">{o.newLeaderName}</tspan> overtook <tspan fill="#d4d4d8">{o.prevLeaderName}</tspan>!
-              </text>
             </g>
           );
         })()}

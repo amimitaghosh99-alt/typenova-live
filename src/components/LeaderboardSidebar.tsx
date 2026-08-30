@@ -1,29 +1,42 @@
-import { memo } from 'react';
-import { Award, Lock, Swords, X } from 'lucide-react';
+import { memo, useRef } from 'react';
+import { Award, Ghost, Lock, Swords, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { AnimatedHeight } from '@/components/ui/AnimatedHeight';
 import type { Theme } from '@/data/constants';
+import type { ModeScoreRow } from '@/hooks/useModeLeaderboard';
+import { useFitToViewport } from '@/hooks/useFitToViewport';
+import { formatModeLabel, formatModeLabelLong } from '@/lib/modeKey';
 
 interface LeaderboardEntry {
   username: string;
   wpm: number;
   accuracy: number;
+  /** Only mode-board rows carry one; it identifies the raceable ghost. */
+  user_id?: string;
 }
+
+export type BoardTab = 'alltime' | 'mode' | 'today' | 'friends';
 
 interface LeaderboardSidebarProps {
   leaderboardClass: string;
   theme: Theme;
-  boardTab: 'alltime' | 'today' | 'friends';
+  boardTab: BoardTab;
   isLoggedIn: boolean;
   leaderboard: LeaderboardEntry[];
   dailyBoard: LeaderboardEntry[];
   friendsBoard: LeaderboardEntry[];
+  /** Ghost Net: best runs for the exact config the player is set to. */
+  modeBoard: ModeScoreRow[];
+  modeKey: string | null;
+  modeUnavailable: boolean;
   currentUsername: string | null;
-  onTabChange: (tab: 'alltime' | 'today' | 'friends') => void;
+  onTabChange: (tab: BoardTab) => void;
   onProfileClick: (username: string) => void;
   onChallengeFriend: (username: string) => void;
   onRemoveFriend: (username: string) => void;
+  /** Arm this row's stored run as the ghost opponent for the next test. */
+  onRaceGhost: (row: ModeScoreRow) => void;
 }
 
 export const LeaderboardSidebar = memo(function LeaderboardSidebar({
@@ -34,54 +47,117 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
   leaderboard,
   dailyBoard,
   friendsBoard,
+  modeBoard,
+  modeKey,
+  modeUnavailable,
   currentUsername,
   onTabChange,
   onProfileClick,
   onChallengeFriend,
   onRemoveFriend,
+  onRaceGhost,
 }: LeaderboardSidebarProps) {
-  const currentList = boardTab === 'today' ? dailyBoard : boardTab === 'friends' ? friendsBoard : leaderboard;
+  const currentList: LeaderboardEntry[] =
+    boardTab === 'today' ? dailyBoard
+    : boardTab === 'friends' ? friendsBoard
+    : boardTab === 'mode' ? modeBoard
+    : leaderboard;
+
+  const heading =
+    boardTab === 'today' ? 'DAILY 5'
+    : boardTab === 'friends' ? 'FRIENDS'
+    : boardTab === 'mode' ? (modeKey ? formatModeLabel(modeKey) : 'UNRANKED')
+    : 'TOP 5';
+
+  const emptyMessage =
+    boardTab === 'friends'
+      ? (currentUsername ? 'No friends yet. Follow someone!' : 'Log in to use friends.')
+      : boardTab === 'today'
+      ? 'No daily scores yet. Run the DAILY challenge!'
+      : boardTab === 'mode'
+      ? (!modeKey
+          ? 'Custom, mirrored and daily runs have no shared board.'
+          : modeUnavailable
+          ? 'Mode boards need the ghosts migration.'
+          : `No runs for ${formatModeLabelLong(modeKey)} yet.`)
+      : 'No scores yet. Be the first!';
+
+  // The board is the only thing on this stage tall enough to outgrow the
+  // viewport, and letting it do so scrolled the whole page instead of the list.
+  //
+  // The cap is measured rather than written out as a calc(). The first attempt
+  // here was `calc(100dvh - var(--nav-h) - 10rem)`, which looked right and was
+  // about 100px too generous — so the max-height never bit and nothing changed.
+  // The padding above this panel lives in a stage wrapper and a grid declared in
+  // App.tsx, and either can move without this file knowing. Measuring the real
+  // offset removes the guess.
+  //
+  // `min-h-[460px]` is the floor, so the cap is clamped to it: a min-height wins
+  // over a max-height, and letting them disagree is what would put the page
+  // scrollbar back on a short window. Below `lg` the panel sits under the arena
+  // in a single column, where growing the page is correct and a nested scroll
+  // area would be worse, so the cap is skipped there.
+  const asideRef = useRef<HTMLElement | null>(null);
+  const maxHeight = useFitToViewport(asideRef, { minPx: 460, minViewportWidth: 1024 });
 
   return (
-    <aside className={`${leaderboardClass} min-h-[460px] flex flex-col justify-start`}>
+    <aside
+      ref={asideRef}
+      style={maxHeight != null ? { maxHeight } : undefined}
+      className={`${leaderboardClass} min-h-[460px] flex flex-col justify-start`}
+    >
+      {/* `flex-1` rather than `h-full`: the aside's height comes from its content
+          clamped by an inline max-height, and a percentage height against an
+          auto-height parent resolves to auto — which would leave this wrapper
+          taller than the aside and defeat the inner scroll. */}
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.35, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full flex flex-col h-full"
+        className="w-full flex flex-col flex-1 min-h-0"
       >
-        <div className="flex items-center justify-between text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
-        <div className="flex items-center">
-          <Award size={20} className={`mr-3 ${theme.text}`} />
-          <div className="relative overflow-hidden h-7 flex items-center">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={boardTab}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                className="whitespace-nowrap font-black"
-              >
-                {boardTab === 'today' ? 'DAILY 5' : boardTab === 'friends' ? 'FRIENDS' : 'TOP 5'}
-              </motion.span>
-            </AnimatePresence>
+        {/* Four tabs no longer fit beside the title on a sidebar, so the
+            selector gets its own full-width row underneath it. `shrink-0` keeps
+            the header out of the scroll region below. */}
+        <div className="shrink-0 flex flex-col gap-4 text-white font-black tracking-widest mb-8 border-b border-white/10 pb-6 text-lg w-full">
+          <div className="flex items-center min-w-0">
+            <Award size={20} className={`mr-3 shrink-0 ${theme.text}`} />
+            <div className="relative overflow-hidden h-7 flex items-center min-w-0">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={boardTab === 'mode' ? `mode-${modeKey ?? 'none'}` : boardTab}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  className="whitespace-nowrap font-black truncate"
+                >
+                  {heading}
+                </motion.span>
+              </AnimatePresence>
+            </div>
           </div>
+          <SegmentedControl
+            options={[
+              { label: 'ALL', value: 'alltime' },
+              { label: 'MODE', value: 'mode' },
+              { label: 'TODAY', value: 'today' },
+              { label: 'FRIENDS', value: 'friends' },
+            ]}
+            value={boardTab}
+            onChange={(val) => onTabChange(val as BoardTab)}
+            theme={theme}
+            themeTextClass={theme.text}
+            size="sm"
+            fullWidth
+          />
         </div>
-        <SegmentedControl
-          options={[
-            { label: 'ALL', value: 'alltime' },
-            { label: 'TODAY', value: 'today' },
-            { label: 'FRIENDS', value: 'friends' },
-          ]}
-          value={boardTab}
-          onChange={(val) => onTabChange(val as 'alltime' | 'today' | 'friends')}
-          theme={theme}
-          themeTextClass={theme.text}
-          size="sm"
-        />
-      </div>
 
+      {/* The scroll region. `min-h-0` is what lets a flex child actually shrink
+          below its content height — without it the wrapper would grow and the
+          page would scroll again. `overflow-x-hidden` because rows translate on
+          hover, which counts toward scrollable overflow. */}
+      <div className="flex-1 min-h-0 w-full lg:overflow-y-auto lg:overflow-x-hidden custom-scrollbar">
       {/* Auto-measured Animated Height Container for buttery-smooth morphing */}
       <AnimatedHeight expandDuration={0.45} shrinkDuration={0.65} className="w-full">
         <AnimatePresence mode="wait" initial={false}>
@@ -106,10 +182,10 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="w-full py-16 flex flex-col items-center justify-center"
+              className="w-full py-16 flex flex-col items-center justify-center px-4"
             >
-              <p className="text-zinc-500 text-sm text-center font-bold whitespace-nowrap">
-                {boardTab === 'friends' ? (currentUsername ? 'No friends yet. Follow someone!' : 'Log in to use friends.') : boardTab === 'today' ? 'No daily scores yet. Run the DAILY challenge!' : 'No scores yet. Be the first!'}
+              <p className="text-zinc-500 text-sm text-center font-bold">
+                {emptyMessage}
               </p>
             </motion.div>
           ) : (
@@ -213,6 +289,21 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                       </span>
                       <span className="text-[10px] text-zinc-400 font-bold tracking-widest whitespace-nowrap mt-1">{entry.accuracy}% ACC</span>
                     </div>
+                  {/* Ghost Net: every mode-board row is a raceable opponent. */}
+                  {boardTab === 'mode' && entry.user_id && (
+                    <div className="absolute right-3 opacity-0 group-hover:opacity-100 flex items-center transition-all bg-black/40 rounded-full p-1 border border-white/5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRaceGhost(entry as ModeScoreRow);
+                        }}
+                        className="p-2 text-zinc-400 hover:text-cyan-300 transition-all rounded-full cursor-pointer"
+                        title={`Race ${entry.username}'s ghost`}
+                      >
+                        <Ghost size={14} />
+                      </button>
+                    </div>
+                  )}
                   {boardTab === 'friends' && entry.username !== currentUsername && (
                     <div className="absolute right-3 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all bg-black/40 rounded-full p-1 border border-white/5">
                       <button
@@ -245,6 +336,7 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
           )}
         </AnimatePresence>
       </AnimatedHeight>
+      </div>
       </motion.div>
     </aside>
   );

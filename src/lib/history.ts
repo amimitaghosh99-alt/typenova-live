@@ -1,19 +1,20 @@
 /**
  * Test history storage.
  *
- * Every completed test appends one entry here, and three consumers read it: the
- * stats dashboard's trend graphs, the operator dossier's form curve and
- * per-difficulty breakdown, and `src/lib/progress.ts`, which folds the log into
- * the snapshot that syncs to Supabase.
+ * Every completed test appends one entry here, and two consumers read it: the
+ * operator dossier's form curve, per-difficulty breakdown and personal-best
+ * board, and `src/lib/progress.ts`, which folds the log into the snapshot that
+ * syncs to Supabase.
  *
- * It lives in `lib` rather than beside the dashboard because of that third
- * consumer. `progress.ts` imported `HISTORY_KEY`, `HISTORY_CAP` and
- * `HistoryEntry` from `components/StatsDashboard.tsx`, while the dashboard
- * imported `readLocalProgress` back out of `progress.ts` — a genuine import
- * cycle between a component module and a storage module. It happened to work
- * because the values are read inside functions rather than at module scope, but
- * it is exactly the shape that turns into an `undefined` at import time the
- * first moment someone hoists one of them to a top-level constant.
+ * It lives in `lib` rather than beside a component because of that second
+ * consumer. These constants used to be exported from the stats dashboard, while
+ * that dashboard imported `readLocalProgress` back out of `progress.ts` — a
+ * genuine import cycle between a component module and a storage module. It
+ * happened to work because the values are read inside functions rather than at
+ * module scope, but it is exactly the shape that turns into an `undefined` at
+ * import time the first moment someone hoists one of them to a top-level
+ * constant. (That dashboard is gone now — its content is on the dossier — but
+ * the reason this file is here has not changed.)
  */
 
 /** One completed test, as persisted. */

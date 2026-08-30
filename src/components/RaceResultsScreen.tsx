@@ -6,7 +6,10 @@ import { compareRacers } from '@/hooks/useRace';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ResultsScreenProps } from '@/components/ResultsScreen';
 import { ResultsScreen } from '@/components/ResultsScreen';
-import { WpmGraph } from './graphs/WpmGraph';
+import { RaceChart, type RaceSeries } from './race/RaceChart';
+import { assignRaceStyles } from './race/raceColors';
+import { MarkerSwatch } from './race/RaceMarkerGlyph';
+import { useRaceDetailSync } from '@/hooks/useRaceDetailSync';
 import { calculatePlayerTitle } from '../utils/playerTitles';
 import type { PlayerTitleStats, TitleIntervalRanking } from '../utils/playerTitles';
 import type { SetStateAction } from 'react';
@@ -21,6 +24,14 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   /** Host-minted id shared by everyone in the room; dedupes duel resolution. */
   raceId?: string | null;
   isHost?: boolean;
+  /**
+   * Re-ask a racer to broadcast their finish payload.
+   *
+   * Needed because `finish_details` is an unacknowledged broadcast: without a
+   * way to ask again, one dropped frame left that racer's curve missing from
+   * the graph and their stats panel empty for the rest of the screen's life.
+   */
+  onRequestDetails?: (id: string) => void;
   onRematch?: () => void;
   onReturnToRoom?: () => void;
   onLeaveRace?: () => void;
@@ -40,6 +51,7 @@ export function RaceResultsScreen({
   supabase,
   raceId,
   isHost,
+  onRequestDetails,
   onRematch,
   onReturnToRoom,
   onLeaveRace,
@@ -70,6 +82,40 @@ export function RaceResultsScreen({
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(selfId);
   const fallbackLobbyId = useMemo(() => crypto.randomUUID(), []);
+
+  /**
+   * Stable colour + marker shape per racer, shared by the chart, the cards and
+   * the legend.
+   *
+   * Keyed off roster order rather than ranking: ranking is not settled until
+   * everyone finishes, so colours used to change hue underneath the reader as
+   * later results landed, and everyone past 4th collapsed into the same grey.
+   */
+  const raceStyles = useMemo(
+    () => assignRaceStyles(roster.map(p => p.id), selfId),
+    [roster, selfId],
+  );
+
+  /** Which racers we actually hold a usable curve for. */
+  const resolvedDetailIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const [id, pts] of Object.entries(timelines ?? {})) {
+      if (pts && pts.length > 1) set.add(id);
+    }
+    // Our own curve comes down the props, not the wire.
+    if (resultsProps.timelinePoints && resultsProps.timelinePoints.length > 1) set.add(selfId);
+    return set;
+  }, [timelines, resultsProps.timelinePoints, selfId]);
+
+  /* Chases the payloads that never arrived. Presence tells us a racer finished;
+     only the broadcast carries the curve, and that broadcast is not replayed. */
+  const detailSync = useRaceDetailSync({
+    racers: roster,
+    resolvedIds: resolvedDetailIds,
+    requestDetails: onRequestDetails,
+    selfId,
+  });
+
 
   // A racer who quits or stalls used to freeze this screen on "WAITING FOR
   // OTHERS..." forever: no podium, no awards, no medals. Resolve after a grace
@@ -339,6 +385,8 @@ export function RaceResultsScreen({
   // Determine which stats to show based on selectedPlayerId
   const selectedPlayer = ranking.find(p => p.id === selectedPlayerId);
   const isSelfSelected = selectedPlayerId === selfId;
+  /** Sync state of the racer whose panel is open, if their details are absent. */
+  const selectedSync = detailSync.get(selectedPlayerId);
 
   // Derive custom props if viewing a competitor. Everything here now comes from
   // that racer's own broadcast payload — the panel used to show their headline
@@ -371,6 +419,56 @@ export function RaceResultsScreen({
       ghostDeltaS: undefined,
     };
   }, [isSelfSelected, selectedPlayer, resultsProps]);
+
+  /**
+   * One series per racer, on the shared colour scale.
+   *
+   * Self's curve comes from props while everyone else's comes off the wire, but
+   * both are normalised to the same shape here so the chart has no notion of
+   * "self vs competitors" — the split is exactly what made the old graph return
+   * `null` for the whole race whenever our own timeline was short.
+   */
+  const chartSeries = useMemo<RaceSeries[]>(() => {
+    return roster.map(p => {
+      const isSelf = p.id === selfId;
+      const raw = isSelf
+        ? (resultsProps.timelinePoints ?? []).map(pt => ({ t: pt.t, wpm: pt.wpm }))
+        : (timelines?.[p.id] ?? p.timeline ?? []);
+      const style = raceStyles.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        isSelf,
+        color: style?.color ?? '#94a3b8',
+        marker: style?.marker ?? { shape: 'circle' as const, filled: false },
+        // Defensive sort: a payload reassembled from two broadcasts can arrive
+        // out of order, and the interpolator assumes ascending time.
+        points: [...raw].sort((a, b) => a.t - b.t),
+        finishMs: p.finished ? p.finishMs : undefined,
+      };
+    });
+  }, [roster, selfId, timelines, resultsProps.timelinePoints, raceStyles]);
+
+  /** Racers on the cards but not on the chart, so the gap is stated not hidden. */
+  const missingFromChart = useMemo(
+    () => chartSeries.filter(s => s.points.length < 2),
+    [chartSeries],
+  );
+
+  const [chartMetric, setChartMetric] = useState<'wpm' | 'gap'>('wpm');
+
+  /**
+   * "Vs You" only means something when our own curve arrived and there is
+   * someone to compare against. Derived rather than synced into state: forcing
+   * the toggle back from an effect would re-render the chart a second time, and
+   * would briefly label opponents' raw WPM as a delta from a baseline we do not
+   * have.
+   */
+  const canCompare = useMemo(() => {
+    const drawn = chartSeries.filter(s => s.points.length > 1);
+    return drawn.length > 1 && drawn.some(s => s.isSelf);
+  }, [chartSeries]);
+  const effectiveMetric = canCompare ? chartMetric : 'wpm';
 
 
   return (
@@ -426,17 +524,71 @@ export function RaceResultsScreen({
           )}
         </div>
 
-        {/* ── GRAPH (TOP SECTION) ──────────────────────── */}
+        {/* ── RACE CHART ──────────────────────── */}
         <div className="mb-12 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '300ms' }}>
-          <WpmGraph
-            timelinePoints={resultsProps.timelinePoints}
-            competitorTimelines={timelines}
-            players={ranking}
-            selfId={selfId}
-            errorTimes={resultsProps.errorTimes}
-            durationMs={maxRaceDurationMs}
-            theme={theme}
-          />
+          <div className="glass-panel rounded-3xl p-4 md:p-5">
+            {/* Header: legend + metric toggle */}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                {chartSeries.map(s => (
+                  <span key={s.id} className="flex items-center gap-1.5">
+                    {/* Shape + colour, matching the markers on this racer's
+                        curve. Dimmed for a racer with no curve, so the legend
+                        never promises a line that is not drawn. */}
+                    <MarkerSwatch
+                      marker={s.marker}
+                      color={s.color}
+                      size={11}
+                      dimmed={s.points.length <= 1}
+                    />
+                    <span className={`font-mono text-[9px] font-black uppercase tracking-[0.16em] ${s.points.length > 1 ? 'text-white/60' : 'text-white/25'}`}>
+                      {s.isSelf ? 'You' : s.name}
+                    </span>
+                  </span>
+                ))}
+              </div>
+
+              {/* Only offered when our own curve is present to compare against. */}
+              {canCompare && (
+                <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/30 p-0.5">
+                  {(['wpm', 'gap'] as const).map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setChartMetric(m)}
+                      aria-pressed={chartMetric === m}
+                      className={`rounded-full px-3 py-1 font-mono text-[9px] font-black uppercase tracking-[0.16em] transition-colors ${chartMetric === m ? 'bg-white/15 text-white' : 'text-white/35 hover:text-white/60'
+                        }`}
+                    >
+                      {m === 'wpm' ? 'WPM' : 'Vs You'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <RaceChart
+              series={chartSeries}
+              durationMs={maxRaceDurationMs}
+              metric={effectiveMetric}
+              baselineId={selfId}
+            />
+
+            {/* States the hole rather than silently dropping the racer. */}
+            {missingFromChart.length > 0 && (
+              <p className="mt-2 font-mono text-[9px] uppercase leading-relaxed tracking-[0.14em] text-white/30">
+                No pace data for{' '}
+                {missingFromChart.map((s, i) => (
+                  <span key={s.id}>
+                    {i > 0 && ', '}
+                    <span className="text-white/50">{s.isSelf ? 'you' : s.name}</span>
+                    {detailSync.get(s.id) === 'syncing' && <span className="text-sky-300/70"> · syncing</span>}
+                    {detailSync.get(s.id) === 'missing' && <span className="text-white/25"> · unavailable</span>}
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* ── INTERACTIVE SUMMARY CARDS ──────────────────────── */}
@@ -451,6 +603,11 @@ export function RaceResultsScreen({
             const colorClass = medalColors[idx] || medalColors[3];
             const strokeColor = medalStrokeColors[idx] || medalStrokeColors[3];
             const award = awards[player.id];
+            /* Same hue + shape as this racer's line, so a card can be tied back
+               to the chart above it. Kept separate from the medal colours, which
+               encode placement rather than identity. */
+            const seriesStyle = raceStyles.get(player.id);
+            const sync = detailSync.get(player.id);
 
             return (
               <button
@@ -477,6 +634,10 @@ export function RaceResultsScreen({
                   <div className="flex items-center gap-2">
                     <span className="text-xl">{isDnf ? '⌛' : isWinner ? '👑' : ['🥇', '🥈', '🥉', '4th'][idx] || '·'}</span>
 
+                    {/* Identity swatch: ties this card to its line on the chart. */}
+                    {seriesStyle && (
+                      <MarkerSwatch marker={seriesStyle.marker} color={seriesStyle.color} size={11} />
+                    )}
                     <span className={`font-black tracking-widest uppercase ${isSelected || isWinner ? 'text-white' : 'text-zinc-400'}`}>
                       {player.name}
                     </span>
@@ -489,6 +650,15 @@ export function RaceResultsScreen({
                       {isDnf ? 'DNF' : (player.finishWpm ?? 0)} <span className="text-xs text-zinc-500">{isDnf ? 'NO RESULT' : 'WPM'}</span>
                     </span>
                   </div>
+                  {/* Detail-sync state, so a card whose panel will be thin says so
+                      up front instead of opening onto an empty graph. */}
+                  {sync && (
+                    <div className={`mt-1 flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.16em] ${sync === 'syncing' ? 'text-sky-300/70' : 'text-zinc-500'
+                      }`}>
+                      {sync === 'syncing' && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-sky-300/70 fx-pulse" />}
+                      <span>{sync === 'syncing' ? 'Syncing details' : 'Details unavailable'}</span>
+                    </div>
+                  )}
                   {!isDnf && award?.title && (
 
                     <div className="mt-2 flex items-center gap-1.5 text-[9px] font-black tracking-widest px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 uppercase text-amber-200/80 w-fit">
@@ -507,10 +677,27 @@ export function RaceResultsScreen({
           <h2 className="text-center text-zinc-500 text-[11px] font-black tracking-[0.4em] uppercase mb-8">
             {isSelfSelected ? 'YOUR DETAILED STATS' : `${selectedPlayer?.name || 'PLAYER'}'S DETAILED STATS`}
           </h2>
+          {/* Says why the panel below is thin. Without this a racer whose
+              broadcast never landed rendered as a full stats layout with an
+              empty graph and a zeroed heatmap, which reads as a bug rather
+              than as missing data. */}
+          {selectedSync && (
+            <p className="mx-auto mb-6 w-fit rounded-full border border-white/10 bg-white/5 px-4 py-2 text-center font-mono text-[9px] font-black uppercase tracking-[0.18em]">
+              {selectedSync === 'syncing' ? (
+                <span className="flex items-center gap-2 text-sky-300/80">
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-sky-300/80 fx-pulse" />
+                  Requesting this racer&apos;s details
+                </span>
+              ) : (
+                <span className="text-zinc-500">
+                  This racer&apos;s details never arrived — headline numbers only
+                </span>
+              )}
+            </p>
+          )}
           <ResultsScreen
             {...displayProps}
             theme={theme}
-            competitorTimelines={undefined}
             compact
             /* The race screen owns the navigation. Without this the embedded
                panel also rendered NEXT TEST / drill buttons that quietly tore

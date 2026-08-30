@@ -1,5 +1,17 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Level, CodeLanguage } from '@/data/constants';
+import type { GhostMode } from '@/components/TypingArea';
+
+const GHOST_MODES: readonly GhostMode[] = ['pb', 'target', 'rival'];
+
+function readGhostMode(): GhostMode {
+  try {
+    const stored = localStorage.getItem('typezen_ghost_mode');
+    // An unrecognised value (a build that predates 'rival', or a hand-edited
+    // entry) would otherwise be cast straight into state and select no pace.
+    return GHOST_MODES.includes(stored as GhostMode) ? (stored as GhostMode) : 'pb';
+  } catch { return 'pb'; }
+}
 
 export interface ResetOverrides {
   level?: Level;
@@ -17,7 +29,7 @@ export interface GameConfigState {
   zenMode: boolean;
   suddenDeath: boolean;
   ghostPacer: boolean;
-  ghostMode: 'pb' | 'target';
+  ghostMode: GhostMode;
   ghostTargetWpm: number;
   focusMode: boolean;
   blindMode: boolean;
@@ -42,9 +54,7 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
   const [zenMode, setZenMode] = useState(false);
   const [suddenDeath, setSuddenDeath] = useState(false);
   const [ghostPacer, setGhostPacer] = useState(false);
-  const [ghostMode, setGhostModeState] = useState<'pb' | 'target'>(() => {
-    try { return (localStorage.getItem('typezen_ghost_mode') as 'pb' | 'target') || 'pb'; } catch { return 'pb'; }
-  });
+  const [ghostMode, setGhostModeState] = useState<GhostMode>(readGhostMode);
   const [ghostTargetWpm, setGhostTargetWpmState] = useState<number>(() => {
     try {
       const stored = parseInt(localStorage.getItem('typezen_ghost_target_wpm') || '100', 10);
@@ -52,7 +62,7 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     } catch { return 100; }
   });
 
-  const setGhostMode = useCallback((val: 'pb' | 'target') => {
+  const setGhostMode = useCallback((val: GhostMode) => {
     setGhostModeState(val);
     try { localStorage.setItem('typezen_ghost_mode', val); } catch {}
   }, []);

@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { Flame, Trophy, BarChart2, Swords, Users, MessageSquare, Settings, Lock, Menu, X } from 'lucide-react';
+import { Flame, Trophy, Swords, Users, MessageSquare, Settings, Lock, Menu, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 import { TITLE_BADGES } from '@/data/titles';
@@ -19,7 +19,6 @@ interface CosmicNavBarProps {
   // Callbacks
   onOpenProfile: (username: string) => void;
   onOpenTrophies: () => void;
-  onOpenStats: () => void;
   onOpenRace: () => void;
   onOpenAcademy: () => void;
   onOpenPractice: () => void;
@@ -44,7 +43,6 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   unlockedAchievements,
   onOpenProfile,
   onOpenTrophies,
-  onOpenStats,
   onOpenRace,
   onOpenAcademy,
   onOpenPractice,
@@ -85,10 +83,17 @@ export const CosmicNavBar = memo(function CosmicNavBar({
       {/* data-app-chrome is how useAppChrome finds this element to measure.
           The header's height is NOT constant — the identity capsule on the
           right is `hidden lg:flex`, so it is genuinely shorter below lg. Every
-          stage reads the measured --nav-h rather than guessing a pixel value. */}
+          stage reads the measured --nav-h rather than guessing a pixel value.
+
+          `!fixed`, not `fixed`: `.glass-panel` declares `position: relative` in
+          plain CSS (src/index.css), which sits after Tailwind's utilities layer
+          and therefore won every cascade against it. The navbar was silently
+          `relative` — it took 80px of document flow while every stage ALSO
+          reserved `--nav-h` of top padding to clear it, so the header's height
+          was paid for twice and each stage lost 80px of usable height. */}
       <header
         data-app-chrome="nav"
-        className="fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-[var(--z-nav)] flex items-center justify-between font-display transition-[background-color,border-color,box-shadow] duration-500 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+        className="!fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-[var(--z-nav)] flex items-center justify-between font-display transition-[background-color,border-color,box-shadow] duration-500 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
       >
 
         {/* Left: Logo & Academy CTA */}
@@ -212,7 +217,9 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 own — which rendered as five black coins in a row. */}
             <div className="flex items-center gap-0.5">
               <ActionButton icon={Trophy} onClick={onOpenTrophies} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
-              <ActionButton icon={BarChart2} onClick={onOpenStats} isLoggedIn={isLoggedIn} title="Stats" theme={theme} />
+              {/* No Stats button. Everything it opened — trends, personal bests,
+                  lifetime totals, the key heatmap — is on the dossier's Progress
+                  tab, which is one click away via the identity capsule. */}
               <ActionButton icon={Users} onClick={onOpenSocial} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
               <ActionButton icon={MessageSquare} onClick={onOpenComms} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
               <ActionButton icon={Settings} onClick={onOpenSettings} isLoggedIn={true} title="Settings" theme={theme} />
@@ -305,7 +312,6 @@ export const CosmicNavBar = memo(function CosmicNavBar({
               {/* Same bare row as the desktop tray. */}
               <div className="flex items-center gap-0.5">
                 <ActionButton icon={Trophy} onClick={() => { onOpenTrophies(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
-                <ActionButton icon={BarChart2} onClick={() => { onOpenStats(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Stats" theme={theme} />
                 <ActionButton icon={Swords} onClick={() => { onOpenRace(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Race" theme={theme} />
                 <ActionButton icon={Users} onClick={() => { onOpenSocial(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
                 <ActionButton icon={MessageSquare} onClick={() => { onOpenComms(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />

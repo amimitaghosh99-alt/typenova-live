@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Skull, Ghost, Focus, Brain, FlipHorizontal, CloudFog, Magnet, Timer, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { TypingArea, type PaceSample } from '@/components/TypingArea';
+import { TypingArea, type PaceSample, type RivalPace } from '@/components/TypingArea';
 import { StatsPanel } from '@/components/StatsPanel';
 import { ArenaConfigBar } from '@/components/ArenaConfigBar';
 import type { Theme, Level } from '@/data/constants';
@@ -20,6 +20,8 @@ interface PracticeArenaProps {
   lengthLocked: boolean;
   mutatable: boolean;
   pbGhost: { wpm: number; samples: PaceSample[] } | null;
+  /** Ghost Net rival armed from the mode board, if any. */
+  rivalGhost: RivalPace | null;
   otherRacePlayers: RacerState[];
   handleChangeLevel: (val: string) => void;
   handleLockedLevelClick: (lvl: Level) => void;
@@ -40,6 +42,7 @@ export const PracticeArena = memo(function PracticeArena({
   lengthLocked,
   mutatable,
   pbGhost,
+  rivalGhost,
   otherRacePlayers,
   handleChangeLevel,
   handleLockedLevelClick,
@@ -138,8 +141,14 @@ export const PracticeArena = memo(function PracticeArena({
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center relative group cursor-pointer ${game.ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/10'}`}
                 title={
                   game.ghostPacer
-                    ? `Ghost Racer Active: ${game.ghostMode === 'pb' ? (pbGhost ? `PB (${pbGhost.wpm} WPM)` : 'PB Mode') : `${game.ghostTargetWpm} WPM Bot`} (Right-click or Shift-click for settings)`
-                    : 'Ghost Racer 2.0 (Right-click or Shift-click for settings)'
+                    ? `Ghost Racer Active: ${
+                        game.ghostMode === 'rival'
+                          ? (rivalGhost ? `${rivalGhost.username} (${rivalGhost.wpm} WPM)` : 'Ghost Net — pick a rival')
+                          : game.ghostMode === 'pb'
+                          ? (pbGhost ? `PB (${pbGhost.wpm} WPM)` : 'PB Mode')
+                          : `${game.ghostTargetWpm} WPM Bot`
+                      } (Right-click or Shift-click for settings)`
+                    : 'Ghost Racer 3.0 (Right-click or Shift-click for settings)'
                 }
                 aria-pressed={game.ghostPacer}
               >
@@ -228,6 +237,7 @@ export const PracticeArena = memo(function PracticeArena({
           combo={typing.combo}
           zenMode={game.zenMode}
           pbGhost={pbGhost}
+          rivalGhost={rivalGhost}
           isCodeMode={game.level === 'CODE'}
           racePlayers={otherRacePlayers}
         />

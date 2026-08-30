@@ -6,6 +6,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RacerState, RaceConfig, ChatMessage, RaceConnection } from '@/hooks/useRace';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { InviteFriendsPanel } from '@/components/InviteFriendsPanel';
+import type { FriendData } from '@/hooks/useFriends';
 import type { Level, CodeLanguage, Theme } from '@/data/constants';
 import { toast } from 'sonner';
 
@@ -35,6 +37,19 @@ interface LobbyScreenProps {
   connection?: RaceConnection;
   /** Guests opt in to the next race. The host's readiness is implicit. */
   onToggleReady?: (ready: boolean) => void;
+  /**
+   * Friends list for in-app invites. Empty for guests.
+   *
+   * The lobby's two existing "invite" affordances both only reached the
+   * clipboard — COPY for the code, and the button labelled INVITE for a URL —
+   * leaving the user to find their friend on some other app and paste it. These
+   * props let the room push a real invite through the existing challenge channel.
+   */
+  friends?: FriendData[];
+  friendsLoading?: boolean;
+  isLoggedIn?: boolean;
+  /** Sends `challenge_invite` for *this* room's code. Omit to hide the panel. */
+  onInviteFriend?: (username: string) => void;
 }
 
 /** Colour a measured round trip. Anything over ~300ms is a visible handicap. */
@@ -78,7 +93,11 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   error = null,
   countdown = null,
   connection = 'live',
-  onToggleReady
+  onToggleReady,
+  friends = [],
+  friendsLoading = false,
+  isLoggedIn = false,
+  onInviteFriend,
 }) => {
 
   const [copiedCode, setCopiedCode] = useState(false);
@@ -523,13 +542,35 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       SLOT #{players.length + i + 1} EMPTY
                     </span>
                     <span className="text-[10px] font-mono text-cyan-400 group-hover:underline mt-1 font-bold">
-                      + INVITE RACER
+                      COPY INVITE LINK
                     </span>
                   </motion.button>
                 ))}
               </AnimatePresence>
             </div>
           </div>
+
+          {/* ── Invite friends ──
+              Sits directly under the podium, next to the empty slots it fills.
+              Rendered only when the room has room and the wiring is present: an
+              invite list on a full room is a list of dead buttons. */}
+          {onInviteFriend && players.length < roomSize && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <InviteFriendsPanel
+                friends={friends}
+                loading={friendsLoading}
+                isLoggedIn={isLoggedIn}
+                presentNames={players.map((p) => p.name)}
+                hasSpace={players.length < roomSize}
+                theme={theme}
+                onInvite={onInviteFriend}
+              />
+            </motion.div>
+          )}
 
           {/* Match Configuration Card (Sleek 3-Column Layout) */}
           {lobbyConfig && updateLobbyConfig && (

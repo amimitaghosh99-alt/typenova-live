@@ -31,7 +31,9 @@ import { useModals } from '@/hooks/useModals';
 
 import { TypingController } from '@/components/TypingController';
 
-import type { PaceSample } from '@/components/TypingArea';
+import type { PaceSample, RivalPace } from '@/components/TypingArea';
+import { useModeLeaderboard, fetchRivalGhost, type ModeScoreRow, type RivalGhost } from '@/hooks/useModeLeaderboard';
+import { buildModeKey, pbStorageKeyFor, submittableModeKey } from '@/lib/modeKey';
 import { ResultsScreen } from '@/components/ResultsScreen';
 import { RaceResultsScreen } from '@/components/RaceResultsScreen';
 import { AIDrillResultsScreen } from '@/components/AIDrillResultsScreen';
@@ -54,7 +56,7 @@ import { ACADEMY_PROGRESS_CHANGED, onSyncEvent } from '@/lib/syncEvents';
 import { readLocalProgress, writeLocalProgress } from '@/lib/progress';
 import { useFriends } from '@/hooks/useFriends';
 import { PracticeArena } from '@/components/PracticeArena';
-import { LeaderboardSidebar } from '@/components/LeaderboardSidebar';
+import { LeaderboardSidebar, type BoardTab } from '@/components/LeaderboardSidebar';
 import { BottomControlsDock } from '@/components/BottomControlsDock';
 import { AppModalManager } from '@/components/AppModalManager';
 import { TimedHud } from '@/components/TimedHud';
@@ -302,7 +304,7 @@ function MainApp() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [dailyBoard, setDailyBoard] = useState<LeaderboardRow[]>([]);
   const [friendsBoard, setFriendsBoard] = useState<LeaderboardRow[]>([]);
-  const [boardTab, setBoardTab] = useState<'alltime' | 'today' | 'friends'>('alltime');
+  const [boardTab, setBoardTab] = useState<BoardTab>('alltime');
   const [saveStatus, setSaveStatus] = useState('');
   const [autoSave] = useState(() => {
     try { return localStorage.getItem('typezen_autosave') !== 'false'; } catch { return true; }
@@ -411,6 +413,9 @@ function MainApp() {
       history: h,
       personalBests: loadPersonalBests(),
       achievements: rpg.unlockedAchievements,
+      // The dossier draws the key heatmap now — the standalone stats modal that
+      // used to own it is gone.
+      heatmap: rpg.heatmapData,
       skillStats: {
         maxWpm: h.length ? Math.max(...h.map((e) => e.wpm)) : 0,
         avgAccuracy: recent.length ? Math.round(recent.reduce((a, e) => a + e.acc, 0) / recent.length) : 0,
@@ -420,7 +425,7 @@ function MainApp() {
         totalWordsTyped: h.reduce((a, e) => a + e.size, 0),
       }
     };
-  }, [dossierOpen, cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, rpg.bestCombo, rpg.unlockedAchievements, dailyStreak, racesWon]);
+  }, [dossierOpen, cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, rpg.bestCombo, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, racesWon]);
 
   const handleChallengeFriend = (
     friendUsername: string,
@@ -868,13 +873,67 @@ function MainApp() {
   }, [game]);
 
   // ─── Personal Best (ghost pacer data) ────────────────────────────
-  const pbStorageKey = `typezen_pb:${game.level}:${game.testMode === 'time' ? 't' + game.duration : 'w' + game.wordCount}`;
+  // One canonical mode identity drives the PB ghost key, the per-mode board and
+  // the rival ghost lookup, so all three always describe the same test config.
+  const modeKey = buildModeKey(game.level, game.testMode, game.duration, game.wordCount);
+  const pbStorageKey = pbStorageKeyFor(modeKey);
   const pbGhost = useMemo((): { wpm: number; samples: PaceSample[] } | null => {
     if (game.level === 'CUSTOM' || game.mirroredMode || game.dailyActive) return null;
     try { return JSON.parse(localStorage.getItem(pbStorageKey) || 'null'); } catch { return null; }
     // typing.phase is a deliberate extra dep: reload the PB after each finish
 
   }, [pbStorageKey, game.level, game.mirroredMode, game.dailyActive, typing.phase]);
+
+  // ─── Ghost Net (per-mode boards + rival ghosts) ──────────────────
+  // `null` for configs that never reach a shared board (custom text, mirrored
+  // runs, the daily challenge), which also disables the board and rival picker.
+  const boardModeKey = submittableModeKey({
+    level: game.level,
+    testMode: game.testMode,
+    duration: game.duration,
+    wordCount: game.wordCount,
+    dailyActive: game.dailyActive,
+    mirroredMode: game.mirroredMode,
+  });
+  const {
+    rows: modeBoard,
+    loading: modeBoardLoading,
+    unavailable: modeBoardUnavailable,
+    refresh: refreshModeBoard,
+  } = useModeLeaderboard(boardModeKey);
+
+  const [rivalGhost, setRivalGhost] = useState<RivalGhost | null>(null);
+  const [rivalPendingId, setRivalPendingId] = useState<string | null>(null);
+
+  // A ghost is only comparable within the mode it was recorded in, so changing
+  // the config disarms it rather than racing a curve for a different test.
+  useEffect(() => {
+    setRivalGhost(null);
+    setRivalPendingId(null);
+  }, [boardModeKey]);
+
+  const handleSelectRival = useCallback(async (row: ModeScoreRow) => {
+    if (!boardModeKey) return;
+    // Re-picking the armed rival clears it, so the same row toggles.
+    if (rivalGhost?.userId === row.user_id) {
+      setRivalGhost(null);
+      return;
+    }
+    setRivalPendingId(row.user_id);
+    const ghost = await fetchRivalGhost(boardModeKey, row.user_id);
+    setRivalPendingId(null);
+    if (!ghost) {
+      toast.error(`No replayable ghost stored for ${row.username} yet.`);
+      return;
+    }
+    setRivalGhost(ghost);
+    game.setGhostMode('rival');
+    game.setGhostPacer(true);
+    toast.success(`Ghost armed — ${ghost.username} @ ${ghost.wpm} WPM`, { icon: '👻' });
+  }, [boardModeKey, rivalGhost?.userId, game]);
+
+  // The typing area only needs the pace, and only while 'rival' is selected.
+  const activeRivalPace: RivalPace | null = game.ghostMode === 'rival' ? rivalGhost : null;
 
   // ─── Theme / Sound Cycles ────────────────────────────────────────
   const selectTheme = useCallback((index: number) => {
@@ -930,12 +989,17 @@ function MainApp() {
             p_log: typing.keystrokeLog.current,
             p_daily: game.dailyActive,
             p_day: todayKey(),
+            // Ghost Net: partitions the score onto this mode's board and lets
+            // the RPC derive and store the replayable pace curve for the run.
+            p_mode_key: boardModeKey,
+            p_consistency: Math.round(typing.consistency),
           }).then(({ error }) => {
             if (error) setSaveStatus(`Error: ${error.message}`);
             else {
               setSaveStatus('SCORE SAVED!');
               fetchLeaderboard();
               if (game.dailyActive) fetchDailyBoard();
+              if (boardModeKey) refreshModeBoard();
             }
           }, () => {
             setSaveStatus('SAVE FAILED — OFFLINE?');
@@ -947,6 +1011,7 @@ function MainApp() {
   }, [
     autoSave,
     auth.session,
+    boardModeKey,
     cloud.username,
     fetchDailyBoard,
     fetchLeaderboard,
@@ -954,8 +1019,10 @@ function MainApp() {
     game.dailyActive,
     game.level,
     game.microDrillActive,
+    refreshModeBoard,
     supabase,
     typing.accuracy,
+    typing.consistency,
     typing.endTime,
     typing.input,
     typing.phase,
@@ -1139,11 +1206,6 @@ function MainApp() {
     }`;
 
   // ====== MEMOIZED HANDLERS FOR MODALS ======
-  const handleStartWeaknessDrill = useCallback((drillText: string) => {
-    typing.setTargetText(drillText);
-    closeModal();
-    typing.resetEngine();
-  }, [typing.setTargetText, typing.resetEngine, closeModal]);
   const handleRaceCreate = useCallback((name: string, size?: number, isRanked?: boolean, roomCode?: string, isPublic?: boolean) => {
     setIsRankedMatch(!!isRanked);
     // Defaults to unlisted: paths that don't ask for a public room (quick match,
@@ -1202,6 +1264,23 @@ function MainApp() {
   }, [race.leave]);
 
   /**
+   * Invite a friend into the room this client is already in.
+   *
+   * Distinct from `handleChallengeFriend`, which creates a *new* 2-seat room and so
+   * cannot be used from inside an existing lobby — which is why the lobby's only
+   * invite affordances were clipboard copies. Same `challenge_invite` broadcast,
+   * but carrying the live room code, so accepting drops the friend into this room.
+   *
+   * The room's current config rides along so the incoming prompt can state what it
+   * is inviting them to rather than showing a bare code.
+   */
+  const handleInviteFriendToRoom = useCallback((friendUsername: string) => {
+    if (!cloud.username || !race.code) return;
+    challenges.sendChallenge(friendUsername, race.code, cloud.elo, race.lobbyConfig);
+    toast.success(`Invite sent to ${friendUsername}`, { icon: '📨' });
+  }, [cloud.username, cloud.elo, race.code, race.lobbyConfig, challenges.sendChallenge]);
+
+  /**
    * Opening a dossier is navigation now, not a dialog push. Any dialog on screen
    * closes first — leaving the social modal mounted behind a full page would put
    * two competing Escape handlers and two scroll containers on the same view.
@@ -1226,6 +1305,20 @@ function MainApp() {
     if (window.history.length > 1) navigate(-1);
     else navigate('/', { replace: true });
   }, [navigate]);
+
+  /**
+   * Loads a drill generated on the dossier and leaves for the arena.
+   *
+   * The dossier is a route, not a dialog, so unlike `handleStartWeaknessDrill`
+   * this cannot just close a modal — without the navigate the drill would be
+   * staged in a typing engine sitting behind a full-screen page.
+   */
+  const handleStartDossierDrill = useCallback((drillText: string) => {
+    typing.setTargetText(drillText);
+    typing.resetEngine();
+    setCurrentStage('practice');
+    navigate('/', { replace: false });
+  }, [typing.setTargetText, typing.resetEngine, navigate]);
 
 
   const exitAcademy = useCallback(() => {
@@ -1386,6 +1479,7 @@ function MainApp() {
             supabase={supabase}
             raceId={race.raceId}
             isHost={race.isHost}
+            onRequestDetails={race.requestDetails}
             chatMessages={race.chatMessages}
             onSendMessage={(msg) => race.sendChatMessage(msg, cloud.username || 'Typist')}
             onRematch={handleRematchRace}
@@ -1541,7 +1635,6 @@ function MainApp() {
             setCurrentStage('practice');
           }}
           onOpenTrophies={() => isLoggedIn ? openModal('trophy') : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })}
-          onOpenStats={() => isLoggedIn ? openModal('stats') : toast.error("Sign in to view Stats!", { icon: <Lock size={14} /> })}
           onOpenRace={() => {
             // Deliberately does NOT open a room. Auto-creating one here meant a
             // failed handshake left the user in a lobby with a blank code; the
@@ -1607,6 +1700,9 @@ function MainApp() {
             localUsername={cloud.username}
             theme={theme}
             localRPGStats={localRPGStatsMemo}
+            // Loading a drill leaves the dossier for the arena, so the same
+            // handler the stats modal used gets a `navigate` first.
+            onStartDrill={handleStartDossierDrill}
           />
         ) : (
         <AnimatePresence mode="wait" custom={stageDirection}>
@@ -1638,11 +1734,15 @@ function MainApp() {
               // content to the viewport.
               className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] overflow-y-auto custom-scrollbar transform-gpu will-change-transform"
             >
-              {/* `xl:h-full` pins the cockpit to exactly one screen — its
-                  columns scroll internally instead of the page. Below xl the
-                  stacked layout genuinely can't fit, so it grows and this
-                  container scrolls. pb clears the fixed dock + changelog badge. */}
-              <div className="w-full max-w-[var(--w-wide)] mx-auto px-2 md:px-6 pt-4 pb-[calc(var(--dock-h)+1rem)] flex flex-col min-h-full xl:h-full">
+              {/* Below xl the stacked layout genuinely can't fit one screen, so
+                  it grows and this container scrolls. It used to also carry
+                  `xl:h-full`, which pinned the cockpit to exactly one screen and
+                  forced its two columns to scroll internally — four nested scroll
+                  regions on one page, where which one a wheel event moved depended
+                  on the cursor's quadrant. The entry screen keeps its actions
+                  on-screen with `xl:sticky` instead. pb clears the fixed dock +
+                  changelog badge. */}
+              <div className="w-full max-w-[var(--w-wide)] mx-auto px-2 md:px-6 pt-4 pb-[calc(var(--dock-h)+1rem)] flex flex-col min-h-full">
                 {/* No live room yet → ask whether to host or join. Rendering the
                   lobby in this state produced a dead screen: blank room code,
                   empty slots, and a start button that could never fire. */}
@@ -1676,6 +1776,11 @@ function MainApp() {
                           theme={theme}
                           rooms={roomDirectory.rooms}
                           busy={race.status === 'joining'}
+                          /* `race.code` is set the moment a join starts, so the
+                             row you clicked owns the spinner instead of every row
+                             dimming off one shared flag. */
+                          joiningCode={race.status === 'joining' ? race.code : null}
+                          connected={roomDirectory.connected}
                           listPublicly={listRoomsPublicly}
                           onToggleListPublicly={toggleListRoomsPublicly}
                           onJoin={(targetCode) => {
@@ -1732,6 +1837,12 @@ function MainApp() {
                     countdown={race.countdown}
                     connection={race.connection}
                     onToggleReady={race.setReady}
+                    /* In-app invites, so filling a seat no longer means leaving
+                       the app to paste a link somewhere. */
+                    friends={friendsState.friends}
+                    friendsLoading={friendsState.loading}
+                    isLoggedIn={isLoggedIn}
+                    onInviteFriend={handleInviteFriendToRoom}
                   />
 
                 )}
@@ -1775,6 +1886,7 @@ function MainApp() {
                   lengthLocked={lengthLocked}
                   mutatable={mutatable}
                   pbGhost={pbGhost}
+                  rivalGhost={activeRivalPace}
                   otherRacePlayers={otherRacePlayers ?? []}
                   handleChangeLevel={(val) => handleChangeLevel(val as Level)}
                   handleLockedLevelClick={handleLockedLevelClick}
@@ -1793,12 +1905,17 @@ function MainApp() {
                   leaderboard={leaderboard}
                   dailyBoard={dailyBoard}
                   friendsBoard={friendsBoard}
+                  modeBoard={modeBoard}
+                  modeKey={boardModeKey}
+                  modeUnavailable={modeBoardUnavailable}
                   currentUsername={cloud.username}
                   onTabChange={(tab) => {
                     setBoardTab(tab);
                     if (tab === 'today') fetchDailyBoard();
+                    if (tab === 'mode') refreshModeBoard();
                   }}
                   onProfileClick={handleOpenProfile}
+                  onRaceGhost={handleSelectRival}
                   onChallengeFriend={(uname) => {
                     // Opens a 1v1 room and shows the lobby. This used to flip
                     // `raceActive` on with no race running, which dropped the
@@ -1860,6 +1977,13 @@ function MainApp() {
           challenges={challenges}
           dailyStreak={dailyStreak}
           pbGhost={pbGhost}
+          modeKey={boardModeKey}
+          modeBoard={modeBoard}
+          modeBoardLoading={modeBoardLoading}
+          modeBoardUnavailable={modeBoardUnavailable}
+          rivalGhost={rivalGhost}
+          rivalPendingId={rivalPendingId}
+          onSelectRival={handleSelectRival}
           isRankedMatch={isRankedMatch}
           tetrisEffect={tetrisEffect}
           isAruOpen={isAruOpen}
@@ -1877,7 +2001,6 @@ function MainApp() {
 
           onSelectSoundProfile={selectSoundProfile}
           onSetThemeFont={handleSetThemeFont}
-          onStartWeaknessDrill={handleStartWeaknessDrill}
           onChallengeFriend={handleChallengeFriend}
           onOpenProfile={handleOpenProfile}
           onSetTetrisEffect={setTetrisEffect}

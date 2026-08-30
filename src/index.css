@@ -402,6 +402,52 @@
   }
 }
 
+/* ─── COMPETE SCREEN: animation utilities ─────────────────────────────
+   Glow rings, and button shimmers.
+   All carry @media (prefers-reduced-motion: reduce) guards.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Glow ring — breathing accent-colored ring via box-shadow. */
+.compete-glow-ring {
+  box-shadow: 0 0 16px 2px var(--glow-color, rgba(34, 211, 238, 0.4));
+  animation: glow-pulse 2.5s ease-in-out infinite;
+}
+
+/* Button shimmer overlay — light sweep on hover for action buttons */
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.25) 50%,
+    transparent 65%
+  );
+  background-size: 250% 100%;
+  background-position: -200% 0;
+  transition: none;
+}
+.btn-shimmer:hover::after {
+  animation: glass-shimmer 1.2s ease-in-out;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .compete-glow-ring,
+  .animate-glow-pulse,
+  .btn-shimmer::after,
+  .btn-shimmer:hover::after {
+    animation: none !important;
+  }
+}
+
 /* ─── LIQUID GLASS: .glass-card ───────────────────────────────────────
    A panel that sits *inside* another glass surface.
 
@@ -959,6 +1005,15 @@
   .animate-key-ripple,
   .animate-star-pop,
   .animate-count-glow,
+  /* The room-code field's per-slot caret. A blinking cursor is exactly the kind
+     of small looping motion this preference is asking us to stop, and the slot
+     already signals focus through its border colour, so nothing is lost.
+
+     Only `.animate-caret-blink` is listed, not `.animate-pulse`: pulse is used in
+     39 places across the app and neutralising it here would silently change every
+     one of them. The room-browser skeletons gate their own pulse on
+     `useReducedMotion` in JSX instead. */
+  .animate-caret-blink,
   .lucid-enter,
   .lucid-scale,
   .lucid-scale-exit,

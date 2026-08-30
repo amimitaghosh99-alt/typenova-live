@@ -21,7 +21,6 @@ export interface ResultsScreenProps {
   displayName: string | null;
   saveStatus: string;
   timelinePoints: Array<{ t: number; wpm: number; rawWpm: number }>;
-  competitorTimelines?: Record<string, Array<{ t: number; wpm: number }>>;
   errorTimes: number[];
   durationMs: number;
   keystrokeLog: Keystroke[];
@@ -45,7 +44,7 @@ export function ResultsScreen({
   wpm = 0, rawWpm = 0, accuracy = 0, consistency = 0, flawlessStreak = 0,
   leveledUp = false, xpGainedLast = 0, theme,
   saveStatus = '',
-  timelinePoints = [], competitorTimelines, errorTimes = [], durationMs = 1000,
+  timelinePoints = [], errorTimes = [], durationMs = 1000,
   keystrokeLog = [],
   onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill, isSmartDrillGenerating,
   ghostTimeline, ghostLabel, ghostDeltaS,
@@ -218,7 +217,6 @@ export function ResultsScreen({
       <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '100ms' }}>
         <WpmGraph
           timelinePoints={safeTimelinePoints}
-          competitorTimelines={competitorTimelines}
           errorTimes={safeErrorTimes}
           durationMs={safeDurationMs}
           theme={theme || { name: 'CYBERPUNK', bg: 'bg-slate-950', text: 'text-cyan-400', border: 'border-cyan-500/30', glowPrimary: 'rgba(6,182,212,0.4)', glowSecondary: 'rgba(34,211,238,0.3)' }}

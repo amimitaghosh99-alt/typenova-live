@@ -18,6 +18,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.8.0',
+    date: 'August 30, 2026',
+    title: 'Ghost Net, Per-Mode Leaderboards & the Tactical Compete Rebuild 👻🏁',
+    changes: [
+      { type: 'feature', description: 'Ghost Net — Race Anyone on the Board: submit_score already shipped your full keystroke log to Postgres to verify your WPM, then threw it away. It now reduces that verified log to a pace curve and stores it, so every leaderboard row is a downloadable opponent you can race side by side instead of a number you read.' },
+      { type: 'feature', description: 'Per-Mode Leaderboards: a new MODE board partitions scores by the exact config that produced them, so a 15-second sprint no longer competes with a 100-word marathon. Boards are keyed as LEVEL:t30 / LEVEL:w50 — the same namespace personal-best ghosts have always used.' },
+      { type: 'feature', description: 'Ghost Racer 3.0: the pacer gains a third mode beside Personal Best and Pacer Bot. Pick a rival off the current mode board and their run replays against you, labelled with their name and WPM; the same row toggles it back off.' },
+      { type: 'feature', description: 'Tactical Compete Entry Rebuild: the compete screen was rewritten around recent rooms, a sticky action rail and a live room browser that spins only the row you clicked instead of dimming every row off one shared flag.' },
+      { type: 'feature', description: 'In-App Room Invites: filling a seat no longer means leaving the app to paste a link. The lobby lists your friends and invites them straight into the room you are already in, carrying the room config so the prompt says what it is inviting them to.' },
+      { type: 'feature', description: 'Race Results Chart Rebuild: the post-match graph moved into its own module with dedicated curve maths, stable per-racer colours and marker glyphs, plus a resync pass that re-requests finish payloads that never arrived instead of leaving a permanent hole in the graph.' },
+      { type: 'fix', description: 'The Navbar Was Never Actually Fixed: .glass-panel declares position: relative in plain CSS, which sits after Tailwind\'s utilities layer and won every cascade against the header\'s fixed class. The navbar was silently relative — it took 80px of document flow while every stage ALSO reserved --nav-h of top padding to clear it, so the header was paid for twice and each stage lost 80px of usable height.' },
+      { type: 'fix', description: 'The Leaderboard No Longer Scrolls the Page: the board could outgrow the viewport and took the whole document with it. It now measures the space its ancestors genuinely leave free and scrolls its rows internally, and with the navbar fix reclaiming 80px it fits all five without scrolling at common window heights.' },
+      { type: 'fix', description: 'Anti-Cheat Hardening on Score Submission: mode keys are validated against an exact shape server-side so no client can invent board partitions, and keystroke logs over 20k entries are rejected outright. The stored ghost curve is derived from the log the server already validated, so a client cannot publish a ghost that disagrees with its accepted score.' },
+      { type: 'tweak', description: 'Ghost Curves Carry No Text: a stored ghost holds only timing and input length, never the characters typed, so putting a score on a board never publishes content.' },
+      { type: 'tweak', description: 'Shared Motion Tokens: springs, reveals and row staggers moved into one module instead of being redeclared per panel, and the compete cockpit dropped xl:h-full — four nested scroll regions on one page meant which one a wheel event moved depended on the cursor\'s quadrant.' },
+      { type: 'tweak', description: 'Stats Modal Retired: the standalone stats dashboard is gone; the Operator Dossier owns the key heatmap and drill handoff, and starting a drill from it navigates to the arena rather than staging text behind a full-screen page.' }
+    ],
+    impact: {
+      fixes: 3,
+      tweaks: 3,
+      linesChanged: 4450,
+      perfGain: '80px Reclaimed on Every Stage & One Scroll Region per Page'
+    }
+  },
+  {
     version: 'v2.7.0',
     date: 'August 27, 2026',
     title: 'Operator Dossier, Tactical Multiplayer Arena & Cosmetic Forge Overhaul 🪪⚡',

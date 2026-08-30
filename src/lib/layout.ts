@@ -164,12 +164,17 @@ export const STAGE_WIDTH: Record<Stage, ContainerWidth> = {
  * `'profile'` is gone too: the player dossier is a route (`/operator/:username`)
  * rather than a dialog, so it has a shareable URL and real history. Nothing in
  * this layer needs to know about it.
+ *
+ * `'stats'` is gone for the same reason. Everything that panel showed — the WPM
+ * and accuracy trends, personal bests, lifetime totals and the key heatmap — is
+ * on the dossier's Progress tab, drawn from the same `lib/history` log. Keeping
+ * both meant two surfaces for one question, and the modal was the one nobody
+ * found.
  */
 export type ModalKey =
     | 'trophy'
     | 'godMode'
     | 'expandedGraph'
-    | 'stats'
     | 'replay'
     | 'social'
     | 'comms'

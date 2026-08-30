@@ -99,7 +99,12 @@ export const Scanlines = memo(function Scanlines({ alpha = 0.045, gap = 3 }: { a
     return (
         <span
             aria-hidden
-            className="pointer-events-none absolute inset-0 z-10 mix-blend-overlay"
+            /* No `mix-blend-overlay`. A blend mode forces the compositor to read
+               back everything painted beneath this layer and re-blend it, which
+               on a full-height panel means a fresh composite of the whole panel
+               on every scroll frame — and at 0.045 alpha the blend was doing
+               almost nothing a plain overlay does not. */
+            className="pointer-events-none absolute inset-0 z-10"
             style={{
                 backgroundImage: `repeating-linear-gradient(to bottom, rgba(255,255,255,${alpha}) 0px, rgba(255,255,255,${alpha}) 1px, transparent 1px, transparent ${gap}px)`,
             }}
@@ -146,6 +151,11 @@ export const ScanSweep = memo(function ScanSweep({
  * dossier is open, and a JS-driven `repeat: Infinity` writes a style on every
  * frame of that — including the frames a tab switch needs. `fx-spin` runs on
  * the compositor and costs nothing on the main thread.
+ *
+ * `contain: strict` is what keeps that promise on a *scrolling* page: without
+ * it the rotation invalidates whatever the halo overlaps, and its consumers sit
+ * behind an avatar inside a panel that scrolls. It has no children and a fixed
+ * box, so containing it costs nothing.
  */
 export const ConicHalo = memo(function ConicHalo({
     color = '34, 211, 238',
@@ -163,7 +173,7 @@ export const ConicHalo = memo(function ConicHalo({
     return (
         <span
             aria-hidden
-            className={`fx-spin pointer-events-none absolute ${className}`}
+            className={`fx-spin pointer-events-none absolute [contain:strict] ${className}`}
             style={{ inset, background, '--fx-spin-dur': `${duration}s` } as CSSProperties}
         />
     );
@@ -186,8 +196,10 @@ export const DataStream = memo(function DataStream({
     return (
         <div aria-hidden className={`overflow-hidden ${className}`}>
             {/* CSS marquee. As a framer `x: ['0%','-50%']` loop this was a style
-                write per frame for the entire time the dossier was on screen. */}
-            <div className="fx-marquee flex w-max gap-3 font-mono text-[8px] tracking-[0.25em] text-white/25">
+                write per frame for the entire time the dossier was on screen.
+                `contain: strict` stops the endless translate from invalidating
+                the rail above it on every scroll frame. */}
+            <div className="fx-marquee flex w-max gap-3 font-mono text-[8px] tracking-[0.25em] text-white/25 [contain:strict]">
                 {row.map((cell, i) => (
                     <span key={i}>{cell}</span>
                 ))}

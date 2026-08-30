@@ -112,6 +112,16 @@ export interface PaceSample {
   chars: number;
 }
 
+/** Which pace the shadow racer follows. */
+export type GhostMode = 'pb' | 'target' | 'rival';
+
+/** A stored run from the mode leaderboard, replayed as an opponent. */
+export interface RivalPace {
+  username: string;
+  wpm: number;
+  samples: PaceSample[];
+}
+
 interface TypingAreaProps {
   targetText: string;
   input: string;
@@ -126,13 +136,16 @@ interface TypingAreaProps {
   stickyPenalty: number;
   particles: Particle[];
   ghostPacer: boolean;
-  ghostMode?: 'pb' | 'target';
+  ghostMode?: GhostMode;
   ghostTargetWpm?: number;
   combo: number;
   zenMode?: boolean;
   /** Personal-best pace for the current config — when present the ghost
       races YOUR best run instead of the fixed 60 WPM pace. */
   pbGhost?: { wpm: number; samples: PaceSample[] } | null;
+  /** A stored run pulled off this mode's leaderboard (Ghost Net). Raced
+      exactly like the PB ghost, but labelled with whose run it is. */
+  rivalGhost?: RivalPace | null;
   isCodeMode?: boolean;
   racePlayers?: RacerState[];
 }
@@ -141,13 +154,13 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
   targetText, input, phase, theme, blindMode, focusMode,
   fogMode, startTime, shake, capsLock, stickyPenalty,
   particles, ghostPacer, ghostMode = 'pb', ghostTargetWpm = 100, combo, zenMode = false, pbGhost = null,
-  isCodeMode = false, racePlayers
+  rivalGhost = null, isCodeMode = false, racePlayers
 }: TypingAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const ghost = useGhostRace(
     !zenMode && ghostPacer && phase === 'TYPING',
-    startTime, targetText.length, input.length, ghostMode, ghostTargetWpm, pbGhost
+    startTime, targetText.length, input.length, ghostMode, ghostTargetWpm, pbGhost, rivalGhost
   );
 
   const [showOvertake, setShowOvertake] = useState(false);
@@ -674,9 +687,10 @@ function useGhostRace(
   startTime: number | null,
   targetTextLength: number,
   inputLength: number,
-  ghostMode: 'pb' | 'target' = 'pb',
+  ghostMode: GhostMode = 'pb',
   ghostTargetWpm: number = 100,
-  pbGhost?: { wpm: number; samples: PaceSample[] } | null
+  pbGhost?: { wpm: number; samples: PaceSample[] } | null,
+  rivalGhost?: RivalPace | null
 ): GhostRaceState | null {
   const [ghost, setGhost] = useState<GhostRaceState | null>(null);
   const inputLenRef = useRef(inputLength);
@@ -694,22 +708,29 @@ function useGhostRace(
       return;
     }
 
-    const pbSamples = pbGhost?.samples;
-    const hasPb = ghostMode === 'pb' && !!pbSamples && pbSamples.length > 1;
-    const targetPaceWpm = hasPb ? pbGhost!.wpm : (ghostTargetWpm || 100);
+    // 'pb' and 'rival' both replay a recorded curve and differ only in whose
+    // it is; 'target' has no curve and is integrated from a constant pace.
+    const replay = ghostMode === 'rival' ? rivalGhost : ghostMode === 'pb' ? pbGhost : null;
+    const replaySamples = replay?.samples;
+    const hasReplay = !!replaySamples && replaySamples.length > 1;
+    const targetPaceWpm = hasReplay ? replay!.wpm : (ghostTargetWpm || 100);
     const targetCpm = targetPaceWpm * 5;
-    const label = hasPb ? `PB ${pbGhost!.wpm}` : `${targetPaceWpm} WPM`;
+    const label = hasReplay
+      ? (ghostMode === 'rival'
+          ? `${(rivalGhost!.username || 'RIVAL').toUpperCase()} ${rivalGhost!.wpm}`
+          : `PB ${pbGhost!.wpm}`)
+      : `${targetPaceWpm} WPM`;
 
     const interval = setInterval(() => {
       const elapsedMs = Date.now() - startTime;
       const currentInputLen = inputLenRef.current;
 
-      const chars = hasPb
-        ? charsAtTime(pbSamples!, elapsedMs)
+      const chars = hasReplay
+        ? charsAtTime(replaySamples!, elapsedMs)
         : Math.floor((elapsedMs / 60000) * targetCpm);
 
-      const tGhost = hasPb
-        ? timeAtChars(pbSamples!, currentInputLen)
+      const tGhost = hasReplay
+        ? timeAtChars(replaySamples!, currentInputLen)
         : (currentInputLen / (targetCpm / 60)) * 1000;
 
       const deltaS = (tGhost - elapsedMs) / 1000;
@@ -739,7 +760,7 @@ function useGhostRace(
     }, 100);
 
     return () => clearInterval(interval);
-  }, [active, startTime, targetTextLength, ghostMode, ghostTargetWpm, pbGhost]);
+  }, [active, startTime, targetTextLength, ghostMode, ghostTargetWpm, pbGhost, rivalGhost]);
 
   return ghost;
 }

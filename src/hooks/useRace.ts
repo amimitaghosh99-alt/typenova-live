@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+﻿import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { generateText } from '@/data/constants';
 import type { Level, CodeLanguage } from '@/data/constants';
@@ -8,7 +8,7 @@ export type RaceStatus = 'idle' | 'joining' | 'lobby' | 'racing' | 'finished';
 
 /**
  * Socket health, tracked separately from `status`. A dropped channel used to
- * destroy the room outright — the only way it could be made visible — so a
+ * destroy the room outright â€” the only way it could be made visible â€” so a
  * single Wi-Fi blip cost the whole race.
  */
 export type RaceConnection = 'offline' | 'connecting' | 'live' | 'reconnecting';
@@ -61,7 +61,7 @@ export interface RacerState {
   backspaceCount?: number;
   /** Wall-clock join time. Drives stable slot ordering + host election. */
   joinedAt?: number;
-  /** Opted in to the next race. The host is implicitly ready — it owns start. */
+  /** Opted in to the next race. The host is implicitly ready â€” it owns start. */
   ready?: boolean;
   /** Measured round-trip time in ms. Undefined until the first pong lands. */
   ping?: number;
@@ -131,6 +131,26 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   const [isHost, setIsHost] = useState(false);
   const [presencePlayers, setPresencePlayers] = useState<RacerState[]>([]);
   const [details, setDetails] = useState<Record<string, RacerDetails>>({});
+  /**
+   * Our own finish payload, kept so we can re-send it on request.
+   *
+   * A ref rather than reading it back out of `details`: the re-send handler is
+   * installed once per channel and must not be re-bound whenever state changes.
+   */
+  const myDetailRef = useRef<RacerDetails | null>(null);
+
+  /**
+   * Wipe every finish payload, ours included.
+   *
+   * `myDetailRef` has to go with them: a stale ref would let a `request_details`
+   * from the *next* race answer with the previous race's curve, which is worse
+   * than a missing line because it looks plausible.
+   */
+  const clearDetails = useCallback(() => {
+    setDetails({});
+    myDetailRef.current = null;
+  }, []);
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState('');
   /** Code that resolved to an empty channel, so the UI can offer to host it. */
@@ -211,7 +231,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     teardown();
     setStatus('idle');
     setPresencePlayers([]);
-    setDetails({});
+    clearDetails();
     setChatMessages([]);
     setCode('');
     setIsHost(false);
@@ -226,7 +246,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     peerRttRef.current.clear();
     clockOffsetRef.current = 0;
     reconnectAttemptRef.current = 0;
-  }, [teardown]);
+  }, [teardown, clearDetails]);
 
   /** Push local presence, coalescing bursts into one frame per interval. */
   const flushTrack = useCallback(() => {
@@ -401,7 +421,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         }
 
         // Host migration. The room's live state only exists in the host's
-        // presence frame, so a promoted client has to adopt it — otherwise the
+        // presence frame, so a promoted client has to adopt it â€” otherwise the
         // guards above go blind for everyone who joins after the original host
         // disappears, and a stranger drops into a race in progress.
         if (!declaredHost && amHost && !selfStateRef.current.isHost) {
@@ -441,7 +461,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         setCountdown(null);
         if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
         if (matchKey) setRaceId(matchKey);
-        setDetails({});
+        clearDetails();
 
         selfStateRef.current = {
           ...selfStateRef.current,
@@ -468,7 +488,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       .on('broadcast', { event: 'rematch' }, () => {
         setStatus('lobby');
         setCountdown(null);
-        setDetails({});
+        clearDetails();
       })
       .on('broadcast', { event: 'update_room_size' }, ({ payload }) => {
         if (payload?.roomSize) setRoomSize(payload.roomSize);
@@ -486,6 +506,27 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
             errorTimes: payload.errorTimes,
           },
         }));
+      })
+      /**
+       * Someone is missing our detail payload and is asking for it again.
+       *
+       * `finish_details` is a plain broadcast: Realtime does not acknowledge or
+       * replay it, so a dropped frame â€” or a client that subscribed after it
+       * went out â€” meant that racer's curve was permanently absent from the
+       * results graph and their stats panel was blank. Only the owner of a
+       * payload can answer, which keeps the reply authoritative and means the
+       * traffic is bounded by the number of racers, not the number of askers.
+       */
+      .on('broadcast', { event: 'request_details' }, ({ payload }) => {
+        const mine = myDetailRef.current;
+        if (!mine || !myId) return;
+        // Ignore requests aimed at someone else, and our own echo.
+        if (payload?.id && payload.id !== myId) return;
+        channel.send({
+          type: 'broadcast',
+          event: 'finish_details',
+          payload: { id: myId, ...mine },
+        });
       })
       .on('broadcast', { event: 'chat_message' }, ({ payload }) => {
         setChatMessages(prev => {
@@ -540,7 +581,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         fail('Timed out joining the room. Check your connection and try again.');
       }, JOIN_TIMEOUT_MS);
     }
-  }, [teardown, queueTrack]);
+  }, [teardown, queueTrack, clearDetails]);
 
   useEffect(() => { openChannelRef.current = openChannel; }, [openChannel]);
 
@@ -556,7 +597,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     setCode(roomCode);
     setRaceId(roomCode);
     setPresencePlayers([]);
-    setDetails({});
+    clearDetails();
     setChatMessages([]);
 
     const myId = playerInit.userId || `guest-${Math.random().toString(36).substring(2, 9)}`;
@@ -588,7 +629,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     statusRef.current = 'joining';
 
     openChannel(roomCode, isCreating ? 'create' : 'join');
-  }, [teardown, openChannel]);
+  }, [teardown, openChannel, clearDetails]);
 
 
   const createRoom = useCallback((name: string, size?: number, _config?: unknown, elo?: number, roomCode?: string, userId?: string, _isRanked?: boolean) => {
@@ -611,7 +652,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
 
   // Reads host/config/code through refs so the callback identity never
   // changes. With `[isHost, lobbyConfig, code]` in the dep array, every lobby
-  // tweak rebuilt this function — and with it the whole object returned below.
+  // tweak rebuilt this function â€” and with it the whole object returned below.
   const startRace = useCallback((textOverride?: string) => {
     if (!channelRef.current || !isHostRef.current) return;
 
@@ -651,7 +692,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         setStatus('racing');
         setCountdown(null);
         setRaceId(matchKey);
-        setDetails({});
+        clearDetails();
         selfStateRef.current = {
           ...selfStateRef.current,
           progress: 0,
@@ -669,7 +710,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         onStartRef.current(text, startTime);
       }
     }, 1000);
-  }, [queueTrack]);
+  }, [queueTrack, clearDetails]);
 
   const sendProgress = useCallback((progress: number, wpm: number, keystrokes = 0, accuracy = 100) => {
     if (!channelRef.current || selfStateRef.current.finished) return;
@@ -704,7 +745,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     };
     queueTrack(true);
 
-    // Heatmaps and timelines are far too large for a presence frame — an
+    // Heatmaps and timelines are far too large for a presence frame â€” an
     // oversized payload gets dropped and the finish never lands at all.
     const detail: RacerDetails = {
       heatmapData: payload.heatmap,
@@ -712,12 +753,30 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       errorTimes: payload.errorTimes,
     };
     if (myId) setDetails(prev => ({ ...prev, [myId]: detail }));
+    myDetailRef.current = detail;
     channelRef.current.send({
       type: 'broadcast',
       event: 'finish_details',
       payload: { id: myId, ...detail },
     });
   }, [queueTrack]);
+
+  /**
+   * Ask a specific racer to re-broadcast their finish payload.
+   *
+   * The results screen calls this for anyone who has finished but whose curve
+   * never arrived. Without it a single dropped broadcast left a permanent hole
+   * in the graph, since presence carries the headline numbers but not the
+   * timeline they are drawn from.
+   */
+  const requestDetails = useCallback((id: string) => {
+    if (!channelRef.current || !id || id === myIdRef.current) return;
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'request_details',
+      payload: { id, from: myIdRef.current },
+    });
+  }, []);
 
   const updateLobbyConfig = useCallback((newConfig: Partial<RaceConfig>) => {
     setLobbyConfig((prev) => {
@@ -762,7 +821,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     }
     setStatus('lobby');
     setCountdown(null);
-    setDetails({});
+    clearDetails();
     selfStateRef.current = {
       ...selfStateRef.current,
       finished: false,
@@ -778,7 +837,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       ...(isHostRef.current ? { roomState: 'lobby' as const } : {}),
     };
     queueTrack(true);
-  }, [queueTrack]);
+  }, [queueTrack, clearDetails]);
 
   const sendChatMessage = useCallback((text: string, senderName: string) => {
     const myId = myIdRef.current;
@@ -835,6 +894,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     startRace,
     sendProgress,
     sendFinish,
+    requestDetails,
     setReady,
     returnToLobby,
     rematch: returnToLobby,
@@ -844,7 +904,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     updateRoomSize,
   }), [
     setRoomSize, createRoom, joinRoom, startRace, sendProgress, sendFinish,
-    setReady, returnToLobby, sendChatMessage, leave, updateLobbyConfig,
+    requestDetails, setReady, returnToLobby, sendChatMessage, leave, updateLobbyConfig,
     updateRoomSize,
   ]);
 

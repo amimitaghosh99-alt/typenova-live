@@ -27,18 +27,28 @@ const makeRoomCode = () => Array.from({ length: 6 }, () => ROOM_ALPHABET[Math.fl
 
 const HANDSHAKE_TIMEOUT_MS = 3000;
 
-// Elo tolerance. The queue used to pair you with whoever pinged first, which in
-// a "ranked" queue meant a 900-rated typist could be handed a 1600 opponent and
-// bleed Elo through no fault of their own. Start narrow, widen every few
-// seconds, then accept anyone rather than leaving someone stuck forever.
-const ELO_BAND_START = 75;
-const ELO_BAND_STEP = 50;
-const ELO_BAND_INTERVAL_MS = 5000;
-const ELO_BAND_OPEN_MS = 30000;
+/**
+ * Elo tolerance schedule.
+ *
+ * The queue used to pair you with whoever pinged first, which in a "ranked" queue
+ * meant a 900-rated typist could be handed a 1600 opponent and bleed Elo through
+ * no fault of their own. Start narrow, widen every few seconds, then accept anyone
+ * rather than leaving someone stuck forever.
+ *
+ * Exported because the waiting UI has to explain this schedule to the person
+ * waiting — "widening in 3s", "matching anyone in 18s" — and a second copy of
+ * these numbers in the component would drift silently the first time one is
+ * tuned. `QuickMatchPanel` previously kept its own `OPEN_BAND = 100000` with a
+ * comment pointing here, which is exactly that risk written down.
+ */
+export const ELO_BAND_START = 75;
+export const ELO_BAND_STEP = 50;
+export const ELO_BAND_INTERVAL_MS = 5000;
+export const ELO_BAND_OPEN_MS = 30000;
 /** Deliberately a big finite number: Infinity serializes to null over JSON. */
-const ELO_BAND_OPEN = 100000;
+export const ELO_BAND_OPEN = 100000;
 
-const bandFor = (elapsedMs: number): number => (
+export const bandFor = (elapsedMs: number): number => (
   elapsedMs >= ELO_BAND_OPEN_MS
     ? ELO_BAND_OPEN
     : ELO_BAND_START + Math.floor(Math.max(0, elapsedMs) / ELO_BAND_INTERVAL_MS) * ELO_BAND_STEP

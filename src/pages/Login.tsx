@@ -8,7 +8,7 @@ import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 import { BlurText } from '@/components/BlurText';
 import { recordConsent, revokeConsent, hasValidConsent } from '@/lib/consent';
 import { CHANGELOG } from '@/data/changelog';
-import { Download } from 'lucide-react';
+import { Download, MessageSquare, ArrowUpRight } from 'lucide-react';
 
 export function Login() {
   const { session, authReady, signInWithGoogle } = useAuth();
@@ -64,56 +64,69 @@ export function Login() {
       />
       
       {/* Top Navigation */}
-      <header className="w-full bg-[#080809]/40 backdrop-blur-2xl z-50 border-b border-white/5 hidden md:flex justify-between items-center px-8 lg:px-16 py-5 shrink-0 transition-all duration-300">
+      <header className="w-full bg-[#080809]/60 backdrop-blur-2xl z-50 border-b border-white/5 hidden md:flex justify-between items-center px-6 lg:px-12 py-4 shrink-0 transition-all duration-300">
         <div className="flex items-center gap-3 select-none">
           <TypeNovaLogo size="md" />
         </div>
-        <nav className="flex gap-10 items-center font-label-mono text-label-mono z-50">
+        <nav className="flex gap-6 lg:gap-8 items-center font-label-mono text-label-mono z-50">
           <button 
             onClick={() => openCard('multiplayer')} 
-            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none text-xs"
           >
             Multiplayer
           </button>
           <button 
             onClick={() => openCard('coach')} 
-            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none text-xs"
           >
             AI Coach
           </button>
           <button 
             onClick={() => openCard('academy')} 
-            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none text-xs"
           >
             RPG Academy
           </button>
           <button 
             onClick={() => openCard('leaderboards')} 
-            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none"
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none text-xs"
           >
             Leaderboards
+          </button>
+          <button 
+            onClick={() => openCard('changelog')} 
+            className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide cursor-pointer focus:outline-none text-xs"
+          >
+            Changelog
+          </button>
+          <button 
+            onClick={() => openCard('contact')} 
+            className="text-cyan-400 hover:text-cyan-300 transition-all duration-300 tracking-wide cursor-pointer focus:outline-none text-xs flex items-center gap-1.5 font-semibold"
+          >
+            <MessageSquare size={13} />
+            <span>Contact</span>
           </button>
         </nav>
         <div className="hidden md:flex items-center gap-3 z-50">
           {isInstallable && (
             <button
               onClick={installApp}
-              className="flex items-center gap-2 font-label-mono text-xs text-primary-fixed hover:text-white transition-all border border-cyan-400/40 hover:border-cyan-400 px-4 py-2 rounded-full backdrop-blur-md bg-cyan-400/10 hover:bg-cyan-400/20 shadow-[0_0_15px_rgba(0,219,233,0.2)] group cursor-pointer"
+              className="flex items-center gap-2 font-label-mono text-xs text-primary-fixed hover:text-white transition-all border border-cyan-400/40 hover:border-cyan-400 px-3.5 py-1.5 rounded-full backdrop-blur-md bg-cyan-400/10 hover:bg-cyan-400/20 shadow-[0_0_15px_rgba(0,219,233,0.2)] group cursor-pointer"
             >
-              <Download size={14} className="text-cyan-400 group-hover:-translate-y-0.5 transition-transform" />
-              <span className="font-semibold tracking-wide uppercase">Install App</span>
+              <Download size={13} className="text-cyan-400 group-hover:-translate-y-0.5 transition-transform" />
+              <span className="font-semibold tracking-wide uppercase text-[11px]">Install</span>
             </button>
           )}
           <a 
             href="https://github.com/amimitaghosh99-alt/typenova-live" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-2.5 font-label-mono text-xs text-secondary-fixed hover:text-white transition-all border border-secondary-fixed/30 hover:border-secondary-fixed/60 px-4 py-2 rounded-full backdrop-blur-md bg-secondary-fixed/5 hover:bg-secondary-fixed/15 shadow-[0_0_15px_rgba(125,244,255,0.15)] group"
+            className="flex items-center gap-2 font-label-mono text-xs text-secondary-fixed hover:text-white transition-all border border-secondary-fixed/30 hover:border-secondary-fixed/60 px-3.5 py-1.5 rounded-full backdrop-blur-md bg-secondary-fixed/5 hover:bg-secondary-fixed/15 shadow-[0_0_15px_rgba(125,244,255,0.15)] group"
           >
-            <svg className="w-4 h-4 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 fill-current transition-transform group-hover:scale-110" viewBox="0 0 24 24">
               <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
             </svg>
-            <span className="font-semibold tracking-wide">Star on GitHub</span>
+            <span className="font-semibold tracking-wide text-[11px]">GitHub</span>
             <span className="text-secondary-fixed/60 font-normal">★</span>
           </a>
         </div>
@@ -125,28 +138,32 @@ export function Login() {
           <div className="flex items-center gap-2 select-none">
             <TypeNovaLogo size="sm" />
           </div>
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-on-surface hover:text-white transition-colors">
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-on-surface hover:text-white transition-colors p-1">
             <span className="material-symbols-outlined">{isMobileMenuOpen ? 'close' : 'menu'}</span>
           </button>
         </div>
         {isMobileMenuOpen && (
-          <nav className="flex flex-col gap-5 items-center font-label-mono text-label-mono w-full mt-5 pt-5 border-t border-white/10 animate-fade-in-up">
-            <button onClick={() => openCard('multiplayer')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">Multiplayer</button>
-            <button onClick={() => openCard('coach')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">AI Coach</button>
-            <button onClick={() => openCard('academy')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">RPG Academy</button>
-            <button onClick={() => openCard('leaderboards')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide">Leaderboards</button>
+          <nav className="flex flex-col gap-4 items-center font-label-mono text-label-mono w-full mt-4 pt-4 border-t border-white/10 animate-fade-in-up">
+            <button onClick={() => openCard('multiplayer')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide text-xs">Multiplayer</button>
+            <button onClick={() => openCard('coach')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide text-xs">AI Coach</button>
+            <button onClick={() => openCard('academy')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide text-xs">RPG Academy</button>
+            <button onClick={() => openCard('leaderboards')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide text-xs">Leaderboards</button>
+            <button onClick={() => openCard('changelog')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide text-xs">Changelog</button>
+            <button onClick={() => openCard('contact')} className="text-cyan-400 hover:text-white transition-all duration-300 tracking-wide text-xs font-semibold">Contact &amp; Support</button>
+            <button onClick={() => openCard('faq')} className="text-on-surface-variant hover:text-white transition-all duration-300 tracking-wide text-xs">FAQ</button>
             {isInstallable && (
-              <button onClick={() => { setIsMobileMenuOpen(false); installApp(); }} className="text-cyan-400 hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold uppercase">
+              <button onClick={() => { setIsMobileMenuOpen(false); installApp(); }} className="text-cyan-400 hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold uppercase text-xs">
                 <Download size={14} />
                 <span>Install App</span>
               </button>
             )}
-            <a className="text-secondary-fixed hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
+            <a className="text-secondary-fixed hover:text-white transition-all duration-300 tracking-wide flex items-center gap-2 font-semibold text-xs" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
               <span>★ Star on GitHub</span>
             </a>
           </nav>
         )}
       </header>
+
 
       {/* Main Hero Section */}
       <main className="flex-1 relative flex items-center justify-center px-6 md:px-16 z-10">
@@ -156,10 +173,31 @@ export function Login() {
           <KineticKeyboard />
 
           <div className="relative z-10 flex flex-col items-center max-w-5xl">
-            <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full border border-secondary-fixed/20 bg-secondary-fixed/5 backdrop-blur-md mb-8 sheen overflow-hidden btn-glow-cyan opacity-0 animate-fade-in-up delay-100">
-              <span className="w-2 h-2 rounded-full bg-secondary-fixed animate-pulse shadow-[0_0_10px_#7df4ff]"></span>
-              <span className="font-label-mono text-label-caps text-secondary-fixed tracking-widest">System Online {CHANGELOG[0]?.version || 'v2.5.1'} • Open Source</span>
-            </div>
+            {/* Double-Bezel Hardware Version Capsule */}
+            <button 
+              type="button"
+              onClick={() => openCard('changelog')} 
+              className="relative p-[1px] rounded-full bg-gradient-to-r from-cyan-500/30 via-white/10 to-indigo-500/20 hover:from-cyan-400/60 hover:via-white/20 hover:to-indigo-400/40 shadow-[0_0_20px_rgba(0,219,233,0.15)] hover:shadow-[0_0_35px_rgba(0,219,233,0.3)] transition-all duration-500 cursor-pointer group mb-8 opacity-0 animate-fade-in-up delay-100"
+              title="Click to view full Changelog & Version History"
+            >
+              <div className="px-4 py-1.5 rounded-full bg-[#080b11]/90 backdrop-blur-xl flex items-center gap-3 select-none">
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
+                </span>
+                <span className="font-label-mono text-[11px] uppercase tracking-[0.2em] text-zinc-400 group-hover:text-zinc-200 transition-colors">
+                  System Online <strong className="text-white font-bold">{CHANGELOG[0]?.version || 'v2.8.0'}</strong>
+                </span>
+                <span className="w-px h-3 bg-white/15" />
+                <span className="font-label-mono text-[11px] uppercase tracking-wider text-cyan-400/90 group-hover:text-cyan-300 flex items-center gap-1.5">
+                  Changelog
+                  <div className="w-4 h-4 rounded-full bg-white/5 group-hover:bg-cyan-400/10 border border-white/10 group-hover:border-cyan-400/30 flex items-center justify-center transition-all">
+                    <ArrowUpRight size={10} className="text-zinc-400 group-hover:text-cyan-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </div>
+                </span>
+              </div>
+            </button>
+
             <h1 className="font-display-lg text-headline-xl-mobile md:text-[84px] text-white max-w-5xl leading-[1.05] tracking-tighter text-glow-premium drop-shadow-[0_8px_32px_rgba(0,0,0,0.9)] [text-shadow:_0_4px_24px_rgba(0,0,0,0.95)] flex flex-col items-center justify-center text-center">
               <BlurText text="The Next-Gen" delay={45} className="inline-flex justify-center" />
               <BlurText text="Gamified Typing Platform" delay={45} className="inline-flex justify-center mt-1" />
@@ -273,35 +311,67 @@ export function Login() {
         </section>
       </main>
 
+
       {/* Footer */}
-      <footer className="w-full bg-transparent border-t border-white/5 flex flex-col md:flex-row justify-between items-center px-8 lg:px-16 py-6 gap-4 z-10 backdrop-blur-sm shrink-0">
-        <div className="font-label-mono text-label-caps text-on-surface-variant opacity-60 hover:opacity-100 transition-opacity tracking-widest text-center">
-          © {new Date().getFullYear()} TYPENOVA. FREE &amp; OPEN SOURCE UNDER MIT LICENSE.
+      <footer className="w-full bg-transparent border-t border-white/5 flex flex-col md:flex-row justify-between items-center px-6 lg:px-12 py-5 gap-4 z-10 backdrop-blur-sm shrink-0">
+        <div className="font-label-mono text-label-caps text-on-surface-variant text-xs opacity-70 hover:opacity-100 transition-opacity tracking-widest text-center flex items-center gap-2">
+          <span>© {new Date().getFullYear()} TYPENOVA</span>
+          <span className="text-white/20">•</span>
+          <span>MIT LICENSE</span>
+          <span className="text-white/20">•</span>
+          <button onClick={() => openCard('changelog')} className="text-secondary-fixed hover:underline cursor-pointer">
+            {CHANGELOG[0]?.version || 'v2.8.0'}
+          </button>
         </div>
-        <nav className="flex flex-wrap justify-center gap-8 font-label-mono text-label-caps tracking-wider relative z-50">
-          <a className="text-secondary-fixed hover:text-white transition-colors flex items-center gap-1.5" href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" rel="noreferrer">
-            <span>★</span> Star on GitHub
-          </a>
+        <nav className="flex flex-wrap justify-center items-center gap-5 lg:gap-7 font-label-mono text-label-caps tracking-wider relative z-50 text-xs">
           <button 
-            onClick={() => openCard('terms')} 
-            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
+            onClick={() => openCard('contact')} 
+            className="text-cyan-400 hover:text-white transition-colors cursor-pointer focus:outline-none flex items-center gap-1 font-semibold"
           >
-            Terms of Service
+            <MessageSquare size={12} />
+            <span>Contact &amp; Support</span>
           </button>
           <button 
-            onClick={() => openCard('privacy')} 
+            onClick={() => openCard('faq')} 
             className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
           >
-            Privacy Protocol
+            FAQ
+          </button>
+          <button 
+            onClick={() => openCard('changelog')} 
+            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
+          >
+            Changelog
           </button>
           <button 
             onClick={() => openCard('status')} 
             className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
           >
-            System Status
+            Status
           </button>
+          <button 
+            onClick={() => openCard('terms')} 
+            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
+          >
+            Terms
+          </button>
+          <button 
+            onClick={() => openCard('privacy')} 
+            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer focus:outline-none"
+          >
+            Privacy
+          </button>
+          <a 
+            className="text-secondary-fixed hover:text-white transition-colors flex items-center gap-1 font-medium" 
+            href="https://github.com/amimitaghosh99-alt/typenova-live" 
+            target="_blank" 
+            rel="noreferrer"
+          >
+            <span>★</span> Star
+          </a>
         </nav>
       </footer>
     </div>
   );
 }
+

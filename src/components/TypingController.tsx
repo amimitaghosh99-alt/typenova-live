@@ -37,6 +37,7 @@ interface TypingControllerProps {
   onUnlockGodMode: () => void;
   onReset: () => void;
   onExitMicroDrill: () => void;
+  onChargeHexEnergy?: (opts: { combo: number; isError?: boolean; isMilestone?: boolean }) => void;
 }
 
 export function TypingController({
@@ -54,23 +55,25 @@ export function TypingController({
   onUnlockGodMode,
   onReset,
   onExitMicroDrill,
+  onChargeHexEnergy,
 }: TypingControllerProps) {
 
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastMilestoneRef = useRef(0);
 
   // Use a ref to store the latest props so the keydown listener doesn't need to re-bind
   // and trigger GC thrashing on every keystroke.
   const stateRef = useRef({
     typing, audio, rpg, particles, gameConfig, gameActions,
     activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
-    onUnlockGodMode, onReset, onExitMicroDrill
+    onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy
   });
 
   useEffect(() => {
     Object.assign(stateRef.current, {
       typing, audio, rpg, particles, gameConfig, gameActions,
       activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
-      onUnlockGodMode, onReset, onExitMicroDrill
+      onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy
     });
   });
 
@@ -88,7 +91,7 @@ export function TypingController({
       const {
         typing, audio, rpg, particles, gameConfig, gameActions,
         activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
-        onUnlockGodMode, onReset, onExitMicroDrill
+        onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy
       } = s;
 
       const cfg = gameConfig;
@@ -127,7 +130,30 @@ export function TypingController({
 
       // ─── CONFIGURING ───
       if (typing.phase === 'CONFIGURING') {
-        if (!e.ctrlKey && !e.metaKey && e.key.length === 1 && e.key !== ' ') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            gameActions.setZenMode(true);
+          }
+          typing.setPhase('COUNTDOWN');
+          typing.setCountdownTimer(3);
+          lastMilestoneRef.current = 0;
+          return;
+        }
+
+        if (e.key === ' ') {
+          const firstChar = typing.targetText[0];
+          if (firstChar !== ' ') {
+            e.preventDefault();
+            typing.setPhase('COUNTDOWN');
+            typing.setCountdownTimer(3);
+            typing.setInputSync('');
+            lastMilestoneRef.current = 0;
+            return;
+          }
+        }
+
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
           const currentInput = typing.inputRef.current;
           const nextInput = (currentInput + e.key).toLowerCase();
 
@@ -145,36 +171,48 @@ export function TypingController({
               typing.setInputSync('');
             }
             return;
-          } else {
+          } else if (currentInput.length > 0) {
             typing.setInputSync('');
           }
-        }
 
-        if (e.key === ' ') {
-          e.preventDefault();
-          typing.setPhase('READY');
-          typing.setInputSync('');
+          // Transition seamlessly from CONFIGURING to active TYPING on first keystroke
+          typing.setPhase('TYPING');
+          typing.setStartTime(Date.now());
+          lastMilestoneRef.current = 0;
+        } else {
           return;
         }
-        return;
       }
 
       // ─── READY ───
       if (typing.phase === 'READY') {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          gameActions.setZenMode(e.shiftKey);
+          if (e.shiftKey) {
+            gameActions.setZenMode(true);
+          }
           typing.setPhase('COUNTDOWN');
-          typing.setCountdownTimer(5);
+          typing.setCountdownTimer(3);
+          lastMilestoneRef.current = 0;
+          return;
         } else if (e.key === 'Escape') {
           typing.setPhase('CONFIGURING');
+          lastMilestoneRef.current = 0;
+          return;
+        } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+          // Transition seamlessly from READY to active TYPING on first keystroke
+          typing.setPhase('TYPING');
+          typing.setStartTime(Date.now());
+          lastMilestoneRef.current = 0;
+        } else {
+          return;
         }
-        return;
       }
 
       // ─── COUNTDOWN / TYPING / FINISHED ───
       if (typing.phase === 'COUNTDOWN' || typing.phase === 'TYPING' || typing.phase === 'FINISHED') {
         if (e.key === 'Escape') {
+          lastMilestoneRef.current = 0;
           if (cfg.microDrillActive) { onExitMicroDrill(); }
           else { onReset(); }
           return;
@@ -210,6 +248,8 @@ export function TypingController({
           audio.playSound('click');
           typing.setCombo(0);
           typing.comboRef.current = 0;
+          lastMilestoneRef.current = 0;
+          onChargeHexEnergy?.({ combo: 0, isError: true });
         }
         return;
       }
@@ -233,6 +273,8 @@ export function TypingController({
           audio.playSound('error');
           typing.setCombo(0);
           typing.comboRef.current = 0;
+          lastMilestoneRef.current = 0;
+          onChargeHexEnergy?.({ combo: 0, isError: true });
           if (shakeTimeoutRef.current) {
             clearTimeout(shakeTimeoutRef.current);
           }
@@ -252,6 +294,16 @@ export function TypingController({
           typing.setCombo(nextCombo);
           typing.setMaxCombo((prev: number) => Math.max(prev, nextCombo));
           audio.playSound('key');
+
+          // Trigger procedural milestone chime when crossing 50, 100, 150, 200 combo thresholds
+          const currentMilestone = Math.floor(nextCombo / 50) * 50;
+          const isMilestone = (nextCombo === 25 || nextCombo === 50 || nextCombo === 100 || nextCombo === 200);
+          onChargeHexEnergy?.({ combo: nextCombo, isMilestone });
+
+          if (currentMilestone >= 50 && currentMilestone > lastMilestoneRef.current) {
+            lastMilestoneRef.current = currentMilestone;
+            audio.playSound('combo_milestone', currentMilestone);
+          }
 
           if (tetrisEffect || nextCombo >= 50) {
             particles.spawnParticles(

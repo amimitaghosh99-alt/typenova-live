@@ -1,5 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Phase } from '@/data/constants';
+import type { PerformanceGrade, CPIBreakdown } from '@/lib/scoringEngine';
+import { calculateCPI, calculateBurstWpm } from '@/lib/scoringEngine';
+import { calculateIKIMetrics, type IKIMetrics } from '@/lib/ikiEngine';
+import { calculateShadowMetrics, type ShadowMetrics } from '@/lib/shadowEngine';
+import type { SpokenWordBoundary } from '@/lib/audioDictationEngine';
 
 export interface Keystroke {
   key: string;
@@ -11,6 +16,8 @@ export interface Keystroke {
       WPM/accuracy/heatmap statistics. */
   isBackspace?: boolean;
 }
+
+export type KeystrokeEntry = Keystroke;
 
 export interface TimelinePoint {
   t: number;
@@ -25,6 +32,12 @@ export interface TypingStats {
   timeline: TimelinePoint[];
   consistency: number;
   flawless: number;
+  burstWpm: number;
+  cpi: number;
+  grade: PerformanceGrade;
+  cpiBreakdown?: CPIBreakdown;
+  ikiMetrics?: IKIMetrics;
+  shadowMetrics?: ShadowMetrics;
 }
 
 export const useTypingEngine = () => {
@@ -36,6 +49,9 @@ export const useTypingEngine = () => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
 
+  const spokenBoundariesRef = useRef<SpokenWordBoundary[]>([]);
+  const dictationSpeedRef = useRef<number>(1.0);
+
   const [liveStats, setLiveStats] = useState({
     wpm: 0,
     rawWpm: 0,
@@ -43,6 +59,11 @@ export const useTypingEngine = () => {
     consistency: 100,
     flawlessStreak: 0,
     timelinePoints: [] as TimelinePoint[],
+    burstWpm: 0,
+    cpi: 0,
+    grade: 'D' as PerformanceGrade,
+    ikiMetrics: undefined as IKIMetrics | undefined,
+    shadowMetrics: undefined as ShadowMetrics | undefined,
   });
 
   const setWpm = useCallback((val: number | ((prev: number) => number)) => {
@@ -62,6 +83,15 @@ export const useTypingEngine = () => {
   }, []);
   const setTimelinePoints = useCallback((val: TimelinePoint[] | ((prev: TimelinePoint[]) => TimelinePoint[])) => {
     setLiveStats(s => ({ ...s, timelinePoints: typeof val === 'function' ? val(s.timelinePoints) : val }));
+  }, []);
+  const setBurstWpm = useCallback((val: number | ((prev: number) => number)) => {
+    setLiveStats(s => ({ ...s, burstWpm: typeof val === 'function' ? val(s.burstWpm) : val }));
+  }, []);
+  const setCpi = useCallback((val: number | ((prev: number) => number)) => {
+    setLiveStats(s => ({ ...s, cpi: typeof val === 'function' ? val(s.cpi) : val }));
+  }, []);
+  const setGrade = useCallback((val: PerformanceGrade | ((prev: PerformanceGrade) => PerformanceGrade)) => {
+    setLiveStats(s => ({ ...s, grade: typeof val === 'function' ? val(s.grade) : val }));
   }, []);
 
   const [combo, setCombo] = useState(0);
@@ -87,7 +117,17 @@ export const useTypingEngine = () => {
 
   const calculateStats = useCallback((currentInput: string, timeMs: number, currentPenalty = 0, explicitStartTime: number | null = null, includeTimeline = false): TypingStats => {
     if (!timeMs || currentInput.length === 0) {
-      return { currentWpm: 0, rawWpm: 0, currentAcc: 100, timeline: [], consistency: 100, flawless: 0 };
+      return {
+        currentWpm: 0,
+        rawWpm: 0,
+        currentAcc: 100,
+        timeline: [],
+        consistency: 100,
+        flawless: 0,
+        burstWpm: 0,
+        cpi: 0,
+        grade: 'D',
+      };
     }
     const entries = keystrokeLog.current;
     const startTs = explicitStartTime !== null ? explicitStartTime : (Date.now() - timeMs);
@@ -119,14 +159,23 @@ export const useTypingEngine = () => {
     const netCalc = minutes > 0 ? Math.max(0, Math.round(((totalTyped - errorCount) / 5) / minutes)) : 0;
     const currentAcc = totalTyped > 0 ? Math.min(Math.max(Math.round(((totalTyped - errorCount) / totalTyped) * 100), 0), 100) : 100;
 
+    const validWpm = isNaN(netCalc) || netCalc < 0 ? 0 : netCalc;
+    const validRaw = isNaN(rawCalc) ? 0 : rawCalc;
+    const validAcc = isNaN(currentAcc) ? 100 : currentAcc;
+
     if (!includeTimeline) {
+      const cpiBreakdown = calculateCPI(validWpm, validAcc, localMaxStreak, 100, totalTyped);
       return {
-        currentWpm: isNaN(netCalc) || netCalc < 0 ? 0 : netCalc,
-        rawWpm: isNaN(rawCalc) ? 0 : rawCalc,
-        currentAcc: isNaN(currentAcc) ? 100 : currentAcc,
+        currentWpm: validWpm,
+        rawWpm: validRaw,
+        currentAcc: validAcc,
         timeline: [],
         consistency: 100,
-        flawless: localMaxStreak
+        flawless: localMaxStreak,
+        burstWpm: validWpm,
+        cpi: cpiBreakdown.cpi,
+        grade: cpiBreakdown.grade,
+        cpiBreakdown,
       };
     }
 
@@ -167,13 +216,26 @@ export const useTypingEngine = () => {
     if (mean > 0) consistencyScore = Math.round(Math.max(0, Math.min(100, (1 - (stddev / mean)) * 100)));
     else if (stddev > 0) consistencyScore = 50;
 
+    const burstWpm = calculateBurstWpm(entries, timeline);
+    const cpiBreakdown = calculateCPI(validWpm, validAcc, localMaxStreak, consistencyScore, totalTyped);
+    const ikiMetrics = calculateIKIMetrics(entries);
+    const shadowMetrics = spokenBoundariesRef.current.length > 0
+      ? calculateShadowMetrics(spokenBoundariesRef.current, entries, dictationSpeedRef.current, startTs)
+      : undefined;
+
     return {
-      currentWpm: isNaN(netCalc) || netCalc < 0 ? 0 : netCalc,
-      rawWpm: isNaN(rawCalc) ? 0 : rawCalc,
-      currentAcc: isNaN(currentAcc) ? 100 : currentAcc,
+      currentWpm: validWpm,
+      rawWpm: validRaw,
+      currentAcc: validAcc,
       timeline,
       consistency: consistencyScore,
-      flawless: localMaxStreak
+      flawless: localMaxStreak,
+      burstWpm,
+      cpi: cpiBreakdown.cpi,
+      grade: cpiBreakdown.grade,
+      cpiBreakdown,
+      ikiMetrics,
+      shadowMetrics,
     };
   }, []);
 
@@ -193,6 +255,11 @@ export const useTypingEngine = () => {
       consistency: finalStats.consistency,
       flawlessStreak: finalStats.flawless,
       timelinePoints: finalStats.timeline,
+      burstWpm: finalStats.burstWpm,
+      cpi: finalStats.cpi,
+      grade: finalStats.grade,
+      ikiMetrics: finalStats.ikiMetrics,
+      shadowMetrics: finalStats.shadowMetrics,
     });
   }, [calculateStats, input, startTime, timePenalty]);
 
@@ -264,14 +331,18 @@ export const useTypingEngine = () => {
     const interval = setInterval(() => {
       const { input: liveInput, timePenalty: livePenalty } = liveRef.current;
       const stats = calculateStats(liveInput, Date.now() - startTime, livePenalty, startTime);
-      setLiveStats({
+      setLiveStats(s => ({
+        ...s,
         wpm: stats.currentWpm,
         rawWpm: stats.rawWpm,
         accuracy: stats.currentAcc,
         consistency: stats.consistency,
         flawlessStreak: stats.flawless,
         timelinePoints: stats.timeline,
-      });
+        burstWpm: stats.burstWpm,
+        cpi: stats.cpi,
+        grade: stats.grade,
+      }));
     }, 500);
     return () => clearInterval(interval);
   }, [phase, startTime, endTime, calculateStats]);
@@ -284,6 +355,7 @@ export const useTypingEngine = () => {
     setInput('');
     setStartTime(null);
     setEndTime(null);
+    spokenBoundariesRef.current = [];
     setLiveStats({
       wpm: 0,
       rawWpm: 0,
@@ -291,6 +363,11 @@ export const useTypingEngine = () => {
       consistency: 100,
       flawlessStreak: 0,
       timelinePoints: [],
+      burstWpm: 0,
+      cpi: 0,
+      grade: 'D',
+      ikiMetrics: undefined,
+      shadowMetrics: undefined,
     });
     setCombo(0);
     comboRef.current = 0;
@@ -318,6 +395,13 @@ export const useTypingEngine = () => {
     consistency: liveStats.consistency, setConsistency,
     flawlessStreak: liveStats.flawlessStreak, setFlawlessStreak,
     timelinePoints: liveStats.timelinePoints, setTimelinePoints,
+    burstWpm: liveStats.burstWpm, setBurstWpm,
+    cpi: liveStats.cpi, setCpi,
+    grade: liveStats.grade, setGrade,
+    ikiMetrics: liveStats.ikiMetrics,
+    shadowMetrics: liveStats.shadowMetrics,
+    setSpokenBoundaries: (b: SpokenWordBoundary[]) => { spokenBoundariesRef.current = b; },
+    setDictationSpeed: (s: number) => { dictationSpeedRef.current = s; },
     combo, setCombo,
     maxCombo, setMaxCombo,
     timePenalty, setTimePenalty,

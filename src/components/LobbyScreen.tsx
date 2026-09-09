@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { memo, useState, useRef, useEffect } from 'react';
 import {
   Copy, Link, Check, UserPlus, Play, LogOut, Settings, Crown,
-  Radio, MessageSquare, Send, Sparkles, WifiOff
+  Radio, MessageSquare, Send, Sparkles, WifiOff, Rocket, Zap, Flame, Trophy, Skull, Crosshair, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RacerState, RaceConfig, ChatMessage, RaceConnection } from '@/hooks/useRace';
@@ -61,20 +61,220 @@ const pingTone = (ping?: number) => {
 };
 
 
-const QUICK_EMOJIS = [
-  { icon: '🚀', label: 'Rocket' },
-  { icon: '⚡', label: 'Lightning' },
-  { icon: '🔥', label: 'Fire' },
-  { icon: '🏆', label: 'Trophy' },
-  { icon: '👑', label: 'Crown' },
-  { icon: '💀', label: 'Skull' },
-  { icon: '🎯', label: 'Target' },
-  { icon: '✨', label: 'Sparkles' },
+export const REACTION_CONFIG: Record<
+  string,
+  {
+    label: string;
+    icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
+    color: string;
+    bg: string;
+    border: string;
+    glow: string;
+    tag: string;
+    hint: string;
+  }
+> = {
+  '[BOOST]': {
+    label: 'BOOST',
+    icon: Rocket,
+    color: '#38bdf8',
+    bg: 'rgba(56, 189, 248, 0.16)',
+    border: 'rgba(56, 189, 248, 0.45)',
+    glow: 'rgba(56, 189, 248, 0.35)',
+    tag: 'BOOST PROTOCOL',
+    hint: 'ENGAGE FULL THRUSTERS',
+  },
+  '[SPEED]': {
+    label: 'SPEED',
+    icon: Zap,
+    color: '#facc15',
+    bg: 'rgba(250, 204, 21, 0.16)',
+    border: 'rgba(250, 204, 21, 0.45)',
+    glow: 'rgba(250, 204, 21, 0.35)',
+    tag: 'HYPER VELOCITY',
+    hint: 'OVERCLOCK SPEED FREQUENCY',
+  },
+  '[ON FIRE]': {
+    label: 'ON FIRE',
+    icon: Flame,
+    color: '#fb923c',
+    bg: 'rgba(251, 146, 60, 0.16)',
+    border: 'rgba(251, 146, 60, 0.45)',
+    glow: 'rgba(251, 146, 60, 0.35)',
+    tag: 'THERMAL CRIT',
+    hint: 'PERFECT STREAK UNLEASHED',
+  },
+  '[GG]': {
+    label: 'GG',
+    icon: Trophy,
+    color: '#34d399',
+    bg: 'rgba(52, 211, 153, 0.16)',
+    border: 'rgba(52, 211, 153, 0.45)',
+    glow: 'rgba(52, 211, 153, 0.35)',
+    tag: 'VICTORY DISPATCH',
+    hint: 'HONOR & RESPECT TO RACERS',
+  },
+  '[CROWN]': {
+    label: 'CROWN',
+    icon: Crown,
+    color: '#fbbf24',
+    bg: 'rgba(251, 191, 36, 0.18)',
+    border: 'rgba(251, 191, 36, 0.5)',
+    glow: 'rgba(251, 191, 36, 0.4)',
+    tag: 'APEX SOVEREIGN',
+    hint: 'REIGN OF THE SPEED CROWN',
+  },
+  '[RIP]': {
+    label: 'RIP',
+    icon: Skull,
+    color: '#f43f5e',
+    bg: 'rgba(244, 63, 94, 0.16)',
+    border: 'rgba(244, 63, 94, 0.45)',
+    glow: 'rgba(244, 63, 94, 0.35)',
+    tag: 'SIGNAL LOST',
+    hint: 'CRITICAL TYPO CASUALTY',
+  },
+  '[LOCKED IN]': {
+    label: 'LOCKED IN',
+    icon: Crosshair,
+    color: '#a855f7',
+    bg: 'rgba(168, 85, 247, 0.16)',
+    border: 'rgba(168, 85, 247, 0.45)',
+    glow: 'rgba(168, 85, 247, 0.35)',
+    tag: 'NEURAL LOCK',
+    hint: 'MAXIMUM FOCUSED FLOW',
+  },
+  '[CLEAN]': {
+    label: 'CLEAN',
+    icon: Sparkles,
+    color: '#22d3ee',
+    bg: 'rgba(34, 211, 238, 0.16)',
+    border: 'rgba(34, 211, 238, 0.45)',
+    glow: 'rgba(34, 211, 238, 0.35)',
+    tag: 'PRISTINE RUN',
+    hint: 'FLAWLESS ACCURACY METRIC',
+  },
+};
+
+const QUICK_REACTIONS = [
+  { label: 'Boost', text: '[BOOST]', icon: Rocket, color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.4)' },
+  { label: 'Speed', text: '[SPEED]', icon: Zap, color: '#facc15', glow: 'rgba(250, 204, 21, 0.4)' },
+  { label: 'On Fire', text: '[ON FIRE]', icon: Flame, color: '#fb923c', glow: 'rgba(251, 146, 60, 0.4)' },
+  { label: 'GG', text: '[GG]', icon: Trophy, color: '#34d399', glow: 'rgba(52, 211, 153, 0.4)' },
+  { label: 'Crown', text: '[CROWN]', icon: Crown, color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.4)' },
+  { label: 'RIP', text: '[RIP]', icon: Skull, color: '#f43f5e', glow: 'rgba(244, 63, 94, 0.4)' },
+  { label: 'Locked In', text: '[LOCKED IN]', icon: Crosshair, color: '#a855f7', glow: 'rgba(168, 85, 247, 0.4)' },
+  { label: 'Clean', text: '[CLEAN]', icon: Sparkles, color: '#22d3ee', glow: 'rgba(34, 211, 238, 0.4)' },
 ];
 
 const QUICK_PHRASES = ['GLHF', 'Ready!', "Let's Go!", 'One More', 'Pick Code!', 'GG'];
 
-export const LobbyScreen: React.FC<LobbyScreenProps> = ({
+const PHRASE_CONFIG: Record<string, { tag: string; hint: string }> = {
+  'GLHF': { tag: 'CALLOUT: GLHF', hint: 'GOOD LUCK HAVE FUN' },
+  'Ready!': { tag: 'CALLOUT: READY', hint: 'COMBAT READY STATUS' },
+  "Let's Go!": { tag: 'CALLOUT: LETS GO', hint: 'SIGNAL RACE LAUNCH' },
+  'One More': { tag: 'CALLOUT: ONE MORE', hint: 'REQUEST IMMEDIATE REMATCH' },
+  'Pick Code!': { tag: 'CALLOUT: CODE', hint: 'RECOMMEND SYNTAX MODE' },
+  'GG': { tag: 'CALLOUT: GG', hint: 'TRANSMIT GOOD GAME' },
+};
+
+const ReactionAnimatedIcon: React.FC<{
+  icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
+  label: string;
+  color: string;
+}> = ({ icon: Icon, label, color }) => {
+  if (label === 'SPEED') {
+    return (
+      <motion.div
+        animate={{ scale: [1, 1.25, 1], rotate: [0, -6, 6, 0] }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  if (label === 'ON FIRE') {
+    return (
+      <motion.div
+        animate={{ scale: [1, 1.18, 0.95, 1], y: [0, -1.5, 0] }}
+        transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  if (label === 'BOOST') {
+    return (
+      <motion.div
+        animate={{ y: [0, -2, 0], x: [0, 1.5, 0] }}
+        transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  if (label === 'CROWN') {
+    return (
+      <motion.div
+        animate={{ rotate: [-4, 4, -4], scale: [1, 1.08, 1] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  if (label === 'GG') {
+    return (
+      <motion.div
+        animate={{ scale: [1, 1.14, 1] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  if (label === 'LOCKED IN') {
+    return (
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  if (label === 'CLEAN') {
+    return (
+      <motion.div
+        animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+        transition={{ duration: 3.5, repeat: Infinity, ease: 'linear' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  if (label === 'RIP') {
+    return (
+      <motion.div
+        animate={{ opacity: [1, 0.65, 1], scale: [1, 0.94, 1] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+        className="relative z-10 shrink-0"
+      >
+        <Icon size={15} style={{ color }} />
+      </motion.div>
+    );
+  }
+  return <Icon size={15} style={{ color }} className="relative z-10 shrink-0" />;
+};
+
+const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
   code,
   players,
   roomSize,
@@ -105,6 +305,40 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [chatInput, setChatInput] = useState('');
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
+  const glow = theme?.glowPrimary || '6, 182, 212';
+  const rgba = (rgbStr: string, a: number) => `rgba(${rgbStr}, ${a})`;
+
+  interface FloatingParticle {
+    id: string;
+    icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
+    color: string;
+    glow: string;
+    xOffset: number;
+    driftX: number;
+    rotation: number;
+  }
+
+  const [floatingEmotes, setFloatingEmotes] = useState<FloatingParticle[]>([]);
+  const [activeHover, setActiveHover] = useState<{ label: string; tag: string; hint: string; color?: string } | null>(null);
+
+  const triggerFloatingParticles = (reactionKey: string) => {
+    const reaction = REACTION_CONFIG[reactionKey];
+    if (!reaction) return;
+
+    // Spawn 2 clean, elegant floating particles with centered trajectory
+    const newParticles: FloatingParticle[] = Array.from({ length: 2 }).map((_, i) => ({
+      id: `${Date.now()}-${Math.random()}-${i}`,
+      icon: reaction.icon,
+      color: reaction.color,
+      glow: reaction.glow,
+      xOffset: (Math.random() - 0.5) * 36,
+      driftX: (Math.random() - 0.5) * 40,
+      rotation: (Math.random() - 0.5) * 28,
+    }));
+
+    setFloatingEmotes(prev => [...prev.slice(-8), ...newParticles]);
+  };
+
   const me = players.find(p => p.id === selfId);
   const myName = me?.name || 'Racer';
 
@@ -120,6 +354,18 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
+  }, [chatMessages]);
+
+  // Watch for other racers sending reactions and trigger floating particles
+  const prevChatCountRef = useRef(chatMessages.length);
+  useEffect(() => {
+    if (chatMessages.length > prevChatCountRef.current) {
+      const latestMsg = chatMessages[chatMessages.length - 1];
+      if (latestMsg && REACTION_CONFIG[latestMsg.text]) {
+        triggerFloatingParticles(latestMsg.text);
+      }
+    }
+    prevChatCountRef.current = chatMessages.length;
   }, [chatMessages]);
 
   const copyCode = () => {
@@ -147,6 +393,9 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const handleSendReaction = (text: string) => {
     if (!sendChatMessage) return;
     sendChatMessage(text, myName);
+    if (REACTION_CONFIG[text]) {
+      triggerFloatingParticles(text);
+    }
   };
 
   return (
@@ -161,7 +410,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
       {error && (
         <div className="w-full px-4 py-2.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-mono text-[11px] font-bold uppercase tracking-widest flex items-center gap-2">
-          <span>⚠️</span> {error}
+          <AlertTriangle size={14} className="text-rose-400 shrink-0" /> {error}
         </div>
       )}
 
@@ -251,18 +500,99 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           initial={{ opacity: 0, x: -20, scale: 0.985 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
           transition={{ duration: 0.38, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-          className="lg:col-span-4 w-full glass-panel rounded-3xl p-4 border border-white/15 flex flex-col justify-between gap-3 shadow-[0_12px_40px_rgba(0,0,0,0.4)] min-h-[520px] lg:h-[550px] bg-black/35"
+          className="lg:col-span-4 w-full glass-panel rounded-3xl p-5 border border-white/15 flex flex-col justify-between gap-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.4)] min-h-[600px] lg:h-[calc(100vh-14rem)] lg:min-h-[660px] max-h-[840px] bg-black/35 relative overflow-hidden"
         >
+          {/* Subtle Ambient Glow Backdrop */}
+          <div className="absolute inset-0 pointer-events-none opacity-25 -z-10">
+            <div
+              className="absolute -top-16 -left-16 w-52 h-52 rounded-full blur-3xl animate-pulse"
+              style={{ background: rgba(glow, 0.3) }}
+            />
+            <div
+              className="absolute -bottom-16 -right-16 w-52 h-52 rounded-full blur-3xl animate-pulse"
+              style={{ background: rgba(glow, 0.2) }}
+            />
+          </div>
+
+          {/* Floating Reaction Emote Particles Canvas (Contained in Center Bounds) */}
+          <div className="absolute inset-x-0 bottom-36 pointer-events-none z-30 flex justify-center items-center overflow-hidden">
+            <AnimatePresence>
+              {floatingEmotes.map(emote => {
+                const Icon = emote.icon;
+                return (
+                  <motion.div
+                    key={emote.id}
+                    initial={{ opacity: 0, scale: 0.5, y: 0, x: emote.xOffset, rotate: 0 }}
+                    animate={{
+                      opacity: [0, 1, 1, 0],
+                      scale: [0.5, 1.25, 1.05, 0.85],
+                      y: -200,
+                      x: emote.xOffset + emote.driftX,
+                      rotate: emote.rotation,
+                    }}
+                    transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
+                    onAnimationComplete={() => {
+                      setFloatingEmotes(prev => prev.filter(e => e.id !== emote.id));
+                    }}
+                    className="absolute p-1.5 rounded-full border shadow-lg backdrop-blur-md flex items-center justify-center"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.75)',
+                      borderColor: emote.color,
+                      boxShadow: `0 0 16px ${emote.glow}`,
+                    }}
+                  >
+                    <Icon size={18} style={{ color: emote.color }} />
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
             <div className="flex items-center gap-2 text-white font-mono text-xs font-black tracking-widest uppercase">
-              <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30">
+              <div
+                className="p-1.5 rounded-lg border transition-colors"
+                style={{
+                  background: rgba(glow, 0.15),
+                  borderColor: rgba(glow, 0.35),
+                  color: `rgb(${glow})`,
+                  boxShadow: `0 0 14px ${rgba(glow, 0.25)}`,
+                }}
+              >
                 <MessageSquare size={14} />
               </div>
               <span>NEURAL COMMS HUB</span>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/35 text-purple-300 font-mono text-[9px] font-black tracking-widest uppercase flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+            <span
+              className="px-2.5 py-0.5 rounded-full border font-mono text-[9px] font-black tracking-widest uppercase flex items-center gap-2 transition-colors"
+              style={{
+                background: rgba(glow, 0.12),
+                borderColor: rgba(glow, 0.3),
+                color: `rgb(${glow})`,
+              }}
+            >
+              {/* Micro Animated Audio Equalizer */}
+              <span className="flex items-end gap-0.5 h-2.5">
+                <motion.span
+                  animate={{ height: [3, 9, 4, 10, 3] }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                  className="w-0.5 rounded-full"
+                  style={{ background: `rgb(${glow})` }}
+                />
+                <motion.span
+                  animate={{ height: [8, 3, 10, 5, 8] }}
+                  transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+                  className="w-0.5 rounded-full"
+                  style={{ background: `rgb(${glow})` }}
+                />
+                <motion.span
+                  animate={{ height: [4, 10, 3, 8, 4] }}
+                  transition={{ duration: 1.3, repeat: Infinity, ease: 'easeInOut' }}
+                  className="w-0.5 rounded-full"
+                  style={{ background: `rgb(${glow})` }}
+                />
+              </span>
               LIVE STREAM
             </span>
           </div>
@@ -270,11 +600,38 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           {/* Tall Scrollable Message Feed */}
           <div
             ref={chatScrollRef}
-            className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 p-3 rounded-2xl bg-black/50 border border-white/10 text-xs font-mono min-h-[240px]"
+            className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 p-3.5 rounded-2xl bg-black/50 border border-white/10 text-xs font-mono min-h-[300px] relative overflow-hidden"
           >
+            {/* Live Cyber Telemetry Radar Grid */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl opacity-15 flex items-center justify-center -z-0">
+              {/* Rotating radar sweep */}
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
+                className="absolute w-[360px] h-[360px] rounded-full border border-dashed"
+                style={{ borderColor: rgba(glow, 0.35) }}
+              >
+                <div
+                  className="w-1/2 h-1/2 origin-bottom-right"
+                  style={{
+                    background: `conic-gradient(from 0deg, transparent 0deg, ${rgba(glow, 0.4)} 60deg, transparent 65deg)`,
+                  }}
+                />
+              </motion.div>
+              {/* Concentric rings */}
+              <div className="absolute w-[220px] h-[220px] rounded-full border" style={{ borderColor: rgba(glow, 0.2) }} />
+              <div className="absolute w-[120px] h-[120px] rounded-full border" style={{ borderColor: rgba(glow, 0.15) }} />
+              {/* Crosshair coordinate axes */}
+              <div className="absolute inset-x-0 top-1/2 h-px border-t border-dashed" style={{ borderColor: rgba(glow, 0.15) }} />
+              <div className="absolute inset-y-0 left-1/2 w-px border-l border-dashed" style={{ borderColor: rgba(glow, 0.15) }} />
+            </div>
+
             {/* Intel Welcome Card */}
-            <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-center flex flex-col gap-1 mb-1">
-              <div className="flex items-center justify-center gap-1.5 text-[9px] font-mono font-black text-cyan-400 uppercase tracking-widest">
+            <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-center flex flex-col gap-1 mb-1 relative z-10">
+              <div
+                className="flex items-center justify-center gap-1.5 text-[9px] font-mono font-black uppercase tracking-widest"
+                style={{ color: `rgb(${glow})` }}
+              >
                 <Radio size={11} className="animate-pulse" />
                 <span>TELEMETRY LINK SYNCHRONIZED</span>
               </div>
@@ -284,7 +641,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
             </div>
 
             {chatMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center my-auto text-center gap-1.5 opacity-70">
+              <div className="flex flex-col items-center justify-center my-auto text-center gap-1.5 opacity-70 relative z-10">
                 <div className="w-9 h-9 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
                   <MessageSquare size={16} />
                 </div>
@@ -297,19 +654,21 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </div>
             ) : (
               chatMessages.map(msg => {
-                // Identity by id, not display name: two racers called "Player"
-                // used to share bubble alignment and the host crown.
                 const isSenderMe = msg.senderId ? msg.senderId === selfId : msg.sender === myName;
                 const senderPlayer = players.find(p => (msg.senderId ? p.id === msg.senderId : p.name === msg.sender));
                 const isPlayerHost = !!senderPlayer?.isHost;
+                const reaction = REACTION_CONFIG[msg.text];
 
                 return (
-                  <div key={msg.id} className={`flex flex-col ${isSenderMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
+                  <div key={msg.id} className={`flex flex-col ${isSenderMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200 relative z-10`}>
                     <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 mb-0.5 px-1">
                       {isPlayerHost && (
                         <Crown size={9} className="text-amber-400 inline" />
                       )}
-                      <span className={`font-black ${isSenderMe ? 'text-cyan-400' : 'text-zinc-200'}`}>
+                      <span
+                        className="font-black"
+                        style={{ color: isSenderMe ? `rgb(${glow})` : 'rgb(228, 228, 231)' }}
+                      >
                         {msg.sender}
                       </span>
                       {senderPlayer?.elo && (
@@ -317,12 +676,71 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                       )}
                       <span className="text-zinc-500 text-[8px]">• {msg.timestamp}</span>
                     </div>
-                    <div className={`px-3.5 py-1.5 rounded-2xl max-w-[90%] break-words leading-relaxed text-xs font-medium shadow-md ${isSenderMe
-                      ? 'bg-cyan-500/25 text-cyan-100 border border-cyan-500/40 rounded-tr-sm'
-                      : 'bg-white/15 text-zinc-100 border border-white/15 rounded-tl-sm'
-                      }`}>
-                      {msg.text}
-                    </div>
+
+                    {reaction ? (
+                      /* ── Illuminated Cyber Reaction Badge with Sheen & Micro-Motion ── */
+                      <motion.div
+                        initial={{ scale: 0.82, y: 4, opacity: 0 }}
+                        animate={{ scale: 1, y: 0, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+                        className={`relative overflow-hidden px-3.5 py-1.5 rounded-2xl flex items-center gap-2 border shadow-lg ${
+                          isSenderMe ? 'rounded-tr-sm' : 'rounded-tl-sm'
+                        }`}
+                        style={{
+                          background: reaction.bg,
+                          borderColor: reaction.border,
+                          boxShadow: `0 0 20px ${reaction.glow}`,
+                        }}
+                      >
+                        {/* Holographic Sheen Sweep */}
+                        <motion.div
+                          animate={{ x: ['-100%', '240%'] }}
+                          transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1.2 }}
+                          className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-12 pointer-events-none"
+                        />
+                        <ReactionAnimatedIcon icon={reaction.icon} label={reaction.label} color={reaction.color} />
+                        <span
+                          className="font-mono text-xs font-black tracking-widest uppercase relative z-10"
+                          style={{ color: reaction.color }}
+                        >
+                          {reaction.label}
+                        </span>
+                      </motion.div>
+                    ) : QUICK_PHRASES.includes(msg.text) ? (
+                      /* ── Cyber Phrase Transmission ── */
+                      <motion.div
+                        initial={{ scale: 0.86, y: 3, opacity: 0 }}
+                        animate={{ scale: 1, y: 0, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 450, damping: 24 }}
+                        className={`px-3.5 py-1.5 rounded-2xl flex items-center gap-2 border shadow-md font-mono text-xs font-black tracking-wide ${
+                          isSenderMe ? 'rounded-tr-sm' : 'rounded-tl-sm'
+                        }`}
+                        style={{
+                          background: isSenderMe ? rgba(glow, 0.22) : 'rgba(255, 255, 255, 0.08)',
+                          borderColor: isSenderMe ? rgba(glow, 0.45) : 'rgba(255, 255, 255, 0.15)',
+                          color: isSenderMe ? '#ffffff' : 'rgb(228, 228, 231)',
+                          boxShadow: isSenderMe ? `0 0 16px ${rgba(glow, 0.2)}` : undefined,
+                        }}
+                      >
+                        <Radio size={11} className="animate-pulse shrink-0" style={{ color: isSenderMe ? `rgb(${glow})` : 'rgb(161, 161, 170)' }} />
+                        <span>{msg.text}</span>
+                      </motion.div>
+                    ) : (
+                      /* ── Normal Chat Bubble ── */
+                      <div
+                        className={`px-3.5 py-1.5 rounded-2xl max-w-[90%] break-words leading-relaxed text-xs font-medium shadow-md border ${
+                          isSenderMe ? 'rounded-tr-sm' : 'rounded-tl-sm'
+                        }`}
+                        style={{
+                          background: isSenderMe ? rgba(glow, 0.22) : 'rgba(255, 255, 255, 0.12)',
+                          borderColor: isSenderMe ? rgba(glow, 0.45) : 'rgba(255, 255, 255, 0.15)',
+                          color: isSenderMe ? '#ffffff' : 'rgb(244, 244, 245)',
+                          boxShadow: isSenderMe ? `0 2px 14px ${rgba(glow, 0.18)}` : undefined,
+                        }}
+                      >
+                        {msg.text}
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -331,31 +749,89 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 
           {/* Quick Reaction & Macro Station */}
           <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
-            {/* Emojis Strip */}
-            <div className="flex items-center justify-between gap-1 overflow-x-auto custom-scrollbar pb-0.5">
-              {QUICK_EMOJIS.map(item => (
-                <button
-                  key={item.label}
-                  onClick={() => handleSendReaction(item.icon)}
-                  className="p-1 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-sm transition-all hover:scale-120 active:scale-95 cursor-pointer shrink-0"
-                  title={`Send ${item.label}`}
-                >
-                  {item.icon}
-                </button>
-              ))}
+            {/* Tactical Command Ribbon (Eliminates OS Tooltip) */}
+            <div className="flex items-center justify-between px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/10 text-[9px] font-mono tracking-wider transition-all">
+              <div className="flex items-center gap-1.5 font-black truncate">
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0 animate-ping"
+                  style={{
+                    background: activeHover?.color || `rgb(${glow})`,
+                  }}
+                />
+                <span style={{ color: activeHover?.color || `rgb(${glow})` }}>
+                  {activeHover ? activeHover.tag : 'TACTICAL FREQ // 142.85 MHz'}
+                </span>
+              </div>
+              <span className="text-zinc-500 font-bold uppercase text-[8px] tracking-widest shrink-0 ml-2">
+                {activeHover ? activeHover.hint : 'TAP MACRO TO BROADCAST'}
+              </span>
+            </div>
+
+            {/* Quick Reactions Strip (Zero native title tooltips, unclipped bounds) */}
+            <div className="w-full flex items-center justify-between gap-1.5 px-1 py-1">
+              {QUICK_REACTIONS.map(item => {
+                const IconComponent = item.icon;
+                const isCurrentHover = activeHover?.label === item.label;
+                return (
+                  <motion.button
+                    key={item.label}
+                    onClick={() => handleSendReaction(item.text)}
+                    onMouseEnter={() =>
+                      setActiveHover({
+                        label: item.label,
+                        tag: REACTION_CONFIG[item.text]?.tag || item.label,
+                        hint: REACTION_CONFIG[item.text]?.hint || 'MACRO TRANSMIT',
+                        color: item.color,
+                      })
+                    }
+                    onMouseLeave={() => setActiveHover(null)}
+                    whileHover={{ scale: 1.16, y: -2 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="flex-1 p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center relative"
+                    style={{
+                      background: isCurrentHover ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                      borderColor: isCurrentHover ? item.color : 'rgba(255, 255, 255, 0.12)',
+                      color: item.color,
+                      boxShadow: isCurrentHover ? `0 0 14px ${item.glow}` : undefined,
+                    }}
+                  >
+                    <IconComponent size={15} style={{ color: item.color }} />
+                  </motion.button>
+                );
+              })}
             </div>
 
             {/* Phrase Pills */}
-            <div className="flex flex-wrap gap-1">
-              {QUICK_PHRASES.map(phrase => (
-                <button
-                  key={phrase}
-                  onClick={() => handleSendReaction(phrase)}
-                  className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/20 border border-white/15 text-[10px] font-mono font-bold text-zinc-200 hover:text-white transition-all active:scale-95 cursor-pointer shadow-sm"
-                >
-                  {phrase}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-1.5 px-0.5">
+              {QUICK_PHRASES.map(phrase => {
+                const isCurrentHover = activeHover?.label === phrase;
+                return (
+                  <motion.button
+                    key={phrase}
+                    onClick={() => handleSendReaction(phrase)}
+                    onMouseEnter={() =>
+                      setActiveHover({
+                        label: phrase,
+                        tag: PHRASE_CONFIG[phrase]?.tag || phrase,
+                        hint: PHRASE_CONFIG[phrase]?.hint || 'DIRECT TRANSMIT',
+                        color: `rgb(${glow})`,
+                      })
+                    }
+                    onMouseLeave={() => setActiveHover(null)}
+                    whileHover={{ scale: 1.04, y: -1 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-3 py-1.5 rounded-full border text-[10px] font-mono font-bold transition-all cursor-pointer shadow-sm text-zinc-200 hover:text-white"
+                    style={{
+                      background: isCurrentHover ? rgba(glow, 0.2) : 'rgba(255, 255, 255, 0.05)',
+                      borderColor: isCurrentHover ? rgba(glow, 0.5) : 'rgba(255, 255, 255, 0.15)',
+                      color: isCurrentHover ? '#ffffff' : 'rgb(228, 228, 231)',
+                      boxShadow: isCurrentHover ? `0 0 12px ${rgba(glow, 0.25)}` : undefined,
+                    }}
+                  >
+                    {phrase}
+                  </motion.button>
+                );
+              })}
             </div>
 
             {/* Input Form */}
@@ -366,22 +842,32 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Broadcast message to room..."
                 maxLength={80}
-                className="flex-1 px-3.5 py-2 rounded-xl bg-black/40 border border-white/15 text-white font-mono text-xs focus:outline-none focus:border-cyan-400 transition-colors placeholder:text-zinc-500"
+                className="flex-1 px-3.5 py-2 rounded-xl bg-black/50 border text-white font-mono text-xs focus:outline-none transition-all placeholder:text-zinc-500"
+                style={{
+                  borderColor: chatInput ? rgba(glow, 0.5) : 'rgba(255, 255, 255, 0.15)',
+                  boxShadow: chatInput ? `0 0 14px ${rgba(glow, 0.18)}` : undefined,
+                }}
               />
-              <button
+              <motion.button
                 type="submit"
                 disabled={!chatInput.trim()}
-                className="p-2 rounded-xl bg-cyan-500/25 hover:bg-cyan-500/40 disabled:opacity-30 text-cyan-200 border border-cyan-500/40 cursor-pointer transition-all active:scale-95 shadow-sm"
-                title="Send Message"
+                whileHover={chatInput.trim() ? { scale: 1.08 } : undefined}
+                whileTap={chatInput.trim() ? { scale: 0.92 } : undefined}
+                className="p-2 rounded-xl border cursor-pointer transition-all shadow-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  background: chatInput.trim() ? rgba(glow, 0.28) : 'rgba(255, 255, 255, 0.05)',
+                  borderColor: chatInput.trim() ? rgba(glow, 0.55) : 'rgba(255, 255, 255, 0.1)',
+                  color: chatInput.trim() ? `rgb(${glow})` : 'rgba(255, 255, 255, 0.4)',
+                }}
               >
                 <Send size={14} />
-              </button>
+              </motion.button>
             </form>
           </div>
         </motion.div>
 
         {/* ════ RIGHT COLUMN: 4 PODIUMS, 3-COLUMN CONFIG & LAUNCH (col-span-8) ════ */}
-        <div className="lg:col-span-8 w-full flex flex-col justify-between gap-3.5 lg:h-[550px]">
+        <div className="lg:col-span-8 w-full flex flex-col justify-between gap-3.5 min-h-[600px] lg:h-[calc(100vh-14rem)] lg:min-h-[660px] max-h-[840px]">
 
           {/* Starting Grid Section */}
           <div className="w-full flex flex-col gap-2">
@@ -775,4 +1261,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     </div>
   );
 };
+
+
+export const LobbyScreen = memo(LobbyScreenImpl);
 

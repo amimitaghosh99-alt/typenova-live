@@ -1,13 +1,21 @@
-import React, { memo, useState } from 'react';
-import { Flame, Trophy, Swords, Users, MessageSquare, Settings, Lock, Menu, X } from 'lucide-react';
+import React, { memo, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Flame, GraduationCap, Swords, Users, MessageSquare, Lock, Menu, X, HandHeart } from 'lucide-react';
 import { toast } from 'sonner';
 import { TypeNovaLogo } from '@/components/TypeNovaLogo';
 import { TITLE_BADGES } from '@/data/titles';
+import { TITLE_MARK } from '@/lib/titleIcons';
+import { AvatarArt } from '@/components/profile/AvatarKeycap';
+import { ALL_BANNERS, AVATARS } from '@/data/customization';
+import { DONATION_CONFIG, getDonationProgressPercent } from '@/data/donation';
 import type { Theme } from '@/data/constants';
 
 interface CosmicNavBarProps {
   theme: Theme;
   username: string | null;
+  avatarId?: string;
+  bannerId?: string;
+  avatarUrl?: string | null;
   userLevel: number;
   currentLevelProgress: number;
   xpNeeded: number;
@@ -15,24 +23,30 @@ interface CosmicNavBarProps {
   activeTitle: string;
   dailyStreak: number;
   isLoggedIn: boolean;
-  unlockedAchievements: string[];
+  unlockedAchievements?: string[];
   // Callbacks
   onOpenProfile: (username: string) => void;
-  onOpenTrophies: () => void;
+  onOpenTrophies?: () => void;
   onOpenRace: () => void;
   onOpenAcademy: () => void;
   onOpenPractice: () => void;
   onOpenSocial: () => void;
   onOpenComms: () => void;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
   onOpenDailyQuests: () => void;
+  onOpenDonate?: () => void;
   // Active page for nav link highlighting
-  activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier';
+  activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier' | 'donate';
+  // Clutter hiding state during typing
+  shouldHide?: boolean;
 }
 
 export const CosmicNavBar = memo(function CosmicNavBar({
   theme,
   username,
+  avatarId = 'default',
+  bannerId = 'basic_dark',
+  avatarUrl = null,
   userLevel,
   currentLevelProgress,
   xpNeeded,
@@ -40,21 +54,35 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   activeTitle,
   dailyStreak,
   isLoggedIn,
-  unlockedAchievements,
+  unlockedAchievements: _unlockedAchievements,
   onOpenProfile,
-  onOpenTrophies,
+  onOpenTrophies: _onOpenTrophies,
   onOpenRace,
   onOpenAcademy,
   onOpenPractice,
   onOpenSocial,
   onOpenComms,
-  onOpenSettings,
+  onOpenSettings: _onOpenSettings,
   onOpenDailyQuests,
-  activePage = 'practice'
+  onOpenDonate,
+  activePage = 'practice',
+  shouldHide = false,
 }: CosmicNavBarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const donationGoalPercent = getDonationProgressPercent();
+
+  useEffect(() => {
+    if (shouldHide && mobileMenuOpen) {
+      setMobileMenuOpen(false);
+    }
+  }, [shouldHide, mobileMenuOpen]);
 
   const activeBadge = TITLE_BADGES.find(b => b.id === activeTitle);
+  /* Capitalised because JSX resolves a lowercase tag to an HTML element. */
+  const ActiveTitleIcon = activeBadge ? TITLE_MARK[activeBadge.id] : null;
+
+  const selectedBanner = ALL_BANNERS.find(b => b.id === bannerId) || ALL_BANNERS[0];
+  const selectedAvatar = AVATARS.find(a => a.id === avatarId) || AVATARS[0];
 
   const getNavLinkStyle = (page: 'academy' | 'practice' | 'compete' | 'store') => {
     if (activePage === page) {
@@ -74,7 +102,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
       id: 'store',
       label: 'Store',
       badge: 'SOON',
-      onClick: () => toast.info('TypeNova Store is coming soon! Unlock themes, sound profiles & CyberHands cosmetics.', { icon: '🛍️' })
+      onClick: () => toast.info('TypeNova Store is coming soon! Unlock themes, sound profiles & CyberHands cosmetics.')
     },
   ];
 
@@ -93,18 +121,36 @@ export const CosmicNavBar = memo(function CosmicNavBar({
           was paid for twice and each stage lost 80px of usable height. */}
       <header
         data-app-chrome="nav"
-        className="!fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-[var(--z-nav)] flex items-center justify-between font-display transition-[background-color,border-color,box-shadow] duration-500 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+        className={`!fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-[var(--z-nav)] flex items-center justify-between font-display transition-[background-color,border-color,box-shadow,opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] shadow-[0_8px_32px_rgba(0,0,0,0.4)] will-change-[transform,opacity] ${
+          shouldHide
+            ? '-translate-y-full opacity-0 pointer-events-none'
+            : 'translate-y-0 opacity-100'
+        }`}
       >
 
         {/* Left: Logo & Academy CTA */}
         <div className="flex items-center gap-4">
-          <TypeNovaLogo size="md" />
+          <button
+            type="button"
+            onClick={onOpenPractice}
+            className="cursor-pointer focus:outline-none flex items-center hover:opacity-90 transition-opacity"
+            title="TypeNova Home"
+          >
+            <TypeNovaLogo size="md" />
+          </button>
           {activePage !== 'academy' && (
             <button
               onClick={onOpenAcademy}
               className="hidden sm:flex items-center gap-2 nav-pill px-4 py-1.5 border-amber-400/30 text-amber-300 hover:border-amber-400/70 transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] group cursor-pointer"
             >
-              <span className="text-base group-hover:scale-110 transition-transform">🎓</span>
+              {/* An icon, not the 🎓 emoji this used to be: an emoji renders in
+                  the platform's own font and colour, so it could not take the
+                  amber the rest of this pill is set in. */}
+              <GraduationCap
+                size={16}
+                aria-hidden
+                className="shrink-0 transition-transform group-hover:scale-110"
+              />
               <div className="flex flex-col items-start leading-none text-left">
                 <span className="text-[8px] uppercase tracking-widest opacity-70 font-semibold">New to typing?</span>
                 <span className="font-bold text-xs">Academy</span>
@@ -139,7 +185,9 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                   </span>
                 )}
                 {isActive && (
-                  <span
+                  <motion.span
+                    layoutId="cosmicNavUnderline"
+                    transition={{ type: 'spring', stiffness: 480, damping: 36 }}
                     className="absolute bottom-0 left-0 w-full h-[2px] rounded-full"
                     style={{
                       backgroundColor: `rgb(${theme.glowPrimary})`,
@@ -160,28 +208,48 @@ export const CosmicNavBar = memo(function CosmicNavBar({
             // Now that the dossier is a route, the capsule is a nav destination
             // like the links to its left — so it gets the same active treatment.
             aria-current={activePage === 'dossier' ? 'page' : undefined}
-            className={`group flex items-center px-3.5 py-1.5 nav-pill transition-all cursor-pointer text-left gap-3 active:scale-[0.98] ${activePage === 'dossier' ? 'border-white/40' : 'hover:border-white/25'}`}
-            style={activePage === 'dossier' ? { boxShadow: `0 0 18px rgba(${theme.glowPrimary}, 0.25)` } : undefined}
+            className={`group relative overflow-hidden flex items-center px-3.5 py-1.5 rounded-full transition-all cursor-pointer text-left gap-3 active:scale-[0.98] border backdrop-blur-xl ${selectedBanner.accentBorder || 'border-white/20'} ${activePage === 'dossier' ? 'border-white/50 shadow-lg' : 'hover:border-white/40'}`}
+            style={{
+              boxShadow: `0 0 16px rgba(${selectedBanner.glowColor || theme.glowPrimary}, 0.22), inset 0 0 10px rgba(255, 255, 255, 0.04)`,
+            }}
             title="View / Edit your Player Profile"
           >
-            <div className="relative shrink-0">
-              <div
-                className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-bold uppercase text-sm shadow-[inset_0_0_10px_rgba(255,255,255,0.15)]"
-                style={{ color: `rgb(${theme.glowPrimary})` }}
-              >
-                {(username || 'G').substring(0, 1)}
-              </div>
+            {/* Banner Background Tint */}
+            <div className={`absolute inset-0 opacity-35 pointer-events-none transition-opacity ${selectedBanner.bgClass}`} />
+            <div className="absolute inset-0 bg-black/40 pointer-events-none backdrop-blur-md" />
+
+            {/* Avatar: Keycap / Photo / Letter */}
+            <div className="relative z-10 shrink-0 flex items-center justify-center">
+              {avatarUrl && (!avatarId || avatarId === 'default') ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover border border-white/20 shadow-md"
+                  referrerPolicy="no-referrer"
+                />
+              ) : avatarId && avatarId !== 'default' ? (
+                <div className="drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] flex items-center justify-center">
+                  <AvatarArt id={avatarId} size={38} />
+                </div>
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center font-bold uppercase text-sm shadow-[inset_0_0_10px_rgba(255,255,255,0.15)]"
+                  style={{ color: `rgb(${selectedAvatar.glowColor || theme.glowPrimary})` }}
+                >
+                  {(username || 'G').substring(0, 1)}
+                </div>
+              )}
             </div>
 
-            <div className="flex flex-col pr-1">
+            <div className="relative z-10 flex flex-col pr-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-white tracking-wide">
                   {username || 'GUEST'}
                 </span>
                 <span className="text-zinc-400 font-semibold text-xs">LVL {userLevel}</span>
-                {activeBadge && (
+                {activeBadge && ActiveTitleIcon && (
                   <div className="nav-pill px-2 py-0.5 text-[10px] text-zinc-300 flex items-center gap-1">
-                    <span>{activeBadge.icon}</span>
+                    <ActiveTitleIcon size={11} aria-hidden className="shrink-0" />
                     <span>{activeBadge.name}</span>
                   </div>
                 )}
@@ -191,8 +259,8 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                   className="h-full transition-all duration-500 rounded-full"
                   style={{
                     width: `${Math.min(100, (currentLevelProgress / Math.max(1, xpNeeded)) * 100)}%`,
-                    background: `linear-gradient(to right, rgb(${theme.glowPrimary}), rgb(${theme.glowSecondary}))`,
-                    boxShadow: `0 0 10px rgba(${theme.glowPrimary}, 0.6)`,
+                    background: `linear-gradient(to right, rgb(${selectedBanner.glowColor || theme.glowPrimary}), rgb(${theme.glowSecondary}))`,
+                    boxShadow: `0 0 10px rgba(${selectedBanner.glowColor || theme.glowPrimary}, 0.6)`,
                   }}
                 />
               </div>
@@ -201,6 +269,37 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
           {/* Action Tray */}
           <div className="flex items-center gap-2">
+            {/* Community Support & Donate Capsule (Matches target progress design) */}
+            <button
+              onClick={onOpenDonate}
+              className={`nav-pill h-9 px-2.5 sm:px-3 flex flex-col justify-center text-left transition-all cursor-pointer group ${
+                activePage === 'donate'
+                  ? 'border-rose-400 bg-rose-500/25 shadow-[0_0_20px_rgba(244,63,94,0.35)] ring-1 ring-rose-400/50'
+                  : 'border-rose-500/30 hover:border-rose-500/60 bg-rose-500/10 hover:bg-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
+              }`}
+              title={`Support TypeNova — $${DONATION_CONFIG.goal.currentAmount} / $${DONATION_CONFIG.goal.targetAmount} (${donationGoalPercent}% Funded)`}
+            >
+              <div className="flex items-center gap-1.5 leading-none">
+                <HandHeart size={13} className="text-rose-400 group-hover:scale-110 transition-transform shrink-0" />
+                <span className="text-[11.5px] font-bold text-white tracking-wide">Donate</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5 w-full">
+                <div className="w-8 sm:w-9 h-1 rounded-full bg-white/15 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${donationGoalPercent}%`,
+                      background: 'linear-gradient(to right, #fb7185, #f43f5e)',
+                      boxShadow: '0 0 6px rgba(244,63,94,0.8)',
+                    }}
+                  />
+                </div>
+                <span className="text-[8.5px] font-mono font-bold text-rose-300">
+                  {donationGoalPercent}%
+                </span>
+              </div>
+            </button>
+
             <button
               onClick={onOpenDailyQuests}
               className="nav-pill h-9 px-3 flex items-center gap-1.5 text-amber-300 hover:text-amber-200 border-amber-400/30 hover:border-amber-400/60 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-mono font-bold transition-all cursor-pointer"
@@ -216,13 +315,8 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 black drop shadow and a backdrop blur nested inside the bar's
                 own — which rendered as five black coins in a row. */}
             <div className="flex items-center gap-0.5">
-              <ActionButton icon={Trophy} onClick={onOpenTrophies} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
-              {/* No Stats button. Everything it opened — trends, personal bests,
-                  lifetime totals, the key heatmap — is on the dossier's Progress
-                  tab, which is one click away via the identity capsule. */}
               <ActionButton icon={Users} onClick={onOpenSocial} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
               <ActionButton icon={MessageSquare} onClick={onOpenComms} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
-              <ActionButton icon={Settings} onClick={onOpenSettings} isLoggedIn={true} title="Settings" theme={theme} />
             </div>
           </div>
         </div>
@@ -259,13 +353,34 @@ export const CosmicNavBar = memo(function CosmicNavBar({
             <div className="mt-6">
               <button
                 onClick={() => { onOpenProfile(username || 'Guest'); setMobileMenuOpen(false); }}
-                className="w-full flex items-center px-3.5 py-3 glass-panel rounded-2xl border border-white/5 hover:border-white/20 transition-all cursor-pointer text-left gap-3.5"
+                className={`relative overflow-hidden w-full flex items-center px-3.5 py-3 rounded-2xl border transition-all cursor-pointer text-left gap-3.5 ${selectedBanner.accentBorder || 'border-white/10'} hover:border-white/30`}
+                style={{
+                  boxShadow: `0 0 14px rgba(${selectedBanner.glowColor || theme.glowPrimary}, 0.18)`,
+                }}
                 title="View / Edit your Player Profile"
               >
-                <div className={`w-10 h-10 rounded-full bg-black/20 border flex items-center justify-center font-bold uppercase text-sm shrink-0 ${theme.borderHalf} ${theme.vividText}`}>
-                  {(username || 'G').substring(0, 1)}
+                <div className={`absolute inset-0 opacity-35 pointer-events-none transition-opacity ${selectedBanner.bgClass}`} />
+                <div className="absolute inset-0 bg-black/50 pointer-events-none backdrop-blur-md" />
+
+                <div className="relative z-10 shrink-0 flex items-center justify-center">
+                  {avatarUrl && (!avatarId || avatarId === 'default') ? (
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover border border-white/20 shadow-md"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : avatarId && avatarId !== 'default' ? (
+                    <div className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] flex items-center justify-center">
+                      <AvatarArt id={avatarId} size={38} />
+                    </div>
+                  ) : (
+                    <div className={`w-10 h-10 rounded-full bg-black/20 border flex items-center justify-center font-bold uppercase text-sm ${theme.borderHalf} ${theme.vividText}`}>
+                      {(username || 'G').substring(0, 1)}
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-col min-w-0 flex-1">
+                <div className="relative z-10 flex flex-col min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-black uppercase tracking-wider text-white truncate">
                       {username || 'GUEST'}
@@ -274,7 +389,13 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">
                     <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className={`h-full ${theme.solid}`} style={{ width: `${Math.min(100, (currentLevelProgress / Math.max(1, xpNeeded)) * 100)}%` }} />
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(100, (currentLevelProgress / Math.max(1, xpNeeded)) * 100)}%`,
+                          backgroundColor: `rgb(${selectedBanner.glowColor || theme.glowPrimary})`,
+                        }}
+                      />
                     </div>
                     <span className="text-[9px] font-mono text-zinc-500 shrink-0">{xp} XP</span>
                   </div>
@@ -302,6 +423,15 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
             <div className="mt-auto pt-8 flex flex-wrap gap-2.5 items-center">
               <button
+                onClick={() => { onOpenDonate?.(); setMobileMenuOpen(false); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20 text-xs font-mono font-bold transition-all"
+                title="Support TypeNova"
+              >
+                <HandHeart size={14} className="text-rose-400" />
+                <span>Donate ({donationGoalPercent}%)</span>
+              </button>
+
+              <button
                 onClick={() => { onOpenDailyQuests(); setMobileMenuOpen(false); }}
                 className="flex items-center gap-1 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 text-xs font-mono font-bold transition-all"
                 title="Daily Quests & Streaks"
@@ -311,11 +441,9 @@ export const CosmicNavBar = memo(function CosmicNavBar({
               </button>
               {/* Same bare row as the desktop tray. */}
               <div className="flex items-center gap-0.5">
-                <ActionButton icon={Trophy} onClick={() => { onOpenTrophies(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Trophies" active={unlockedAchievements.length > 0} theme={theme} />
                 <ActionButton icon={Swords} onClick={() => { onOpenRace(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Race" theme={theme} />
                 <ActionButton icon={Users} onClick={() => { onOpenSocial(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
                 <ActionButton icon={MessageSquare} onClick={() => { onOpenComms(); setMobileMenuOpen(false); }} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
-                <ActionButton icon={Settings} onClick={() => { onOpenSettings(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Settings" theme={theme} />
               </div>
             </div>
           </div>

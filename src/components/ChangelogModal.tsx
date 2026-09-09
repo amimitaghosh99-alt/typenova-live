@@ -161,14 +161,14 @@ export const ChangelogModal = memo(function ChangelogModal({ theme, onClose }: C
         localStorage.setItem('typenova_changelog_subscribed', 'true');
         
         try {
-          new Notification('TypeNova Release Alerts 🚀', {
+          new Notification('TypeNova Release Alerts', {
             body: 'You are now subscribed! You will receive instant notifications when major builds go live.',
             icon: '/favicon.ico',
           });
         } catch {
           // Ignored if service worker push is required
         }
-        toast.success('Desktop notifications enabled!', { icon: '🔔' });
+        toast.success('Desktop notifications enabled!');
       } else {
         toast.error('Notification permission was denied in browser settings.');
       }
@@ -186,7 +186,7 @@ export const ChangelogModal = memo(function ChangelogModal({ theme, onClose }: C
     } else {
       setSubscribed(true);
       localStorage.setItem('typenova_changelog_subscribed', 'true');
-      toast.success('Subscribed to TypeNova update alerts!', { icon: '🔔' });
+      toast.success('Subscribed to TypeNova update alerts!');
       if ('Notification' in window && Notification.permission !== 'granted') {
         requestPushPermission();
       }
@@ -205,7 +205,7 @@ export const ChangelogModal = memo(function ChangelogModal({ theme, onClose }: C
     localStorage.setItem('typenova_changelog_subscribed', 'true');
     setSubscribed(true);
     setShowSubscribeDialog(false);
-    toast.success(`Subscribed ${email} to release dispatches!`, { icon: '📬' });
+    toast.success(`Subscribed ${email} to release dispatches!`);
   };
 
   const selectRelease = useCallback((version: string) => {
@@ -513,9 +513,9 @@ export const ChangelogModal = memo(function ChangelogModal({ theme, onClose }: C
                       const count = counts[f];
                       const labels: Record<FilterType, string> = {
                         all: `ALL (${count})`,
-                        feature: `✨ FEATURES (${counts.feature})`,
-                        perf: `⚡ PERF (${counts.perf})`,
-                        fix: `🛠️ FIXES (${counts.fix})`,
+                        feature: `FEATURES (${counts.feature})`,
+                        perf: `PERF (${counts.perf})`,
+                        fix: `FIXES (${counts.fix})`,
                       };
 
                       return (

@@ -1,10 +1,12 @@
-# Progress Log - Explorer M1-2
+# Progress Log — explorer_m1_2
 
-Last visited: 2026-08-09T04:42:35Z
+Last visited: 2026-08-31T20:25:00Z
 
-- [x] Initialized DISPATCH.md and BRIEFING.md
-- [x] Locate `CyberHands.tsx`, `VirtualKeyboard.tsx`, and related files
-- [x] Analyze `CyberHands.tsx` SVG structure, MCP joint origins, finger math, container transforms
-- [x] Analyze why fingers detach from palm during key presses
-- [x] Synthesize findings and write handoff.md
-- [ ] Report completion to orchestrator
+- [x] Initial setup & briefing initialization
+- [x] Inspect ORIGINAL_REQUEST.md & PROJECT.md
+- [x] Inspect existing `src/lib/scoringEngine.ts`, `src/hooks/useTypingEngine.ts`, `src/components/ResultsScreen.tsx`, etc.
+- [x] Analyze and design `calculateBurstWpm(keystrokeLog, timeline)` implementation
+- [x] Analyze and design `TypingStats` and `calculateStats` modifications (burstWpm, cpi, grade)
+- [x] Analyze live timeline tracking, performance, memory leak prevention, and state updates
+- [x] Synthesize findings into handoff.md
+- [x] Notify caller

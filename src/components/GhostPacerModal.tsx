@@ -82,12 +82,29 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
           {/* Header */}
           <div className="flex items-center justify-between mb-6 relative">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-cyan-400">
+              <div
+                className="p-3 rounded-2xl border"
+                style={{
+                  color: `rgb(${theme.glowPrimary})`,
+                  borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                  backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
+                }}
+              >
                 <Ghost size={24} className="animate-pulse" />
               </div>
               <div>
                 <h2 className="text-xl font-black text-white tracking-wider flex items-center gap-2">
-                  GHOST RACER <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">3.0</span>
+                  GHOST RACER{' '}
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full font-bold border"
+                    style={{
+                      color: `rgb(${theme.glowPrimary})`,
+                      borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                      backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                    }}
+                  >
+                    3.0
+                  </span>
                 </h2>
                 <p className="text-xs text-zinc-400 font-medium">Race your best, a pacer bot, or anyone on the board</p>
               </div>
@@ -103,7 +120,11 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
           {/* Master Enable/Disable Toggle */}
           <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Zap size={18} className={ghostPacer ? 'text-cyan-400' : 'text-zinc-500'} />
+              <Zap
+                size={18}
+                className={ghostPacer ? '' : 'text-zinc-500'}
+                style={ghostPacer ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+              />
               <div>
                 <span className="text-sm font-bold text-white block">Enable Ghost Pacer</span>
                 <span className="text-xs text-zinc-400">Display the live shadow racer during typing</span>
@@ -113,8 +134,16 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
               onClick={() => setGhostPacer(!ghostPacer)}
               aria-pressed={ghostPacer}
               aria-label="Enable Ghost Pacer"
+              style={
+                ghostPacer
+                  ? {
+                      backgroundColor: `rgb(${theme.glowPrimary})`,
+                      boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.5)`,
+                    }
+                  : undefined
+              }
               className={`w-14 h-8 rounded-full p-1 transition-colors relative flex items-center ${
-                ghostPacer ? 'bg-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.5)]' : 'bg-zinc-800'
+                ghostPacer ? '' : 'bg-zinc-800'
               }`}
             >
               <motion.div
@@ -129,15 +158,30 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
           <div className="grid grid-cols-3 gap-2 mb-6">
             <button
               onClick={() => setGhostMode('pb')}
+              style={
+                ghostMode === 'pb'
+                  ? {
+                      backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
+                      borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                      boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.15)`,
+                    }
+                  : undefined
+              }
               className={`p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 relative overflow-hidden ${
                 ghostMode === 'pb'
-                  ? 'bg-cyan-500/10 border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
+                  ? ''
                   : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] text-zinc-400'
               }`}
             >
               <div className="flex items-center justify-between">
-                <Trophy size={16} className={ghostMode === 'pb' ? 'text-cyan-400' : 'text-zinc-500'} />
-                {ghostMode === 'pb' && <Check size={14} className="text-cyan-400" />}
+                <Trophy
+                  size={16}
+                  className={ghostMode === 'pb' ? '' : 'text-zinc-500'}
+                  style={ghostMode === 'pb' ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+                />
+                {ghostMode === 'pb' && (
+                  <Check size={14} style={{ color: `rgb(${theme.glowPrimary})` }} />
+                )}
               </div>
               <div>
                 <span className={`text-[11px] font-black tracking-wide block leading-tight ${ghostMode === 'pb' ? 'text-white' : 'text-zinc-300'}`}>

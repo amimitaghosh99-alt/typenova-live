@@ -1,8 +1,19 @@
-﻿import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { generateText } from '@/data/constants';
 import type { Level, CodeLanguage } from '@/data/constants';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { toast } from 'sonner';
+import {
+  type HexType,
+  type ActiveHex,
+  type SabotageStats,
+  INITIAL_SABOTAGE_STATS,
+  applyIncomingHex,
+  pruneExpiredHexes,
+  HEX_ABILITIES,
+  calculateHexEnergy,
+} from '@/lib/sabotageEngine';
 
 export type RaceStatus = 'idle' | 'joining' | 'lobby' | 'racing' | 'finished';
 
@@ -68,6 +79,7 @@ export interface RacerState {
   /** Per-player WPM curve, delivered over broadcast (too big for presence). */
   timeline?: TimelinePointLite[];
   errorTimes?: number[];
+  sabotageStats?: SabotageStats;
 }
 
 export interface RaceConfig {
@@ -88,6 +100,7 @@ export interface RaceFinishPayload {
   heatmap?: Record<string, { total: number; errors: number }>;
   timeline?: TimelinePointLite[];
   errorTimes?: number[];
+  sabotageStats?: SabotageStats;
 }
 
 interface UseRaceOptions {
@@ -119,7 +132,7 @@ export const compareRacers = (a: RacerState, b: RacerState): number => {
 };
 
 /** Extra per-player payloads that are too large for a presence frame. */
-type RacerDetails = Pick<RacerState, 'heatmapData' | 'timeline' | 'errorTimes'>;
+type RacerDetails = Pick<RacerState, 'heatmapData' | 'timeline' | 'errorTimes' | 'sabotageStats'>;
 
 /** Why a channel is being opened. Reconnects must skip the join-time guards. */
 type ChannelMode = 'create' | 'join' | 'reconnect';
@@ -160,6 +173,9 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [lobbyConfig, setLobbyConfig] = useState<RaceConfig>({ mode: 'NOVICE', words: 25 });
   const [selfId, setSelfId] = useState<string | null>(null);
+  const [hexEnergy, setHexEnergy] = useState<number>(0);
+  const [activeHexes, setActiveHexes] = useState<ActiveHex[]>([]);
+  const [sabotageStats, setSabotageStats] = useState<SabotageStats>(INITIAL_SABOTAGE_STATS);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const onStartRef = useRef(onStart);
@@ -168,6 +184,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isHostRef = useRef(false);
   const myIdRef = useRef<string | null>(null);
+  const myNameRef = useRef<string>('Racer');
   /** Current host, needed by the pong handler to know whose clock to trust. */
   const hostIdRef = useRef<string | null>(null);
 
@@ -202,6 +219,13 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   useEffect(() => { roomSizeRef.current = roomSize; }, [roomSize]);
   useEffect(() => { codeRef.current = code; }, [code]);
 
+  useEffect(() => {
+    if (activeHexes.length === 0) return;
+    const interval = setInterval(() => {
+      setActiveHexes(prev => pruneExpiredHexes(prev));
+    }, 200);
+    return () => clearInterval(interval);
+  }, [activeHexes.length]);
 
   const teardown = useCallback(() => {
     if (channelRef.current && supabase) {
@@ -225,6 +249,9 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     pingIntervalRef.current = null;
     setCountdown(null);
     setConnection('offline');
+    setHexEnergy(0);
+    setActiveHexes([]);
+    setSabotageStats(INITIAL_SABOTAGE_STATS);
   }, []);
 
   const leave = useCallback(() => {
@@ -504,6 +531,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
             heatmapData: payload.heatmapData,
             timeline: payload.timeline,
             errorTimes: payload.errorTimes,
+            sabotageStats: payload.sabotageStats,
           },
         }));
       })
@@ -533,6 +561,50 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           if (prev.some(m => m.id === payload.id)) return prev;
           return [...prev, payload];
         });
+      })
+      .on('broadcast', { event: 'sabotage_hex' }, ({ payload }) => {
+        const myId = myIdRef.current;
+        if (!payload || !myId || payload.fromId === myId) return;
+        if (payload.targetId && payload.targetId !== myId && payload.targetId !== 'all') return;
+
+        setActiveHexes(prev => {
+          const res = applyIncomingHex({
+            activeHexes: prev,
+            incomingHex: {
+              id: payload.id,
+              hexType: payload.hexType,
+              fromName: payload.fromName || 'Rival',
+              fromId: payload.fromId,
+              appliedAt: payload.timestamp || Date.now(),
+              durationMs: payload.durationMs,
+            },
+          });
+
+          if (res.deflected) {
+            channel.send({
+              type: 'broadcast',
+              event: 'sabotage_deflected',
+              payload: {
+                attackerId: payload.fromId,
+                defenderName: myNameRef.current,
+                hexType: payload.hexType,
+              },
+            });
+            setSabotageStats(s => ({ ...s, hexesDeflected: s.hexesDeflected + 1 }));
+          } else if (res.cleansed) {
+            setSabotageStats(s => ({ ...s, cleanseCount: s.cleanseCount + 1 }));
+          } else {
+            setSabotageStats(s => ({ ...s, hexesAfflicted: s.hexesAfflicted + 1 }));
+          }
+
+          return res.updatedHexes;
+        });
+      })
+      .on('broadcast', { event: 'sabotage_deflected' }, ({ payload }) => {
+        const myId = myIdRef.current;
+        if (!payload || !myId || payload.attackerId !== myId) return;
+        const hexName = HEX_ABILITIES[payload.hexType as HexType]?.name || 'hex';
+        toast(`Deflected! ${payload.defenderName}'s Cleanse Shield blocked your ${hexName}!`);
       })
       .on('broadcast', { event: 'ping' }, ({ payload }) => {
         if (!payload?.from || payload.from === myId) return;
@@ -603,6 +675,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     const myId = playerInit.userId || `guest-${Math.random().toString(36).substring(2, 9)}`;
     setSelfId(myId);
     myIdRef.current = myId;
+    myNameRef.current = playerInit.name || 'Racer';
     hostIdRef.current = isCreating ? myId : null;
     peerRttRef.current.clear();
     clockOffsetRef.current = 0;
@@ -745,12 +818,13 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     };
     queueTrack(true);
 
-    // Heatmaps and timelines are far too large for a presence frame â€” an
+    // Heatmaps and timelines are far too large for a presence frame — an
     // oversized payload gets dropped and the finish never lands at all.
     const detail: RacerDetails = {
       heatmapData: payload.heatmap,
       timeline: payload.timeline,
       errorTimes: payload.errorTimes,
+      sabotageStats: payload.sabotageStats || sabotageStats,
     };
     if (myId) setDetails(prev => ({ ...prev, [myId]: detail }));
     myDetailRef.current = detail;
@@ -759,7 +833,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       event: 'finish_details',
       payload: { id: myId, ...detail },
     });
-  }, [queueTrack]);
+  }, [queueTrack, sabotageStats]);
 
   /**
    * Ask a specific racer to re-broadcast their finish payload.
@@ -860,6 +934,59 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     });
   }, []);
 
+  const chargeHexEnergy = useCallback(({ combo, isError, isMilestone }: { combo: number; isError?: boolean; isMilestone?: boolean }) => {
+    setHexEnergy(prev => calculateHexEnergy({ currentEnergy: prev, combo, isError, isMilestone }));
+  }, []);
+
+  const castHex = useCallback((hexType: HexType) => {
+    const ability = HEX_ABILITIES[hexType];
+    if (!ability || hexEnergy < ability.cost) return false;
+
+    // Deduct energy
+    setHexEnergy(e => Math.max(0, Math.round((e - ability.cost) * 10) / 10));
+    setSabotageStats(s => ({ ...s, hexesCast: s.hexesCast + 1 }));
+
+    if (hexType === 'cleanse_shield') {
+      // Apply defense shield immediately to self
+      setActiveHexes(prev => {
+        const res = applyIncomingHex({
+          activeHexes: prev,
+          incomingHex: {
+            id: `${Date.now()}-shield`,
+            hexType: 'cleanse_shield',
+            fromName: 'Self',
+            fromId: myIdRef.current || 'self',
+            appliedAt: Date.now(),
+            durationMs: ability.durationMs,
+          },
+        });
+        return res.updatedHexes;
+      });
+      return true;
+    }
+
+    // Target first opponent in room (in 1v1, exact rival)
+    const opponents = presencePlayers.filter(p => p.id !== myIdRef.current);
+    const target = opponents[0];
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'sabotage_hex',
+        payload: {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          fromId: myIdRef.current,
+          fromName: myNameRef.current,
+          targetId: target ? target.id : 'all',
+          hexType,
+          durationMs: ability.durationMs,
+          timestamp: Date.now(),
+        },
+      });
+    }
+    return true;
+  }, [hexEnergy, presencePlayers]);
+
   useEffect(() => {
     return () => teardown();
   }, [teardown]);
@@ -902,10 +1029,12 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     leave,
     updateLobbyConfig,
     updateRoomSize,
+    chargeHexEnergy,
+    castHex,
   }), [
     setRoomSize, createRoom, joinRoom, startRace, sendProgress, sendFinish,
     requestDetails, setReady, returnToLobby, sendChatMessage, leave, updateLobbyConfig,
-    updateRoomSize,
+    updateRoomSize, chargeHexEnergy, castHex,
   ]);
 
   return useMemo(() => ({
@@ -923,9 +1052,13 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     lobbyConfig,
     selfId,
     timelines,
+    hexEnergy,
+    activeHexes,
+    sabotageStats,
     ...actions,
   }), [
     status, connection, code, raceId, isHost, players, chatMessages, error,
-    emptyRoomCode, countdown, roomSize, lobbyConfig, selfId, timelines, actions,
+    emptyRoomCode, countdown, roomSize, lobbyConfig, selfId, timelines,
+    hexEnergy, activeHexes, sabotageStats, actions,
   ]);
 };

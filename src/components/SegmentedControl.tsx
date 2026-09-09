@@ -103,14 +103,14 @@ function SegmentedControlComponent<T extends string | number>({
   }, [value, options]);
 
   const sizeClasses = {
-    sm: 'p-1 text-[9px] gap-0.5',
-    md: 'p-1.5 text-[11px] gap-1',
+    sm: 'p-1 text-[9.5px] sm:text-[10px] gap-0.5',
+    md: 'p-1 text-[10.5px] sm:text-[11px] gap-0.5 sm:gap-1',
     lg: 'p-2 text-xs gap-1.5',
   }[size];
 
   const buttonPadding = {
-    sm: 'px-3 py-1.5',
-    md: 'px-4 py-2',
+    sm: 'px-1.5 sm:px-2 py-1',
+    md: 'px-2.5 sm:px-3.5 py-1 sm:py-1.5',
     lg: 'px-5 py-2.5',
   }[size];
 
@@ -168,7 +168,7 @@ function SegmentedControlComponent<T extends string | number>({
                   }
                 : undefined
             }
-            className={`relative z-10 ${buttonPadding} rounded-full font-black tracking-widest transition-colors duration-200 select-none flex justify-center items-center gap-1.5 cursor-pointer ${
+            className={`relative z-10 ${buttonPadding} rounded-full ${size === 'sm' ? 'font-bold tracking-wider' : 'font-black tracking-widest'} transition-colors duration-200 select-none flex justify-center items-center gap-1.5 cursor-pointer ${
               fullWidth ? 'flex-1' : ''
             } ${
               isActive

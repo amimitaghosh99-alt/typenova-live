@@ -238,5 +238,17 @@ export const AVATARS: AvatarDef[] = [
   // ── Artisan: machined alloy, engraved legends ──
   { id: 'sparkles', name: 'Ghost Text', gradient: 'bg-gradient-to-br from-pink-400 via-rose-500 to-purple-700', glowColor: '244, 114, 182', borderColor: 'border-pink-300/70', iconColor: 'text-pink-100' },
   { id: 'compass', name: 'Navigator', gradient: 'bg-gradient-to-br from-teal-600 to-emerald-900', glowColor: '20, 184, 166', borderColor: 'border-teal-400/60', iconColor: 'text-teal-100' },
-  { id: 'trophy', name: 'Record', gradient: 'bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-600', glowColor: '245, 158, 11', borderColor: 'border-amber-300/90', iconColor: 'text-amber-950' }
+  { id: 'trophy', name: 'Record', gradient: 'bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-600', glowColor: '245, 158, 11', borderColor: 'border-amber-300/90', iconColor: 'text-amber-950' },
+
+  // ── Celestial & Exotic: Gold, Prismatic Crystal, Matrix Liquid Glass, and Carbon ──
+  { id: 'matrix', name: 'Terminal', gradient: 'bg-gradient-to-br from-emerald-950 via-green-900 to-black', glowColor: '16, 185, 129', borderColor: 'border-emerald-400/80', iconColor: 'text-emerald-300' },
+  { id: 'vim', name: 'Hacker', gradient: 'bg-gradient-to-br from-amber-600 via-zinc-900 to-black', glowColor: '245, 158, 11', borderColor: 'border-amber-400/80', iconColor: 'text-amber-300' },
+  { id: 'turbo', name: 'Overdrive', gradient: 'bg-gradient-to-br from-red-600 via-rose-900 to-zinc-950', glowColor: '244, 63, 94', borderColor: 'border-rose-400/80', iconColor: 'text-rose-200' },
+  { id: 'soundwave', name: 'Thock', gradient: 'bg-gradient-to-br from-violet-700 via-purple-900 to-slate-950', glowColor: '139, 92, 246', borderColor: 'border-violet-400/80', iconColor: 'text-violet-200' },
+  { id: 'quantum', name: 'Quantum Core', gradient: 'bg-gradient-to-br from-cyan-400 via-blue-800 to-slate-950', glowColor: '6, 182, 212', borderColor: 'border-cyan-300/80', iconColor: 'text-cyan-100' },
+  { id: 'aurora', name: 'Hyperdrive', gradient: 'bg-gradient-to-br from-sky-400 via-indigo-900 to-zinc-950', glowColor: '56, 189, 248', borderColor: 'border-sky-300/80', iconColor: 'text-sky-100' },
+  { id: 'carbon', name: 'Carbon Weave', gradient: 'bg-gradient-to-br from-zinc-700 via-neutral-900 to-black', glowColor: '148, 163, 184', borderColor: 'border-zinc-400/80', iconColor: 'text-zinc-200' },
+  { id: 'gold_esc', name: 'Midas Esc', gradient: 'bg-gradient-to-br from-yellow-300 via-amber-500 to-yellow-800', glowColor: '234, 179, 8', borderColor: 'border-yellow-200', iconColor: 'text-amber-950' },
+  { id: 'prism', name: 'Supernova', gradient: 'bg-gradient-to-br from-fuchsia-500 via-pink-600 to-purple-950', glowColor: '217, 70, 239', borderColor: 'border-fuchsia-300', iconColor: 'text-pink-100' },
+  { id: 'phoenix', name: 'Immortal', gradient: 'bg-gradient-to-br from-rose-500 via-red-600 to-orange-950', glowColor: '251, 113, 133', borderColor: 'border-rose-300', iconColor: 'text-rose-100' }
 ];

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Skull, Ghost, Focus, Brain, FlipHorizontal, CloudFog, Magnet, Timer, RotateCcw } from 'lucide-react';
+import { Skull, Ghost, Focus, Brain, FlipHorizontal, CloudFog, Magnet, Timer, RotateCcw, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { TypingArea, type PaceSample, type RivalPace } from '@/components/TypingArea';
 import { StatsPanel } from '@/components/StatsPanel';
@@ -9,6 +9,8 @@ import type { useGameConfig } from '@/hooks/useGameConfig';
 import type { useTypingEngine } from '@/hooks/useTypingEngine';
 import type { useParticles } from '@/hooks/useParticles';
 import type { RacerState } from '@/hooks/useRace';
+import { CyberSabotageDock } from '@/components/race/CyberSabotageDock';
+import type { ActiveHex, HexType } from '@/lib/sabotageEngine';
 
 interface PracticeArenaProps {
   game: ReturnType<typeof useGameConfig>;
@@ -27,9 +29,18 @@ interface PracticeArenaProps {
   handleLockedLevelClick: (lvl: Level) => void;
   handleChangeCountOrDuration: (val: string | number) => void;
   handleChangeCodeLanguage: (val: string) => void;
+  dictationSpokenIndex?: number;
   onSetCustomTargetText: (text: string) => void;
   onOpenGhostModal: () => void;
   onReset: () => void;
+  raceActive?: boolean;
+  /** Words due for spaced review (word-weakness map). 0/absent hides the pill. */
+  dueWordsCount?: number;
+  onTrainDue?: () => void;
+  hexEnergy?: number;
+  activeHexes?: ActiveHex[];
+  onCastHex?: (hex: HexType) => boolean;
+  playSfx?: (sfx: 'hex_cast' | 'cleanse') => void;
 }
 
 export const PracticeArena = memo(function PracticeArena({
@@ -44,6 +55,7 @@ export const PracticeArena = memo(function PracticeArena({
   pbGhost,
   rivalGhost,
   otherRacePlayers,
+  dictationSpokenIndex = 0,
   handleChangeLevel,
   handleLockedLevelClick,
   handleChangeCountOrDuration,
@@ -51,6 +63,13 @@ export const PracticeArena = memo(function PracticeArena({
   onSetCustomTargetText,
   onOpenGhostModal,
   onReset,
+  raceActive = false,
+  dueWordsCount: _dueWordsCount = 0,
+  onTrainDue: _onTrainDue,
+  hexEnergy = 0,
+  activeHexes = [],
+  onCastHex,
+  playSfx,
 }: PracticeArenaProps) {
   // The parent is a CSS grid now, so the grid column owns this panel's width.
   // The root used to declare `lg:w-[70%]` while the leaderboard declared
@@ -58,7 +77,7 @@ export const PracticeArena = memo(function PracticeArena({
   // and made both panels shrink unevenly. `min-w-0` lets the typing text wrap
   // inside the column instead of widening it.
   return (
-    <div className={`w-full min-w-0 ${shouldHideClutter ? 'max-w-4xl mx-auto' : ''} flex flex-col gap-6`}>
+    <div className={`w-full min-w-0 ${shouldHideClutter ? 'max-w-4xl mx-auto' : ''} flex flex-col gap-4 sm:gap-6`}>
       {/* Difficulty & Length/Time & Daily Config Bar */}
       <motion.div
         initial={{ opacity: 0, y: -20, scale: 0.985 }}
@@ -109,13 +128,13 @@ export const PracticeArena = memo(function PracticeArena({
         initial={{ opacity: 0, scale: 0.97, y: 22 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 270, damping: 24, delay: 0.08 }}
-        className="w-full relative flex flex-col items-center pb-7 mb-6"
+        className="w-full relative flex flex-col items-center pb-8 sm:pb-10 mb-4 sm:mb-6"
       >
         {/* Mode toggles — clean floating glass modifier dock.
             `flex-wrap` so eight buttons wrap instead of forcing the arena wider
             than the viewport on phones. */}
         {!shouldHideClutter && (
-          <div className="w-full flex justify-center items-center relative z-[var(--z-content-pop)] mb-3">
+          <div className="w-full flex justify-center items-center relative z-[var(--z-content-pop)] mb-4 sm:mb-5">
             <div className="flex flex-wrap justify-center items-center gap-1.5 px-3 sm:px-4 py-1.5 glass-panel !bg-black/60 border border-white/15 backdrop-blur-2xl rounded-full text-zinc-400 shadow-xl">
               <button
                 onClick={() => game.setSuddenDeath(!game.suddenDeath)}
@@ -127,17 +146,7 @@ export const PracticeArena = memo(function PracticeArena({
               </button>
 
               <button
-                onClick={(e) => {
-                  if (e.shiftKey || e.altKey) {
-                    onOpenGhostModal();
-                  } else {
-                    game.setGhostPacer(!game.ghostPacer);
-                  }
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  onOpenGhostModal();
-                }}
+                onClick={onOpenGhostModal}
                 className={`p-1.5 rounded-full transition-all flex justify-center items-center relative group cursor-pointer ${game.ghostPacer ? `${theme.bgAlpha} ${theme.vividText}` : 'hover:text-white hover:bg-white/10'}`}
                 title={
                   game.ghostPacer
@@ -147,8 +156,8 @@ export const PracticeArena = memo(function PracticeArena({
                           : game.ghostMode === 'pb'
                           ? (pbGhost ? `PB (${pbGhost.wpm} WPM)` : 'PB Mode')
                           : `${game.ghostTargetWpm} WPM Bot`
-                      } (Right-click or Shift-click for settings)`
-                    : 'Ghost Racer 3.0 (Right-click or Shift-click for settings)'
+                      } (Click to configure)`
+                    : 'Ghost Racer 3.0 (Click to configure & enable)'
                 }
                 aria-pressed={game.ghostPacer}
               >
@@ -214,8 +223,40 @@ export const PracticeArena = memo(function PracticeArena({
               >
                 <Timer size={16} />
               </button>
+
+              <button
+                onClick={() => game.setZenMode(!game.zenMode)}
+                style={
+                  game.zenMode
+                    ? {
+                        backgroundColor: `rgba(${theme.glowPrimary}, 0.22)`,
+                        color: `rgb(${theme.glowPrimary})`,
+                        boxShadow: `0 0 10px rgba(${theme.glowPrimary}, 0.35)`,
+                      }
+                    : undefined
+                }
+                className={`p-1.5 rounded-full transition-all flex justify-center items-center cursor-pointer ${
+                  game.zenMode
+                    ? 'font-bold'
+                    : 'hover:text-white hover:bg-white/10'
+                }`}
+                title={game.zenMode ? 'Zen Mode Active (Click to switch to Normal)' : 'Zen Mode: Distraction-free typing'}
+                aria-pressed={game.zenMode}
+              >
+                <Sparkles size={16} />
+              </button>
             </div>
           </div>
+        )}
+
+        {raceActive && onCastHex && (
+          <CyberSabotageDock
+            hexEnergy={hexEnergy}
+            activeHexes={activeHexes}
+            onCastHex={onCastHex}
+            theme={theme}
+            playSfx={playSfx}
+          />
         )}
 
         <TypingArea
@@ -239,16 +280,21 @@ export const PracticeArena = memo(function PracticeArena({
           pbGhost={pbGhost}
           rivalGhost={rivalGhost}
           isCodeMode={game.level === 'CODE'}
+          isDictationMode={game.level === 'DICTATION'}
+          dictationSpokenIndex={dictationSpokenIndex}
           racePlayers={otherRacePlayers}
+          activeHexes={activeHexes}
         />
 
-        {/* Floating Spacebar Prompt. z-[100] here was inert — this element's
-            ancestor already opens a stacking context, so it only ever competed
-            with its own siblings. */}
+        {/* Floating Spacebar Prompt */}
         {typing.phase === 'CONFIGURING' && (
-          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 z-[var(--z-content-pop)] flex justify-center pointer-events-none">
+          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 z-[var(--z-content-pop)] flex justify-center pointer-events-none">
             <button
-              onClick={() => { typing.setPhase('READY'); typing.setInput(''); }}
+              onClick={() => {
+                typing.setPhase('COUNTDOWN');
+                typing.setCountdownTimer(3);
+                typing.setInput('');
+              }}
               style={{
                 borderColor: `rgba(${theme.glowPrimary}, 0.7)`,
                 backgroundColor: 'rgba(10, 12, 18, 0.92)',
@@ -267,7 +313,7 @@ export const PracticeArena = memo(function PracticeArena({
                 SPACE
               </span>
               <span className="text-xs text-zinc-300 tracking-widest font-bold drop-shadow-sm group-hover:text-white transition-colors">
-                TO READY UP
+                TO START
               </span>
             </button>
           </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, memo } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   ChevronRight, Crown, Flame, Gauge, Layers, LayoutGrid, List, Lock, Play, Search,
@@ -75,7 +75,7 @@ interface AcademySkillTreeProps {
 
 // ── A single lesson card (tracks view only) ──────────────────────────
 
-function NodeCard({
+const NodeCard = memo(function NodeCard({
   lesson, isUnlocked, stars, record, accent, reduce, onSelect,
 }: {
   lesson: AcademyLesson;
@@ -113,7 +113,7 @@ function NodeCard({
       layoutId={nodeLayoutId(lesson.id)}
       variants={listChild}
       transition={springFluid}
-      className="h-full"
+      className="h-full academy-card-contain"
     >
       <motion.button
         type="button"
@@ -218,15 +218,17 @@ function NodeCard({
       </motion.button>
     </motion.div>
   );
-}
+});
 
 // ── A single row in the all-lessons table ────────────────────────────
 //
 // Deliberately a plain button with CSS transitions: sixty of these are on
 // screen at once, so none of them may cost a projection node or a variant
 // subscription. Hover and focus are handled entirely by the compositor.
+// academy-row-contain (content-visibility: auto) prevents off-screen rows
+// from consuming layout and paint cycles during rapid scrolling.
 
-function LessonRow({
+const LessonRow = memo(function LessonRow({
   lesson, isUnlocked, stars, record, onSelect,
 }: {
   lesson: AcademyLesson;
@@ -243,7 +245,7 @@ function LessonRow({
       type="button"
       disabled={!isUnlocked}
       onClick={() => isUnlocked && onSelect(lesson.id)}
-      className={`group flex w-full items-center gap-3 border-b px-3 py-2.5 text-left
+      className={`group academy-row-contain flex w-full items-center gap-3 border-b px-3 py-2.5 text-left
         transition-colors duration-150 last:border-b-0
         ${isUnlocked ? 'cursor-pointer hover:bg-white/[0.04]' : 'cursor-not-allowed opacity-55'}`}
       style={{ borderColor: LINE }}
@@ -303,7 +305,7 @@ function LessonRow({
       />
     </button>
   );
-}
+});
 
 // ── The Academy browse surface ───────────────────────────────────────
 

@@ -1,19 +1,35 @@
 # Original User Request
 
-## Initial Request — 2026-08-26T10:05:17Z
+## 2026-09-01T01:43:14+05:30
 
-You are the Project Orchestrator for the TypeNova Codebase Audit.
+Implement a comprehensive, multi-factor precision, accuracy, flawless streak (combo), and rhythm consistency scoring, grading (S+, S, A, B, C, D), and RPG progression engine across TypeNova.
 
-Your working directory is: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator_1`
-Project root: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`
-Original user request: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
+Working directory: c:/Users/risho/OneDrive/Desktop/typenova-v2 - Copy
+Integrity mode: development
 
-## Mission
-Conduct a comprehensive, read-only full-spectrum audit of the entire TypeNova application codebase. Identify all functional bugs, edge-case failures, architectural bottlenecks, state management issues, performance flaws, UI/UX polish gaps, and recommended new features. Deliver a comprehensive in-depth markdown report (`AUDIT_REPORT.md` at project root) without modifying or deleting any existing application code.
+## Requirements
 
-## Key Requirements & Scope
-1. **R1. Full-Spectrum Flaw & Edge-Case Identification**: Deeply inspect core typing engine (input handling, WPM/raw calculation, pause/resume, cursor tracking), multiplayer & lobby synchronization (Supabase Realtime channels, connection dropouts, race conditions), authentication & user sessions, audio synthesis/effects, and theme/styling subsystems. Catalog all bugs, unhandled exceptions, and logic inconsistencies with exact file paths and lines.
-2. **R2. Architecture, State Management & Code Quality Review**: Evaluate codebase architecture, state isolation, Zustand/React store coupling, TypeScript type safety, async/await error handling, asset loading efficiency, and re-rendering hotspots. Detail anti-patterns and performance optimizations.
-3. **R3. UI/UX, Accessibility & Responsiveness Assessment**: Audit keyboard accessibility, ARIA compliance, screen reader support, layout stability on various screen sizes, visual contrast, animation frame drops, and cyber-aesthetic visual consistency.
-4. **R4. Innovation & Feature Gap Analysis**: Compare TypeNova against modern top-tier typing platforms (Monkeytype, Keybr, TypeRacer, NitroType) and propose prioritized, creative new features (custom lesson builders, advanced telemetry/heatmaps, adaptive drill AI, clan/guild leagues, competitive ranked seasons) with estimated impact and feasibility.
-5. **R5. Read-Only Constraint & Deliverable**: Zero source code modifications. Synthesize all findings into `AUDIT_REPORT.md` at the project root with Executive Summary, Severity Matrix (Critical, High, Medium, Low), Detailed Findings (with file paths, root cause, suggested fix), and Prioritized Implementation Roadmap.
+### R1. Multi-Factor Composite Performance Grading
+Upgrade the grade evaluation engine to compute a balanced Composite Performance Index factoring in Net WPM, Accuracy %, Flawless Combo Streaks, and Rhythm Consistency, supporting S+, S, A, B, C, D grades where high-precision runs are fairly rewarded (e.g. 100% accuracy at 40 WPM receives an A or S grade instead of C).
+
+### R2. Precision & Streak RPG Progression Multipliers
+Upgrade the RPG progression system to award substantial XP multipliers and unlocks for 100% Flawless runs (+50% XP), high combo milestones (50+, 100+, 200+ streaks), and metronome consistency (>85%), along with dedicated precision achievements.
+
+### R3. Results Screen Precision Breakdown & Accolades
+Display earned precision accolade badges (Flawless, Centurion Streak, Surgical Precision, Flow State), an XP multiplier breakdown, and rival precision delta comparisons on the post-test results screen. Follow the TypeNova glass design language and dynamic theme color binding rules (`rgb(${theme.glowPrimary})`).
+
+### R4. Live In-Game Combo & Visual Precision Feedback
+Integrate non-distracting visual and audio combo milestone cues (e.g. at 50, 100, 150 streaks) and clean precision indicators during active typing without cluttering the text arena.
+
+## Acceptance Criteria
+
+### Functionality & Scoring
+- [ ] A 100% accuracy run at 40 WPM receives an A or S grade instead of C.
+- [ ] 100% flawless runs award a +50% XP bonus, with combo and consistency bonus multipliers calculated accurately.
+- [ ] Results screen renders earned accolade badges and XP breakdown cleanly.
+- [ ] Ghost Net rival comparison shows accuracy/streak differential in addition to time delta.
+
+### Design System & Code Quality
+- [ ] All new/modified UI components strictly follow dynamic theme color bindings (`rgb(${theme.glowPrimary})` or `rgba(...)`) with zero hardcoded accent colors.
+- [ ] Minimalist design standards maintained (no clutter over typing canvas).
+- [ ] `npm run build` succeeds with zero TypeScript errors.

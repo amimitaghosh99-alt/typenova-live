@@ -82,11 +82,13 @@ function HorizonGrid({
     y = 128,
     lines = 13,
     opacity = 0.5,
+    animate = false,
 }: {
     color: string;
     y?: number;
     lines?: number;
     opacity?: number;
+    animate?: boolean;
 }) {
     const verticals = useMemo(() => {
         const out: string[] = [];
@@ -112,9 +114,16 @@ function HorizonGrid({
     }, [y]);
 
     return (
-        <g opacity={opacity} stroke={color} fill="none" strokeWidth={0.7} vectorEffect="non-scaling-stroke">
+        <g opacity={opacity} stroke={color} fill="none" strokeWidth={0.8} vectorEffect="non-scaling-stroke">
             {verticals.map((d, i) => (
-                <path key={`v${i}`} d={d} opacity={0.55} />
+                <motion.path
+                    key={`v${i}`}
+                    d={d}
+                    opacity={0.55}
+                    strokeDasharray={animate ? '4 8' : undefined}
+                    animate={animate ? { strokeDashoffset: [0, -48] } : undefined}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' }}
+                />
             ))}
             {horizontals.map((h, i) => (
                 <path key={`h${i}`} d={h.d} opacity={h.o} />
@@ -132,6 +141,7 @@ function SunDisc({
     r = 46,
     slats = false,
     gradId,
+    animate = false,
 }: {
     color: string;
     core: string;
@@ -140,6 +150,7 @@ function SunDisc({
     r?: number;
     slats?: boolean;
     gradId: string;
+    animate?: boolean;
 }) {
     return (
         <>
@@ -163,37 +174,65 @@ function SunDisc({
                         ))}
                 </mask>
             </defs>
-            <circle cx={cx} cy={cy} r={r} fill={`url(#${gradId})`} mask={`url(#${gradId}-slats)`} />
+            <motion.circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill={`url(#${gradId})`}
+                mask={`url(#${gradId}-slats)`}
+                animate={animate ? { scale: [1, 1.04, 1], opacity: [0.9, 1, 0.9] } : undefined}
+                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+            />
         </>
     );
 }
 
-/** Seeded starfield. Three size tiers so it doesn't look like a dot pattern. */
+/** Seeded starfield with organic twinkling. */
 function StarField({
     seed,
     count = 70,
     color = '#ffffff',
     maxY = VB.h,
+    animate = false,
 }: {
     seed: string;
     count?: number;
     color?: string;
     maxY?: number;
+    animate?: boolean;
 }) {
     const stars = useMemo(() => {
         const rng = makeRng(hashSeed(`stars:${seed}`));
-        return Array.from({ length: count }, () => ({
+        return Array.from({ length: count }, (_, i) => ({
             x: rng() * VB.w,
             y: rng() * maxY,
-            r: 0.25 + rng() * rng() * 1.4,
-            o: 0.2 + rng() * 0.8,
+            r: 0.35 + rng() * rng() * 1.5,
+            o: 0.25 + rng() * 0.75,
+            twinkleDur: 1.8 + (i % 4) * 0.8,
+            delay: (i * 0.35) % 3,
         }));
     }, [seed, count, maxY]);
 
     return (
         <g fill={color}>
             {stars.map((s, i) => (
-                <circle key={i} cx={s.x} cy={s.y} r={s.r} opacity={s.o} />
+                <motion.circle
+                    key={i}
+                    cx={s.x}
+                    cy={s.y}
+                    r={s.r}
+                    opacity={s.o}
+                    animate={animate ? {
+                        opacity: [s.o * 0.4, s.o * 1.3, s.o * 0.4],
+                        scale: [0.85, 1.25, 0.85],
+                    } : undefined}
+                    transition={{
+                        duration: s.twinkleDur,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                        delay: s.delay,
+                    }}
+                />
             ))}
         </g>
     );
@@ -331,7 +370,17 @@ function Caustics({ seed, color, animate }: { seed: string; color: string; anima
 }
 
 /** Orthogonal circuit traces with solder pads. */
-function Circuitry({ seed, color, opacity = 0.55 }: { seed: string; color: string; opacity?: number }) {
+function Circuitry({
+    seed,
+    color,
+    opacity = 0.55,
+    animate = false,
+}: {
+    seed: string;
+    color: string;
+    opacity?: number;
+    animate?: boolean;
+}) {
     const traces = useMemo(() => {
         const rng = makeRng(hashSeed(`circuit:${seed}`));
         return Array.from({ length: 11 }, () => {
@@ -363,12 +412,37 @@ function Circuitry({ seed, color, opacity = 0.55 }: { seed: string; color: strin
         <g opacity={opacity}>
             <g stroke={color} fill="none" strokeWidth={1.1} strokeLinejoin="round">
                 {traces.map((t, i) => (
-                    <path key={i} d={t.d} opacity={0.5 + (i % 3) * 0.16} />
+                    <motion.path
+                        key={i}
+                        d={t.d}
+                        opacity={0.5 + (i % 3) * 0.16}
+                        strokeDasharray={animate ? '6 16' : undefined}
+                        animate={animate ? { strokeDashoffset: [0, -66] } : undefined}
+                        transition={{ duration: 3.2 + (i % 3) * 1.2, repeat: Infinity, ease: 'linear' }}
+                    />
                 ))}
             </g>
             <g fill={color}>
                 {traces.flatMap((t, i) =>
-                    t.pads.map(([px, py], j) => <circle key={`${i}-${j}`} cx={px} cy={py} r={2.1} opacity={0.75} />)
+                    t.pads.map(([px, py], j) => (
+                        <motion.circle
+                            key={`${i}-${j}`}
+                            cx={px}
+                            cy={py}
+                            r={2.2}
+                            opacity={0.75}
+                            animate={animate ? {
+                                opacity: [0.35, 1, 0.35],
+                                scale: [0.85, 1.3, 0.85],
+                            } : undefined}
+                            transition={{
+                                duration: 2.2 + ((i + j) % 3) * 0.8,
+                                repeat: Infinity,
+                                ease: 'easeInOut',
+                                delay: ((i * 2 + j) % 5) * 0.35,
+                            }}
+                        />
+                    ))
                 )}
             </g>
         </g>
@@ -416,7 +490,7 @@ function CodeRain({ seed, color, animate }: { seed: string; color: string; anima
 }
 
 /** Glowing fissures for the hellfire family. */
-function Fissures({ seed, color, hot }: { seed: string; color: string; hot: string }) {
+function Fissures({ seed, color, hot, animate = false }: { seed: string; color: string; hot: string; animate?: boolean }) {
     const id = `fis-${hashSeed(seed).toString(36)}`;
     const cracks = useMemo(() => {
         const rng = makeRng(hashSeed(`fis:${seed}`));
@@ -446,36 +520,117 @@ function Fissures({ seed, color, hot }: { seed: string; color: string; hot: stri
                 </filter>
             </defs>
             {cracks.map((c, i) => (
-                <g key={i}>
+                <motion.g
+                    key={i}
+                    animate={animate ? { opacity: [0.55, 1, 0.55] } : undefined}
+                    transition={{ duration: 2 + (i % 3) * 0.8, repeat: Infinity, ease: 'easeInOut', delay: i * 0.4 }}
+                >
                     <path d={c.d} stroke={color} strokeWidth={c.w * 2.6} fill="none" opacity={0.45} strokeLinecap="round" />
                     <path d={c.d} stroke={hot} strokeWidth={c.w} fill="none" strokeLinecap="round" />
-                </g>
+                </motion.g>
             ))}
         </g>
     );
 }
 
-/** Faceted ice / crystal shards. */
-function Shards({ seed, color, opacity = 0.5 }: { seed: string; color: string; opacity?: number }) {
-    const shards = useMemo(() => {
+/** Faceted ice / crystal shards with light refraction & vertex sparkles. */
+function Shards({
+    seed,
+    color,
+    opacity = 0.5,
+    animate = false,
+}: {
+    seed: string;
+    color: string;
+    opacity?: number;
+    animate?: boolean;
+}) {
+    const { shards, sparkles } = useMemo(() => {
         const rng = makeRng(hashSeed(`shard:${seed}`));
-        return Array.from({ length: 9 }, () => {
-            const x = rng() * VB.w;
-            const y = rng() * VB.h;
-            const w = 16 + rng() * 44;
-            const h = 30 + rng() * 80;
-            const lean = (rng() - 0.5) * 26;
+        const sList = Array.from({ length: 11 }, (_, i) => {
+            const x = 12 + (i / 11) * (VB.w - 24) + (rng() - 0.5) * 25;
+            const y = 25 + rng() * (VB.h - 95);
+            const w = 22 + rng() * 46;
+            const h = 45 + rng() * 85;
+            const lean = (rng() - 0.5) * 32;
+            const tipX = x + w * 0.48 + lean;
+            const tipY = y;
             return {
-                d: `M${x} ${y + h} L${x + lean} ${y} L${x + w * 0.55 + lean} ${y + h * 0.22} L${x + w} ${y + h} Z`,
-                o: 0.18 + rng() * 0.5,
+                d: `M${x} ${y + h} L${tipX} ${tipY} L${x + w * 0.75 + lean * 0.6} ${y + h * 0.28} L${x + w} ${y + h} Z`,
+                dFacet: `M${tipX} ${tipY} L${x + w * 0.45} ${y + h} L${x + w} ${y + h} Z`,
+                tipX,
+                tipY,
+                o: 0.28 + rng() * 0.55,
+                dur: 4 + (i % 4) * 1.5,
+                delay: (i % 5) * 0.6,
+                drift: (rng() - 0.5) * 8,
             };
         });
+
+        // 4-pointed diamond sparkles on crystal tips
+        const spList = sList.map((s, i) => ({
+            x: s.tipX,
+            y: s.tipY,
+            dur: 2.2 + (i % 3) * 0.9,
+            delay: (i * 0.7) % 3,
+        }));
+
+        return { shards: sList, sparkles: spList };
     }, [seed]);
 
     return (
         <g opacity={opacity}>
             {shards.map((s, i) => (
-                <path key={i} d={s.d} fill={color} opacity={s.o} stroke="#ffffff" strokeOpacity={0.18} strokeWidth={0.6} />
+                <motion.g
+                    key={i}
+                    animate={animate ? {
+                        y: [0, -6 - (i % 3) * 2, 0],
+                        x: [0, s.drift, 0],
+                        opacity: [s.o * 0.8, s.o * 1.3, s.o * 0.8],
+                    } : undefined}
+                    transition={{ duration: s.dur, repeat: Infinity, ease: 'easeInOut', delay: s.delay }}
+                >
+                    {/* Main crystal body */}
+                    <path
+                        d={s.d}
+                        fill={color}
+                        opacity={s.o}
+                        stroke="#ffffff"
+                        strokeOpacity={0.45}
+                        strokeWidth={0.8}
+                    />
+                    {/* Internal faceted reflection */}
+                    <path
+                        d={s.dFacet}
+                        fill="#ffffff"
+                        opacity={s.o * 0.4}
+                    />
+                </motion.g>
+            ))}
+
+            {/* Crystal vertex glint sparkles */}
+            {sparkles.map((sp, i) => (
+                <motion.g
+                    key={`sp-${i}`}
+                    transform={`translate(${sp.x} ${sp.y})`}
+                    animate={animate ? {
+                        scale: [0, 1.3, 0],
+                        rotate: [0, 90],
+                        opacity: [0, 0.95, 0],
+                    } : undefined}
+                    transition={{
+                        duration: sp.dur,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                        delay: sp.delay,
+                        repeatDelay: 1.5 + (i % 4) * 0.8,
+                    }}
+                >
+                    <path
+                        d="M0 -4.5 Q0 0 -4.5 0 Q0 0 0 4.5 Q0 0 4.5 0 Q0 0 0 -4.5 Z"
+                        fill="#ffffff"
+                    />
+                </motion.g>
             ))}
         </g>
     );
@@ -488,26 +643,26 @@ function Motes({
     count = 26,
     shape = 'dot',
     rise = false,
-    animate,
+    animate = true,
 }: {
     seed: string;
     color: string;
     count?: number;
     shape?: 'dot' | 'petal' | 'flake';
     rise?: boolean;
-    animate: boolean;
+    animate?: boolean;
 }) {
     const motes = useMemo(() => {
         const rng = makeRng(hashSeed(`mote:${seed}`));
-        return Array.from({ length: count }, () => ({
+        return Array.from({ length: count }, (_, i) => ({
             x: rng() * VB.w,
             y: rng() * VB.h,
-            s: 0.6 + rng() * 2.4,
-            o: 0.25 + rng() * 0.7,
-            dur: 5 + rng() * 9,
-            delay: rng() * 5,
+            s: 0.8 + rng() * 2.2,
+            o: 0.35 + rng() * 0.65,
+            dur: 3.2 + rng() * 3.8,
+            delay: (i * 0.28) % 3.5,
             spin: rng() * 360,
-            drift: (rng() - 0.5) * 26,
+            drift: (rng() - 0.5) * 32,
         }));
     }, [seed, count]);
 
@@ -516,33 +671,38 @@ function Motes({
             {motes.map((m, i) => (
                 <motion.g
                     key={i}
+                    initial={animate ? {
+                        y: rise ? m.y + 35 : m.y - 35,
+                        x: m.x,
+                        opacity: m.o,
+                    } : undefined}
                     animate={
                         animate
                             ? {
-                                y: rise ? [0, -34 - m.s * 8] : [0, 30 + m.s * 6],
-                                x: [0, m.drift],
-                                opacity: [0, m.o, 0],
+                                y: rise ? [m.y + 35, m.y - 85] : [m.y - 35, m.y + 85],
+                                x: [m.x, m.x + m.drift, m.x],
+                                opacity: [0.25, m.o, 0.25],
+                                rotate: shape === 'flake' || shape === 'petal' ? [0, m.spin + 180] : undefined,
                             }
                             : undefined
                     }
-                    transition={{ duration: m.dur, repeat: Infinity, ease: 'easeInOut', delay: m.delay }}
-                    opacity={animate ? 0 : m.o}
+                    transition={{ duration: m.dur, repeat: Infinity, ease: 'linear', delay: m.delay }}
                 >
-                    {shape === 'dot' && <circle cx={m.x} cy={m.y} r={m.s} fill={color} />}
+                    {shape === 'dot' && <circle cx={0} cy={0} r={m.s} fill={color} />}
                     {shape === 'petal' && (
                         <ellipse
-                            cx={m.x}
-                            cy={m.y}
-                            rx={m.s * 2.1}
+                            cx={0}
+                            cy={0}
+                            rx={m.s * 2.2}
                             ry={m.s}
                             fill={color}
-                            transform={`rotate(${m.spin} ${m.x} ${m.y})`}
                         />
                     )}
                     {shape === 'flake' && (
-                        <g stroke={color} strokeWidth={0.7} transform={`rotate(${m.spin} ${m.x} ${m.y})`}>
-                            <line x1={m.x - m.s * 2} y1={m.y} x2={m.x + m.s * 2} y2={m.y} />
-                            <line x1={m.x} y1={m.y - m.s * 2} x2={m.x} y2={m.y + m.s * 2} />
+                        <g stroke={color} strokeWidth={0.8} fill="none">
+                            <line x1={-m.s * 2.2} y1={0} x2={m.s * 2.2} y2={0} />
+                            <line x1={0} y1={-m.s * 2.2} x2={0} y2={m.s * 2.2} />
+                            <circle cx={0} cy={0} r={m.s * 0.7} fill={color} />
                         </g>
                     )}
                 </motion.g>
@@ -551,17 +711,17 @@ function Motes({
     );
 }
 
-/** Long speed streaks. */
-function Streaks({ seed, color, animate }: { seed: string; color: string; animate: boolean }) {
+/** Long speed streaks with continuous forward velocity. */
+function Streaks({ seed, color, animate = true }: { seed: string; color: string; animate?: boolean }) {
     const streaks = useMemo(() => {
         const rng = makeRng(hashSeed(`streak:${seed}`));
-        return Array.from({ length: 16 }, () => ({
+        return Array.from({ length: 18 }, () => ({
             y: rng() * VB.h,
-            len: 60 + rng() * 220,
-            w: 0.8 + rng() * 2.6,
-            o: 0.2 + rng() * 0.7,
-            dur: 1.1 + rng() * 2.2,
-            delay: rng() * 2.5,
+            len: 70 + rng() * 200,
+            w: 1 + rng() * 2.5,
+            o: 0.25 + rng() * 0.7,
+            dur: 0.9 + rng() * 1.8,
+            delay: rng() * 2,
         }));
     }, [seed]);
 
@@ -570,18 +730,43 @@ function Streaks({ seed, color, animate }: { seed: string; color: string; animat
             {streaks.map((s, i) => (
                 <motion.rect
                     key={i}
-                    x={-s.len}
+                    x={0}
                     y={s.y}
                     width={s.len}
                     height={s.w}
                     rx={s.w / 2}
                     fill={color}
                     opacity={s.o}
-                    animate={animate ? { x: [-s.len, VB.w + s.len] } : { x: VB.w * 0.3 }}
+                    animate={animate ? { x: [-s.len, VB.w + 40] } : { x: VB.w * 0.3 }}
                     transition={{ duration: s.dur, repeat: Infinity, ease: 'linear', delay: s.delay }}
                 />
             ))}
         </g>
+    );
+}
+
+/** Animated sweeping sheen highlight for luxury materials. */
+function SheenSweep({ color = '#fef08a', animate = false }: { color?: string; animate?: boolean }) {
+    return (
+        <>
+            <defs>
+                <linearGradient id="sheen-sweep-grad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={color} stopOpacity="0" />
+                    <stop offset="50%" stopColor={color} stopOpacity="0.32" />
+                    <stop offset="100%" stopColor={color} stopOpacity="0" />
+                </linearGradient>
+            </defs>
+            <motion.rect
+                x={0}
+                y={0}
+                width={100}
+                height={VB.h}
+                fill="url(#sheen-sweep-grad)"
+                transform="skewX(-24)"
+                animate={animate ? { x: [-130, VB.w + 150] } : { x: VB.w * 0.4 }}
+                transition={{ duration: 3.6, repeat: Infinity, ease: 'easeInOut', repeatDelay: 2 }}
+            />
+        </>
     );
 }
 
@@ -657,7 +842,7 @@ function Rays({ seed, color, animate, cx = VB.w / 2, cy = VB.h * 0.62 }: { seed:
         <motion.g
             style={{ originX: `${cx}px`, originY: `${cy}px` }}
             animate={animate ? { rotate: 360 } : undefined}
-            transition={{ duration: 90, repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
         >
             {rays.map((r, i) => (
                 <rect
@@ -721,7 +906,8 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             return (
                 <>
                     <Sky id={`${u}-sky`} stops={[['#0a0a0c', 0], ['#050506', 0.55], ['#000000', 1]]} />
-                    <StarField seed={u} count={full ? 46 : 22} color="#8b8b96" />
+                    <StarField seed={u} count={full ? 50 : 25} color="#8b8b96" animate={animate} />
+                    <PulseRings color="#6366f1" animate={animate} cx={VB.w / 2} cy={VB.h * 0.75} />
                     <g opacity={0.5}>
                         <ellipse cx={VB.w / 2} cy={VB.h} rx={150} ry={54} fill="#2a2a33" opacity={0.5} />
                     </g>
@@ -733,8 +919,11 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             return (
                 <>
                     <Sky id={`${u}-sky`} stops={[['#0e7490', 0], ['#0c4a6e', 0.4], ['#082f49', 0.72], ['#020617', 1]]} />
-                    {/* God rays through water. */}
-                    <g opacity={0.3}>
+                    {/* Shimmering underwater god rays */}
+                    <motion.g
+                        animate={animate ? { opacity: [0.18, 0.45, 0.18], skewX: [-2, 2, -2] } : undefined}
+                        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+                    >
                         {[0.18, 0.38, 0.62, 0.84].map((t, i) => (
                             <polygon
                                 key={i}
@@ -743,9 +932,9 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                                 opacity={0.16 + i * 0.05}
                             />
                         ))}
-                    </g>
+                    </motion.g>
                     {full && <Caustics seed={u} color="#67e8f9" animate={animate} />}
-                    <Motes seed={u} color="#cffafe" count={full ? 22 : 10} rise animate={animate} />
+                    <Motes seed={u} color="#cffafe" count={full ? 24 : 12} rise animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -757,6 +946,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                     <Pinstripes id={`${u}-ps`} color="#fda4af" gap={26} opacity={0.14} />
                     <Rays seed={u} color="#fb7185" animate={animate} cy={VB.h * 0.5} />
                     {full && <Clouds seed={u} color="#450a0a" freq={0.008} opacity={0.5} />}
+                    <Motes seed={u} color="#fca5a5" count={full ? 24 : 12} rise animate={animate} />
                     {/* Throne arch. */}
                     <path
                         d={`M${VB.w / 2 - 54} ${VB.h} L${VB.w / 2 - 54} 96 Q${VB.w / 2} 40, ${VB.w / 2 + 54} 96 L${VB.w / 2 + 54} ${VB.h} Z`}
@@ -772,7 +962,8 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                 <>
                     <Sky id={`${u}-sky`} stops={[['#65a30d', 0], ['#166534', 0.42], ['#052e16', 0.75], ['#020617', 1]]} />
                     {full && <Clouds seed={u} color="#a3e635" freq={0.014} opacity={0.34} />}
-                    <Motes seed={u} color="#bef264" count={full ? 24 : 12} rise animate={animate} />
+                    <Motes seed={u} color="#bef264" count={full ? 26 : 14} rise animate={animate} />
+                    <PulseRings color="#84cc16" animate={animate} cx={VB.w * 0.3} cy={VB.h * 0.85} />
                     <g opacity={0.45}>
                         <ellipse cx={VB.w * 0.3} cy={VB.h + 10} rx={120} ry={38} fill="#022c22" />
                         <ellipse cx={VB.w * 0.78} cy={VB.h + 16} rx={140} ry={44} fill="#022c22" />
@@ -786,7 +977,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                 <>
                     <Sky id={`${u}-sky`} stops={[['#7e22ce', 0], ['#4c1d95', 0.45], ['#1e1b4b', 0.78], ['#030014', 1]]} />
                     {full && <Clouds seed={u} color="#c084fc" freq={0.01} opacity={0.4} />}
-                    <StarField seed={u} count={full ? 70 : 30} />
+                    <StarField seed={u} count={full ? 70 : 30} animate={animate} />
                     <Ribbons seed={u} colors={['#a855f7', '#6366f1']} bands={2} opacity={0.35} animate={animate} />
                     <Finish id={u} />
                 </>
@@ -796,9 +987,9 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             return (
                 <>
                     <Sky id={`${u}-sky`} stops={[['#2e1065', 0], ['#831843', 0.52], ['#18021a', 1]]} />
-                    <StarField seed={u} count={full ? 40 : 18} color="#fbcfe8" maxY={120} />
-                    <SunDisc gradId={`${u}-sun`} color="#db2777" core="#fde68a" cy={126} r={44} slats />
-                    <HorizonGrid color="#f472b6" y={128} opacity={0.6} />
+                    <StarField seed={u} count={full ? 40 : 18} color="#fbcfe8" maxY={120} animate={animate} />
+                    <SunDisc gradId={`${u}-sun`} color="#db2777" core="#fde68a" cy={126} r={44} slats animate={animate} />
+                    <HorizonGrid color="#f472b6" y={128} opacity={0.65} animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -806,9 +997,17 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
         case 'arctic_frost':
             return (
                 <>
-                    <Sky id={`${u}-sky`} stops={[['#e0f2fe', 0], ['#7dd3fc', 0.3], ['#1e40af', 0.7], ['#0b1220', 1]]} />
-                    <Shards seed={u} color="#e0f2fe" opacity={full ? 0.55 : 0.4} />
-                    <Motes seed={u} color="#ffffff" count={full ? 26 : 12} shape="flake" animate={animate} />
+                    <Sky id={`${u}-sky`} stops={[['#07192e', 0], ['#0e3860', 0.35], ['#0a2040', 0.7], ['#060f1e', 1]]} />
+                    <Ribbons
+                        seed={`${u}-aurora`}
+                        colors={['#38bdf8', '#e0f2fe', '#818cf8']}
+                        bands={2}
+                        blur={8}
+                        opacity={0.4}
+                        animate={animate}
+                    />
+                    <Shards seed={u} color="#e0f2fe" opacity={full ? 0.65 : 0.45} animate={animate} />
+                    <Motes seed={u} color="#ffffff" count={full ? 36 : 18} shape="flake" animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -817,14 +1016,24 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             return (
                 <>
                     <Sky id={`${u}-sky`} stops={[['#fb923c', 0], ['#ea580c', 0.32], ['#7c2d12', 0.62], ['#170a04', 1]]} />
-                    <SunDisc gradId={`${u}-sun`} color="#f97316" core="#fef08a" cy={132} r={40} />
+                    <SunDisc gradId={`${u}-sun`} color="#f97316" core="#fef08a" cy={132} r={40} animate={animate} />
                     <g opacity={0.35}>
                         {[0, 1, 2, 3].map((i) => (
-                            <rect key={i} x={0} y={104 + i * 12} width={VB.w} height={3 + i} fill="#fed7aa" opacity={0.5 - i * 0.09} />
+                            <motion.rect
+                                key={i}
+                                x={0}
+                                y={104 + i * 12}
+                                width={VB.w}
+                                height={3 + i}
+                                fill="#fed7aa"
+                                opacity={0.5 - i * 0.09}
+                                animate={animate ? { opacity: [0.35 - i * 0.09, 0.65 - i * 0.09, 0.35 - i * 0.09] } : undefined}
+                                transition={{ duration: 3 + i, repeat: Infinity, ease: 'easeInOut' }}
+                            />
                         ))}
                     </g>
                     <Ridge seed={u} color="#160903" y={152} />
-                    <Motes seed={u} color="#fdba74" count={full ? 18 : 8} rise animate={animate} />
+                    <Motes seed={u} color="#fdba74" count={full ? 22 : 10} rise animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -833,13 +1042,13 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             return (
                 <>
                     <Sky id={`${u}-sky`} stops={[['#04131a', 0], ['#052e2b', 0.45], ['#020617', 1]]} />
-                    <StarField seed={u} count={full ? 90 : 34} />
+                    <StarField seed={u} count={full ? 90 : 34} animate={animate} />
                     <Ribbons
                         seed={u}
                         colors={['#34d399', '#22d3ee', '#a855f7']}
                         bands={full ? 4 : 2}
                         blur={full ? 10 : 6}
-                        opacity={0.7}
+                        opacity={0.75}
                         animate={animate}
                     />
                     <Ridge seed={u} color="#01060b" y={168} />
@@ -853,11 +1062,12 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                     <Sky id={`${u}-sky`} stops={[['#101013', 0], ['#0a0a0c', 1]]} />
                     <CarbonWeave id={`${u}-cw`} opacity={full ? 0.85 : 0.6} />
                     <Pinstripes id={`${u}-ps`} color="#fbbf24" gap={30} opacity={0.3} />
+                    <SheenSweep color="#fef08a" animate={animate} />
                     <g opacity={0.55}>
                         <rect y={VB.h * 0.5 - 1} width={VB.w} height={2} fill="#fcd34d" />
                         <rect y={VB.h * 0.5 - 6} width={VB.w} height={1} fill="#fcd34d" opacity={0.4} />
                     </g>
-                    <Motes seed={u} color="#fde68a" count={full ? 16 : 7} rise animate={animate} />
+                    <Motes seed={u} color="#fde68a" count={full ? 20 : 10} rise animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -873,7 +1083,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                         <path d={`M96 24 q10 18, 30 22`} strokeWidth={1.6} />
                         <path d={`M150 28 q-8 20, -26 26`} strokeWidth={1.4} />
                     </g>
-                    <Motes seed={u} color="#fda4af" count={full ? 30 : 14} shape="petal" animate={animate} />
+                    <Motes seed={u} color="#fda4af" count={full ? 34 : 16} shape="petal" animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -882,7 +1092,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             return (
                 <>
                     <Sky id={`${u}-sky`} stops={[['#031a0c', 0], ['#000000', 1]]} />
-                    <Circuitry seed={u} color="#22c55e" opacity={0.22} />
+                    <Circuitry seed={u} color="#22c55e" opacity={0.3} animate={animate} />
                     <CodeRain seed={u} color="#22c55e" animate={animate} />
                     <Finish id={u} />
                 </>
@@ -892,7 +1102,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             return (
                 <>
                     <Sky id={`${u}-sky`} stops={[['#083344', 0], ['#0e7490', 0.45], ['#020617', 1]]} />
-                    <HorizonGrid color="#22d3ee" y={140} lines={9} opacity={0.35} />
+                    <HorizonGrid color="#22d3ee" y={140} lines={9} opacity={0.4} animate={animate} />
                     <Streaks seed={u} color="#a5f3fc" animate={animate} />
                     <PulseRings color="#67e8f9" animate={animate} cx={VB.w * 0.12} cy={VB.h * 0.5} />
                     <Finish id={u} />
@@ -904,9 +1114,9 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                 <>
                     <Sky id={`${u}-sky`} stops={[['#fef3c7', 0], ['#f59e0b', 0.34], ['#78350f', 0.7], ['#1c1004', 1]]} />
                     <Rays seed={u} color="#fffbeb" animate={animate} cy={VB.h * 0.58} />
-                    <SunDisc gradId={`${u}-sun`} color="#f59e0b" core="#ffffff" cy={VB.h * 0.58} r={34} />
+                    <SunDisc gradId={`${u}-sun`} color="#f59e0b" core="#ffffff" cy={VB.h * 0.58} r={34} animate={animate} />
                     <Streaks seed={u} color="#fde68a" animate={animate} />
-                    <Motes seed={u} color="#fffbeb" count={full ? 20 : 9} rise animate={animate} />
+                    <Motes seed={u} color="#fffbeb" count={full ? 24 : 12} rise animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -929,7 +1139,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                     </defs>
                     <rect width={VB.w} height={VB.h} fill={`url(#${u}-hex)`} opacity={0.5} />
                     <PulseRings color="#6ee7b7" animate={animate} />
-                    <Motes seed={u} color="#d1fae5" count={full ? 18 : 8} rise animate={animate} />
+                    <Motes seed={u} color="#d1fae5" count={full ? 20 : 10} rise animate={animate} />
                     <Finish id={u} />
                 </>
             );
@@ -939,7 +1149,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                 <>
                     <Sky id={`${u}-sky`} stops={[['#1e1b4b', 0], ['#4c1d95', 0.38], ['#0b0616', 0.78], ['#000000', 1]]} />
                     {full && <Clouds seed={u} color="#a78bfa" freq={0.009} octaves={4} opacity={0.45} />}
-                    <StarField seed={u} count={full ? 110 : 40} />
+                    <StarField seed={u} count={full ? 110 : 40} animate={animate} />
                     {/* Void core with orbital rings. */}
                     <g transform={`translate(${VB.w / 2} ${VB.h / 2})`}>
                         <circle r={26} fill="#050014" />
@@ -961,7 +1171,7 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                 <>
                     <Sky id={`${u}-sky`} stops={[['#fbbf24', 0], ['#ea580c', 0.3], ['#7f1d1d', 0.62], ['#170303', 1]]} />
                     {full && <Clouds seed={u} color="#450a0a" freq={0.013} opacity={0.55} />}
-                    <Fissures seed={u} color="#f97316" hot="#fef3c7" />
+                    <Fissures seed={u} color="#f97316" hot="#fef3c7" animate={animate} />
                     <Motes seed={u} color="#fdba74" count={full ? 30 : 12} rise animate={animate} />
                     <Finish id={u} />
                 </>
@@ -982,25 +1192,13 @@ export function BannerArt({
     id,
     detail = 'full',
     className = '',
+    animate = true,
 }: {
     id: string;
     detail?: Detail;
     className?: string;
+    animate?: boolean;
 }) {
-    /**
-     * `animate={false}` unconditionally.
-     *
-     * A scene's own animations were up to thirty framer loops — drifting motes,
-     * displaced caustics, rotating rings — each writing an SVG attribute every
-     * frame for as long as the banner was mounted. On the dossier that is the
-     * whole time the page is open, so those writes were competing with every
-     * tab switch, and inside the forge's picker there are twenty-odd banners on
-     * screen at once.
-     *
-     * The life comes from one composited transform on the `<svg>` instead
-     * (`fx-banner-drift`), which the compositor owns and which reduced-motion
-     * turns off in CSS.
-     */
     return (
         <svg
             aria-hidden
@@ -1008,7 +1206,7 @@ export function BannerArt({
             viewBox={`0 0 ${VB.w} ${VB.h}`}
             preserveAspectRatio="xMidYMid slice"
         >
-            <Scene id={id} detail={detail} animate={false} />
+            <Scene id={id} detail={detail} animate={animate} />
         </svg>
     );
 }

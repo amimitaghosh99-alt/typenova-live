@@ -67,16 +67,16 @@ export interface CategoryMeta {
 }
 
 export const CATEGORY_LABELS: Record<LessonCategory, CategoryMeta> = {
-  foundations: { name: 'Biomechanic Anchors', short: 'Anchors',   icon: '🎯', color: '#10b981', subtitle: 'Home row muscle memory & index finger anchors' },
-  reaches:     { name: 'Row Reaches',         short: 'Reaches',   icon: '⚡', color: '#06b6d4', subtitle: 'Top & bottom row diagonal finger extensions' },
-  fluency:     { name: 'N-Gram Fluency',      short: 'Fluency',   icon: '🔥', color: '#8b5cf6', subtitle: 'High-frequency English clusters & core vocabulary' },
-  capitals:    { name: 'Shift & Capitals',    short: 'Capitals',  icon: '⬆️', color: '#22d3ee', subtitle: 'Opposite-hand Shift discipline, proper nouns & acronyms' },
-  numbers:     { name: 'Numeric Row',         short: 'Numbers',   icon: '🔢', color: '#14b8a6', subtitle: 'Number-row reaches & rapid data-entry drills' },
-  symbols:     { name: 'Symbols & Syntax',    short: 'Symbols',   icon: '⌘', color: '#a855f7', subtitle: 'Punctuation, brackets, operators & shifted glyphs' },
-  code:        { name: 'Code Fluency',        short: 'Code',      icon: '⌨️', color: '#38bdf8', subtitle: 'Real JavaScript, Python & markup under the fingers' },
-  precision:   { name: 'Precision Lab',       short: 'Precision', icon: '🎚️', color: '#f472b6', subtitle: 'Same-finger bigrams, lateral stretches & clean rolls' },
-  cadence:     { name: 'Cadence & Burst',     short: 'Cadence',   icon: '✨', color: '#ec4899', subtitle: 'Metronomic rhythm, sustained burst & flow' },
-  mastery:     { name: 'Prose & Literature',  short: 'Mastery',   icon: '🏆', color: '#f59e0b', subtitle: 'Classic literature excerpts & endurance trials' },
+  foundations: { name: 'Biomechanic Anchors', short: 'Anchors',   icon: 'target', color: '#10b981', subtitle: 'Home row muscle memory & index finger anchors' },
+  reaches:     { name: 'Row Reaches',         short: 'Reaches',   icon: 'zap', color: '#06b6d4', subtitle: 'Top & bottom row diagonal finger extensions' },
+  fluency:     { name: 'N-Gram Fluency',      short: 'Fluency',   icon: 'flame', color: '#8b5cf6', subtitle: 'High-frequency English clusters & core vocabulary' },
+  capitals:    { name: 'Shift & Capitals',    short: 'Capitals',  icon: 'arrow-up', color: '#22d3ee', subtitle: 'Opposite-hand Shift discipline, proper nouns & acronyms' },
+  numbers:     { name: 'Numeric Row',         short: 'Numbers',   icon: 'hash', color: '#14b8a6', subtitle: 'Number-row reaches & rapid data-entry drills' },
+  symbols:     { name: 'Symbols & Syntax',    short: 'Symbols',   icon: 'command', color: '#a855f7', subtitle: 'Punctuation, brackets, operators & shifted glyphs' },
+  code:        { name: 'Code Fluency',        short: 'Code',      icon: 'code', color: '#38bdf8', subtitle: 'Real JavaScript, Python & markup under the fingers' },
+  precision:   { name: 'Precision Lab',       short: 'Precision', icon: 'sliders', color: '#f472b6', subtitle: 'Same-finger bigrams, lateral stretches & clean rolls' },
+  cadence:     { name: 'Cadence & Burst',     short: 'Cadence',   icon: 'sparkles', color: '#ec4899', subtitle: 'Metronomic rhythm, sustained burst & flow' },
+  mastery:     { name: 'Prose & Literature',  short: 'Mastery',   icon: 'trophy', color: '#f59e0b', subtitle: 'Classic literature excerpts & endurance trials' },
 };
 
 /** Canonical render order for tracks (matches the intended progression). */
@@ -95,13 +95,13 @@ export interface AcademyMasteryTitle {
 }
 
 export const MASTERY_TITLES: AcademyMasteryTitle[] = [
-  { minLevel: 1,  maxLevel: 5,  title: 'Keystroke Initiate',        badge: '🌱', color: '#10b981' },
-  { minLevel: 6,  maxLevel: 12, title: 'Home Row Disciple',         badge: '⚡', color: '#06b6d4' },
-  { minLevel: 13, maxLevel: 20, title: 'Cadence Architect',         badge: '🔮', color: '#8b5cf6' },
-  { minLevel: 21, maxLevel: 30, title: 'Cybernetic Typist',         badge: '💎', color: '#ec4899' },
-  { minLevel: 31, maxLevel: 40, title: 'Neural Maestro',            badge: '🔥', color: '#f59e0b' },
-  { minLevel: 41, maxLevel: 49, title: 'Quantum Flowmaster',        badge: '🌌', color: '#38bdf8' },
-  { minLevel: 50, maxLevel: 50, title: 'Grandmaster Ghost Operator',badge: '👑', color: '#fbbf24' },
+  { minLevel: 1,  maxLevel: 5,  title: 'Keystroke Initiate',        badge: 'sprout', color: '#10b981' },
+  { minLevel: 6,  maxLevel: 12, title: 'Home Row Disciple',         badge: 'zap', color: '#06b6d4' },
+  { minLevel: 13, maxLevel: 20, title: 'Cadence Architect',         badge: 'crystal', color: '#8b5cf6' },
+  { minLevel: 21, maxLevel: 30, title: 'Cybernetic Typist',         badge: 'gem', color: '#ec4899' },
+  { minLevel: 31, maxLevel: 40, title: 'Neural Maestro',            badge: 'flame', color: '#f59e0b' },
+  { minLevel: 41, maxLevel: 49, title: 'Quantum Flowmaster',        badge: 'galaxy', color: '#38bdf8' },
+  { minLevel: 50, maxLevel: 50, title: 'Grandmaster Ghost Operator',badge: 'crown', color: '#fbbf24' },
 ];
 
 export const MAX_ACADEMY_LEVEL = 50;
@@ -415,7 +415,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'fn_boss_trial',
-    title: '👑 Boss Gauntlet: Home Anchor Trial',
+    title: 'Boss Gauntlet: Home Anchor Trial',
     category: 'foundations',
     description: 'High-stakes trial: hold 94%+ accuracy across rapid home-row words.',
     targetWpm: 36, xp: 220,
@@ -530,7 +530,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'rc_boss_trial',
-    title: '👑 Boss Gauntlet: Row Reach Master',
+    title: 'Boss Gauntlet: Row Reach Master',
     category: 'reaches',
     description: 'High-speed vertical crossing trial testing rapid top-to-bottom stretches.',
     targetWpm: 40, xp: 280,
@@ -594,7 +594,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'fl_boss_trial',
-    title: '👑 Boss Gauntlet: N-Gram Stream',
+    title: 'Boss Gauntlet: N-Gram Stream',
     category: 'fluency',
     description: 'High-speed cluster trial: hold 95%+ accuracy on rapid common words.',
     targetWpm: 58, xp: 320,
@@ -651,7 +651,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'cp_boss_trial',
-    title: '👑 Boss Gauntlet: Shift Discipline',
+    title: 'Boss Gauntlet: Shift Discipline',
     category: 'capitals',
     description: 'Mixed-case prose trial — one wrong-hand Shift and accuracy collapses.',
     targetWpm: 42, xp: 340,
@@ -707,7 +707,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'nm_boss_trial',
-    title: '👑 Boss Gauntlet: Numeric Nexus',
+    title: 'Boss Gauntlet: Numeric Nexus',
     category: 'numbers',
     description: 'Rapid mixed-digit trial testing full number-row accuracy under pressure.',
     targetWpm: 38, xp: 360,
@@ -774,7 +774,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'sy_boss_trial',
-    title: '👑 Boss Gauntlet: Syntax Surge',
+    title: 'Boss Gauntlet: Syntax Surge',
     category: 'symbols',
     description: 'Mixed punctuation and code trial demanding precise symbol accuracy.',
     targetWpm: 40, xp: 380,
@@ -828,7 +828,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'co_boss_trial',
-    title: '👑 Boss Gauntlet: Compile Clean',
+    title: 'Boss Gauntlet: Compile Clean',
     category: 'code',
     description: 'A full conditional block. In code, 96% accuracy is still a syntax error.',
     targetWpm: 42, xp: 420,
@@ -876,7 +876,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'pr_boss_trial',
-    title: '👑 Boss Gauntlet: Zero Drift',
+    title: 'Boss Gauntlet: Zero Drift',
     category: 'precision',
     description: 'The strictest accuracy gate in the Academy: 97% or the trial fails.',
     targetWpm: 50, xp: 440,
@@ -933,7 +933,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'cd_boss_trial',
-    title: '👑 Boss Gauntlet: Locked Tempo',
+    title: 'Boss Gauntlet: Locked Tempo',
     category: 'cadence',
     description: 'Hold a locked tempo at 96% accuracy across a full flowing passage.',
     targetWpm: 58, xp: 460,
@@ -991,7 +991,7 @@ const SEEDS: LessonSeed[] = [
   },
   {
     id: 'ms_grandmaster',
-    title: '👑 Boss Gauntlet: Grandmaster Ghost Run',
+    title: 'Boss Gauntlet: Grandmaster Ghost Run',
     category: 'mastery',
     description: 'The final trial of the Academy: 98% accuracy at 50+ WPM. No second chances mid-run.',
     targetWpm: 65, xp: 800,

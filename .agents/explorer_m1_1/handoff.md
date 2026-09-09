@@ -1,267 +1,617 @@
-# Handoff Report: CyberHands & VirtualKeyboard Alignment and Kinematics Analysis
+# Handoff Report: Milestone 1 — Core Scoring & Grading Engine (`src/lib/scoringEngine.ts`)
+
+**Agent**: `explorer_m1_1`  
+**Milestone**: M1 (Core Scoring & Grading Engine)  
+**Date**: 2026-09-01  
+**Status**: Investigation Complete — Ready for Implementation
+
+---
 
 ## 1. Observation
 
-### 1.1 File Paths and Component Locations
-- **`CyberHands.tsx`**: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\components\academy\CyberHands.tsx`
-- **`VirtualKeyboard.tsx`**: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\components\academy\VirtualKeyboard.tsx`
-- **`AcademyLayout.tsx`**: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\components\academy\AcademyLayout.tsx`
-- **`academyCurriculum.ts`**: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\src\data\academyCurriculum.ts`
+### 1.1 Existing Grade & Scoring Deficiencies in Codebase
+1. **Defective Hardcoded Grade Logic in `src/components/ResultsScreen.tsx` (Lines 106–112)**:
+   ```typescript
+   const grade = (() => {
+     if (wpm > 100 && accuracy > 98) return "S";
+     if (wpm > 80 && accuracy > 95) return "A";
+     if (wpm > 50 && accuracy > 90) return "B";
+     if (wpm > 30) return "C";
+     return "D";
+   })();
+   ```
+   - **Direct Failure**: A player completing a test at 40 WPM with 100% flawless accuracy and 90% rhythm consistency is assigned Grade **`C`** solely because `wpm <= 50`, completely ignoring precision and flawless combos.
+   - **Missing Grade 'S+'**: No `S+` tier exists despite being required in the PRD and `PROJECT.md`.
+   - **Zero Composite Metric**: The current system evaluates discrete if-else speed gates rather than a true multi-factor Composite Performance Index (CPI).
+
+2. **Typing Engine Missing CPI & Burst Metrics in `src/hooks/useTypingEngine.ts` (Lines 21–28)**:
+   ```typescript
+   export interface TypingStats {
+     currentWpm: number;
+     rawWpm: number;
+     currentAcc: number;
+     timeline: TimelinePoint[];
+     consistency: number;
+     flawless: number;
+   }
+   ```
+   - `TypingStats` only captures raw and net WPM, current accuracy, consistency, and flawless streak.
+   - Peak instantaneous burst velocity (`burstWpm`), `cpi`, and `grade` are omitted.
+
+3. **Absence of Dedicated Scoring Module**:
+   - `src/lib/scoringEngine.ts` does not yet exist in the repository.
+   - No unified typing accolade calculation exists (`calculateAccolades`).
 
 ---
 
-### 1.2 Layout & SVG ViewBox Configuration
-In `AcademyLayout.tsx` (lines 273–281):
-```tsx
-<div className="relative mb-2" style={{ width: 552, height: 400 }}>
-  {/* Keyboard — z:2 sits in front of the ghost hands */}
-  <div className="relative" style={{ zIndex: 2 }}>
-    <VirtualKeyboard activeKey={activeKey} activeFinger={activeFinger} />
-  </div>
-  {/* Ghost hands — z:1 renders behind the keys */}
-  <CyberHands activeKey={activeKey} activeFinger={activeFinger} />
-</div>
-```
-In `CyberHands.tsx` (lines 294–302):
-```tsx
-<div
-  className="absolute inset-0 pointer-events-none"
-  style={{
-    zIndex: 5,
-    maskImage: "linear-gradient(to bottom, black 0%, black 85%, transparent 98%)",
-    WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 85%, transparent 98%)",
-  }}
->
-  <svg viewBox="0 0 552 400" className="w-full h-full drop-shadow-2xl" style={{ overflow: "visible" }}>
-```
+## 2. Logic Chain & Mathematical Modeling
+
+### 2.1 Multi-Factor Composite Performance Index (CPI) Formulation
+
+The CPI represents an adjusted skill index that rewards precision, combo streaks, and rhythm consistency while penalizing inaccurate mashing.
+
+$$\text{CPI} = \max\Big(0,\; \big(\text{baseSpeedScore} \times \text{precisionMultiplier}\big) + \text{precisionBonus} + \text{comboBonus} + \text{consistencyBonus} - \text{penalty}\Big)$$
+
+#### Component Derivations:
+
+1. **Base Speed Score ($\text{baseSpeedScore}$)**:
+   $$\text{baseSpeedScore} = \max(0, \text{wpm})$$
+
+2. **Precision Multiplier ($\text{precisionMultiplier}$)**:
+   Exponential amplification for high accuracy, steep falloff below 90%:
+   $$\text{precisionMultiplier} = \begin{cases} 
+   1.25 & \text{if } \text{acc} = 100 \\
+   1.15 + (\text{acc} - 98) \times 0.05 & \text{if } 98 \le \text{acc} < 100 \\
+   1.00 + (\text{acc} - 95) \times 0.05 & \text{if } 95 \le \text{acc} < 98 \\
+   0.85 + (\text{acc} - 90) \times 0.03 & \text{if } 90 \le \text{acc} < 95 \\
+   \max\Big(0.20, \left(\frac{\text{acc}}{90}\right)^2 \times 0.85\Big) & \text{if } \text{acc} < 90
+   \end{cases}$$
+
+3. **Precision Bonus ($\text{precisionBonus}$)**:
+   Direct additive reward for precision discipline:
+   $$\text{precisionBonus} = \begin{cases}
+   15 & \text{if } \text{acc} = 100 \\
+   10 & \text{if } 98 \le \text{acc} < 100 \\
+   5 & \text{if } 95 \le \text{acc} < 98 \\
+   0 & \text{if } \text{acc} < 95
+   \end{cases}$$
+
+4. **Flawless Streak / Combo Bonus ($\text{comboBonus}$)**:
+   Combines relative flawless streak coverage with absolute streak milestones:
+   $$\text{streakRatio} = \begin{cases} \min\left(1.0, \frac{\text{flawlessStreak}}{\text{totalChars}}\right) & \text{if } \text{totalChars} > 0 \\ 0 & \text{otherwise} \end{cases}$$
+   $$\text{relativeBonus} = \text{streakRatio} \times 15$$
+   $$\text{absoluteBonus} = \min\left(10, \left\lfloor\frac{\text{flawlessStreak}}{50}\right\rfloor \times 2.5\right)$$
+   $$\text{comboBonus} = \text{relativeBonus} + \text{absoluteBonus} \quad (\text{Max: } 25)$$
+
+5. **Rhythm Consistency Bonus ($\text{consistencyBonus}$)**:
+   Rewards metronomic pacing (low variance between keystrokes):
+   $$\text{consistencyBonus} = \begin{cases}
+   \frac{\text{consistency} - 50}{50} \times 10 & \text{if } \text{consistency} \ge 85 \\
+   \frac{\text{consistency} - 50}{50} \times 5 & \text{if } 70 \le \text{consistency} < 85 \\
+   0 & \text{if } \text{consistency} < 70
+   \end{cases}$$
+
+6. **Error Penalty ($\text{penalty}$)**:
+   Penalizes sloppy or rushed typing below standard threshold (95%):
+   $$\text{penalty} = \begin{cases}
+   (95 - \text{accuracy})^{1.2} \times 1.5 & \text{if } \text{accuracy} < 95 \\
+   0 & \text{if } \text{accuracy} \ge 95
+   \end{cases}$$
 
 ---
 
-### 1.3 Key Layout Definitions & Mapping
-In `VirtualKeyboard.tsx` (lines 8–13, 46–53, 89–93):
-```tsx
-const ROWS = [
-  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-  ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
-  ['SPACE'],
-];
-```
-- Row 0 (`Q..P`): 10 keys x `46px` width + 9 x `7px` gap = `523px`. Top Y = `0px`, Key center Y = `23px`.
-- Row 1 (`A..L`): 9 keys x `46px` width + 8 x `7px` gap = `470px` + `18px` left margin (`ml-[18px]`) = `488px`. Top Y = `53px` (`46+7`), Key center Y = `76px`.
-- Row 2 (`Z..M`): 7 keys x `46px` width + 6 x `7px` gap = `364px` + `46px` left margin (`ml-[46px]`) = `410px`. Top Y = `106px` (`53+46+7`), Key center Y = `129px`.
-- Row 3 (`SPACE`): 1 key of `w-64` (`256px`) width, `h-11` (`44px`) height, centered via `w-full justify-center` in `552px` container -> Left X = `148px`, Center X = `276px`. Top Y = `159px` (`106+46+7`), Key center Y = `181px` (or `182px`).
+### 2.2 Mathematical Proof: 40 WPM @ 100% Accuracy Evaluates to Grade A/S
 
-In `CyberHands.tsx` `KEY_MAP` (lines 17–53):
-- `Q`: `{ x: 23, y: 23 }`
-- `A`: `{ x: 41, y: 76 }`
-- `F`: `{ x: 200, y: 76 }`
-- `J`: `{ x: 359, y: 76 }`
-- `;`: `{ x: 518, y: 76 }`
-- `SPACE`: `{ x: 276, y: 182 }`
+Given a standard 40-word passage ($\approx 200$ characters):
+- $\text{wpm} = 40$
+- $\text{accuracy} = 100\%$ ($\text{isFlawless} = \text{true}$)
+- $\text{flawlessStreak} = 200$
+- $\text{totalChars} = 200$
+- $\text{consistency} = 85\%$
 
----
+**Step-by-step Calculation**:
+1. $\text{baseSpeedScore} = 40.0$
+2. $\text{precisionMultiplier} = 1.25 \implies 40.0 \times 1.25 = 50.0$
+3. $\text{precisionBonus} = 15.0$
+4. $\text{comboBonus} = (1.0 \times 15) + \left(\frac{200}{50} \times 2.5\right) = 15.0 + 10.0 = 25.0$
+5. $\text{consistencyBonus} = \frac{85 - 50}{50} \times 10 = 7.0$
+6. $\text{penalty} = 0.0$
+7. $\text{CPI} = 50.0 + 15.0 + 25.0 + 7.0 = 97.0$
 
-### 1.4 Finger Anatomy and Kinematics Code
-In `CyberHands.tsx` (lines 234–285):
-```tsx
-  // Compute unified hand movement
-  const getHandTransform = (hand: "left" | "right") => {
-    const isActive = hand === "left" ? isLeftActive : isRightActive;
-    if (!isActive || !keyInfo) {
-      return { x: 0, y: 0 };
-    }
-
-    const homeX = hand === "left" ? 200 : 359;
-    const homeY = 76;
-
-    const totalDx = keyInfo.x - homeX;
-    const totalDy = keyInfo.y - homeY;
-
-    return {
-      x: totalDx * 0.40,
-      y: totalDy * 0.50,
-    };
-  };
-
-  // Compute correct anatomical joint rotation
-  const getFingerTransform = (f: HologramFinger, isActive: boolean, hx: number, hy: number) => {
-    if (!isActive || !keyInfo) {
-      return { rotate: 0, scale: 1 };
-    }
-
-    const mcpAbsX = f.mcp[0] + hx;
-    const mcpAbsY = f.mcp[1] + hy;
-
-    const targetDx = keyInfo.x - mcpAbsX;
-    const targetDy = keyInfo.y - mcpAbsY;
-
-    const targetLength = Math.hypot(targetDx, targetDy);
-    const targetAngle = Math.atan2(targetDy, targetDx);
-
-    const restingDx = f.tip[0] - f.mcp[0];
-    const restingDy = f.tip[1] - f.mcp[1];
-    const restingLength = Math.hypot(restingDx, restingDy);
-    const restingAngle = Math.atan2(restingDx, restingDy);
-
-    let rotate = (targetAngle - restingAngle) * (180 / Math.PI);
-    if (rotate > 180) rotate -= 360;
-    if (rotate < -180) rotate += 360;
-    
-    // Natural anatomical limits
-    rotate = Math.min(30, Math.max(-30, rotate));
-
-    const scale = Math.min(1.4, Math.max(0.7, targetLength / restingLength));
-
-    return {
-      rotate,
-      scale,
-    };
-  };
-```
-
-In `CyberHands.tsx` spacebar active finger selection (lines 228–231):
-```tsx
-const targetFinger = FINGER_MAP[normalizedKey] || activeFinger;
-
-const isLeftActive = targetFinger.startsWith("left") || (targetFinger === "thumb" && keyInfo?.x !== undefined && keyInfo.x <= 276);
-const isRightActive = targetFinger.startsWith("right") || (targetFinger === "thumb" && keyInfo?.x !== undefined && keyInfo.x > 276);
-```
-
-In `CyberHands.tsx` left palm mesh and finger base path (lines 75, 350):
-```tsx
-// Left pinky contour path:
-contourPath: 'M 50,230 C 44,190 35,145 33,115 C 31,90 34,70 41,76 C 48,70 51,90 49,115 C 47,145 57,190 68,230 Z'
-
-// Left palm path:
-d="M 50,390 C 40,320 42,260 50,230 L 85,225 L 126,224 L 160,228 C 178,255 174,330 166,390 Z"
-```
+**Grade Evaluation**:
+- With $\text{CPI} = 97.0 \ge 85$ and $\text{accuracy} = 100\%$, `evaluateGrade` returns **`S`**!
+- Even on a shorter 50-character prompt with lower consistency ($75\%$), $\text{CPI} = 50.0 + 15.0 + 17.5 + 2.5 = 85.0 \implies$ Grade **`A`** or **`S`**.
+- **Outcome**: The 100% accuracy run is fairly rewarded with an **`S`** or **`A`** grade instead of **`C`**.
 
 ---
 
-## 2. Logic Chain
+### 2.3 Performance Grade Threshold Matrix
 
-### 2.1 Coordinate Alignment Verification
-- `VirtualKeyboard.tsx` renders a CSS grid with 46px keys and 7px gaps inside a 552px wide container.
-- Key center calculations match the X, Y values in `KEY_MAP`:
-  - `Q`: index 0 -> `0 * 53 + 23 = 23px`, row 0 center Y = `23px`.
-  - `A`: index 0 -> `18 + 0 * 53 + 23 = 41px`, row 1 center Y = `76px`.
-  - `F`: index 3 -> `18 + 3 * 53 + 23 = 200px`, row 1 center Y = `76px`.
-  - `J`: index 6 -> `18 + 6 * 53 + 23 = 359px`, row 1 center Y = `76px`.
-  - `SPACE`: centered in 552px -> `(552 - 256)/2 + 128 = 276px`, row 3 center Y = `182px`.
-- **Discrepancy 1**: In `VirtualKeyboard.tsx`, Row 1 (`ROWS[1]`) only contains 9 keys (`['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L']`). The `;` key is missing from the component DOM entirely. However, `RIGHT_HOLOGRAM_FINGERS` defines the right pinky home position at `[518, 76]`, which matches `KEY_MAP[';']`. Without `;` rendered, the right pinky rests over empty space to the right of `L`.
-
----
-
-### 2.2 Mathematical Kinematics & Spacebar Shortfall
-- When `SPACE` key (`{ x: 276, y: 182 }`) is active:
-  - `keyInfo.x` is `276`.
-  - In `CyberHands.tsx`: `keyInfo.x <= 276` evaluates to `true` (`276 <= 276`), setting `isLeftActive = true`.
-  - `keyInfo.x > 276` evaluates to `false`, setting `isRightActive = false`.
-  - Result: Only the left hand activates; the right hand never responds to spacebar.
-- Left thumb kinematics for `SPACE`:
-  - Resting left thumb MCP = `[170, 275]`, resting tip = `[232, 178]`.
-  - Resting vector length `restingLength = hypot(232 - 170, 178 - 275) = hypot(62, -97) = 115.11px`.
-  - Hand transform `leftHandMotion`: `hx = (276 - 200) * 0.40 = 30.4px`, `hy = (182 - 76) * 0.50 = 53.0px`.
-  - Absolute MCP position during space press = `(170 + 30.4, 275 + 53.0) = (200.4, 328.0)`.
-  - Required target vector to `SPACE` `{276, 182}`:
-    `targetDx = 276 - 200.4 = 75.6px`.
-    `targetDy = 182 - 328.0 = -146.0px`.
-    `targetLength = hypot(75.6, -146.0) = 164.44px`.
-  - Required scale factor `targetLength / restingLength = 164.44 / 115.11 = 1.4285`.
-  - In `CyberHands.tsx` line 279: `scale = Math.min(1.4, Math.max(0.7, targetLength / restingLength))`.
-  - The scale is clamped to `1.4000`.
-  - Actual thumb length achieved = `1.4000 * 115.11 = 161.15px`.
-  - **Deficit**: The thumb tip falls short of the spacebar center by `164.44 - 161.15 = 3.29px` due to artificial scale clamping.
+| Grade | CPI Threshold | Minimum Accuracy | Flawless Override | Title | Visual Glow & Theme Style |
+|---|---|---|---|---|---|
+| **S+** | $\text{CPI} \ge 120$ | $\ge 97\%$ | $\text{CPI} \ge 100$ and Flawless | Cyber Vanguard | Luminous Gold/Cyan Hologram Glow (`drop-shadow-[0_0_25px_rgba(251,191,36,0.8)]`) |
+| **S** | $\text{CPI} \ge 85$ | $\ge 95\%$ | $\text{CPI} \ge 75$ and Flawless | Precision Master | Amber Aura Glow (`drop-shadow-[0_0_20px_rgba(251,191,36,0.6)]`) |
+| **A** | $\text{CPI} \ge 65$ | $\ge 90\%$ | $\text{CPI} \ge 55$ and Flawless | Elite Operative | Emerald Aura Glow (`drop-shadow-[0_0_20px_rgba(52,211,153,0.6)]`) |
+| **B** | $\text{CPI} \ge 45$ | $\ge 80\%$ | None | Proficient Hacker | Sapphire Sky Glow (`drop-shadow-[0_0_20px_rgba(96,165,250,0.6)]`) |
+| **C** | $\text{CPI} \ge 25$ | $\ge 70\%$ | None | Neon Initiate | Sunset Orange Glow (`drop-shadow-[0_0_20px_rgba(251,146,60,0.6)]`) |
+| **D** | $\text{CPI} < 25$ | $< 70\%$ | None | Uncalibrated | Muted Zinc (`text-zinc-500`) |
 
 ---
 
-### 2.3 Mathematical Proof of Finger Detachment Bug
-- In `CyberHands.tsx`, the palm `<path>` and fingers `<motion.g>` are sibling elements under hand container `<motion.g id="left-holo-hand">`.
-- The palm `<path>` is static inside the hand container. Its top boundary edge runs along `y = 230` (for left pinky, between `x = 50` and `x = 68`).
-- The finger `<motion.g>` rotates by `rotate` degrees with `transformOrigin = "60px 230px"` (the MCP joint).
-- The base points of the pinky finger path `f.contourPath` are `(50, 230)` and `(68, 230)`.
-- When reaching target key `Q` (`rotate = +17.64°`):
-  - Base point `(50, 230)` (relative vector `(-10, 0)` from MCP `(60, 230)`):
-    Rotated by `+17.64°`: `x' = -10 * cos(17.64°) = -9.53px`, `y' = -10 * sin(17.64°) = -3.03px`.
-    New position = `(60 - 9.53, 230 - 3.03) = (50.47, 226.97)`.
-    The base point moves **UP** by `3.03px` above the palm top line (`y = 230`).
-  - Base point `(68, 230)` (relative vector `(+8, 0)` from MCP `(60, 230)`):
-    Rotated by `+17.64°`: `x' = +8 * cos(17.64°) = +7.62px`, `y' = +8 * sin(17.64°) = +2.42px`.
-    New position = `(60 + 7.62, 230 + 2.42) = (67.62, 232.42)`.
-    The base point moves **DOWN** by `2.42px` below the palm top line (`y = 230`).
-- Because the finger base tilts while the palm top line remains horizontal and unrotated, a visible gap and overlap occur at the joint boundary. This causes visual finger detachment from the palm.
+### 2.4 Burst WPM Calculation (`calculateBurstWpm`)
+
+Burst WPM measures peak instantaneous velocity over a short rolling temporal window ($1000\text{ ms}$) or 5-keystroke sliding cluster:
+1. Filter out backspace entries (`!k.isBackspace`).
+2. If total keystrokes $< 2$, return `0`.
+3. Iterate a sliding 5-character cluster:
+   - If all 5 characters are error-free, measure $\Delta t = k[i].\text{time} - k[i-4].\text{time}$.
+   - If $\Delta t \ge 50\text{ ms}$, instantaneous velocity is $\text{wpm} = \text{round}\left(\frac{1 \text{ word}}{\Delta t / 60000}\right) = \text{round}\left(\frac{60000}{\Delta t}\right)$.
+4. Also evaluate 1-second rolling window across all keystroke timestamps.
+5. Take the maximum burst velocity, clamped safely to $[0, 350\text{ WPM}]$.
+6. Fallback: If `keystrokeLog` is not available, find $\max(\text{timeline}[i].\text{wpm})$.
 
 ---
 
-### 2.4 Z-Index Layering Conflict
-- `AcademyLayout.tsx` line 275 comments state that `VirtualKeyboard` (`zIndex: 2`) should sit in front of `CyberHands` (`zIndex: 1`).
-- However, `CyberHands.tsx` line 297 sets inline `zIndex: 5` on its outer wrapper `<div>`.
-- This causes `CyberHands` SVG overlay to render **ON TOP OF** `VirtualKeyboard` keys rather than behind them, obscuring key text with full-opacity finger paths.
+### 2.5 Accolade Badge Engine (`calculateAccolades`)
 
----
-
-### 2.5 Sonar Target Ripple Fallback Bug
-- In `CyberHands.tsx` lines 519–535, sonar ripples use `rippleX = keyInfo ? keyInfo.x : 0` and `rippleY = keyInfo ? keyInfo.y : 0`.
-- When `activeKey` is empty (e.g. initial state or pause), `keyInfo` is `undefined`, causing sonar circles to render pulsing rings at SVG origin `(0, 0)` at the top-left corner of the screen.
+Computes post-match achievement accolades:
+1. **Flawless Execution (`flawless`)**: $\text{accuracy} = 100 \land \text{rawErrors} = 0 \land \text{totalWords} \ge 10 \implies +50\%$ XP
+2. **Centurion Combo (`centurion_streak`)**: $\text{flawlessStreak} \ge 100 \implies +30\%$ XP (or $\ge 50 \implies +15\%$ XP)
+3. **Surgical Precision (`surgical_precision`)**: $\text{accuracy} \ge 98\% \land \text{totalWords} \ge 25 \implies +20\%$ XP
+4. **Flow State (`flow_state`)**: $\text{consistency} \ge 85\% \land \text{totalWords} \ge 15 \implies +20\%$ XP
 
 ---
 
 ## 3. Caveats
-- Read-only analysis: No source code modifications were performed during this investigation.
-- Responsive scaling: The parent container in `AcademyLayout.tsx` is fixed at `552px x 400px`. If container scaling or responsive breakpoints are introduced in future UI iterations, SVG `viewBox` coordinates will automatically scale, provided aspect ratio is preserved (`aspect-ratio: 552/400`).
+
+1. **Pure Function Architecture**: `scoringEngine.ts` contains strictly deterministic pure functions with zero React dependencies or external network imports.
+2. **Backward Compatibility**: `evaluateGrade` and `calculateCPI` handle `NaN`, `undefined`, negative numbers, and empty strings gracefully.
+3. **Dynamic Theme Rules (GEMINI.md)**: Color bindings in UI components (`ResultsScreen`) must use `rgb(${theme.glowPrimary})` while semantic grade badge colors (S+, S, A, B, C, D) provide fallback luxury aura palettes.
 
 ---
 
-## 4. Conclusion
+## 4. Implementation Blueprint
 
-To achieve complete alignment, kinematic accuracy, and visual integrity:
+### 4.1 Target File: `src/lib/scoringEngine.ts`
 
-1. **Spacebar & Thumb Kinematics**:
-   - Fix spacebar hand condition: left thumb activates when `keyInfo.x <= 276` and right thumb can activate for right side or alternate based on `targetFinger`.
-   - Remove or expand artificial scale clamp from `1.4` to `1.6` (or compute exact un-clamped `targetLength / restingLength`) so finger tips reach key centers precisely.
-   - Adjust `rotate` clamp limits from `[-30, 30]` to `[-45, 45]` or remove artificial hard-clamping to allow full anatomical range to reach outer keys (`Q`, `P`).
+```typescript
+/**
+ * TypeNova Core Scoring & Precision Grading Engine
+ * Computes Composite Performance Index (CPI), Burst WPM, Performance Grades, and Accolades.
+ */
 
-2. **Eliminate Finger Detachment**:
-   - The finger path base nodes at `y = 230` must remain attached to the palm.
-   - Two viable architectural approaches:
-     - *Approach A (Deformable Joint Mesh / Fixed Base)*: Keep finger base vertices static at the palm top edge (`y = 230`) and rotate/extend only the PIP, DIP, and tip segments from the MCP origin.
-     - *Approach B (Anatomical Knuckle Overlap / SVG Clip Path)*: Extend finger base paths slightly inside the palm contour (`y = 240`) with a smooth gradient transition, so rotation pivoting occurs smoothly without creating gaps above `y = 230`.
+export type PerformanceGrade = 'S+' | 'S' | 'A' | 'B' | 'C' | 'D';
 
-3. **Key Layout & Mapping Consistency**:
-   - Add `;` key to `ROWS[1]` in `VirtualKeyboard.tsx` or adjust right pinky resting tip coordinate in `RIGHT_HOLOGRAM_FINGERS` to align with `L` / `;`.
-   - Update `VirtualKeyboard.tsx` z-index hierarchy: set `CyberHands` wrapper `zIndex` to `1` (or remove inline `zIndex: 5`) so hands render cleanly as a background ghost layer behind keyboard keys (`zIndex: 2`).
+export interface CPIBreakdown {
+  cpi: number;
+  grade: PerformanceGrade;
+  baseSpeedScore: number;
+  precisionMultiplier: number;
+  precisionBonus: number;
+  comboBonus: number;
+  consistencyBonus: number;
+  penalty: number;
+}
 
-4. **Sonar Ripple Null Check**:
-   - Wrap sonar target ripple `<g>` in `keyInfo && normalizedKey !== ""` check to prevent fallback rendering at `(0, 0)`.
+export interface AccoladeBadge {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  tier: 'bronze' | 'silver' | 'gold' | 'diamond' | 'apex';
+  xpBonusPct: number;
+}
+
+export interface GradeDetails {
+  grade: PerformanceGrade;
+  title: string;
+  description: string;
+  colorClass: string;
+  glowClass: string;
+  minCpi: number;
+  minAccuracy: number;
+}
+
+export const GRADE_DETAILS: Record<PerformanceGrade, GradeDetails> = {
+  'S+': {
+    grade: 'S+',
+    title: 'Cyber Vanguard',
+    description: 'Transcendent velocity and near-perfect execution.',
+    colorClass: 'text-amber-300',
+    glowClass: 'drop-shadow-[0_0_25px_rgba(251,191,36,0.85)]',
+    minCpi: 120,
+    minAccuracy: 97,
+  },
+  'S': {
+    grade: 'S',
+    title: 'Precision Master',
+    description: 'Flawless precision with exceptional rhythm.',
+    colorClass: 'text-amber-400',
+    glowClass: 'drop-shadow-[0_0_20px_rgba(251,191,36,0.65)]',
+    minCpi: 85,
+    minAccuracy: 95,
+  },
+  'A': {
+    grade: 'A',
+    title: 'Elite Operative',
+    description: 'High accuracy and steady velocity.',
+    colorClass: 'text-emerald-400',
+    glowClass: 'drop-shadow-[0_0_20px_rgba(52,211,153,0.65)]',
+    minCpi: 65,
+    minAccuracy: 90,
+  },
+  'B': {
+    grade: 'B',
+    title: 'Proficient Hacker',
+    description: 'Solid performance with minor unforced errors.',
+    colorClass: 'text-sky-400',
+    glowClass: 'drop-shadow-[0_0_20px_rgba(56,189,248,0.60)]',
+    minCpi: 45,
+    minAccuracy: 80,
+  },
+  'C': {
+    grade: 'C',
+    title: 'Neon Initiate',
+    description: 'Developing control and pacing.',
+    colorClass: 'text-orange-400',
+    glowClass: 'drop-shadow-[0_0_20px_rgba(251,146,60,0.60)]',
+    minCpi: 25,
+    minAccuracy: 70,
+  },
+  'D': {
+    grade: 'D',
+    title: 'Uncalibrated',
+    description: 'High error rate requiring calibration.',
+    colorClass: 'text-zinc-400',
+    glowClass: 'drop-shadow-none',
+    minCpi: 0,
+    minAccuracy: 0,
+  },
+};
+
+/**
+ * Calculates Composite Performance Index (CPI) factoring in Net WPM, Accuracy %,
+ * Flawless Streak, and Rhythm Consistency.
+ */
+export function calculateCPI(
+  wpm: number,
+  accuracy: number,
+  flawlessStreak: number,
+  consistency: number,
+  totalChars: number
+): CPIBreakdown {
+  const safeWpm = Math.max(0, Number.isFinite(wpm) ? wpm : 0);
+  const safeAcc = Math.max(0, Math.min(100, Number.isFinite(accuracy) ? accuracy : 0));
+  const safeStreak = Math.max(0, Number.isFinite(flawlessStreak) ? flawlessStreak : 0);
+  const safeCons = Math.max(0, Math.min(100, Number.isFinite(consistency) ? consistency : 0));
+  const safeChars = Math.max(0, Number.isFinite(totalChars) ? totalChars : 0);
+
+  const baseSpeedScore = Math.round(safeWpm * 10) / 10;
+
+  // 1. Precision Multiplier
+  let precisionMultiplier = 1.0;
+  if (safeAcc === 100) {
+    precisionMultiplier = 1.25;
+  } else if (safeAcc >= 98) {
+    precisionMultiplier = 1.15 + (safeAcc - 98) * 0.05;
+  } else if (safeAcc >= 95) {
+    precisionMultiplier = 1.00 + (safeAcc - 95) * 0.05;
+  } else if (safeAcc >= 90) {
+    precisionMultiplier = 0.85 + (safeAcc - 90) * 0.03;
+  } else {
+    precisionMultiplier = Math.max(0.20, Math.pow(safeAcc / 90, 2) * 0.85);
+  }
+  precisionMultiplier = Math.round(precisionMultiplier * 1000) / 1000;
+
+  // 2. Precision Bonus
+  let precisionBonus = 0;
+  if (safeAcc === 100) {
+    precisionBonus = 15;
+  } else if (safeAcc >= 98) {
+    precisionBonus = 10;
+  } else if (safeAcc >= 95) {
+    precisionBonus = 5;
+  }
+
+  // 3. Flawless Combo Bonus
+  const streakRatio = safeChars > 0 ? Math.min(1.0, safeStreak / safeChars) : 0;
+  const relativeBonus = streakRatio * 15;
+  const absoluteBonus = Math.min(10, Math.floor(safeStreak / 50) * 2.5);
+  const comboBonus = Math.round((relativeBonus + absoluteBonus) * 10) / 10;
+
+  // 4. Rhythm Consistency Bonus
+  let consistencyBonus = 0;
+  if (safeCons >= 85) {
+    consistencyBonus = Math.round(((safeCons - 50) / 50) * 10 * 10) / 10;
+  } else if (safeCons >= 70) {
+    consistencyBonus = Math.round(((safeCons - 50) / 50) * 5 * 10) / 10;
+  }
+
+  // 5. Error Penalty
+  let penalty = 0;
+  if (safeAcc < 95) {
+    penalty = Math.round(Math.pow(95 - safeAcc, 1.2) * 1.5 * 10) / 10;
+  }
+
+  // Final CPI
+  const rawCpi = (baseSpeedScore * precisionMultiplier) + precisionBonus + comboBonus + consistencyBonus - penalty;
+  const cpi = Math.max(0, Math.round(rawCpi * 10) / 10);
+
+  const isFlawless = safeAcc === 100 && (safeChars > 0 ? safeStreak >= safeChars : true);
+  const grade = evaluateGrade(cpi, safeAcc, isFlawless);
+
+  return {
+    cpi,
+    grade,
+    baseSpeedScore,
+    precisionMultiplier,
+    precisionBonus,
+    comboBonus,
+    consistencyBonus,
+    penalty,
+  };
+}
+
+/**
+ * Evaluates performance grade from CPI, accuracy, and flawless status.
+ */
+export function evaluateGrade(
+  cpi: number,
+  accuracy: number,
+  isFlawless: boolean = false
+): PerformanceGrade {
+  const safeCpi = Math.max(0, Number.isFinite(cpi) ? cpi : 0);
+  const safeAcc = Math.max(0, Math.min(100, Number.isFinite(accuracy) ? accuracy : 0));
+
+  if (safeAcc < 70) return 'D';
+
+  // S+ Grade
+  if ((safeCpi >= 120 && safeAcc >= 97) || (isFlawless && safeCpi >= 100)) {
+    return 'S+';
+  }
+
+  // S Grade (40 WPM @ 100% accuracy lands here with CPI >= 85)
+  if ((safeCpi >= 85 && safeAcc >= 95) || (isFlawless && safeCpi >= 75)) {
+    return 'S';
+  }
+
+  // A Grade (30 WPM @ 100% accuracy lands here with CPI >= 65)
+  if ((safeCpi >= 65 && safeAcc >= 90) || (isFlawless && safeCpi >= 55)) {
+    return 'A';
+  }
+
+  // B Grade
+  if (safeCpi >= 45 && safeAcc >= 80) {
+    return 'B';
+  }
+
+  // C Grade
+  if (safeCpi >= 25 && safeAcc >= 70) {
+    return 'C';
+  }
+
+  return 'D';
+}
+
+/**
+ * Calculates instantaneous peak burst velocity (WPM) from keystroke log or timeline.
+ */
+export function calculateBurstWpm(
+  keystrokeLog: Array<{ time: number; isError: boolean; isBackspace?: boolean }>,
+  timeline?: Array<{ t: number; wpm: number }>
+): number {
+  let peakBurst = 0;
+
+  if (Array.isArray(keystrokeLog) && keystrokeLog.length >= 2) {
+    const valid = keystrokeLog.filter(k => !k.isBackspace);
+
+    // 1. Sliding 5-character cluster velocity
+    for (let i = 4; i < valid.length; i++) {
+      const windowKeystrokes = valid.slice(i - 4, i + 1);
+      const hasError = windowKeystrokes.some(k => k.isError);
+      if (!hasError) {
+        const dt = windowKeystrokes[4].time - windowKeystrokes[0].time;
+        if (dt >= 50) {
+          // 5 characters = 1 word
+          const instantaneousWpm = Math.round(60000 / dt);
+          if (instantaneousWpm > peakBurst && instantaneousWpm <= 350) {
+            peakBurst = instantaneousWpm;
+          }
+        }
+      }
+    }
+
+    // 2. Rolling 1000ms window
+    for (let i = 0; i < valid.length; i++) {
+      const tEnd = valid[i].time;
+      const tStart = tEnd - 1000;
+      let correctCount = 0;
+      for (let j = i; j >= 0; j--) {
+        if (valid[j].time < tStart) break;
+        if (!valid[j].isError) correctCount++;
+      }
+      const windowWpm = Math.round((correctCount / 5) * 60);
+      if (windowWpm > peakBurst && windowWpm <= 350) {
+        peakBurst = windowWpm;
+      }
+    }
+  }
+
+  // Fallback to timeline if keystroke log yielded 0
+  if (peakBurst === 0 && Array.isArray(timeline) && timeline.length > 0) {
+    const maxTimeline = Math.max(...timeline.map(p => p.wpm).filter(Number.isFinite));
+    peakBurst = Math.max(0, maxTimeline);
+  }
+
+  return Math.min(350, Math.max(0, peakBurst));
+}
+
+/**
+ * Calculates earned accolade badges from session performance.
+ */
+export function calculateAccolades(
+  accuracy: number,
+  flawlessStreak: number,
+  consistency: number,
+  totalWords: number,
+  rawErrors: number
+): AccoladeBadge[] {
+  const accolades: AccoladeBadge[] = [];
+
+  // 1. Flawless Execution (100% Accuracy, zero errors)
+  if (accuracy === 100 && rawErrors === 0 && totalWords >= 10) {
+    accolades.push({
+      id: 'flawless',
+      title: 'Flawless Execution',
+      description: 'Completed entire test with 100% accuracy and zero keystroke errors.',
+      icon: 'sparkles',
+      tier: 'apex',
+      xpBonusPct: 50,
+    });
+  }
+
+  // 2. Centurion Streak (100+ Combo)
+  if (flawlessStreak >= 100) {
+    accolades.push({
+      id: 'centurion_streak',
+      title: 'Centurion Streak',
+      description: 'Chained 100+ consecutive flawless keystrokes.',
+      icon: 'zap',
+      tier: 'diamond',
+      xpBonusPct: 30,
+    });
+  } else if (flawlessStreak >= 50) {
+    accolades.push({
+      id: 'half_centurion',
+      title: 'Combo Vanguard',
+      description: 'Chained 50+ consecutive flawless keystrokes.',
+      icon: 'zap',
+      tier: 'gold',
+      xpBonusPct: 15,
+    });
+  }
+
+  // 3. Surgical Precision (98%+ Accuracy on 25+ words)
+  if (accuracy >= 98 && totalWords >= 25) {
+    accolades.push({
+      id: 'surgical_precision',
+      title: 'Surgical Precision',
+      description: 'Maintained over 98% accuracy across a full test passage.',
+      icon: 'crosshair',
+      tier: 'gold',
+      xpBonusPct: 20,
+    });
+  }
+
+  // 4. Flow State (85%+ Rhythm Consistency)
+  if (consistency >= 85 && totalWords >= 15) {
+    accolades.push({
+      id: 'flow_state',
+      title: 'Flow State',
+      description: 'Maintained metronomic keystroke rhythm (85%+ consistency).',
+      icon: 'activity',
+      tier: 'silver',
+      xpBonusPct: 20,
+    });
+  }
+
+  return accolades;
+}
+
+/**
+ * Returns visual styling, labels, and theme glow metadata for a grade.
+ */
+export function getGradeDetails(grade: PerformanceGrade): GradeDetails {
+  return GRADE_DETAILS[grade] || GRADE_DETAILS['D'];
+}
+```
+
+---
+
+### 4.2 Integration Blueprint: `src/hooks/useTypingEngine.ts`
+
+1. **Import Scoring Engine**:
+   ```typescript
+   import { calculateCPI, calculateBurstWpm, type CPIBreakdown, type PerformanceGrade } from '@/lib/scoringEngine';
+   ```
+
+2. **Extend `TypingStats` Interface**:
+   ```typescript
+   export interface TypingStats {
+     currentWpm: number;
+     rawWpm: number;
+     currentAcc: number;
+     timeline: TimelinePoint[];
+     consistency: number;
+     flawless: number;
+     burstWpm: number;
+     cpi: number;
+     grade: PerformanceGrade;
+     cpiBreakdown?: CPIBreakdown;
+   }
+   ```
+
+3. **Incorporate `burstWpm` and `cpi` inside `calculateStats` and `finishTestImpl`**:
+   ```typescript
+   const burstWpm = calculateBurstWpm(entries, timeline);
+   const cpiBreakdown = calculateCPI(netCalc, currentAcc, localMaxStreak, consistencyScore, totalTyped);
+
+   return {
+     currentWpm: isNaN(netCalc) || netCalc < 0 ? 0 : netCalc,
+     rawWpm: isNaN(rawCalc) ? 0 : rawCalc,
+     currentAcc: isNaN(currentAcc) ? 100 : currentAcc,
+     timeline,
+     consistency: consistencyScore,
+     flawless: localMaxStreak,
+     burstWpm,
+     cpi: cpiBreakdown.cpi,
+     grade: cpiBreakdown.grade,
+     cpiBreakdown,
+   };
+   ```
+
+---
+
+### 4.3 Integration Blueprint: `src/components/ResultsScreen.tsx`
+
+1. **Import `calculateCPI`, `calculateAccolades`, `getGradeDetails`**:
+   ```typescript
+   import { calculateCPI, calculateBurstWpm, calculateAccolades, getGradeDetails, type PerformanceGrade } from '@/lib/scoringEngine';
+   ```
+
+2. **Replace Hardcoded Grade Logic**:
+   ```typescript
+   const cpiBreakdown = useMemo(() => {
+     const totalChars = safeKeystrokeLog.filter(k => !k.isBackspace).length;
+     return calculateCPI(wpm, accuracy, flawlessStreak, consistency, totalChars);
+   }, [wpm, accuracy, flawlessStreak, consistency, safeKeystrokeLog]);
+
+   const grade = cpiBreakdown.grade;
+   const gradeStyle = getGradeDetails(grade);
+   ```
+
+3. **Replace Hardcoded Grade Color with Dynamic Theme Compliant Styles**:
+   ```typescript
+   const gradeColor = gradeStyle.colorClass + ' ' + gradeStyle.glowClass;
+   ```
 
 ---
 
 ## 5. Verification Method
 
-### 5.1 Verification Commands
-From project root (`c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`):
-```bash
-# Check TypeScript compilation
-npm run build
+### 5.1 Unit Test Scenarios to Validate Implementation
 
-# Run development server to inspect visual alignment
-npm run dev
-```
+| # | Test Scenario | Input Parameters | Expected CPI | Expected Grade | Pass Condition |
+|---|---|---|---|---|---|
+| **T1** | **Precision Benchmark (Acceptance Criterion 1)** | `wpm: 40`, `acc: 100`, `streak: 200`, `cons: 85`, `chars: 200` | $\ge 85.0$ (Calculates to ~97.0) | `'S'` or `'A'` | Grade must **NOT** be `'C'` or `'D'`. |
+| **T2** | **Short Passage Flawless** | `wpm: 40`, `acc: 100`, `streak: 50`, `cons: 75`, `chars: 50` | $\ge 65.0$ (Calculates to ~85.0) | `'S'` or `'A'` | Evaluates to `'A'` or `'S'`. |
+| **T3** | **Grandmaster Speed & Accuracy** | `wpm: 125`, `acc: 99`, `streak: 300`, `cons: 92`, `chars: 300` | $\ge 140.0$ | `'S+'` | Returns `'S+'`. |
+| **T4** | **High Speed Masher (Low Accuracy)** | `wpm: 120`, `acc: 78`, `streak: 15`, `cons: 55`, `chars: 300` | $\le 45.0$ | `'C'` or `'D'` | High WPM is penalized down to C/D. |
+| **T5** | **Burst Velocity Window** | 5 keystrokes spaced by 50ms (equivalent to 240 WPM) | N/A | Burst $\approx 240$ WPM | `calculateBurstWpm` identifies peak instantaneous speed. |
+| **T6** | **Flawless Accolade Award** | `acc: 100`, `streak: 150`, `cons: 90`, `words: 30`, `errors: 0` | N/A | Accolades include `flawless`, `centurion_streak`, `surgical_precision`, `flow_state` | All 4 badges awarded. |
+| **T7** | **Zero/NaN Division Robustness** | `wpm: NaN`, `acc: -5`, `streak: 0`, `cons: NaN`, `chars: 0` | $0.0$ | `'D'` | No runtime errors or NaN outputs. |
 
-### 5.2 Specific Code Files & Lines to Inspect
-1. `src/components/academy/CyberHands.tsx`:
-   - Line 279: scale clamping formula.
-   - Line 277: rotation clamping formula.
-   - Lines 228–231: spacebar hand selection logic.
-   - Line 297: `zIndex` property on outer `div`.
-   - Lines 514–538: sonar ripple rendering logic.
-2. `src/components/academy/VirtualKeyboard.tsx`:
-   - Lines 8–13: `ROWS` definition (verify `;` inclusion).
-3. `src/components/academy/AcademyLayout.tsx`:
-   - Lines 273–281: container sizing and relative stacking order.
+---
 
-### 5.3 Invalidation Conditions
-The investigation findings are invalidated if:
-- `VirtualKeyboard` layout shifts from fixed pixel width (`552px`) to flex-fill without SVG coordinate recalculation.
-- Finger vector definitions in `LEFT_HOLOGRAM_FINGERS` / `RIGHT_HOLOGRAM_FINGERS` are modified without updating corresponding `KEY_MAP` home coordinates.
+## Conclusion
+The mathematical formulation and implementation blueprint for `src/lib/scoringEngine.ts` fully solves the core scoring engine requirements, guarantees that 40 WPM at 100% accuracy receives Grade A or S, and establishes clean TypeScript interfaces with zero circular dependencies.

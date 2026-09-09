@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Globe, LogIn, Loader2, Trophy, Users, EyeOff } from 'lucide-react';
+import { Globe, LogIn, Loader2, Trophy, Users, EyeOff, RotateCw, Radio, Play } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { OpenRoom } from '@/hooks/useRoomDirectory';
-import { hoverRow, iconPop, listParent, reveal, rowChild, shellIn, springSnappy, tapPress } from '@/lib/motion';
+import { iconPop, listParent, reveal, rowChild, shellIn, springSnappy, tapPress } from '@/lib/motion';
 
 interface RoomBrowserProps {
     theme: Theme;
@@ -28,6 +28,10 @@ interface RoomBrowserProps {
     listPublicly: boolean;
     onToggleListPublicly: () => void;
     onJoin: (code: string) => void;
+    /** Trigger re-scanning presence directory. */
+    onRefresh?: () => void;
+    /** Quick-action to open a public room from the empty state. */
+    onHostPublicRoom?: () => void;
 }
 
 /** How many placeholder rows to draw while the directory connects. */
@@ -56,14 +60,16 @@ interface RoomRowProps {
 const RoomRow: React.FC<RoomRowProps> = ({ room, theme, reduce, disabled, joining, onJoin }) => (
     <motion.li
         variants={reduce ? undefined : rowChild}
-        whileHover={hoverRow(reduce)}
-        className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border transition-colors ${joining
+        className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border transition-colors duration-150 ${joining
             ? 'bg-white/[0.07] border-white/25'
-            : 'bg-white/[0.04] border-white/10 hover:border-white/25'
+            : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 hover:border-white/25'
             }`}
     >
         <div className="flex items-center gap-3 min-w-0">
-            <span className={`font-mono text-base font-black tracking-[0.2em] ${theme?.text || 'text-cyan-400'}`}>
+            <span
+                className="font-mono text-base font-black tracking-[0.2em]"
+                style={{ color: `rgb(${theme.glowPrimary})` }}
+            >
                 {room.code}
             </span>
             <div className="flex flex-col min-w-0">
@@ -93,6 +99,12 @@ const RoomRow: React.FC<RoomRowProps> = ({ room, theme, reduce, disabled, joinin
                 aria-label={`Join room ${room.code}`}
                 whileHover={disabled ? undefined : (reduce ? undefined : { scale: 1.06, transition: springSnappy })}
                 whileTap={disabled ? undefined : tapPress(reduce, 0.95)}
+                style={joining ? {
+                    backgroundColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                    borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                    color: `rgb(${theme.glowPrimary})`,
+                    boxShadow: `0 0 12px -2px rgba(${theme.glowPrimary}, 0.3)`
+                } : undefined}
                 className="min-h-[40px] px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-mono text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
                 {joining
@@ -129,9 +141,19 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
     listPublicly,
     onToggleListPublicly,
     onJoin,
+    onRefresh,
+    onHostPublicRoom,
 }) => {
     const reduce = useReducedMotion();
     const connecting = !connected && rooms.length === 0;
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefresh = () => {
+        if (isRefreshing) return;
+        setIsRefreshing(true);
+        onRefresh?.();
+        setTimeout(() => setIsRefreshing(false), 600);
+    };
 
     return (
         <motion.section
@@ -149,74 +171,162 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                         <Globe size={16} aria-hidden="true" />
                     </motion.div>
                     <div className="flex flex-col">
-                        <h3 className="font-mono text-xs font-black uppercase tracking-widest text-white">
-                            Open rooms
-                            <motion.span
-                                key={connecting ? 'connecting' : rooms.length}
-                                initial={reduce ? false : { scale: 1.3, opacity: 0.5 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={springSnappy}
-                                className="ml-2 inline-block font-bold text-[9px] text-zinc-200 bg-white/10 border border-white/15 px-1.5 py-0.5 rounded normal-case tracking-normal"
-                            >
-                                {connecting ? 'connecting…' : `${rooms.length} live`}
-                            </motion.span>
-                        </h3>
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-mono text-xs font-black uppercase tracking-widest text-white">
+                                Open rooms
+                            </h3>
+                            {connecting ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-white/5 border border-white/10 text-zinc-300 normal-case tracking-normal">
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span
+                                            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                                            style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                                        />
+                                        <span
+                                            className="relative inline-flex rounded-full h-1.5 w-1.5"
+                                            style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                                        />
+                                    </span>
+                                    Scanning…
+                                </span>
+                            ) : rooms.length > 0 ? (
+                                <span
+                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold border normal-case tracking-normal"
+                                    style={{
+                                        backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                                        borderColor: `rgba(${theme.glowPrimary}, 0.35)`,
+                                        color: `rgb(${theme.glowPrimary})`,
+                                        boxShadow: `0 0 12px -2px rgba(${theme.glowPrimary}, 0.25)`
+                                    }}
+                                >
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span
+                                            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                                            style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                                        />
+                                        <span
+                                            className="relative inline-flex rounded-full h-1.5 w-1.5"
+                                            style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                                        />
+                                    </span>
+                                    {rooms.length} Live
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-white/5 border border-white/10 text-zinc-400 normal-case tracking-normal">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
+                                    0 Live
+                                </span>
+                            )}
+                        </div>
                         <span className="font-mono text-[10px] text-zinc-400">Jump straight into a room somebody left open</span>
                     </div>
                 </div>
 
-                {/* Publicity is the host's call, so it's stated plainly rather than
-                    buried in settings. Challenge and quick-match rooms are never
-                    advertised regardless of this switch. */}
-                <motion.button
-                    type="button"
-                    onClick={onToggleListPublicly}
-                    aria-pressed={listPublicly}
-                    whileHover={reduce ? undefined : { scale: 1.04, transition: springSnappy }}
-                    whileTap={tapPress(reduce)}
-                    className={`min-h-[40px] px-3 py-2 rounded-xl border font-mono text-[10px] font-black uppercase tracking-widest transition-colors cursor-pointer flex items-center gap-2 ${listPublicly
-                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-200'
-                        : 'bg-white/[0.06] border-white/15 text-zinc-300 hover:text-white hover:border-white/30'
-                        }`}
-                    title="Whether rooms you host appear in this list"
-                >
-                    {listPublicly ? <Globe size={12} aria-hidden="true" /> : <EyeOff size={12} aria-hidden="true" />}
-                    {listPublicly ? 'My rooms are listed' : 'My rooms are private'}
-                </motion.button>
+                <div className="flex items-center gap-2">
+                    {onRefresh && (
+                        <motion.button
+                            type="button"
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            whileHover={reduce ? undefined : { scale: 1.05 }}
+                            whileTap={tapPress(reduce, 0.95)}
+                            className="p-2.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/15 text-zinc-300 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                            title="Re-scan rooms"
+                            aria-label="Re-scan public rooms"
+                        >
+                            <RotateCw size={13} className={isRefreshing ? 'animate-spin' : ''} aria-hidden="true" />
+                        </motion.button>
+                    )}
+
+                    {/* Publicity is the host's call, styled with dynamic theme colors */}
+                    <motion.button
+                        type="button"
+                        onClick={onToggleListPublicly}
+                        aria-pressed={listPublicly}
+                        whileHover={reduce ? undefined : { scale: 1.03, transition: springSnappy }}
+                        whileTap={tapPress(reduce, 0.96)}
+                        style={listPublicly ? {
+                            backgroundColor: `rgba(${theme.glowPrimary}, 0.16)`,
+                            borderColor: `rgba(${theme.glowPrimary}, 0.45)`,
+                            color: `rgb(${theme.glowPrimary})`,
+                            boxShadow: `0 0 16px -2px rgba(${theme.glowPrimary}, 0.25)`
+                        } : undefined}
+                        className={`min-h-[38px] px-3 py-2 rounded-xl border font-mono text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 ${listPublicly
+                            ? ''
+                            : 'bg-white/[0.06] border-white/15 text-zinc-300 hover:text-white hover:border-white/30'
+                            }`}
+                        title="Whether rooms you host appear in this list"
+                    >
+                        {listPublicly ? (
+                            <Radio size={12} className="animate-pulse" aria-hidden="true" />
+                        ) : (
+                            <EyeOff size={12} aria-hidden="true" />
+                        )}
+                        {listPublicly ? 'My rooms are listed' : 'My rooms are private'}
+                    </motion.button>
+                </div>
             </div>
 
-
-            {/* ── List ──
-                Three states, not two. `rooms.length === 0` used to mean "the
-                arena is empty", but it is equally true while the Realtime
-                channel is still subscribing, so the panel confidently reported
-                an empty arena before it had finished asking. */}
+            {/* ── List ── */}
             {connecting ? (
                 <ul aria-busy="true" aria-label="Loading rooms" className="flex flex-col gap-2">
                     {Array.from({ length: SKELETON_ROWS }, (_, i) => (
                         <li
                             key={i}
-                            className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.07]"
+                            className="flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.08] animate-pulse"
                         >
                             <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className={`h-4 w-[5.5rem] rounded bg-white/10 ${reduce ? '' : 'animate-pulse'}`} />
+                                <div className="h-5 w-20 rounded-md bg-white/10" />
                                 <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                                    <div className={`h-2.5 w-24 rounded bg-white/[0.07] ${reduce ? '' : 'animate-pulse'}`} />
-                                    <div className={`h-2 w-16 rounded bg-white/[0.05] ${reduce ? '' : 'animate-pulse'}`} />
+                                    <div className="h-3 w-28 rounded bg-white/[0.07]" />
+                                    <div className="h-2.5 w-20 rounded bg-white/[0.04]" />
                                 </div>
                             </div>
-                            <div className={`h-8 w-16 rounded-xl bg-white/[0.06] ${reduce ? '' : 'animate-pulse'}`} />
+                            <div className="h-8 w-16 rounded-xl bg-white/[0.06]" />
                         </li>
                     ))}
                 </ul>
             ) : rooms.length === 0 ? (
                 <motion.div
-                    initial={reduce ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="font-mono text-[11px] text-zinc-300 px-4 py-4 rounded-xl bg-black/30 border border-white/[0.08] text-center flex flex-col items-center gap-1.5"
+                    initial={reduce ? false : { opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={springSnappy}
+                    className="font-mono px-4 py-4 rounded-xl bg-black/30 border border-white/[0.08] text-center flex flex-col items-center justify-center gap-1.5 relative overflow-hidden"
                 >
-                    <span className="text-zinc-200 font-bold">No active public rooms right now</span>
-                    <span className="text-zinc-400 text-[10px]">Host one yourself — with listing on, it shows up here for everyone the moment it opens.</span>
+                    {/* Radar pulse beacon */}
+                    <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white/[0.04] border border-white/10 mb-0.5">
+                        <div
+                            className="absolute inset-0 rounded-full animate-ping opacity-25"
+                            style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                        />
+                        <Radio size={17} style={{ color: `rgb(${theme.glowPrimary})` }} aria-hidden="true" />
+                    </div>
+
+                    <span className="text-zinc-200 font-bold text-xs tracking-wide">
+                        No active public rooms right now
+                    </span>
+                    <span className="text-zinc-400 text-[10px] max-w-[280px] leading-relaxed">
+                        Host one yourself — with public listing enabled, your lobby broadcasts here in real time.
+                    </span>
+
+                    {onHostPublicRoom && (
+                        <motion.button
+                            type="button"
+                            onClick={onHostPublicRoom}
+                            whileHover={reduce ? undefined : { scale: 1.04 }}
+                            whileTap={tapPress(reduce, 0.96)}
+                            style={{
+                                backgroundColor: `rgba(${theme.glowPrimary}, 0.16)`,
+                                borderColor: `rgba(${theme.glowPrimary}, 0.45)`,
+                                color: `rgb(${theme.glowPrimary})`,
+                                boxShadow: `0 0 16px -2px rgba(${theme.glowPrimary}, 0.25)`
+                            }}
+                            className="mt-1 min-h-[36px] px-3.5 py-1.5 rounded-xl border font-mono text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
+                        >
+                            <Play size={11} className="fill-current" aria-hidden="true" />
+                            Host a Public Room
+                        </motion.button>
+                    )}
                 </motion.div>
             ) : (
                 <motion.ul
@@ -224,7 +334,6 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                     className="flex flex-col gap-2"
                 >
                     {rooms.map((room) => {
-                        /* Only the row you actually clicked reports progress. */
                         const isJoiningThis = joiningCode === room.code;
                         const rowDisabled = busy || isJoiningThis;
 

@@ -199,7 +199,23 @@ const CosmicLiquidShader: React.FC<CosmicLiquidShaderProps> = ({ theme, isPaused
   const timeRef = useRef(0);
   const isHiddenRef = useRef(false);
   const isPausedRef = useRef(isPaused);
-  isPausedRef.current = isPaused;
+  const renderRef = useRef<((now: number) => void) | null>(null);
+  const lastTimeRef = useRef(performance.now());
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+    if (isPaused) {
+      if (animationRef.current !== undefined) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
+      }
+    } else {
+      if (animationRef.current === undefined && !isHiddenRef.current && renderRef.current) {
+        lastTimeRef.current = performance.now();
+        animationRef.current = requestAnimationFrame(renderRef.current);
+      }
+    }
+  }, [isPaused]);
   const shaderSettingsRef = useRef({
     mode: 0,
     speedMultiplier: 1.0,
@@ -327,17 +343,24 @@ const CosmicLiquidShader: React.FC<CosmicLiquidShaderProps> = ({ theme, isPaused
       return (1 - amt) * start + amt * end;
     };
 
-    let lastTime = performance.now();
+    let lastRenderTimestamp = 0;
+    // Cap ambient shader rendering at ~45 FPS to prevent GPU fill-rate saturation on 120/144Hz monitors
+    const MIN_FRAME_INTERVAL_MS = 22;
 
     const render = (now: number) => {
+      animationRef.current = undefined;
       if (isHiddenRef.current || isPausedRef.current) {
-        lastTime = performance.now();
+        return;
+      }
+
+      if (now - lastRenderTimestamp < MIN_FRAME_INTERVAL_MS) {
         animationRef.current = requestAnimationFrame(render);
         return;
       }
+      lastRenderTimestamp = now;
       
-      const dt = Math.min(now - lastTime, 100);
-      lastTime = now;
+      const dt = Math.min(now - lastTimeRef.current, 100);
+      lastTimeRef.current = now;
       timeRef.current += dt * 0.001 * shaderSettingsRef.current.speedMultiplier;
 
       // Lerp colors
@@ -375,7 +398,12 @@ const CosmicLiquidShader: React.FC<CosmicLiquidShaderProps> = ({ theme, isPaused
       animationRef.current = requestAnimationFrame(render);
     };
 
-    animationRef.current = requestAnimationFrame(render);
+    renderRef.current = render;
+
+    if (!isPausedRef.current && !isHiddenRef.current) {
+      lastTimeRef.current = performance.now();
+      animationRef.current = requestAnimationFrame(render);
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       mouseRef.current.x = e.clientX;
@@ -386,16 +414,26 @@ const CosmicLiquidShader: React.FC<CosmicLiquidShaderProps> = ({ theme, isPaused
 
     const handleVisibilityChange = () => {
       isHiddenRef.current = document.hidden;
-      if (!document.hidden) {
-        lastTime = performance.now();
+      if (document.hidden) {
+        if (animationRef.current !== undefined) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = undefined;
+        }
+      } else {
+        if (animationRef.current === undefined && !isPausedRef.current && renderRef.current) {
+          lastTimeRef.current = performance.now();
+          animationRef.current = requestAnimationFrame(renderRef.current);
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (animationRef.current) {
+      renderRef.current = null;
+      if (animationRef.current !== undefined) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
       }
       window.removeEventListener('resize', syncSize);
       window.removeEventListener('mousemove', handleMouseMove);

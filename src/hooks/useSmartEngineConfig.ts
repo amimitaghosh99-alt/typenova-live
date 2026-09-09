@@ -1,5 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
-import { AI_KEYS, PROVIDER_PRESETS, DEFAULT_BASE_URL, DEFAULT_MODEL } from '@/lib/aiClient';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  AI_KEYS,
+  PROVIDER_PRESETS,
+  DEFAULT_BASE_URL,
+  DEFAULT_MODEL,
+  getAruPersona,
+  setAruPersona as saveAruPersona,
+  getAruDebriefPolicy,
+  setAruDebriefPolicy as saveAruDebriefPolicy,
+  getEngineTierStatus,
+  chatCompletion,
+  type AruPersona,
+  type DebriefPolicy,
+  type EngineTierStatus,
+} from '@/lib/aiClient';
 
 export interface SmartEngineConfig {
   byokKey: string;
@@ -18,7 +32,15 @@ export interface SmartEngineConfig {
   connectionError: string;
   availableModels: string[];
   workingModels: string[];
+  latencyMs: number | null;
+  isAutoFetching: boolean;
+  persona: AruPersona;
+  setPersona: (p: AruPersona) => void;
+  debriefPolicy: DebriefPolicy;
+  setDebriefPolicy: (p: DebriefPolicy) => void;
+  engineTier: EngineTierStatus;
   testConnection: (keyToUse?: string, urlToUse?: string) => Promise<void>;
+  triggerAruPing: () => Promise<{ success: boolean; latency: number; reply: string }>;
   handleProviderSelect: (id: string) => void;
   handleKeyChange: (val: string) => void;
   handleModelChange: (val: string) => void;
@@ -50,10 +72,33 @@ export function useSmartEngineConfig(): SmartEngineConfig {
     };
   }, []);
 
+  const [persona, setPersonaState] = useState<AruPersona>(() => getAruPersona());
+  const [debriefPolicy, setDebriefPolicyState] = useState<DebriefPolicy>(() => getAruDebriefPolicy());
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [isAutoFetching, setIsAutoFetching] = useState(false);
+
+  const setPersona = useCallback((p: AruPersona) => {
+    setPersonaState(p);
+    saveAruPersona(p);
+  }, []);
+
+  const setDebriefPolicy = useCallback((p: DebriefPolicy) => {
+    setDebriefPolicyState(p);
+    saveAruDebriefPolicy(p);
+  }, []);
+
+  const engineTier = getEngineTierStatus();
+
   const testConnection = async (keyToUse = byokKey, urlToUse = byokUrl) => {
-    if (!keyToUse.trim()) return;
+    if (!keyToUse.trim()) {
+      setConnectionStatus('idle');
+      setIsAutoFetching(false);
+      return;
+    }
     setConnectionStatus('testing');
+    setIsAutoFetching(true);
     setConnectionError('');
+    const startTime = performance.now();
     try {
       const baseUrl = urlToUse.replace(/\/chat\/completions\/?$/, '').replace(/\/models\/?$/, '');
       const endpoint = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
@@ -65,6 +110,9 @@ export function useSmartEngineConfig(): SmartEngineConfig {
           'Content-Type': 'application/json'
         }
       });
+
+      const elapsed = Math.round(performance.now() - startTime);
+      setLatencyMs(elapsed);
 
       if (!response.ok) {
         let errData = 'API Error';
@@ -80,8 +128,30 @@ export function useSmartEngineConfig(): SmartEngineConfig {
       const data = await response.json();
       if (data && data.data && Array.isArray(data.data)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const models: string[] = data.data.map((m: any) => m.id);
+        const rawModels: string[] = data.data.map((m: any) => m.id);
         
+        // Filter out non-chat / guardrail-only / embedding models
+        const chatModels = rawModels.filter(m => 
+          !m.includes('prompt-guard') && 
+          !m.includes('safeguard') && 
+          !m.includes('whisper') && 
+          !m.includes('embedding')
+        );
+        const models = chatModels.length > 0 ? chatModels : rawModels;
+
+        // Preferred chat models in order of performance & priority
+        const PREFERRED_CHAT_MODELS = [
+          'groq/compound-mini',
+          'groq/compound',
+          'qwen/qwen3.8-27b',
+          'qwen/qwen3.6-27b',
+          'openai/gpt-oss-120b',
+          'openai/gpt-oss-20b',
+          'llama-3.3-70b-versatile',
+          'llama-3.1-8b-instant',
+          'allam-2-7b',
+        ];
+
         let working: string[] = [];
         try {
           working = JSON.parse(localStorage.getItem(AI_KEYS.workingModels) || '[]');
@@ -89,6 +159,12 @@ export function useSmartEngineConfig(): SmartEngineConfig {
         } catch { /* ignore */ }
 
         models.sort((a, b) => {
+          const aPref = PREFERRED_CHAT_MODELS.indexOf(a);
+          const bPref = PREFERRED_CHAT_MODELS.indexOf(b);
+          if (aPref !== -1 && bPref !== -1) return aPref - bPref;
+          if (aPref !== -1) return -1;
+          if (bPref !== -1) return 1;
+
           const aIdx = working.indexOf(a);
           const bIdx = working.indexOf(b);
           if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
@@ -99,6 +175,14 @@ export function useSmartEngineConfig(): SmartEngineConfig {
 
         setAvailableModels(models);
         setConnectionStatus('success');
+
+        // Auto-select best model if current byokModel is invalid or not in available models
+        const currentModel = localStorage.getItem(AI_KEYS.byokModel) || byokModel;
+        if (!currentModel || !models.includes(currentModel)) {
+          const bestModel = models[0] || 'groq/compound-mini';
+          setByokModel(bestModel);
+          localStorage.setItem(AI_KEYS.byokModel, bestModel);
+        }
       } else {
         throw new Error('Invalid response format');
       }
@@ -106,8 +190,26 @@ export function useSmartEngineConfig(): SmartEngineConfig {
     } catch (err: any) {
       setConnectionStatus('error');
       setConnectionError(err.message || 'Connection failed');
+    } finally {
+      setIsAutoFetching(false);
     }
   };
+
+  const triggerAruPing = useCallback(async () => {
+    const start = performance.now();
+    try {
+      const res = await chatCompletion([
+        { role: 'user', content: 'Say "Aru Neural Core is calibrated and online!" in exactly 7 words.' }
+      ], { maxTokens: 25 });
+      const lat = Math.round(performance.now() - start);
+      setLatencyMs(lat);
+      return { success: true, latency: lat, reply: res.text.trim() };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      const lat = Math.round(performance.now() - start);
+      return { success: false, latency: lat, reply: e?.message || 'Inference failed' };
+    }
+  }, []);
 
   useEffect(() => {
     if (!byokKey.trim()) {
@@ -116,7 +218,7 @@ export function useSmartEngineConfig(): SmartEngineConfig {
     }
     const timer = setTimeout(() => {
       testConnection(byokKey, byokUrl);
-    }, 800);
+    }, 450);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [byokKey, byokUrl]);
@@ -161,6 +263,7 @@ export function useSmartEngineConfig(): SmartEngineConfig {
       glowTimeoutRef.current = setTimeout(() => setShowGlow(false), 1500);
     }
   };
+
   const handleModelChange = (val: string) => {
     setByokModel(val);
     localStorage.setItem(AI_KEYS.byokModel, val);
@@ -183,7 +286,15 @@ export function useSmartEngineConfig(): SmartEngineConfig {
     connectionError,
     availableModels,
     workingModels,
+    latencyMs,
+    isAutoFetching,
+    persona,
+    setPersona,
+    debriefPolicy,
+    setDebriefPolicy,
+    engineTier,
     testConnection,
+    triggerAruPing,
     handleProviderSelect,
     handleKeyChange,
     handleModelChange

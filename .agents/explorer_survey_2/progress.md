@@ -1,13 +1,12 @@
-# Progress - Explorer 2 (WebGL, 3D KineticKeyboard, Shader & rAF Investigator)
+# Progress — Explorer Survey 2
 
-- Last visited: 2026-08-14T14:00:00Z
-- Status: Initializing survey of 3D, canvas, shaders, and animation systems
-- Tasks:
-  - [x] Initialized DISPATCH.md and BRIEFING.md
-  - [ ] Read ORIGINAL_REQUEST.md
-  - [ ] Map all Three.js / WebGL / Canvas / Shader / rAF components in codebase
-  - [ ] Inspect KineticKeyboard implementation and performance bottlenecks
-  - [ ] Inspect Particle systems and background canvas effects
-  - [ ] Inspect custom animation hooks, rAF loops, resize/event listeners
-  - [ ] Analyze resource disposal and WebGL memory leak risks
-  - [ ] Synthesize findings and write analysis.md and handoff.md
+**Last visited**: 2026-09-01T01:48:30Z
+**Status**: Investigation complete. Synthesizing findings into handoff.md.
+
+## Steps
+- [x] 1. Discover XP calculation, progression store, level curves, rank/tier definitions, achievements/unlocks.
+- [x] 2. Discover Results screen component structure, XP animation/breakdown, accolades/badges, and Ghost Net comparison logic.
+- [x] 3. Analyze precision/streak multiplier formulas and integration points for R2.
+- [x] 4. Analyze accolades, XP breakdown UI, and Ghost Net precision delta requirements for R3.
+- [ ] 5. Synthesize findings and write comprehensive `handoff.md`.
+- [ ] 6. Send message to orchestrator.

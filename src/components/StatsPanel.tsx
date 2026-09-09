@@ -100,11 +100,32 @@ export const StatsPanel = memo<StatsPanelProps>(
         </div>
 
         {/* 5. COMBO */}
-        <div className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`} style={{ '--delay': '320ms' } as React.CSSProperties}>
+        <div
+          className={`stat-card glass-panel p-5 md:p-6 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300 ${isIdle ? 'border-transparent' : ''}`}
+          style={{
+            '--delay': '320ms',
+            borderColor: combo >= 50 ? 'rgba(255, 255, 255, 0.25)' : undefined,
+          } as React.CSSProperties}
+        >
           <span className="text-zinc-300 text-[10px] font-black tracking-widest mb-3 flex items-center drop-shadow-md z-10 uppercase font-display">
-            <Flame size={14} className="mr-2" /> Combo
+            <Flame
+              size={14}
+              className={`mr-2 transition-all duration-300 ${
+                combo >= 50 ? `${themeText} animate-pulse drop-shadow-[0_0_8px_currentColor]`
+                : combo > 0 ? `${themeText} drop-shadow-[0_0_4px_currentColor]`
+                : 'text-zinc-400'
+              }`}
+            />
+            Combo
           </span>
-          <span className={`text-5xl md:text-6xl font-black leading-none transition-all z-10 font-display ${combo > 20 ? `${themeText} drop-shadow-[0_0_20px_currentColor] scale-110` : 'text-white/20'}`}>
+          <span className={`text-5xl md:text-6xl font-black leading-none transition-all duration-200 z-10 font-display ${
+            combo >= 200 ? `${themeText} drop-shadow-[0_0_25px_currentColor] scale-110`
+            : combo >= 100 ? `${themeText} drop-shadow-[0_0_20px_currentColor] scale-105`
+            : combo >= 50 ? `${themeText} drop-shadow-[0_0_15px_currentColor] scale-105`
+            : combo > 20 ? `${themeText} drop-shadow-[0_0_12px_currentColor]`
+            : combo > 0 ? 'text-zinc-100 drop-shadow-md'
+            : 'text-white/20'
+          }`}>
             {combo}
           </span>
         </div>

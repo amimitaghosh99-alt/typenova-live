@@ -263,7 +263,7 @@ export const SocialModal = React.memo(({ theme, onClose, friendsState, onChallen
                     className="w-full mt-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-orange-500 text-white font-black text-xs tracking-wider shadow-[0_0_15px_rgba(244,63,94,0.3)] hover:scale-[1.02] active:scale-100 transition-all flex items-center justify-center gap-2"
                   >
                     <Swords size={15} />
-                    SEND CHALLENGE ⚔️
+                    SEND CHALLENGE
                   </button>
                 </div>
               )}

@@ -11,7 +11,7 @@ interface PostMatchChatProps {
   onSendMessage: (text: string) => void;
 }
 
-const PRESET_MESSAGES = ['gg', 'Rematch?', 'So close!', 'My keyboard lagged!'] as const;
+const PRESET_MESSAGES = ['GG', 'Rematch?', 'Run it back!', 'So close!', 'Clean run!', 'Well played'] as const;
 
 const PLAYER_COLORS = [
   { text: '#22d3ee', bg: 'rgba(34, 211, 238, 0.1)', border: 'rgba(34, 211, 238, 0.3)' }, // Player 1 (Cyan)

@@ -1,45 +1,49 @@
-# BRIEFING — 2026-08-14T14:26:50Z
+# BRIEFING — 2026-08-31T20:45:00Z
 
 ## Mission
-Empirically challenge Milestone 1 changes (Dead Code Removal) by running build, tests, dynamic import stress-tests, verifying dead file removals, and hunting for regressions.
+Adversarially stress test Milestone 1 implementation of `calculateCPI`, `evaluateGrade`, and `calculateBurstWpm` in `src/lib/scoringEngine.ts`. Find failure modes, chaotic edge cases, NaN leaks, negative or boundary anomalies, and deliver an empirical verdict.
 
 ## 🔒 My Identity
-- Archetype: challenger
+- Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_1
-- Original parent: 412c889d-1ef7-4df9-b65e-a77c07bb1031
-- Milestone: milestone_1
+- Original parent: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Milestone: Milestone 1 (Core Scoring & Grading Engine)
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify implementation code (do not fix worker code directly)
-- Empirical verification — must execute tests, dynamic imports, and verification code directly
-- Adversarial mindset — find potential broken contracts, unhandled runtime imports, or side effects
+- Review-only — do NOT modify implementation code directly; report bugs empirically.
+- Empirical rigor: write and run real stress test harnesses using tsx / vitest / node.
+- Write metadata strictly in `.agents/challenger_m1_1/` (tests placed in `src/tests/`).
+- Handoff report in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_1\handoff.md`.
 
 ## Current Parent
-- Conversation ID: 412c889d-1ef7-4df9-b65e-a77c07bb1031
-- Updated: 2026-08-14T14:26:50Z
+- Conversation ID: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Updated: 2026-08-31T20:45:00Z
 
 ## Review Scope
-- **Files to review**: Deleted files (`src/utils/audio.ts`, `src/components/SplashCursor.tsx`), modified files in Milestone 1 (App.tsx, RaceResultsScreen.tsx, AIChatBot.tsx, AccountMenu.tsx, SupportTechnician.tsx, useSmartEngineConfig.ts, constants.ts, useRPGSystem.ts, BlurText.tsx, bg-animate-button.tsx, starfield-background.tsx, customization.ts, aiClient.ts, consent.ts, technicianBrain.ts, CyberHands.tsx, SettingsModal.tsx, StatsDashboard.tsx, shareCard.ts, useQuests.ts, progress.ts)
-- **Interface contracts**: TypeScript typecheck, build pipeline (`npm run build`), test suite, dynamic import resolution, runtime bundle integrity
-- **Review criteria**: No broken dynamic/runtime imports, no missing exports required by other modules, clean build & preview, verification of orphaned status of deleted files
+- **Files to review**: `src/lib/scoringEngine.ts`, `src/hooks/useTypingEngine.ts`, `src/tests/scoringEngine.test.ts`, `src/tests/scoringOracle.ts`
+- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md`, `worker_m1_1/handoff.md`
+- **Review criteria**: mathematical soundness, IEEE 754 precision underflow, NaN immunity, extreme value bounding, monotonic grade transitions, edge cases.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - H1: Are there dynamic `import()` or string-based references to `src/utils/audio.ts` or `src/components/SplashCursor.tsx`? -> **Verified Clean (0 references)**
-  - H2: Did removing duplicate default exports (`BlurText`, `BgAnimateButton`, `StarfieldBackground`) break any default `import Foo from ...` statements? -> **Verified Clean (only named imports were used)**
-  - H3: Did localizing symbols (`FALLBACK_LIMITS`, `MASTER_SNIPPETS`, `PREMIUM_BANNERS`, etc.) break any external consumer or test? -> **Verified Clean (0 external usages across all 18 symbols)**
-  - H4: Does `npm run build` pass without error? -> **Verified Clean (Exit code 0, 19.60s build)**
-  - H5: Did removing `roomSize` from `RaceResultsScreenProps` or `App.tsx` cause prop type mismatch or broken UI telemetry? -> **Verified Clean**
-  - H6: Did replacing `getTodayString()` with `todayKey()` in `useQuests.ts` introduce date format differences? -> **Verified Clean (exact `YYYY-MM-DD` match with seeded random & streak keys)**
-- **Vulnerabilities found**: None in Milestone 1 changes.
-- **Untested angles**: All Milestone 1 touchpoints fully verified.
+  1. High speed / 100% accuracy R1 condition holds (VERIFIED PASS: 40 WPM @ 100% Acc evaluates to S/S+, never C/D).
+  2. Grade monotonicity across CPI and Accuracy spectrum (VERIFIED PASS).
+  3. Chaotic keystrokes & burst WPM sliding windows (VERIFIED PASS for ordering and large logs).
+  4. IEEE 754 float precision during XP progression multiplier calculation (FAILED: `Math.floor` truncates `459.99999999999994` to 459 instead of 460).
+  5. NaN input bypass in `calculateXPProgression` guard (FAILED: `NaN <= 10` evaluates to false, producing NaN baseXp/totalXp).
+  6. Timeline NaN propagation in `calculateBurstWpm` fallback (FAILED: `Math.max(0, NaN)` produces NaN).
+  7. Unbounded `Infinity` in `calculateCPI` (FAILED: `isNaN(Infinity)` evaluates to false, producing Infinity CPI).
+- **Vulnerabilities found**: 4 concrete bugs identified in `src/lib/scoringEngine.ts` and `src/tests/scoringOracle.ts`.
+- **Untested angles**: None within Milestone 1 scope.
 
 ## Key Decisions Made
-- Executed empirical verification suite: `npx tsc --noEmit` (0 errors), `npm run build` (0 errors), preview server response validation, and exhaustive symbol grep sweeps.
-- Confirmed verdict PASS in `handoff.md`.
+- Verdict: **REQUEST_CHANGES** due to 4 reproducible bugs.
+- Generated empirical test harness `src/tests/challenger_m1_stress.test.ts` and runner `src/tests/run_challenger_stress.ts`.
 
 ## Artifact Index
-- `.agents/challenger_m1_1/handoff.md` — Final empirical challenge verdict report
-- `.agents/challenger_m1_1/progress.md` — Liveness & progress heartbeat
+- `.agents/challenger_m1_1/progress.md` — Liveness & heartbeat
+- `.agents/challenger_m1_1/handoff.md` — Final verdict & 5-component handoff report
+- `src/tests/challenger_m1_stress.test.ts` — Adversarial stress test harness
+- `src/tests/run_challenger_stress.ts` — Standalone test runner

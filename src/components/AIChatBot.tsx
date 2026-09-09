@@ -1,9 +1,9 @@
 import { memo, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Send, Bot, Sparkles, Square, Copy, Check, Trash2, Target, KeyRound, RotateCcw, Wrench, AlertTriangle, Settings, ChevronDown, Loader2, Zap } from 'lucide-react';
+import { X, Send, Bot, Sparkles, Square, Copy, Check, Trash2, Target, RotateCcw, Wrench, AlertTriangle, Settings, ChevronDown, Zap, Play, Crosshair, Activity, Terminal } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
-import { chatCompletion, MissingKeyError, hasAIKey, hasNativeAI, PROVIDER_PRESETS, type ChatMessage } from '@/lib/aiClient';
+import { chatCompletion, hasAIKey, hasNativeAI, PROVIDER_PRESETS, getAruPersona, setAruPersona, ARU_PERSONAS, type AruPersona, type ChatMessage } from '@/lib/aiClient';
 import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
 import { SupportTechnician } from '@/components/SupportTechnician';
 import type { Theme } from '@/data/constants';
@@ -31,6 +31,13 @@ export interface AruStats {
   streak?: number;
   weakKeys?: AruWeakKey[];
 }
+
+const PERSONA_ICONS: Record<AruPersona, typeof Crosshair> = {
+  tactical: Crosshair,
+  zen: Activity,
+  cyberpunk: Terminal,
+  hype: Zap,
+};
 
 interface AIChatBotProps {
   /** Live snapshot of the player so Aru can coach on real numbers. */
@@ -61,14 +68,38 @@ const STARTERS = [
   'Can you search the web for some good mechanical keyboards?',
 ];
 
-const BASE_PROMPT = `You are Aru, an intelligent, unrestricted AI assistant inside TypeNova. You can answer ANY question about ANY topic, and you are encouraged to provide relevant URLs and links to external resources.
+export interface ParsedAruAction {
+  type: 'drill' | 'settings';
+  param: string;
+}
 
-CRITICAL RULE: If the user asks a general question, just answer it directly. Do NOT bring up typing, WPM, coaching, or TypeNova unless the user specifically asks about typing or their stats.
+export function extractAruActions(text: string): { cleanText: string; actions: ParsedAruAction[] } {
+  const actions: ParsedAruAction[] = [];
+  const cleanText = text.replace(/\[\[\s*action\s*:\s*([a-z_]+)\s*(?::\s*([^\]]*?))?\s*\]\]/gi, (_, actionType, param) => {
+    if (actionType === 'drill' || actionType === 'settings') {
+      actions.push({ type: actionType, param: (param || '').trim() });
+    }
+    return '';
+  }).trim();
+  return { cleanText, actions };
+}
 
-When the user DOES ask for typing advice, act as a professional typing coach. Be concise — a few sentences or a short list. Use markdown for emphasis and lists. When stats are provided below, ground your typing advice in those specific numbers.`;
+function buildSystemPrompt(stats?: AruStats, personaId: AruPersona = 'tactical'): string {
+  const persona = ARU_PERSONAS[personaId] || ARU_PERSONAS.tactical;
+  const base = `${persona.systemInstruction}
+You are Aru, the high-intelligence AI coaching companion inside TypeNova.
+When the user asks general questions, answer them directly and helpfully.
+When the user asks for typing advice, act in your active persona style (${persona.name} — ${persona.subtitle}).
 
-function buildSystemPrompt(stats?: AruStats): string {
-  if (!stats) return BASE_PROMPT;
+DIRECT ACTION CAPABILITIES:
+You can directly trigger interactive actions in TypeNova!
+When suggesting that the user practice specific keys, ALWAYS append an action directive at the end:
+[[action:drill:key1,key2,key3]] (e.g. [[action:drill:e,r,t]])
+When suggesting they configure their API key or check settings:
+[[action:settings:ai]]
+These directives will render as instant, 1-click interactive cards for the user!`;
+
+  if (!stats) return base;
 
   const facts: string[] = [];
   if (typeof stats.wpm === 'number' && stats.wpm > 0) facts.push(`last test: ${Math.round(stats.wpm)} WPM at ${Math.round(stats.accuracy ?? 0)}% accuracy`);
@@ -83,8 +114,8 @@ function buildSystemPrompt(stats?: AruStats): string {
     facts.push(`weakest keys: ${keys}`);
   }
 
-  if (!facts.length) return BASE_PROMPT;
-  return `${BASE_PROMPT}\n\nCurrent player stats — ${facts.join('; ')}.`;
+  if (!facts.length) return base;
+  return `${base}\n\nCurrent player telemetry — ${facts.join('; ')}.`;
 }
 
 function loadHistory(): Message[] {
@@ -122,10 +153,8 @@ export const AIChatBot = memo(function AIChatBot({
     const [isTyping, setIsTyping] = useState(false);
     const [truncated, setTruncated] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
-    const [keyConfigured, setKeyConfigured] = useState(() => hasAIKey() || hasNativeAI());
     const [techQuery, setTechQuery] = useState<string | null>(null);
     const [configExpanded, setConfigExpanded] = useState(false);
-    const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
     const revealRef = useRef<HTMLDivElement>(null);
 
     // Smart Engine config — shared with Settings modal
@@ -140,12 +169,6 @@ export const AIChatBot = memo(function AIChatBot({
       return () => {
         if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       };
-    }, []);
-
-    useEffect(() => {
-      const checkKey = () => setKeyConfigured(hasAIKey() || hasNativeAI());
-      window.addEventListener('storage', checkKey);
-      return () => window.removeEventListener('storage', checkKey);
     }, []);
 
     // Read the transcript outside of a state updater — updaters must stay pure, and
@@ -175,30 +198,74 @@ export const AIChatBot = memo(function AIChatBot({
     }, [messages, isOpen]);
 
 
-    useEffect(() => () => abortRef.current?.abort(), []);
+    const [persona, setPersonaState] = useState<AruPersona>(() => getAruPersona());
+    const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
 
-    const systemPrompt = useMemo(() => buildSystemPrompt(stats), [stats]);
+    const handleSelectPersona = useCallback((newP: AruPersona) => {
+      setPersonaState(newP);
+      setAruPersona(newP);
+      setPersonaMenuOpen(false);
+      toast.success(`Coaching mode: ${ARU_PERSONAS[newP].name}`);
+    }, []);
+
+    useEffect(() => {
+      const handleStorage = () => setPersonaState(getAruPersona());
+      window.addEventListener('storage', handleStorage);
+      return () => window.removeEventListener('storage', handleStorage);
+    }, []);
+
+    const systemPrompt = useMemo(() => buildSystemPrompt(stats, persona), [stats, persona]);
 
     const send = useCallback(
-      async (rawText: string, opts: { replaceLast?: boolean } = {}) => {
+      async (rawText: string, opts: { replaceLast?: boolean; continueFromLast?: boolean } = {}) => {
         const text = rawText.trim();
         if (!text || isTyping) return;
 
-        setTruncated(false);
-        const replyId = newId();
+        const isCurrentlyConfigured = Boolean(engineConfig.byokKey?.trim()) || hasAIKey() || hasNativeAI();
+        if (!isCurrentlyConfigured) {
+          if (text.startsWith('gsk_') || text.startsWith('sk-') || text.length >= 25) {
+            engineConfig.handleKeyChange(text);
+            setInput('');
+            toast.promise(
+              async () => {
+                await engineConfig.testConnection(text);
+                toast.success('Groq AI connected! Aru is now online.');
+              },
+              {
+                loading: 'Verifying Groq API key...',
+                error: 'Connection test failed. Check key in Settings.',
+              }
+            );
+            return;
+          }
+          toast.info('Please connect your free Groq API key above to activate live AI coaching!');
+          return;
+        }
 
-        // Snapshot the transcript we're replying to. On a regenerate we drop the
-        // trailing assistant turn(s) so the same user question is asked again.
+        setTruncated(false);
+
         let baseHistory = messagesRef.current;
-        if (opts.replaceLast) {
+        let replyId: string;
+
+        if (opts.continueFromLast) {
+          const lastAssistant = [...baseHistory].reverse().find((m) => m.role === 'assistant');
+          if (lastAssistant) {
+            replyId = lastAssistant.id;
+          } else {
+            replyId = newId();
+            setMessages([...baseHistory, { id: replyId, role: 'assistant', content: '' }]);
+          }
+        } else if (opts.replaceLast) {
           while (baseHistory.length && baseHistory[baseHistory.length - 1].role === 'assistant') {
             baseHistory = baseHistory.slice(0, -1);
           }
+          replyId = newId();
+          setMessages([...baseHistory, { id: replyId, role: 'assistant', content: '' }]);
+        } else {
+          replyId = newId();
+          const withUser: Message[] = [...baseHistory, { id: newId(), role: 'user', content: text }];
+          setMessages([...withUser, { id: replyId, role: 'assistant', content: '' }]);
         }
-        const withUser: Message[] = opts.replaceLast
-          ? baseHistory
-          : [...baseHistory, { id: newId(), role: 'user', content: text }];
-        setMessages([...withUser, { id: replyId, role: 'assistant', content: '' }]);
 
         setInput('');
         setIsTyping(true);
@@ -212,18 +279,25 @@ export const AIChatBot = memo(function AIChatBot({
           controller.abort();
         }, REQUEST_TIMEOUT_MS);
 
+        const promptText = opts.continueFromLast
+          ? 'Continue writing seamlessly from the exact character where you were cut off. Do not add greetings, do not repeat any previously written text, and do not acknowledge this instruction. Resume output immediately from the cutoff point.'
+          : text;
+
         const payload: ChatMessage[] = [
           { role: 'system', content: systemPrompt },
           ...baseHistory
             .filter((m) => !m.isError && m.content.trim() !== '')
             .slice(-HISTORY_WINDOW)
             .map((m) => ({ role: m.role, content: m.content })),
-          ...(opts.replaceLast ? [] : [{ role: 'user' as const, content: text }]),
+          ...(opts.replaceLast ? [] : [{ role: 'user' as const, content: promptText }]),
         ];
 
         try {
           const { finishReason } = await chatCompletion(payload, {
             signal: controller.signal,
+            stats,
+            persona,
+            maxTokens: 3500,
             onDelta: (chunk) =>
               setMessages((prev) => prev.map((m) => (m.id === replyId ? { ...m, content: m.content + chunk } : m))),
           });
@@ -248,6 +322,7 @@ export const AIChatBot = memo(function AIChatBot({
             const streamed = prev.find((m) => m.id === replyId)?.content ?? '';
             // Keep whatever streamed in before the user hit stop.
             if (stoppedByUser && streamed.trim()) return prev;
+            if (opts.continueFromLast && streamed.trim()) return prev;
             return prev.map((m) =>
               m.id === replyId
                 ? {
@@ -260,8 +335,7 @@ export const AIChatBot = memo(function AIChatBot({
           });
 
           if (!stoppedByUser) {
-            if (err instanceof MissingKeyError) setKeyConfigured(false);
-            toast.error('Aru hit a snag', { description: message });
+            toast.error('Aru notification', { description: message });
           }
         } finally {
           clearTimeout(timeout);
@@ -269,7 +343,7 @@ export const AIChatBot = memo(function AIChatBot({
           setIsTyping(false);
         }
       },
-      [isTyping, systemPrompt],
+      [isTyping, systemPrompt, stats, persona],
     );
 
     const regenerate = useCallback(() => {
@@ -288,8 +362,9 @@ export const AIChatBot = memo(function AIChatBot({
       }
     }, []);
 
+    const isConfigured = Boolean(engineConfig.byokKey?.trim()) || hasAIKey() || hasNativeAI();
     const weakKeys = stats?.weakKeys ?? [];
-    const showStarters = messages.length <= 1 && !isTyping;
+    const showStarters = isConfigured && messages.length <= 1 && !isTyping;
 
     return (
       <div 
@@ -361,8 +436,8 @@ export const AIChatBot = memo(function AIChatBot({
               />
                 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(var(--aru-glow),0.2)] bg-black/40 relative overflow-hidden shrink-0">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-[rgba(var(--aru-glow),0.1)] rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(var(--aru-glow),0.2)] bg-black/40 relative shrink-0 z-30">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[rgba(var(--aru-glow),0.1)] rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none overflow-hidden" />
                   <div className="flex items-center gap-3 relative z-10">
                     <div className="bg-[rgba(var(--aru-glow),0.2)] p-2.5 rounded-2xl border border-[rgba(var(--aru-glow),0.4)] text-[rgb(var(--aru-glow))] shadow-[0_0_15px_rgba(var(--aru-glow),0.3)] transition-colors duration-500">
                       {activeTab === 'aru' ? <Bot size={20} /> : <AlertTriangle size={20} />}
@@ -372,38 +447,78 @@ export const AIChatBot = memo(function AIChatBot({
                         {activeTab === 'aru' ? 'Aru' : 'Dumb Technician'} 
                         {activeTab === 'aru' ? <Sparkles size={13} className="text-[rgb(var(--aru-glow))] animate-pulse" /> : <Wrench size={13} className="text-[rgb(var(--aru-glow))]" />}
                       </h3>
-                      {/* Apple-style Toggle with Framer Motion Pill */}
-                      <div className="flex mt-1.5 bg-black/50 rounded-lg p-1 border border-white/10 w-fit relative shadow-inner">
-                        <button
-                          onClick={() => setActiveTab('aru')}
-                          className={`relative px-4 py-1.5 text-xs font-bold tracking-wide uppercase rounded-md z-10 transition-colors ${
-                            activeTab === 'aru' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                          }`}
-                        >
-                          Coach
-                          {activeTab === 'aru' && (
-                            <motion.div 
-                              layoutId="active-pill"
-                              className="absolute inset-0 bg-[rgba(var(--aru-glow),0.3)] shadow-[0_0_10px_rgba(var(--aru-glow),0.5)] rounded-md z-[-1]"
-                              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                            />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('tech')}
-                          className={`relative px-4 py-1.5 text-xs font-bold tracking-wide uppercase rounded-md z-10 transition-colors ${
-                            activeTab === 'tech' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                          }`}
-                        >
-                          Technician
-                          {activeTab === 'tech' && (
-                            <motion.div 
-                              layoutId="active-pill"
-                              className="absolute inset-0 bg-[rgba(var(--aru-glow),0.3)] shadow-[0_0_10px_rgba(var(--aru-glow),0.5)] rounded-md z-[-1]"
-                              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                            />
-                          )}
-                        </button>
+                      {/* Tabs and Persona Selector Row */}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <div className="flex bg-black/50 rounded-lg p-0.5 border border-white/10 w-fit relative shadow-inner">
+                          <button
+                            onClick={() => setActiveTab('aru')}
+                            className={`relative px-3 py-1 text-xs font-bold tracking-wide uppercase rounded-md z-10 transition-colors ${
+                              activeTab === 'aru' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                          >
+                            Coach
+                            {activeTab === 'aru' && (
+                              <motion.div 
+                                layoutId="active-pill"
+                                className="absolute inset-0 bg-[rgba(var(--aru-glow),0.3)] shadow-[0_0_10px_rgba(var(--aru-glow),0.5)] rounded-md z-[-1]"
+                                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                              />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('tech')}
+                            className={`relative px-3 py-1 text-xs font-bold tracking-wide uppercase rounded-md z-10 transition-colors ${
+                              activeTab === 'tech' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                          >
+                            Technician
+                            {activeTab === 'tech' && (
+                              <motion.div 
+                                layoutId="active-pill"
+                                className="absolute inset-0 bg-[rgba(var(--aru-glow),0.3)] shadow-[0_0_10px_rgba(var(--aru-glow),0.5)] rounded-md z-[-1]"
+                                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                              />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Persona Selector Dropdown Pill */}
+                        {activeTab === 'aru' && (
+                          <div className="relative">
+                            <button
+                              onClick={() => setPersonaMenuOpen(!personaMenuOpen)}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold tracking-wider uppercase border flex items-center gap-1.5 cursor-pointer transition-colors bg-black/40 hover:bg-black/60 border-white/10 text-zinc-300 hover:text-white"
+                            >
+                              {(() => {
+                                const Icon = PERSONA_ICONS[persona] || Crosshair;
+                                return <Icon size={11} style={{ color: 'rgb(var(--aru-glow))' }} />;
+                              })()}
+                              <span style={{ color: 'rgb(var(--aru-glow))' }}>{ARU_PERSONAS[persona].badge}</span>
+                              <ChevronDown size={11} className={`transition-transform ${personaMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {personaMenuOpen && (
+                              <div className="absolute left-0 top-full mt-2 w-52 bg-[#090810]/95 backdrop-blur-2xl border border-white/20 rounded-xl shadow-2xl z-[100] overflow-hidden py-1">
+                                {(Object.keys(ARU_PERSONAS) as AruPersona[]).map(pKey => {
+                                  const Icon = PERSONA_ICONS[pKey] || Crosshair;
+                                  const isSelected = persona === pKey;
+                                  return (
+                                    <button
+                                      key={pKey}
+                                      onClick={() => handleSelectPersona(pKey)}
+                                      className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors flex items-center justify-between hover:bg-white/10 ${isSelected ? 'text-white bg-white/15' : 'text-zinc-400'}`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <Icon size={12} className={isSelected ? 'text-[rgb(var(--aru-glow))]' : 'text-zinc-500'} />
+                                        <span>{ARU_PERSONAS[pKey].name}</span>
+                                      </div>
+                                      <span className="text-[9px] font-mono opacity-60 tracking-wider uppercase">{ARU_PERSONAS[pKey].badge}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -452,272 +567,322 @@ export const AIChatBot = memo(function AIChatBot({
                       aria-relevant="additions text"
                       className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-4 text-sm"
                     >
-                  {!keyConfigured ? (
-                    <div className="flex flex-col items-center justify-center flex-1 h-full p-4 text-center gap-4 animate-in fade-in duration-500">
-                      <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
-                        <KeyRound size={24} className="text-red-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-black tracking-widest text-red-100 uppercase mb-1">Aru is offline</h3>
-                        <p className="text-[11px] text-zinc-500 leading-relaxed max-w-[260px] mx-auto">
-                          Supply an API key to establish the neural link.
-                        </p>
-                      </div>
-
-                      {/* Setup Wizard */}
-                      <div className="w-full max-w-[320px] bg-black/40 border border-zinc-800 rounded-xl p-3 flex flex-col gap-2.5 text-left">
-                        {/* Provider */}
-                        <div className="relative">
-                          <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">Provider</label>
+                      {/* Compact Tier & BYOK Config Bar (Only shown when configured) */}
+                      {isConfigured && (
+                        <div className="flex flex-col mb-2 shrink-0">
                           <button
-                            onClick={() => setProviderDropdownOpen(!providerDropdownOpen)}
-                            className="w-full flex items-center justify-between px-3 py-2 bg-zinc-900/80 border border-zinc-700/50 rounded-lg text-xs text-zinc-200 hover:border-zinc-600 transition-colors"
+                            onClick={() => setConfigExpanded(!configExpanded)}
+                            className="flex items-center justify-between px-3.5 py-2 bg-black/40 border border-zinc-800/80 rounded-xl hover:border-zinc-700 transition-all group"
                           >
-                            <span>{PROVIDER_PRESETS.find(p => p.id === engineConfig.selectedProvider)?.label || 'Custom'}</span>
-                            <ChevronDown size={12} className={`text-zinc-500 transition-transform ${providerDropdownOpen ? 'rotate-180' : ''}`} />
-                          </button>
-                          {providerDropdownOpen && (
-                            <div className="absolute z-50 mt-1 w-full bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-h-[160px] overflow-y-auto custom-scrollbar">
-                              {PROVIDER_PRESETS.filter(p => p.id !== 'custom').map(p => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => { engineConfig.handleProviderSelect(p.id); setProviderDropdownOpen(false); }}
-                                  className={`w-full text-left px-3 py-2 text-xs hover:bg-zinc-800 transition-colors flex items-center justify-between ${engineConfig.selectedProvider === p.id ? 'text-emerald-400' : 'text-zinc-300'}`}
-                                >
-                                  <span>{p.label}</span>
-                                  {p.id === 'groq' && <span className="text-[8px] text-emerald-500/70 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">FREE</span>}
-                                </button>
-                              ))}
+                            <div className="flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">
+                              {hasAIKey() ? (
+                                <>
+                                  <span className="text-emerald-400 flex items-center gap-1.5"><Zap size={11} className="text-emerald-400" /> Tier 1 Cloud ({PROVIDER_PRESETS.find(p => p.id === engineConfig.selectedProvider)?.label || 'BYOK'})</span>
+                                  <span className="text-zinc-700">•</span>
+                                  <span className="truncate max-w-[130px] text-zinc-300 font-mono">{engineConfig.byokModel || 'Default Model'}</span>
+                                  {engineConfig.latencyMs && (
+                                    <>
+                                      <span className="text-zinc-700">•</span>
+                                      <span className="text-emerald-400 font-mono">{engineConfig.latencyMs}ms</span>
+                                    </>
+                                  )}
+                                  <span className="text-zinc-700">•</span>
+                                  <Check size={11} className="text-emerald-400" />
+                                </>
+                              ) : hasNativeAI() ? (
+                                <>
+                                  <span className="text-emerald-400 flex items-center gap-1.5"><Zap size={11} className="text-emerald-400" /> Tier 2 Chrome Nano</span>
+                                  <span className="text-zinc-700">•</span>
+                                  <span className="text-zinc-300">Local Edge</span>
+                                  <span className="text-zinc-700">•</span>
+                                  <Check size={11} className="text-emerald-400" />
+                                </>
+                              ) : null}
                             </div>
-                          )}
-                        </div>
-
-                        {/* API Key */}
-                        <div>
-                          <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">API Key</label>
-                          <input
-                            type="password"
-                            value={engineConfig.byokKey}
-                            onChange={e => engineConfig.handleKeyChange(e.target.value)}
-                            placeholder="Paste your API key here..."
-                            className="w-full px-3 py-2 bg-zinc-900/80 border border-zinc-700/50 rounded-lg text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
-                          />
-                        </div>
-
-                        {/* Model (only after validation) */}
-                        {engineConfig.connectionStatus === 'success' && engineConfig.availableModels.length > 0 && (
-                          <div>
-                            <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">Model</label>
-                            <select
-                              value={engineConfig.byokModel}
-                              onChange={e => engineConfig.handleModelChange(e.target.value)}
-                              className="w-full px-3 py-2 bg-zinc-900/80 border border-zinc-700/50 rounded-lg text-xs text-zinc-200 focus:outline-none focus:border-zinc-500 transition-colors appearance-none"
-                            >
-                              {engineConfig.availableModels.map(m => (
-                                <option key={m} value={m}>
-                                  {engineConfig.workingModels?.includes(m) ? '⭐ ' : ''}{m}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-
-                        {/* Connection Status */}
-                        <div className="flex items-center gap-2 text-[10px] min-h-[20px]">
-                          {engineConfig.connectionStatus === 'testing' && (
-                            <><Loader2 size={10} className="animate-spin text-amber-400" /><span className="text-amber-400">Validating...</span></>
-                          )}
-                          {engineConfig.connectionStatus === 'success' && (
-                            <><Check size={10} className="text-emerald-400" /><span className="text-emerald-400">Connected • {engineConfig.availableModels.length} models</span></>
-                          )}
-                          {engineConfig.connectionStatus === 'error' && (
-                            <><AlertTriangle size={10} className="text-red-400" /><span className="text-red-400 truncate">{engineConfig.connectionError}</span></>
-                          )}
-                        </div>
-
-                        {/* Activate Button */}
-                        <button
-                          disabled={engineConfig.connectionStatus !== 'success'}
-                          onClick={() => {
-                            window.dispatchEvent(new Event('storage'));
-                            setKeyConfigured(true);
-                            toast.success('Neural link established. Aru is online.');
-                          }}
-                          className="w-full py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:bg-zinc-800/50 disabled:text-zinc-600 text-emerald-300 font-bold tracking-widest text-[10px] uppercase rounded-lg border border-emerald-500/30 disabled:border-zinc-700/30 transition-all"
-                        >
-                          {engineConfig.connectionStatus === 'success' ? '⚡ Activate Aru' : 'Waiting for valid key...'}
-                        </button>
-                      </div>
-
-                      {/* Divider */}
-                      <div className="flex items-center gap-3 w-full max-w-[320px]">
-                        <div className="flex-1 h-px bg-zinc-800" />
-                        <span className="text-[9px] text-zinc-600 uppercase tracking-widest">or</span>
-                        <div className="flex-1 h-px bg-zinc-800" />
-                      </div>
-
-                      {/* Beginner Path */}
-                      <button
-                        onClick={() => {
-                          setTechQuery('Walk me through getting a free API key');
-                          setActiveTab('tech');
-                        }}
-                        className="px-5 py-2.5 bg-[rgba(var(--aru-glow),0.1)] hover:bg-[rgba(var(--aru-glow),0.2)] text-[rgb(var(--aru-glow))] font-bold tracking-widest text-[10px] uppercase rounded-xl border border-[rgba(var(--aru-glow),0.2)] hover:border-[rgba(var(--aru-glow),0.4)] transition-all"
-                      >
-                        🆓 Need a free key? Let me help
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Compact Config Bar (Aru Online) */}
-                      <div className="flex flex-col mb-2">
-                        <button
-                          onClick={() => setConfigExpanded(!configExpanded)}
-                          className="flex items-center justify-between px-3 py-1.5 bg-black/40 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors group"
-                        >
-                          <div className="flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">
-                            {!hasAIKey() && hasNativeAI() ? (
-                              <>
-                                <span className="text-emerald-400 flex items-center gap-1"><Zap size={10} /> Gemini Nano</span>
-                                <span className="text-zinc-700">•</span>
-                                <span className="truncate max-w-[120px]">Local Edge</span>
-                                <span className="text-zinc-700">•</span>
-                                <Check size={10} className="text-emerald-500" />
-                              </>
-                            ) : (
-                              <>
-                                <span>{PROVIDER_PRESETS.find(p => p.id === engineConfig.selectedProvider)?.label || 'Custom'}</span>
-                                <span className="text-zinc-700">•</span>
-                                <span className="truncate max-w-[120px]">{engineConfig.byokModel || 'Default Model'}</span>
-                                <span className="text-zinc-700">•</span>
-                                {engineConfig.connectionStatus === 'success' ? (
-                                  <Check size={10} className="text-emerald-500" />
-                                ) : engineConfig.connectionStatus === 'testing' ? (
-                                  <Loader2 size={10} className="animate-spin text-amber-500" />
-                                ) : (
-                                  <AlertTriangle size={10} className="text-red-500" />
-                                )}
-                              </>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1 text-[9px] text-zinc-500 group-hover:text-zinc-300">
-                            <span>Change</span>
-                            <ChevronDown size={10} className={`transition-transform ${configExpanded ? 'rotate-180' : ''}`} />
-                          </div>
-                        </button>
-                        
-                        {/* Expanded Config Inline */}
-                        <AnimatePresence>
-                          {configExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="mt-2 p-3 bg-black/60 border border-zinc-800 rounded-lg flex flex-col gap-3">
-                                {/* Provider */}
-                                <div>
-                                  <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">Provider</label>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {PROVIDER_PRESETS.filter(p => p.id !== 'custom').map(p => (
-                                      <button
-                                        key={p.id}
-                                        onClick={() => engineConfig.handleProviderSelect(p.id)}
-                                        className={`px-2 py-1 text-[10px] rounded border ${engineConfig.selectedProvider === p.id ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-zinc-900 border-zinc-700/50 text-zinc-400 hover:text-zinc-200'}`}
-                                      >
-                                        {p.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                {/* API Key */}
-                                <div>
-                                  <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">API Key</label>
-                                  <input
-                                    type="password"
-                                    value={engineConfig.byokKey}
-                                    onChange={e => engineConfig.handleKeyChange(e.target.value)}
-                                    placeholder="Paste your API key here..."
-                                    className="w-full px-2 py-1.5 bg-zinc-900 border border-zinc-700/50 rounded text-[11px] text-zinc-200 focus:outline-none focus:border-zinc-500"
-                                  />
-                                </div>
-                                {/* Model */}
-                                {engineConfig.availableModels.length > 0 && (
+                            <div className="flex items-center gap-1 text-[9px] text-zinc-400 group-hover:text-zinc-200">
+                              <span>Configure Key</span>
+                              <ChevronDown size={11} className={`transition-transform ${configExpanded ? 'rotate-180' : ''}`} />
+                            </div>
+                          </button>
+                          
+                          {/* Expanded Config Inline */}
+                          <AnimatePresence>
+                            {configExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-2 p-3 bg-black/60 border border-zinc-800 rounded-lg flex flex-col gap-3">
+                                  {/* Provider */}
                                   <div>
-                                    <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">Model</label>
-                                    <select
-                                      value={engineConfig.byokModel}
-                                      onChange={e => engineConfig.handleModelChange(e.target.value)}
-                                      className="w-full px-2 py-1.5 bg-zinc-900 border border-zinc-700/50 rounded text-[11px] text-zinc-200 focus:outline-none focus:border-zinc-500"
-                                    >
-                                      {engineConfig.availableModels.map(m => (
-                                        <option key={m} value={m}>
-                                          {engineConfig.workingModels?.includes(m) ? '⭐ ' : ''}{m}
-                                        </option>
+                                    <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">Provider</label>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {PROVIDER_PRESETS.filter(p => p.id !== 'custom').map(p => (
+                                        <button
+                                          key={p.id}
+                                          onClick={() => engineConfig.handleProviderSelect(p.id)}
+                                          className={`px-2 py-1 text-[10px] rounded border ${engineConfig.selectedProvider === p.id ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : 'bg-zinc-900 border-zinc-700/50 text-zinc-400 hover:text-zinc-200'}`}
+                                        >
+                                          {p.label}
+                                        </button>
                                       ))}
-                                    </select>
+                                    </div>
                                   </div>
+                                  {/* API Key */}
+                                  <div>
+                                    <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">API Key</label>
+                                    <input
+                                      type="password"
+                                      value={engineConfig.byokKey}
+                                      onChange={e => engineConfig.handleKeyChange(e.target.value)}
+                                      placeholder="Paste your API key here..."
+                                      className="w-full px-2 py-1.5 bg-zinc-900 border border-zinc-700/50 rounded text-[11px] text-zinc-200 focus:outline-none focus:border-zinc-500"
+                                    />
+                                  </div>
+                                  {/* Model */}
+                                  {engineConfig.availableModels.length > 0 && (
+                                    <div>
+                                      <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">Model</label>
+                                      <select
+                                        value={engineConfig.byokModel}
+                                        onChange={e => engineConfig.handleModelChange(e.target.value)}
+                                        className="w-full px-2 py-1.5 bg-zinc-900 border border-zinc-700/50 rounded text-[11px] text-zinc-200 focus:outline-none focus:border-zinc-500"
+                                      >
+                                        {engineConfig.availableModels.map(m => (
+                                          <option key={m} value={m}>
+                                            {engineConfig.workingModels?.includes(m) ? '⭐ ' : ''}{m}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
+
+                      {!isConfigured ? (
+                        <div className="my-auto flex flex-col items-center justify-center p-4 text-center max-w-[360px] w-full mx-auto animate-in fade-in duration-300">
+                          {/* Friendly Glowing Badge */}
+                          <div
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center border mb-3 shadow-lg"
+                            style={{
+                              backgroundColor: `rgba(${theme ? theme.glowPrimary : '6, 182, 212'}, 0.12)`,
+                              borderColor: `rgba(${theme ? theme.glowPrimary : '6, 182, 212'}, 0.3)`,
+                              boxShadow: `0 0 25px rgba(${theme ? theme.glowPrimary : '6, 182, 212'}, 0.15)`,
+                            }}
+                          >
+                            <Bot size={24} style={{ color: `rgb(${theme ? theme.glowPrimary : '6, 182, 212'})` }} />
+                          </div>
+
+                          {/* Plain English Title & Subtitle */}
+                          <h3 className="text-base font-black tracking-tight text-white mb-1 uppercase">
+                            Activate Aru AI Coach
+                          </h3>
+                          <p className="text-xs text-zinc-400 leading-relaxed mb-4 max-w-[280px]">
+                            Aru gives you live personalized typing tips and practice drills. Connect a free Groq key in 30 seconds to begin.
+                          </p>
+
+                          {/* 2-Step Card */}
+                          <div className="w-full bg-black/60 border border-white/10 rounded-2xl p-4 flex flex-col gap-3.5 text-left shadow-2xl backdrop-blur-xl">
+                            {/* Step 1 */}
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="w-4 h-4 rounded-full bg-white/10 text-white flex items-center justify-center text-[9px] font-bold">1</span>
+                                  Get your free key
+                                </span>
+                                <span className="text-[10px] text-emerald-400 font-mono">100% Free • No Card</span>
+                              </div>
+                              <a
+                                href="https://console.groq.com/keys"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-white transition-all flex items-center justify-center gap-2 hover:brightness-110 shadow-lg cursor-pointer"
+                                style={{
+                                  backgroundColor: `rgba(${theme ? theme.glowPrimary : '6, 182, 212'}, 0.25)`,
+                                  border: `1px solid rgba(${theme ? theme.glowPrimary : '6, 182, 212'}, 0.45)`,
+                                }}
+                              >
+                                <Zap size={13} className="fill-current" />
+                                <span>Open Groq Console</span>
+                                <span className="text-[11px] opacity-70">↗</span>
+                              </a>
+                            </div>
+
+                            {/* Step 2 */}
+                            <div className="flex flex-col gap-1.5 border-t border-white/10 pt-3">
+                              <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="w-4 h-4 rounded-full bg-white/10 text-white flex items-center justify-center text-[9px] font-bold">2</span>
+                                  Paste your key
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="password"
+                                  value={engineConfig.byokKey}
+                                  onChange={(e) => engineConfig.handleKeyChange(e.target.value)}
+                                  placeholder="gsk_..."
+                                  className="flex-1 px-3 py-2 bg-zinc-900/90 border border-white/10 focus:border-white/30 rounded-xl text-xs text-white placeholder:text-zinc-600 focus:outline-none font-mono transition-colors"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={!engineConfig.byokKey.trim() || engineConfig.connectionStatus === 'testing'}
+                                  onClick={async () => {
+                                    try {
+                                      await engineConfig.testConnection();
+                                      toast.success('Connected! Aru AI Coach is now online.');
+                                    } catch {
+                                      toast.error('Could not verify key. Check key in Settings.');
+                                    }
+                                  }}
+                                  className="px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer shadow-md shrink-0 text-white"
+                                  style={{
+                                    backgroundColor: `rgba(${theme ? theme.glowPrimary : '6, 182, 212'}, 0.4)`,
+                                    border: `1px solid rgba(${theme ? theme.glowPrimary : '6, 182, 212'}, 0.6)`,
+                                  }}
+                                >
+                                  {engineConfig.connectionStatus === 'testing' ? 'Testing...' : 'Connect'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Help link */}
+                          <div className="mt-3 flex items-center justify-center gap-3 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTechQuery('Walk me through getting a free Groq API key step by step');
+                                setActiveTab('tech');
+                              }}
+                              className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer py-1 text-xs"
+                            >
+                              <Wrench size={13} />
+                              <span>Need help getting a key? Let me guide you</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        messages.map((msg) => {
+                          const parsed = msg.role === 'assistant' && msg.content ? extractAruActions(msg.content) : null;
+                          const displayContent = parsed ? parsed.cleanText : msg.content;
+                          const actions = parsed ? parsed.actions : [];
+
+                          return (
+                            <div key={msg.id} className={`group flex flex-col max-w-[85%] ${msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
+                              <div
+                                className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-lg ${
+                                  msg.role === 'user'
+                                    ? 'bg-[rgba(var(--aru-glow),0.15)] text-white border border-[rgba(var(--aru-glow),0.4)] rounded-br-sm shadow-[0_0_20px_rgba(var(--aru-glow),0.1)]'
+                                    : msg.isError
+                                      ? 'bg-red-500/10 text-red-200 border border-red-500/30 rounded-bl-sm'
+                                      : 'bg-[#120F17]/90 text-[rgb(var(--aru-glow))] border border-[rgba(var(--aru-glow),0.2)] rounded-bl-sm shadow-[0_4px_20px_rgba(0,0,0,0.2)]'
+                                }`}
+                              >
+                                {msg.role === 'assistant' ? (
+                                  displayContent ? (
+                                    <ChatMarkdown content={displayContent} />
+                                  ) : (
+                                    <span className="flex gap-1 py-1" aria-label="Aru is typing">
+                                      {[0, 1, 2].map((i) => (
+                                        <span
+                                          key={i}
+                                          className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--aru-glow))] animate-bounce"
+                                          style={{ animationDelay: `${i * 120}ms` }}
+                                        />
+                                      ))}
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="whitespace-pre-wrap">{msg.content}</span>
                                 )}
                               </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
 
-                      {messages.map((msg) => (
-                        <div key={msg.id} className={`group flex flex-col max-w-[85%] ${msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'}`}>
-                      <div
-                        className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-lg ${
-                          msg.role === 'user'
-                            ? 'bg-[rgba(var(--aru-glow),0.15)] text-white border border-[rgba(var(--aru-glow),0.4)] rounded-br-sm shadow-[0_0_20px_rgba(var(--aru-glow),0.1)]'
-                            : msg.isError
-                              ? 'bg-red-500/10 text-red-200 border border-red-500/30 rounded-bl-sm'
-                              : 'bg-[#120F17]/90 text-[rgb(var(--aru-glow))] border border-[rgba(var(--aru-glow),0.2)] rounded-bl-sm shadow-[0_4px_20px_rgba(0,0,0,0.2)]'
-                        }`}
-                      >
-                        {msg.role === 'assistant' ? (
-                          msg.content ? (
-                            <ChatMarkdown content={msg.content} />
-                          ) : (
-                            <span className="flex gap-1 py-1" aria-label="Aru is typing">
-                              {[0, 1, 2].map((i) => (
-                                <span
-                                  key={i}
-                                  className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--aru-glow))] animate-bounce"
-                                  style={{ animationDelay: `${i * 120}ms` }}
-                                />
-                              ))}
-                            </span>
-                          )
-                        ) : (
-                          <span className="whitespace-pre-wrap">{msg.content}</span>
-                        )}
-                      </div>
+                              {/* Direct Interactive Action Directives */}
+                              {actions.map((act, actIdx) => {
+                                if (act.type === 'drill') {
+                                  const rawKeys = act.param.split(',').map(k => k.trim().toUpperCase()).filter(Boolean);
+                                  const keys = rawKeys.length > 0 ? rawKeys : (stats?.weakKeys?.map(k => k.key.toUpperCase()) || ['E', 'T', 'O']);
+                                  return (
+                                    <motion.div
+                                      key={actIdx}
+                                      initial={{ opacity: 0, y: 6 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      className="mt-2.5 p-3.5 rounded-2xl bg-black/60 border border-[rgba(var(--aru-glow),0.35)] shadow-[0_0_25px_rgba(var(--aru-glow),0.15)] flex flex-col gap-2.5 w-full"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[10px] font-mono font-bold tracking-widest uppercase flex items-center gap-1.5 text-white">
+                                          <Target size={13} style={{ color: 'rgb(var(--aru-glow))' }} /> Targeted Drill
+                                        </span>
+                                        <div className="flex flex-wrap gap-1">
+                                          {keys.map(k => (
+                                            <span key={k} className="w-5 h-5 rounded-md bg-white/10 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/15">
+                                              {k}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          onStartDrill?.(keys);
+                                          onClose();
+                                        }}
+                                        className="w-full py-2 px-3 rounded-xl font-black text-[11px] tracking-wider uppercase text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md hover:brightness-125"
+                                        style={{
+                                          backgroundColor: 'rgba(var(--aru-glow), 0.3)',
+                                          border: '1px solid rgba(var(--aru-glow), 0.5)',
+                                        }}
+                                      >
+                                        <Play size={11} className="fill-current" /> Start Practice Drill
+                                      </button>
+                                    </motion.div>
+                                  );
+                                }
+                                if (act.type === 'settings') {
+                                  return (
+                                    <motion.button
+                                      key={actIdx}
+                                      initial={{ opacity: 0, y: 6 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      onClick={() => techCapabilities?.openTab?.(act.param || 'ai')}
+                                      className="mt-2 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-white/10 hover:bg-white/15 border border-white/15 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Settings size={13} /> Open Settings ({act.param || 'ai'})
+                                    </motion.button>
+                                  );
+                                }
+                                return null;
+                              })}
 
-                      {msg.role === 'assistant' && msg.content && !msg.isError && (
-                        <button
-                          onClick={() => copyMessage(msg)}
-                          aria-label="Copy message"
-                          className="mt-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center gap-1"
-                        >
-                          {copiedId === msg.id ? <Check size={11} /> : <Copy size={11} />}
-                          {copiedId === msg.id ? 'Copied' : 'Copy'}
-                        </button>
+                              {msg.role === 'assistant' && msg.content && !msg.isError && (
+                                <button
+                                  onClick={() => copyMessage(msg)}
+                                  aria-label="Copy message"
+                                  className="mt-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity flex items-center gap-1"
+                                >
+                                  {copiedId === msg.id ? <Check size={11} /> : <Copy size={11} />}
+                                  {copiedId === msg.id ? 'Copied' : 'Copy'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })
                       )}
-                    </div>
-                  ))}
 
                   {truncated && !isTyping && (
                     <button
-                      onClick={() => send('Continue where you left off.')}
-                      className="self-start text-[11px] font-bold uppercase tracking-wider text-[rgb(var(--aru-glow))] hover:brightness-125 transition-all"
+                      onClick={() => send('Continue', { continueFromLast: true })}
+                      className="self-start text-[11px] font-bold uppercase tracking-wider text-[rgb(var(--aru-glow))] hover:brightness-125 transition-all cursor-pointer"
                     >
                       Reply was cut off — continue →
                     </button>
                   )}
-                  </>
-                )}
                 </div>
 
                 {/* Quick starters */}
@@ -735,7 +900,7 @@ export const AIChatBot = memo(function AIChatBot({
                   </div>
                 )}
 
-                {onStartDrill && weakKeys.length > 0 && (
+                {isConfigured && onStartDrill && weakKeys.length > 0 && (
                   <div className="px-4 pb-2 flex items-center gap-1.5 shrink-0">
                     <button
                       onClick={() => {
@@ -771,7 +936,7 @@ export const AIChatBot = memo(function AIChatBot({
                   <div className="relative flex items-end">
                     <textarea
                       autoFocus
-                      disabled={!keyConfigured}
+                      disabled={isTyping}
                       rows={1}
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
@@ -781,9 +946,9 @@ export const AIChatBot = memo(function AIChatBot({
                           send(input);
                         }
                       }}
-                      placeholder={!keyConfigured ? "Aru is offline. Wake him up in the Technician bay..." : "Ask Aru anything…"}
+                      placeholder={isConfigured ? "Ask Aru anything (drills, technique, speed, plateaus)…" : "Paste your Groq key here (starts with gsk_) to activate Aru..."}
                       aria-label="Message Aru"
-                      className="w-full max-h-32 resize-none bg-black/60 border border-[rgba(var(--aru-glow),0.4)] focus:bg-black/80 focus:border-[rgb(var(--aru-glow))] rounded-xl px-4 py-3 pr-12 text-sm font-medium text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-[rgba(var(--aru-glow),0.5)] transition-all custom-scrollbar disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full max-h-32 resize-none bg-black/60 border border-[rgba(var(--aru-glow),0.4)] focus:bg-black/80 focus:border-[rgb(var(--aru-glow))] rounded-xl px-4 py-3 pr-12 text-sm font-medium text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-[rgba(var(--aru-glow),0.5)] transition-all custom-scrollbar disabled:opacity-50"
                     />
                     {isTyping ? (
                       <button

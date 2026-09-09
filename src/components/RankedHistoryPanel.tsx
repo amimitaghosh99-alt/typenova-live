@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { History, Trophy, Loader2 } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { RankedMatchRow } from '@/hooks/useRankedHistory';
-import { chipSwap, hoverRow, iconPop, listParent, reveal, rowChild, shellIn, springSnappy } from '@/lib/motion';
+import { chipSwap, iconPop, listParent, reveal, rowChild, shellIn, springSnappy } from '@/lib/motion';
 
 interface RankedHistoryPanelProps {
     theme: Theme;
@@ -109,8 +109,7 @@ export const RankedHistoryPanel: React.FC<RankedHistoryPanelProps> = ({ theme, m
                         <motion.li
                             key={m.id}
                             variants={reduce ? undefined : rowChild}
-                            whileHover={hoverRow(reduce)}
-                            className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/20 transition-colors"
+                            className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-white/25 transition-colors duration-150"
                         >
                             <div className="flex items-center gap-3 min-w-0">
                                 {/* Win/loss badge. The letter carries the result,

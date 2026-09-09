@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { SupabaseClient, Session } from '@supabase/supabase-js';
 
 export interface UseFriendsOptions {
@@ -321,7 +321,7 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
     };
   }, [supabase, session, fetchFriends]);
 
-  return {
+  return useMemo(() => ({
     friends,
     incomingRequests,
     outgoingRequests,
@@ -332,5 +332,16 @@ export const useFriends = ({ supabase, session, username }: UseFriendsOptions) =
     acceptRequest,
     removeFriend: removeFriendOrRequest,
     refreshFriends: fetchFriends
-  };
+  }), [
+    friends,
+    incomingRequests,
+    outgoingRequests,
+    loading,
+    error,
+    setError,
+    addFriend,
+    acceptRequest,
+    removeFriendOrRequest,
+    fetchFriends
+  ]);
 };

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 export interface Particle {
   id: number;
@@ -46,8 +46,9 @@ export const useParticles = () => {
 
     setParticles(prev => {
       // Lazily clean up expired particles during spawn to save state updates
-      const active = prev.filter(p => p.expireAt > now);
-      return [...active, ...newParticles];
+      // Clamp active pool to maximum 16 items to prevent DOM bloat during mega combos (100x+)
+      const active = prev.filter(p => p.expireAt > now).slice(-12);
+      return [...active, ...newParticles].slice(-16);
     });
 
     // Schedule a single trailing cleanup for when the user stops typing
@@ -62,5 +63,9 @@ export const useParticles = () => {
     setParticles([]);
   }, []);
 
-  return { particles, spawnParticles, clearAll };
+  return useMemo(() => ({
+    particles,
+    spawnParticles,
+    clearAll
+  }), [particles, spawnParticles, clearAll]);
 };

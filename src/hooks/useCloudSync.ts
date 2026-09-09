@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, fireAndForget } from '@/lib/supabase';
 import {
@@ -247,12 +247,12 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     }, PUSH_DEBOUNCE_MS);
   }, [session, username]);
 
-  return {
+  return useMemo(() => ({
     username: session ? username : null,
     elo: session ? elo : 1000,
     setElo,
     status: session ? status : 'idle',
     saveUsername,
     pushProgress
-  };
+  }), [session, username, elo, setElo, status, saveUsername, pushProgress]);
 }

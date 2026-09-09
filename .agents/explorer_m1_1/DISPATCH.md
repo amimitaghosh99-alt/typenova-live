@@ -1,19 +1,10 @@
-# Dispatch to Explorer M1-1
+## 2026-09-01T01:50:07+05:30
+Scope:
+Investigate and design the exact implementation for `src/lib/scoringEngine.ts` focusing on:
+1. `calculateCPI(wpm, accuracy, flawlessStreak, consistency, totalChars)` formula ensuring 100% accuracy at 40 WPM evaluates to an A or S grade.
+2. `evaluateGrade(cpi, accuracy, isFlawless)` supporting grades 'S+', 'S', 'A', 'B', 'C', 'D' with proper thresholds and visual style definitions.
+3. Clean TypeScript types and zero circular dependencies.
 
-## Context
-Original User Request: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md`
-Project scope: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\orchestrator\PROJECT.md`
-Working directory: `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\`
-
-## Objective
-Investigate `CyberHands.tsx`, `VirtualKeyboard.tsx`, and project directory structure in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy`.
-Focus on:
-1. Locating the exact paths of `CyberHands.tsx`, `VirtualKeyboard.tsx`, and supporting files.
-2. SVG viewBox dimensions, key position definitions, and coordinate transformations used between CyberHands and VirtualKeyboard.
-3. How key hitboxes and center points are calculated in `VirtualKeyboard.tsx` vs how hand/finger target coordinates are consumed in `CyberHands.tsx`.
-
-## Requirements
-- Read `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md` first.
-- Perform read-only exploration of the codebase using file/grep tools.
-- Write your comprehensive findings to `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\handoff.md`.
-- Send a completion message back to the orchestrator when finished.
+Write your findings and implementation blueprint to:
+c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\handoff.md
+Send a completion message when done.

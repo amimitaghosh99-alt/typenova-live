@@ -11,9 +11,9 @@
  */
 
 import {
-    CalendarCheck, Crosshair, Crown, EyeOff, Flame, Gauge, Hourglass, Orbit,
+    Biohazard, CalendarCheck, Crosshair, Crown, EyeOff, Flame, Gauge, Hourglass, Orbit,
     Palette, Rocket, RotateCcw, Shield, Skull, Sparkles, Star, Sword, Swords,
-    Trophy, Unlock, Zap,
+    Trophy, Unlock, Waves, Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -23,9 +23,17 @@ export const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
     'crosshair': Crosshair,
     'shield': Shield,
     'skull': Skull,
+    'waves': Waves,
     'eye-off': EyeOff,
     'gauge': Gauge,
     'flame': Flame,
+    /**
+     * `masochist` moved here from `flame`. The `streak_master` *title* is the
+     * flame — a streak is the thing a flame means in this app — and the two sat
+     * next to each other in the dossier's merged collection grid as the same
+     * mark for two unrelated ideas.
+     */
+    'biohazard': Biohazard,
     'star': Star,
     'crown': Crown,
     'palette': Palette,

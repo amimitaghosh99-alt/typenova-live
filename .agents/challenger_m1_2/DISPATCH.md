@@ -1,13 +1,16 @@
-## 2026-08-14T14:21:16Z
-You are teamwork_preview_challenger_m1_2.
-Your working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_2
-Project root: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
-Authoritative Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
-Worker Changes: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m1\changes.md
+## 2026-09-01T02:08:24+05:30
+You are Challenger 2 for Milestone 1 (Core Scoring & Grading Engine).
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_2
+Original Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
+Project Document: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\PROJECT.md
+Worker Report: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m1_1\handoff.md
 
-Task:
-Empirically challenge Milestone 1 changes:
-1. Run static checks, linting, and build verification.
-2. Test critical paths (typing engine, quests date calculation, account menu, race results screen, chat bot).
-3. Record your empirical verification verdict in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_2\handoff.md`.
-4. Send a completion message to parent.
+Tasks:
+1. Adversarially challenge the grade threshold boundaries and streak/consistency bonus transitions in `src/lib/scoringEngine.ts`.
+2. Verify monotonicity: Does increasing accuracy or consistency ever decrease the CPI or grade? Does increasing errors ever increase the grade?
+3. Verify the core requirement: Test a grid of speeds [20, 30, 40, 50, 60 WPM] at 100% accuracy.
+4. Execute empirical tests and report your verdict (APPROVE or REQUEST_CHANGES).
+5. Write your handoff report to:
+   c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_2\handoff.md
+
+Send a message back when done.

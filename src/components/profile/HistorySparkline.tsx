@@ -25,6 +25,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { rgba } from './profileMotion';
+import { useInViewOnce } from '@/hooks/useReveal';
 
 /** Catmull-Rom-ish smoothing, same tension as `WpmGraph`'s curve. */
 function smoothPath(points: Array<{ x: number; y: number }>): string {
@@ -125,6 +126,13 @@ export function HistorySparkline({
     const W = width || FALLBACK_W;
 
     /**
+     * The draw-on waits for the chart to be on screen. It is the page's longest
+     * entrance at a full second, and it was being spent while the Progress curve
+     * was still a screen and a half below the fold.
+     */
+    const drawn = useInViewOnce(hostRef);
+
+    /**
      * Unique gradient id. Two sparklines exist on the page — the Overview
      * preview and the Progress plot — and a duplicated `id` makes both fills
      * resolve to whichever `<defs>` the document reached first.
@@ -174,7 +182,13 @@ export function HistorySparkline({
     return (
         <div ref={hostRef} className="w-full" style={{ height: H }}>
             {geometry && (
-                <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block" aria-hidden>
+                <svg
+                    viewBox={`0 0 ${W} ${H}`}
+                    width={W}
+                    height={H}
+                    className={`block ${drawn ? 'spark-in' : ''}`}
+                    aria-hidden
+                >
                     {/* `preserveAspectRatio` left at its default: the viewBox now matches
                        the measured box, so there is no scale to correct for — and no
                        need for `vector-effect` anywhere, which is what lets the

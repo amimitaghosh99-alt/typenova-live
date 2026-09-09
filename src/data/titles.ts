@@ -3,6 +3,15 @@ export interface TitleBadge {
   name: string;
   description: string;
   category: 'speed' | 'accuracy' | 'endurance' | 'streak' | 'multiplayer';
+  /**
+   * Key into `lib/titleIcons`, not an emoji.
+   *
+   * These were emoji until the dossier redesign. An emoji renders in the
+   * platform's own font, at its own weight, in its own colours, so the titles
+   * sat as full-colour glyphs beside the achievements' stroked Lucide marks and
+   * could not take the page's accent or dim when locked. This file stays
+   * import-free data; `titleIcon()` resolves the key.
+   */
   icon: string;
   color: string;
   isUnlocked: (stats: UserSkillStats) => boolean;
@@ -22,6 +31,8 @@ export interface UserSkillStats {
   dailyStreak: number;
   racesWon: number;
   totalWordsTyped: number;
+  bestCombo?: number;
+  avgConsistency?: number;
 }
 
 export const TITLE_BADGES: TitleBadge[] = [
@@ -30,7 +41,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Fledgling Typist',
     description: 'Began the journey on TypeNova.',
     category: 'endurance',
-    icon: '🐣',
+  icon: 'sprout',
     color: 'text-zinc-400 border-zinc-500/30 bg-zinc-500/10',
     isUnlocked: () => true,
   },
@@ -39,7 +50,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Speed Demon',
     description: 'Achieve a typing speed of 90+ WPM.',
     category: 'speed',
-    icon: '⚡',
+  icon: 'zap',
     color: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
     isUnlocked: (s) => s.maxWpm >= 90,
     progress: (s) => ({ current: s.maxWpm, target: 90, unit: 'WPM' }),
@@ -49,7 +60,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Lightning Typist',
     description: 'Break the barrier with 120+ WPM.',
     category: 'speed',
-    icon: '🌩️',
+  icon: 'cloud-lightning',
     color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
     isUnlocked: (s) => s.maxWpm >= 120,
     progress: (s) => ({ current: s.maxWpm, target: 120, unit: 'WPM' }),
@@ -59,7 +70,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Warp Speed',
     description: 'Reach hyper-speed at 150+ WPM.',
     category: 'speed',
-    icon: '🚀',
+  icon: 'rocket',
     color: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
     isUnlocked: (s) => s.maxWpm >= 150,
     progress: (s) => ({ current: s.maxWpm, target: 150, unit: 'WPM' }),
@@ -69,17 +80,37 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Precision Master',
     description: 'Maintain 98%+ average accuracy across tests.',
     category: 'accuracy',
-    icon: '🎯',
+  icon: 'target',
     color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
     isUnlocked: (s) => s.avgAccuracy >= 98 && s.testsCompleted >= 5,
     progress: (s) => ({ current: s.avgAccuracy, target: 98, unit: '% ACC' }),
+  },
+  {
+    id: 'centurion',
+    name: 'Centurion',
+    description: 'Maintain a 100+ flawless combo in any test.',
+    category: 'streak',
+    icon: 'shield',
+    color: 'text-purple-400 border-purple-500/30 bg-purple-500/10',
+    isUnlocked: (s) => (s.bestCombo ?? 0) >= 100,
+    progress: (s) => ({ current: s.bestCombo ?? 0, target: 100, unit: 'COMBO' }),
+  },
+  {
+    id: 'flow_master',
+    name: 'Flow Master',
+    description: 'Maintain 85%+ average rhythm consistency.',
+    category: 'accuracy',
+    icon: 'activity',
+    color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+    isUnlocked: (s) => (s.avgConsistency ?? 0) >= 85,
+    progress: (s) => ({ current: s.avgConsistency ?? 0, target: 85, unit: '% CONS' }),
   },
   {
     id: 'marathoner',
     name: 'Marathoner',
     description: 'Complete 50 typing tests.',
     category: 'endurance',
-    icon: '🏃',
+  icon: 'footprints',
     color: 'text-sky-400 border-sky-500/30 bg-sky-500/10',
     isUnlocked: (s) => s.testsCompleted >= 50,
     progress: (s) => ({ current: s.testsCompleted, target: 50, unit: 'TESTS' }),
@@ -89,7 +120,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Iron Will',
     description: 'Complete 200 typing tests.',
     category: 'endurance',
-    icon: '🛡️',
+  icon: 'anvil',
     color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10',
     isUnlocked: (s) => s.testsCompleted >= 200,
     progress: (s) => ({ current: s.testsCompleted, target: 200, unit: 'TESTS' }),
@@ -99,7 +130,7 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Streak Master',
     description: 'Maintain a daily typing streak for 7 consecutive days.',
     category: 'streak',
-    icon: '🔥',
+  icon: 'flame',
     color: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
     isUnlocked: (s) => s.dailyStreak >= 7,
     progress: (s) => ({ current: s.dailyStreak, target: 7, unit: 'DAYS' }),
@@ -109,10 +140,19 @@ export const TITLE_BADGES: TitleBadge[] = [
     name: 'Race Champion',
     description: 'Win 5 multiplayer races.',
     category: 'multiplayer',
-    icon: '🏆',
+  icon: 'trophy',
     color: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10',
     isUnlocked: (s) => s.racesWon >= 5,
     progress: (s) => ({ current: s.racesWon, target: 5, unit: 'WINS' }),
+  },
+  {
+    id: 'cyber_patron',
+    name: 'Cyber Patron',
+    description: 'Elite benefactor fueling TypeNova high-tick servers, multiplayer relays & AI compute.',
+    category: 'endurance',
+    icon: 'hand-heart',
+    color: 'text-rose-300 border-rose-500/50 bg-rose-500/15 shadow-[0_0_20px_rgba(244,63,94,0.4)]',
+    isUnlocked: () => true,
   },
 ];
 

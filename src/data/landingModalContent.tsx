@@ -1,4 +1,5 @@
 import React from 'react';
+import { ContactPanel, ChangelogPanel, FAQPanel } from '@/components/landing/LandingModalPanels';
 
 export interface LandingCardItem {
   id: string;
@@ -357,5 +358,39 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
         </div>
       </div>
     )
+  },
+
+  contact: {
+    id: 'contact',
+    title: 'Contact & Support',
+    category: 'Operator Link',
+    badge: 'Direct Transmission',
+    tagline: 'Feedback, Bug Reports & Community Support',
+    icon: 'support_agent',
+    bannerGradient: 'from-cyan-950 via-slate-900 to-black',
+    content: <ContactPanel />
+  },
+
+  changelog: {
+    id: 'changelog',
+    title: 'Changelog',
+    category: 'Release Telemetry',
+    badge: 'Latest Patches',
+    tagline: 'System Evolution & Version History',
+    icon: 'history_edu',
+    bannerGradient: 'from-indigo-950 via-slate-900 to-black',
+    content: <ChangelogPanel />
+  },
+
+  faq: {
+    id: 'faq',
+    title: 'Frequently Asked Questions',
+    category: 'Knowledge Base',
+    badge: 'Platform Intel',
+    tagline: 'Architecture, Privacy & Mechanics Explained',
+    icon: 'help_outline',
+    bannerGradient: 'from-teal-950 via-slate-900 to-black',
+    content: <FAQPanel />
   }
 };
+

@@ -1,35 +1,39 @@
-# BRIEFING — 2026-08-09T04:42:30Z
+# BRIEFING — 2026-09-01T01:50:07+05:30
 
 ## Mission
-Perform read-only investigation of CyberHands.tsx, VirtualKeyboard.tsx, SVG viewBox, and coordinate mapping to diagnose alignment, coordinate mapping, and finger kinematics issues.
+Investigate and blueprint the core scoring, grading, burst WPM, and accolade engine for `src/lib/scoringEngine.ts` (Milestone 1).
 
 ## 🔒 My Identity
-- Archetype: Teamwork explorer
-- Roles: Explorer M1-1
+- Archetype: explorer
+- Roles: explorer, analyst, investigator
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1
-- Original parent: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Milestone: M1 - Analysis & Kinematics Specification
+- Original parent: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Milestone: M1 (Core Scoring & Grading Engine)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT modify project source code
-- Write analysis and handoff report to c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\handoff.md
+- Read-only investigation — do NOT modify source code directly
+- Produce detailed handoff report with exact mathematical formulas, TypeScript interfaces, and integration blueprints
+- Zero circular dependencies
 
 ## Current Parent
-- Conversation ID: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Updated: 2026-08-09T04:42:30Z
+- Conversation ID: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Updated: not yet
 
 ## Investigation State
-- **Explored paths**: `CyberHands.tsx`, `VirtualKeyboard.tsx`, `AcademyLayout.tsx`, `academyCurriculum.ts`, `DISPATCH.md`, `ORIGINAL_REQUEST.md`
+- **Explored paths**: `PROJECT.md`, `ORIGINAL_REQUEST.md`, `src/components/ResultsScreen.tsx`, `src/hooks/useTypingEngine.ts`, `src/hooks/useRPGSystem.ts`, `src/utils/shareCard.ts`, `src/data/constants.ts`
 - **Key findings**:
-  1. Identified 6 major bugs including finger detachment due to unrotated palm mesh vs rotated finger base, clamp limits in angle (-30..30) and scale (0.7..1.4), spacebar thumb selection logic bug (`<= 276`), z-index mismatch (5 vs 2), missing ';' key in VirtualKeyboard, and sonar ripple fallback at (0,0).
-  2. Verified exact math for key center coordinates in `VirtualKeyboard.tsx` vs `KEY_MAP` in `CyberHands.tsx`.
-- **Unexplored areas**: None. Full investigation of requested components completed.
+  1. `ResultsScreen.tsx` currently has hardcoded naive grade logic (`wpm > 100 -> S`, `wpm > 80 -> A`, etc.) where 40 WPM with 100% accuracy incorrectly gets Grade C.
+  2. No standalone `scoringEngine.ts` existed yet.
+  3. Formulated multi-factor CPI equation with speed baseline, precision multiplier, precision bonus, combo streak bonus, consistency bonus, and error penalty.
+  4. Mathematical validation confirms 40 WPM @ 100% flawless evaluates to CPI ~85-97 (Grade S or A).
+  5. Designed Burst WPM sliding window and accolade calculation rules.
+- **Unexplored areas**: None for M1 scope.
 
 ## Key Decisions Made
-- Completed deep-dive technical investigation; writing 5-component handoff report.
+- Multi-factor CPI formula balancing net velocity with high precision multipliers so accuracy is rewarded heavily over sloppy speed.
+- Strict pure functional architecture for `src/lib/scoringEngine.ts` with zero circular dependencies.
 
 ## Artifact Index
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\DISPATCH.md
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\BRIEFING.md
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\progress.md
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_1\handoff.md
+- `.agents/explorer_m1_1/DISPATCH.md` — Initial dispatch message
+- `.agents/explorer_m1_1/progress.md` — Liveness heartbeat
+- `.agents/explorer_m1_1/handoff.md` — Comprehensive analysis and implementation blueprint

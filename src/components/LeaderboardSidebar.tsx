@@ -37,6 +37,8 @@ interface LeaderboardSidebarProps {
   onRemoveFriend: (username: string) => void;
   /** Arm this row's stored run as the ghost opponent for the next test. */
   onRaceGhost: (row: ModeScoreRow) => void;
+  /** Whether the sidebar is active on screen; disables viewport measurements when false. */
+  enabled?: boolean;
 }
 
 export const LeaderboardSidebar = memo(function LeaderboardSidebar({
@@ -56,6 +58,7 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
   onChallengeFriend,
   onRemoveFriend,
   onRaceGhost,
+  enabled = true,
 }: LeaderboardSidebarProps) {
   const currentList: LeaderboardEntry[] =
     boardTab === 'today' ? dailyBoard
@@ -98,7 +101,7 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
   // in a single column, where growing the page is correct and a nested scroll
   // area would be worse, so the cap is skipped there.
   const asideRef = useRef<HTMLElement | null>(null);
-  const maxHeight = useFitToViewport(asideRef, { minPx: 460, minViewportWidth: 1024 });
+  const maxHeight = useFitToViewport(asideRef, { minPx: 460, minViewportWidth: 1024, enabled });
 
   return (
     <aside

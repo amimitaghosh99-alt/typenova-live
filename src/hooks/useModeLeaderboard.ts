@@ -26,12 +26,16 @@ export interface RivalGhost {
   userId: string;
   username: string;
   wpm: number;
+  accuracy?: number;
+  consistency?: number;
   samples: PaceSample[];
 }
 
 interface GhostRow {
   username: string;
   wpm: number;
+  accuracy?: number;
+  consistency?: number;
   ghost: unknown;
 }
 
@@ -64,7 +68,7 @@ export async function fetchRivalGhost(
   try {
     const { data, error } = await supabase
       .from('mode_scores')
-      .select('username, wpm, ghost')
+      .select('username, wpm, accuracy, consistency, ghost')
       .eq('mode_key', modeKey)
       .eq('user_id', userId)
       .maybeSingle();
@@ -72,7 +76,14 @@ export async function fetchRivalGhost(
     const row = data as unknown as GhostRow;
     const samples = parseSamples(row.ghost);
     if (!samples) return null;
-    return { userId, username: row.username, wpm: row.wpm, samples };
+    return {
+      userId,
+      username: row.username,
+      wpm: row.wpm,
+      accuracy: typeof row.accuracy === 'number' ? row.accuracy : undefined,
+      consistency: typeof row.consistency === 'number' ? row.consistency : undefined,
+      samples,
+    };
   } catch (err) {
     console.warn('[ghostNet] rival ghost fetch failed:', err);
     return null;

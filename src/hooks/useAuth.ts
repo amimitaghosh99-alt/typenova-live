@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -64,11 +64,11 @@ export function useAuth() {
     }
   }, []);
 
-  return {
+  return useMemo(() => ({
     session,
     user: session?.user ?? null,
     authReady,
     signInWithGoogle,
     signOut,
-  };
+  }), [session, authReady, signInWithGoogle, signOut]);
 }

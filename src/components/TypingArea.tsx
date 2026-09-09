@@ -2,10 +2,12 @@ import React, { useRef, useState, useEffect, memo, useMemo, useCallback } from '
 import { Ghost } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedHeight } from '@/components/ui/AnimatedHeight';
+import { AudioWaveformVisualizer } from '@/components/AudioWaveformVisualizer';
 import type { Particle } from '@/hooks/useParticles';
 import type { Theme } from '@/data/constants';
 import type { Phase } from '@/data/constants';
 import type { RacerState } from '@/hooks/useRace';
+import { type ActiveHex, applyCapitalsCurse } from '@/lib/sabotageEngine';
 
 // Stable empty array so particle-less chars keep the same prop identity
 // across renders — otherwise `|| []` would defeat Char's memoization.
@@ -122,7 +124,7 @@ export interface RivalPace {
   samples: PaceSample[];
 }
 
-interface TypingAreaProps {
+export interface TypingAreaProps {
   targetText: string;
   input: string;
   phase: Phase;
@@ -147,14 +149,18 @@ interface TypingAreaProps {
       exactly like the PB ghost, but labelled with whose run it is. */
   rivalGhost?: RivalPace | null;
   isCodeMode?: boolean;
+  isDictationMode?: boolean;
+  dictationSpokenIndex?: number;
   racePlayers?: RacerState[];
+  activeHexes?: ActiveHex[];
 }
 
 export const TypingArea = memo<TypingAreaProps>(function TypingArea({
   targetText, input, phase, theme, blindMode, focusMode,
   fogMode, startTime, shake, capsLock, stickyPenalty,
   particles, ghostPacer, ghostMode = 'pb', ghostTargetWpm = 100, combo, zenMode = false, pbGhost = null,
-  rivalGhost = null, isCodeMode = false, racePlayers
+  rivalGhost = null, isCodeMode = false, isDictationMode = false, dictationSpokenIndex = 0, racePlayers,
+  activeHexes,
 }: TypingAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -163,17 +169,6 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
     startTime, targetText.length, input.length, ghostMode, ghostTargetWpm, pbGhost, rivalGhost
   );
 
-  const [showOvertake, setShowOvertake] = useState(false);
-  const lastOvertakeTriggerRef = useRef(0);
-
-  useEffect(() => {
-    if (ghost && ghost.overtakeTrigger > lastOvertakeTriggerRef.current) {
-      lastOvertakeTriggerRef.current = ghost.overtakeTrigger;
-      setShowOvertake(true);
-      const t = setTimeout(() => setShowOvertake(false), 2400);
-      return () => clearTimeout(t);
-    }
-  }, [ghost?.overtakeTrigger]);
 
   // Pre-compute word indices for fog mode
   const wordIndices = React.useMemo(() => {
@@ -214,25 +209,38 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
     return map;
   }, [particles]);
 
+  // Cyber Sabotage Hex States
+  const hasGlitchFog = useMemo(() => activeHexes?.some(h => h.hexType === 'glitch_fog'), [activeHexes]);
+  const hasCapitalsCurse = useMemo(() => activeHexes?.some(h => h.hexType === 'capitals_curse'), [activeHexes]);
+  const hasCaretInversion = useMemo(() => activeHexes?.some(h => h.hexType === 'caret_inversion'), [activeHexes]);
+  const hasCleanseShield = useMemo(() => activeHexes?.some(h => h.hexType === 'cleanse_shield'), [activeHexes]);
+
+  const effectiveTargetText = useMemo(() => {
+    if (hasCapitalsCurse) {
+      return applyCapitalsCurse(targetText, input.length, 4);
+    }
+    return targetText;
+  }, [hasCapitalsCurse, targetText, input.length]);
+
   // High-contrast untyped text with subtle shadow for crisp readability over any wallpaper
   const untypedColor = 'text-zinc-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]';
   const baseFontClass = zenMode
     ? 'font-mono text-2xl md:text-3xl lg:text-4xl leading-[2]'
     : 'font-mono text-xl md:text-2xl lg:text-3xl leading-[1.8]';
 
-  const syntaxColors = useSyntaxHighlighter(targetText, isCodeMode);
+  const syntaxColors = useSyntaxHighlighter(effectiveTargetText, isCodeMode);
 
   // Pre-chunk words and character indices so string splitting doesn't re-run on every keystroke
   const wordChunks = useMemo(() => {
     let currentIndex = 0;
-    return targetText.split(/(\s+)/).map((word, wIdx) => ({
+    return effectiveTargetText.split(/(\s+)/).map((word, wIdx) => ({
       wIdx,
       chars: word.split('').map((char) => ({
         char,
         index: currentIndex++,
       })),
     }));
-  }, [targetText]);
+  }, [effectiveTargetText]);
 
   return (
     <div className={`relative w-full flex justify-center ${zenMode ? 'items-center min-h-[60vh]' : ''}`}>
@@ -240,16 +248,54 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
         className={
           zenMode
             ? 'relative w-full max-w-4xl z-20 px-4'
-            : `relative w-full rounded-[2.5rem] z-20 typing-canvas glass-refract theme-transition p-6 md:p-10 flex flex-col justify-center ${phase === 'TYPING' ? 'typing-active' : ''}`
+            : `relative w-full rounded-[2.5rem] z-20 typing-canvas glass-refract theme-transition px-6 sm:px-10 py-7 sm:py-10 md:px-12 md:py-12 min-h-[220px] sm:min-h-[250px] lg:min-h-[280px] flex flex-col justify-center ${phase === 'TYPING' ? 'typing-active' : ''}`
         }
         style={{
-          '--combo-glow': combo > 60 ? `0 0 120px rgba(${theme.glowPrimary},0.6)`
-            : combo > 40 ? `0 0 60px rgba(${theme.glowPrimary},0.3)`
-            : combo > 20 ? `0 0 20px rgba(${theme.glowPrimary},0.1)`
+          '--combo-glow': !zenMode && combo >= 10
+            ? (combo >= 200 ? `0 0 90px rgba(${theme.glowPrimary}, 0.55), inset 0 0 30px rgba(${theme.glowPrimary}, 0.12), 0 0 2px rgba(${theme.glowPrimary}, 0.8)`
+              : combo >= 150 ? `0 0 70px rgba(${theme.glowPrimary}, 0.45), inset 0 0 20px rgba(${theme.glowPrimary}, 0.08), 0 0 2px rgba(${theme.glowPrimary}, 0.6)`
+              : combo >= 100 ? `0 0 50px rgba(${theme.glowPrimary}, 0.35), inset 0 0 15px rgba(${theme.glowPrimary}, 0.05)`
+              : combo >= 50 ? `0 0 35px rgba(${theme.glowPrimary}, 0.25)`
+              : combo >= 20 ? `0 0 20px rgba(${theme.glowPrimary}, 0.15)`
+              : `0 0 10px rgba(${theme.glowPrimary}, 0.08)`)
             : '0 0 0 transparent',
+          borderColor: hasCleanseShield
+            ? 'rgba(16, 185, 129, 0.75)'
+            : (!zenMode && combo >= 50
+              ? `rgba(${theme.glowPrimary}, ${Math.min(0.45, 0.15 + (combo / 200) * 0.3)})`
+              : undefined),
+          boxShadow: hasCleanseShield
+            ? '0 0 40px rgba(16, 185, 129, 0.4), inset 0 0 20px rgba(16, 185, 129, 0.15)'
+            : undefined,
           animation: shake && !zenMode ? 'shake 0.2s ease-in-out' : 'none',
         } as React.CSSProperties}
       >
+        {/* Live Non-Distracting Peripheral Combo Indicator */}
+        {!zenMode && !focusMode && phase === 'TYPING' && combo >= 20 && (
+          <div
+            className="absolute top-3 right-5 md:top-4 md:right-8 pointer-events-none z-30 select-none flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border font-display transition-all duration-300"
+            style={{
+              borderColor: `rgba(${theme.glowPrimary}, ${combo >= 100 ? 0.5 : 0.25})`,
+              boxShadow: `0 0 16px rgba(${theme.glowPrimary}, ${combo >= 100 ? 0.3 : 0.12})`,
+              color: `rgb(${theme.glowPrimary})`,
+            }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                backgroundColor: `rgb(${theme.glowPrimary})`,
+                boxShadow: `0 0 6px rgba(${theme.glowPrimary}, 0.9)`,
+              }}
+            />
+            <span className="text-[10px] font-black tracking-widest uppercase">
+              {combo >= 200 ? 'MAX COMBO' : combo >= 100 ? 'MEGA' : combo >= 50 ? 'STREAK' : 'COMBO'}
+            </span>
+            <span className="text-xs font-black tabular-nums tracking-wider ml-0.5">
+              {combo}x
+            </span>
+          </div>
+        )}
+
         <div className="w-full flex flex-col items-center justify-center my-auto">
           {capsLock && (
             <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-lg animate-bounce z-50 font-display">
@@ -258,47 +304,55 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
             </div>
           )}
 
-          {/* Ghost Racer 2.0: Live Dual Race Track & Split Time */}
+          {/* Dictation Mode: Reactive Waveform Visualizer */}
+          {isDictationMode && (
+            <div className="w-full mb-3 px-2 flex justify-center">
+              <AudioWaveformVisualizer
+                isActive={phase === 'TYPING'}
+                theme={theme}
+                height={32}
+              />
+            </div>
+          )}
+
+          {/* Ghost Racer: Minimalist Top Progress & Split Time */}
           {ghost && (
-            <div className="w-full mb-4 px-2 flex flex-col gap-2 relative">
-              <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider font-display">
+            <div className="w-full mb-4 px-1 flex flex-col gap-1.5 relative select-none">
+              <div className="flex items-center justify-between text-[10px] font-bold tracking-wider font-display">
                 {/* Player Status */}
                 <div 
-                  className="flex items-center gap-1.5 font-display"
-                  style={{ color: `rgb(${theme.glowPrimary})` }}
+                  className="flex items-center gap-1.5 font-semibold text-zinc-300"
                 >
                   <span 
-                    className="w-2 h-2 rounded-full animate-pulse"
+                    className="w-1.5 h-1.5 rounded-full"
                     style={{ 
                       backgroundColor: `rgb(${theme.glowPrimary})`,
-                      boxShadow: `0 0 8px rgba(${theme.glowPrimary}, 0.8)`
+                      boxShadow: `0 0 6px rgba(${theme.glowPrimary}, 0.8)`
                     }} 
                   />
-                  <span>YOU ({Math.round(ghost.playerProgress)}%)</span>
+                  <span>YOU <span className="text-zinc-500 font-mono">({Math.round(ghost.playerProgress)}%)</span></span>
                 </div>
 
                 {/* Live Split Delta Badge */}
-                <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-zinc-950/90 border border-white/10 shadow-lg font-display">
-                  <Ghost size={12} className={ghost.isAhead ? 'text-emerald-400' : 'text-rose-400'} />
-                  <span className={`text-[10px] font-black tabular-nums tracking-widest ${ghost.isAhead ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {ghost.isAhead ? '▲' : '▼'} {Math.abs(ghost.deltaS).toFixed(1)}s {ghost.isAhead ? 'AHEAD' : 'BEHIND'}
-                  </span>
-                  <span className="text-[9px] font-bold text-zinc-500 tracking-wider">
-                    ({ghost.isAhead ? '+' : ''}{ghost.charDelta} chars)
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/10 font-display">
+                  <Ghost size={11} className={ghost.isAhead ? 'text-emerald-400' : 'text-rose-400'} />
+                  <span className={`text-[10px] font-black tabular-nums tracking-wider ${ghost.isAhead ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {ghost.isAhead ? '+' : ''}{ghost.deltaS.toFixed(1)}s
                   </span>
                 </div>
 
                 {/* Ghost Status */}
-                <div className="flex items-center gap-1.5 text-purple-400 font-display">
-                  <span>GHOST {ghost.label} ({Math.round(ghost.ghostProgress)}%)</span>
+                <div className="flex items-center gap-1.5 text-purple-400/90 font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400/80" />
+                  <span>{ghost.label} <span className="text-purple-400/50 font-mono">({Math.round(ghost.ghostProgress)}%)</span></span>
                 </div>
               </div>
 
-              {/* Progress Track */}
-              <div className="relative w-full h-1.5 rounded-full bg-zinc-900 border border-white/5 overflow-visible">
+              {/* Clean Minimal Progress Track */}
+              <div className="relative w-full h-1 rounded-full bg-white/5 overflow-visible">
                 {/* Ghost Bar */}
                 <div
-                  className="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-purple-900 to-purple-500 opacity-60 transition-all duration-100 ease-linear"
+                  className="absolute top-0 left-0 h-full rounded-full bg-purple-500/40 transition-all duration-100 ease-linear"
                   style={{ width: `${ghost.ghostProgress}%` }}
                 />
                 {/* Player Bar */}
@@ -307,37 +361,10 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                   style={{ 
                     width: `${ghost.playerProgress}%`,
                     backgroundColor: `rgb(${theme.glowPrimary})`,
-                    boxShadow: `0 0 10px rgba(${theme.glowPrimary}, 0.6)`
+                    boxShadow: `0 0 8px rgba(${theme.glowPrimary}, 0.5)`
                   }}
                 />
-
-                {/* Ghost Indicator */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 -ml-2 w-4 h-4 rounded-full bg-purple-950 border border-purple-400 flex items-center justify-center shadow-[0_0_12px_rgba(168,85,247,0.9)] z-10 transition-all duration-100 ease-linear"
-                  style={{ left: `${ghost.ghostProgress}%` }}
-                >
-                  <Ghost size={9} className="text-purple-300" />
-                </div>
-
-                {/* Player Indicator */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 -ml-2 w-4 h-4 rounded-full bg-black border flex items-center justify-center z-20 transition-all duration-100 ease-out"
-                  style={{ 
-                    left: `${ghost.playerProgress}%`,
-                    borderColor: `rgb(${theme.glowPrimary})`,
-                    boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 1)`
-                  }}
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                </div>
               </div>
-
-              {/* Overtake Notification Burst */}
-              {showOvertake && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-amber-400 to-emerald-400 text-black font-black text-xs tracking-widest uppercase shadow-[0_0_30px_rgba(245,158,11,1)] animate-bounce z-50 flex items-center gap-1.5 font-display">
-                  ⚡ OVERTAKE! +{Math.abs(ghost.deltaS).toFixed(1)}s
-                </div>
-              )}
             </div>
           )}
 
@@ -358,7 +385,7 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                 transition={{ duration: 0.15 }}
                 id="typing-text-container"
                 ref={containerRef}
-                className={`relative ${baseFontClass} tracking-wide whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto pb-4 pt-4 px-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full [contain:layout_style]`}
+                className={`relative ${baseFontClass} tracking-wide leading-[2.2rem] md:leading-[2.6rem] whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto py-2 px-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full [contain:layout_style]`}
                 style={{
                   userSelect: phase === 'CONFIGURING' ? 'none' : 'auto',
                   pointerEvents: phase === 'CONFIGURING' ? 'none' : 'auto',
@@ -368,14 +395,20 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
               >
                 {phase === 'CONFIGURING' ? (
                   // Zero-overhead soft frosted preview during configuration: 1 single DOM node with 120 FPS GPU blur
-                  <span className="text-zinc-300 select-none pointer-events-none blur-[4px] opacity-40 transition-all duration-300 block">
+                  <span className="text-zinc-300 select-none pointer-events-none blur-[4px] opacity-40 transition-all duration-300 block leading-[2.2rem] md:leading-[2.6rem]">
                     {targetText}
                   </span>
                 ) : (
                   // Active typing test: individual interactive character spans with glide caret & particles
-                  wordChunks.map(({ wIdx, chars }) => (
-                    <span key={wIdx} className="inline-block whitespace-pre">
-                      {chars.map(({ char, index }) => {
+                  wordChunks.map(({ wIdx, chars }) => {
+                    const isSpoken = isDictationMode && phase === 'TYPING' && Math.floor(wIdx / 2) === dictationSpokenIndex;
+                    return (
+                      <span
+                        key={wIdx}
+                        className={`inline-block whitespace-pre ${isSpoken ? 'border-b-2 transition-colors duration-150' : ''}`}
+                        style={isSpoken ? { borderBottomColor: `rgba(${theme.glowPrimary}, 0.75)` } : undefined}
+                      >
+                        {chars.map(({ char, index }) => {
                         const inputChar = index < input.length ? input[index] : undefined;
                         const isActive = index === input.length && phase === 'TYPING';
 
@@ -400,6 +433,10 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                           else if (charWordIndex === currentWordIndex + 1) finalColorClass += " opacity-20 blur-[2px] transition-opacity duration-300";
                         }
 
+                        if (hasGlitchFog && index >= input.length && index < input.length + 30) {
+                          finalColorClass += " blur-[1.5px] opacity-75 drop-shadow-[0_0_8px_rgba(244,63,94,0.8)] animate-pulse";
+                        }
+
                         return (
                           <Char
                             key={index}
@@ -412,16 +449,18 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                         );
                       })}
                     </span>
-                  ))
-                )}
+                  );
+                })
+              )}
 
             {/* Smooth-glide caret — one bar that slides between characters */}
-            {phase === 'TYPING' && input.length < targetText.length && (
+            {phase === 'TYPING' && input.length < effectiveTargetText.length && (
               <GlidingBar
                 index={input.length}
                 containerRef={containerRef}
-                targetText={targetText}
-                barClass={`bg-white caret-lucid ${theme.drop}`}
+                targetText={effectiveTargetText}
+                barClass={`bg-white caret-lucid ${theme.drop} ${hasCaretInversion ? 'animate-bounce !bg-purple-400 drop-shadow-[0_0_15px_#c084fc]' : ''}`}
+                barStyle={hasCaretInversion ? { transform: 'scaleX(-1) translateX(4px)', filter: 'hue-rotate(180deg)' } : undefined}
               />
             )}
 
@@ -595,19 +634,17 @@ const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, b
 });
 
 // ─── Gliding Ghost Beacon ───────────────────────────────────────────
-// An ethereal floating cyber ghost beacon that glides directly above the ghost's target letter.
+// Sleek, minimal ghost pacer bar that smoothly tracks the rival without obscuring text.
 const GlidingGhostBeacon = memo(function GlidingGhostBeacon({
   index,
   containerRef,
   targetText,
-  label,
-  isAhead,
 }: {
   index: number;
   containerRef: React.RefObject<HTMLDivElement | null>;
   targetText: string;
-  label: string;
-  isAhead: boolean;
+  label?: string;
+  isAhead?: boolean;
 }) {
   const [pos, setPos] = useState<{ x: number; y: number; w: number } | null>(null);
 
@@ -648,21 +685,9 @@ const GlidingGhostBeacon = memo(function GlidingGhostBeacon({
         transition: 'transform 100ms linear',
       }}
     >
-      {/* Floating Cyber Ghost Badge */}
+      {/* Subtle, non-distracting ghost underline marker */}
       <span
-        className={`absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black whitespace-nowrap animate-pulse transition-colors font-display ${
-          isAhead
-            ? 'bg-purple-950/90 border border-purple-500/40 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.6)]'
-            : 'bg-fuchsia-950/95 border border-fuchsia-400 text-fuchsia-200 shadow-[0_0_20px_rgba(217,70,239,0.85)]'
-        }`}
-      >
-        <Ghost size={10} className="animate-bounce" />
-        <span>{label}</span>
-      </span>
-
-      {/* Ghost Neon Shadow Underline */}
-      <span
-        className="absolute bottom-[-4px] left-0 block h-[4px] rounded-full bg-gradient-to-r from-purple-500 via-fuchsia-400 to-cyan-400 shadow-[0_0_12px_rgba(168,85,247,0.9)] opacity-80"
+        className="absolute bottom-[-3px] left-0 block h-[3px] rounded-full bg-purple-400/70 shadow-[0_0_8px_rgba(168,85,247,0.7)]"
         style={{ width: pos.w }}
       />
     </span>

@@ -1,28 +1,27 @@
-# BRIEFING — 2026-08-26T10:04:35Z
+# BRIEFING — 2026-09-01T01:43:30+05:30
 
 ## Mission
-Conduct a comprehensive, read-only full-spectrum audit of the entire TypeNova application codebase and produce AUDIT_REPORT.md at the project root without modifying any existing application code.
+Coordinate implementation and verification of precision, accuracy, flawless streak (combo), rhythm consistency scoring, grading (S+, S, A, B, C, D), and RPG progression engine across TypeNova.
 
 ## 🔒 My Identity
 - Archetype: sentinel
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\sentinel
-- Orchestrator: c99d8dab-c9d2-4b4d-b3ef-779a8ef9c144
+- Orchestrator: 878e1469-69aa-4f72-bf31-7d4cc44027d8
 - Victory Auditor: [to be spawned on victory claim]
 
 ## 🔒 Key Constraints
 - No technical decisions — relay only
 - Victory Audit is MANDATORY before reporting completion
-- Read-only constraint: Zero source code files in repository modified or deleted
-- Deliverable: AUDIT_REPORT.md at project root
+- Must follow workspace rules in GEMINI.md (visual UI verification, dynamic theme color binding rgb(${theme.glowPrimary}), minimalist control bars)
 
 ## User Context
-- **Last user request**: Full-spectrum read-only audit of TypeNova application codebase.
+- **Last user request**: Multi-factor precision, accuracy, flawless streak, rhythm consistency scoring, grading, and RPG progression engine.
 - **Pending clarifications**: none
 - **Delivered results**: none
 
 ## Project Status
 - **Phase**: in progress
-- **Monitoring**: Cron 1 (task-13), Cron 2 (task-15)
+- **Route**: General -> teamwork_preview_orchestrator
 
 ## Victory Audit Status
 - **Triggered**: no
@@ -30,4 +29,4 @@ Conduct a comprehensive, read-only full-spectrum audit of the entire TypeNova ap
 - **Retry count**: 0
 
 ## Artifact Index
-- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md — Authoritative record of user request
+- .agents/ORIGINAL_REQUEST.md — Verbatim user specification

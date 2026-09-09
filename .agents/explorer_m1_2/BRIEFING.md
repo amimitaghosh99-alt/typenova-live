@@ -1,43 +1,33 @@
-# BRIEFING — 2026-08-09T04:42:54Z
+# BRIEFING — 2026-08-31T20:25:00Z
 
 ## Mission
-Investigate CyberHands.tsx anatomical kinematics, MCP joint origin coordinates, finger pivot math, palm attachment, and container translation to find why fingers detach from the palm when reaching keys.
+Investigate and design the exact implementation for burst WPM, TypingStats/calculateStats integration (burstWpm, cpi, grade), and efficient live/end-of-test stats calculations without memory leaks or stuttering for Milestone 1.
 
 ## 🔒 My Identity
-- Archetype: Teamwork explorer
-- Roles: Read-only investigator
+- Archetype: explorer
+- Roles: investigation, synthesis
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\explorer_m1_2
-- Original parent: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Milestone: M1 - Analysis & Kinematics Investigation
+- Original parent: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Milestone: Milestone 1 (Core Scoring & Grading Engine)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in project source files
-- Focus on CyberHands.tsx anatomical kinematics, MCP joint origins, finger pivot math, container translation, and detachment causes
-- Write output to handoff.md in working directory and notify parent
+- Read-only investigation — do NOT implement directly in source code files
+- Provide exact code snippets, types, formulas, and architecture blueprints for implementers
+- Adhere strictly to project conventions and existing types
 
 ## Current Parent
-- Conversation ID: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Updated: 2026-08-09T04:42:54Z
+- Conversation ID: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Updated: 2026-08-31T20:25:00Z
 
 ## Investigation State
-- **Explored paths**:
-  - `src/components/academy/CyberHands.tsx`
-  - `src/components/academy/VirtualKeyboard.tsx`
-  - `src/components/academy/AcademyLayout.tsx`
-  - `src/hooks/useAcademyEngine.ts`
-- **Key findings**:
-  - `KEY_MAP` target coordinates match `VirtualKeyboard.tsx` key centers (552x400 SVG box).
-  - Main detachment cause 1: Uniform 2D SVG group `scale(S)` around `transformOrigin: mcp` alters base width at palm line.
-  - Main detachment cause 2: Rigid 2D rotation swivels finger base contour relative to static palm top edge.
-  - Main detachment cause 3: Arbitrary container shift (0.40 X / 0.50 Y) shifts hand unnaturally.
-  - Main detachment cause 4: Clamping `rotate` to ±30° and `scale` to [0.7, 1.4] causes fingertip reach miss on distant keys (e.g. Spacebar, Q, P).
-- **Unexplored areas**: None, core investigation complete.
+- **Explored paths**: `src/lib/scoringEngine.ts`, `src/hooks/useTypingEngine.ts`, `src/components/ResultsScreen.tsx`, `src/components/StatsPanel.tsx`, `src/components/TypingController.tsx`, `src/App.tsx`, `src/utils/shareCard.ts`, `src/hooks/useRPGSystem.ts`
+- **Key findings**: Complete dual-sliding window algorithm for `calculateBurstWpm`, full integration design for `TypingStats` and `calculateStats` (`burstWpm`, `cpi`, `grade`), and verification that live $O(N)$ execution and linear scan timeline generation prevent memory leaks and UI stutter.
+- **Unexplored areas**: None within Milestone 1 scope.
 
 ## Key Decisions Made
-- Completed read-only mathematical and anatomical analysis of `CyberHands.tsx`.
+- Designed `calculateBurstWpm` using dual sliding windows (5-character word burst + 1000ms time window + timeline peak comparison) with sub-millisecond jitter filtering.
+- Defined `TypingStats` interface with `burstWpm: number`, `cpi: number`, and `grade: PerformanceGrade`.
+- Preserved single-pass linear performance for both live typing updates ($O(N)$, $<0.05\text{ms}$) and test-finish timeline generation ($O(N+T)$, $<1\text{ms}$).
 
 ## Artifact Index
-- DISPATCH.md — Dispatch instructions
-- BRIEFING.md — Working state index
-- progress.md — Heartbeat progress log
-- handoff.md — Comprehensive handoff report
+- handoff.md — Comprehensive findings & implementation blueprint

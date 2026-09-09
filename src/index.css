@@ -43,12 +43,12 @@
   --z-transition: 1000;
   /* full-screen wipes */
 
-  /* The only three content widths in the app. */
-  --w-narrow: 1100px;
+  /* Content widths in the app — fluidly adapt to any screen size */
+  --w-narrow: 100%;
   /* forms, entry cards, results */
-  --w-wide: 1600px;
+  --w-wide: 100%;
   /* practice arena, compete lobby */
-  --w-ultra: 1720px;
+  --w-ultra: 100%;
   /* academy skill tree */
 
   /* First-paint fallbacks ONLY — useAppChrome measures the real elements
@@ -61,6 +61,39 @@
   /* Typing surface, written by useTypingPrefs. */
   --type-size: 24px;
   --type-leading: 1.8;
+}
+
+/* ── Responsive fluid expansion for 1080p+, 1440p, 4K and Ultra-wide monitors ── */
+@media (min-width: 1400px) {
+  :root {
+    --w-narrow: 100%;
+    --w-wide: 100%;
+    --w-ultra: 100%;
+  }
+}
+
+@media (min-width: 1800px) {
+  :root {
+    --w-narrow: 100%;
+    --w-wide: 100%;
+    --w-ultra: 100%;
+  }
+}
+
+@media (min-width: 2400px) {
+  :root {
+    --w-narrow: 100%;
+    --w-wide: 100%;
+    --w-ultra: 100%;
+  }
+}
+
+@media (min-width: 3200px) {
+  :root {
+    --w-narrow: 100%;
+    --w-wide: 100%;
+    --w-ultra: 100%;
+  }
 }
 
 /* Visible keyboard focus. Every interactive surface in the app previously
@@ -511,7 +544,14 @@
      length — so offsetting by `--spark-len` hides it and 0 reveals all of it,
      with no repeat to produce a visible seam. */
   stroke-dasharray: var(--spark-len, 1000) var(--spark-len, 1000);
-  animation: spark-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* `.spark-in` is added once the chart enters the scrollport. Unqualified, these
+   three entrances played on mount, which on a page this long meant the Progress
+   curve had finished drawing itself before it was ever on screen. With no
+   animation the dash offset stays at 0, so the line is simply drawn. */
+.spark-in .spark-line {
+  animation: spark-draw 1000ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 @keyframes spark-fade {
@@ -520,8 +560,8 @@
   }
 }
 
-.spark-area {
-  animation: spark-fade 600ms ease-out 200ms backwards;
+.spark-in .spark-area {
+  animation: spark-fade 700ms ease-out 240ms backwards;
 }
 
 @keyframes spark-head-in {
@@ -534,7 +574,61 @@
 .spark-head {
   transform-box: fill-box;
   transform-origin: center;
-  animation: spark-head-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) 700ms backwards;
+}
+
+.spark-in .spark-head {
+  animation: spark-head-in 340ms cubic-bezier(0.34, 1.56, 0.64, 1) 820ms backwards;
+}
+
+/* ─── Interactive Form Chart ─────────────────────────────────────────
+   Tooltip, crosshair, and transition styles for the D3-powered upgrade
+   of the Form section's sparkline. The existing spark-* classes are still
+   re-used for the draw-on entrance and the head dot.
+   ────────────────────────────────────────────────────────────────── */
+
+.ifc-host {
+  position: relative;
+  overflow: visible;
+}
+
+
+/* ── Crosshair ── */
+
+.ifc-crosshair {
+  animation: ifc-crosshair-in 120ms ease-out backwards;
+}
+
+@keyframes ifc-crosshair-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ── Hover dot ── */
+
+.ifc-hover-dot {
+  animation: ifc-dot-pop 150ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+@keyframes ifc-dot-pop {
+  from {
+    r: 1;
+    opacity: 0.4;
+  }
+}
+
+/* ── Y-axis labels ── */
+
+.ifc-y-label {
+  animation: ifc-label-in 300ms ease-out backwards;
+  user-select: none;
+}
+
+@keyframes ifc-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
 }
 
 /* ─── Dossier ambience ────────────────────────────────────────────────
@@ -585,22 +679,20 @@
   animation: fx-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* A slow parallax breath on the identity banner. One composited transform on
-   the whole scene, in place of up to fourteen JS-animated motes inside it. */
+/* Parallax drift on the identity banner. */
 @keyframes fx-banner-drift {
-
   0%,
   100% {
-    transform: scale(1.06) translate3d(-1%, 0, 0);
+    transform: scale(1.05) translate3d(-1.2%, 0, 0);
   }
 
   50% {
-    transform: scale(1.06) translate3d(1%, -1.5%, 0);
+    transform: scale(1.08) translate3d(1.2%, -1.4%, 0);
   }
 }
 
 .fx-banner-drift {
-  animation: fx-banner-drift 26s ease-in-out infinite;
+  animation: fx-banner-drift 16s ease-in-out infinite;
   will-change: transform;
 }
 
@@ -657,32 +749,6 @@
   animation: fx-pulse 1.1s ease-in-out infinite;
 }
 
-/* Sliding indicator under the tab strip.
-
-   Replaces a framer `layoutId` pair. Shared-layout projection measures the
-   outgoing *and* incoming element and writes transforms from JS on the one
-   frame React is also mounting a whole new panel — the single most expensive
-   moment on the page, made worse by the effect meant to smooth it. Position
-   and width come from two custom properties instead, so the slide is one
-   composited transform the compositor owns. */
-.dossier-glider {
-  position: absolute;
-  left: 0;
-  transform: translate3d(var(--glider-x, 0), 0, 0);
-  width: var(--glider-w, 0);
-  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform, width;
-}
-
-/* Before the first measurement lands there is no meaningful position, so the
-   indicator must not animate in from x=0 — it would visibly fly across the
-   strip on mount. */
-.dossier-glider[data-ready="false"] {
-  opacity: 0;
-  transition: none;
-}
-
 /* ─── Operator dossier motion ─────────────────────────────────────────
    The dossier's cards used to enter through framer-motion variants: a
    `listParent`/`listChild` stagger, one JS-driven spring per card. Opening
@@ -698,7 +764,10 @@
 @keyframes dossier-rise {
   from {
     opacity: 0;
-    transform: translate3d(0, 10px, 0);
+    /* A hair of scale as well as the rise. Translation alone reads as a list
+       loading; translation plus scale reads as the card arriving from behind the
+       page, which is the difference between "rendered" and "dealt". */
+    transform: translate3d(0, 12px, 0) scale(0.985);
   }
 
   to {
@@ -714,8 +783,17 @@
    `both` the hover lift on every stat tile and title card was silently dead
    once its entrance had played. `backwards` holds the from-state through the
    delay and then releases the property. */
-.dossier-stagger>* {
-  animation: dossier-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+/* Gated on an ancestor having been revealed. Unqualified, this cascade played
+   on mount — so the collection grid staggered itself, the meters filled and the
+   counters counted about two thousand pixels below the fold, and by the time you
+   scrolled down every entrance had already finished. The page read as static
+   precisely because all of its animation had been spent.
+
+   With no animation applied the child simply renders in place: the keyframe's
+   from-state is never adopted, so an element whose ancestor never reveals is
+   visible rather than stuck at zero opacity. */
+[data-dsr-in] .dossier-stagger>* {
+  animation: dossier-rise 380ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 .dossier-stagger>*:nth-child(1) {
@@ -746,47 +824,20 @@
   animation-delay: 260ms;
 }
 
-/* Everything past the seventh shares one delay. An unbounded cascade gave a
-   17-badge grid a 700ms tail, so the last cards arrived long after the tab
-   had stopped feeling like it was still loading. */
-.dossier-stagger>*:nth-child(n+8) {
+.dossier-stagger>*:nth-child(8) {
   animation-delay: 300ms;
 }
 
-/* The panel itself. Direction comes from `data-dir`, so tabbing right slides
-   the new panel in from the right and tabbing left from the left — the
-   carousel read the old framer variant was going for, at a composited 14px
-   instead of a JS-driven 46px with a blur tween on a full-width element. */
-@keyframes dossier-panel-fwd {
-  from {
-    opacity: 0;
-    transform: translate3d(14px, 0, 0);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.dossier-stagger>*:nth-child(9) {
+  animation-delay: 340ms;
 }
 
-@keyframes dossier-panel-back {
-  from {
-    opacity: 0;
-    transform: translate3d(-14px, 0, 0);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.dossier-panel-in {
-  animation: dossier-panel-fwd 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-.dossier-panel-in[data-dir="-1"] {
-  animation-name: dossier-panel-back;
+/* Everything past the ninth shares one delay. An unbounded cascade gave a
+   17-badge grid a 700ms tail, so the last cards arrived long after the grid had
+   stopped feeling like it was still loading. Nine is the length of the default
+   collection view, so that one gets a complete cascade. */
+.dossier-stagger>*:nth-child(n+10) {
+  animation-delay: 380ms;
 }
 
 /* Meters fill with a transform, never `width`. Animating width relayouts the
@@ -802,11 +853,467 @@
 .dossier-meter {
   transform-origin: left center;
   transform: scaleX(var(--meter-fill, 1));
+  /* The resting transform above is the *answer*, declared outside the animation
+     on purpose: a meter with no animation reads as a full bar of its real value
+     rather than an empty track. */
+}
+
+[data-dsr-in] .dossier-meter {
   /* `backwards`: the resting transform above is already the animation's end
      state, so there is nothing to hold forwards — and not holding it keeps the
      property free. */
   animation: dossier-meter 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   animation-delay: var(--meter-delay, 120ms);
+}
+
+/* ─── OPERATOR DOSSIER: material and type ─────────────────────────────
+   The dossier used to build every surface from `.glass-card`, whose fill is
+   `rgba(255,255,255,0.018)` and which carries no backdrop-filter — by design,
+   because it was written to sit inside a `.glass-panel` and borrow that
+   parent's blur. The dossier then went full-bleed and deleted the panel, so
+   the cards were left ~97% transparent over whatever wallpaper the user had
+   chosen. The result was legible imagery *inside* the cards: a face reading
+   through a stat readout is not a contrast bug you can tune, it is the wrong
+   material.
+
+   So this page owns one opaque surface tier instead. `--dsr-surface` is a flat
+   colour, not an alpha — the page's own backdrop (the operator's banner art,
+   darkened) is then free to be as bright as the art wants without any of it
+   landing under text. Depth comes from a 1px line and a single inset
+   highlight, which is all a flat surface needs to stop reading as a hole.
+
+   Type: the app already loads Sora, Space Grotesk, Geist and JetBrains Mono
+   (index.html) and already declares the scale (tailwind.config.js), but this
+   page used exactly two registers — 7-10px mono caps, and one 26px number —
+   so nothing had a middle. Four classes below are the whole scale. Nothing on
+   this page is smaller than 11px.
+   ────────────────────────────────────────────────────────────────── */
+.dsr-scope {
+  /* The app's body font is monospace. Every element here without an explicit
+     family was inheriting it, so section intros and collection descriptions
+     rendered as code. Mono is reserved for labels, units and figures. */
+  font-family: Geist, "Space Grotesk", system-ui, sans-serif;
+  /* Page floor. Also the fallback the header's art fades into. */
+  --dsr-floor: #090b10;
+  /* The one surface. Flat on purpose — see above. */
+  --dsr-surface: #101319;
+  /* A surface that is interactive, so it needs to read as slightly nearer. */
+  --dsr-surface-hi: #151922;
+  --dsr-line: rgba(255, 255, 255, 0.075);
+  --dsr-line-hi: rgba(255, 255, 255, 0.16);
+  --dsr-ink: rgba(255, 255, 255, 0.96);
+  --dsr-ink-2: rgba(255, 255, 255, 0.64);
+  --dsr-ink-3: rgba(255, 255, 255, 0.42);
+}
+
+/* True edge-to-edge layout for Operator Dossier — zero side gap, aligns flush with CosmicNavBar px-6 */
+.dsr-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  box-sizing: border-box !important;
+}
+
+.dsr-scope header > div,
+.dsr-scope nav > div,
+.dsr-scope footer > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.dsr-surface {
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+/* Rows and tiles you can click. Only these get a fill change on hover —
+   a static readout that lights up under the cursor is a lie about
+   interactivity. */
+.dsr-interactive {
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition: background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dsr-interactive:hover:not(:disabled) {
+  background: var(--dsr-surface-hi);
+  border-color: var(--dsr-line-hi);
+  transform: translate3d(0, -2px, 0);
+}
+
+.dsr-interactive:active:not(:disabled) {
+  transform: none;
+}
+
+/* Display figures. `tnum` matters: the count-up rewrites this text every frame
+   and proportional digits make the whole row shift while it settles. */
+.dsr-figure {
+  font-family: Sora, "Space Grotesk", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  color: var(--dsr-ink);
+}
+
+/* Section and card headings. Sentence case, not tracked-out caps. */
+.dsr-title {
+  font-family: Sora, "Space Grotesk", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--dsr-ink);
+}
+
+.dsr-body {
+  font-family: Geist, "Space Grotesk", system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--dsr-ink-2);
+}
+
+/* The secondary line under a figure, a row or a heading: what the number is
+   measured against, or what a locked item still needs. One class rather than a
+   `text-[12px] text-[...ink-3]` pair repeated at fourteen call sites, which is
+   how two of them ended up at 8px. */
+.dsr-note {
+  font-size: 12px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsr-ink-3);
+}
+
+/* The only mono register left, and the only uppercase one. One per section. */
+.dsr-label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dsr-ink-3);
+}
+
+/* Units and inline counts that sit against a figure. Not uppercase — a unit
+   is a word, and `WPM` is already an initialism. */
+.dsr-unit {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsr-ink-3);
+}
+
+/* ─── Activity calendar ───────────────────────────────────────────────
+   500 dated test entries were already in `lib/history`, and the form curve
+   plotted them by index — so a week off and a week of daily practice drew
+   the same line. The calendar is the only view on this page with a real time
+   axis.
+
+   Cells are a CSS grid of columns-per-week rather than 371 absolutely placed
+   nodes, and the fill is one custom property per cell so the whole board is
+   a single style recalculation.
+   ────────────────────────────────────────────────────────────────── */
+.dsr-cal {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 10px);
+  grid-auto-columns: 10px;
+  gap: 3px;
+}
+
+.dsr-cal-cell {
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dsr-cal-cell[data-level="0"] {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dsr-cal-cell[data-level="1"] {
+  background: rgba(var(--dsr-accent), 0.28);
+}
+
+.dsr-cal-cell[data-level="2"] {
+  background: rgba(var(--dsr-accent), 0.5);
+}
+
+.dsr-cal-cell[data-level="3"] {
+  background: rgba(var(--dsr-accent), 0.74);
+}
+
+.dsr-cal-cell[data-level="4"] {
+  background: rgba(var(--dsr-accent), 1);
+}
+
+/* ─── Scroll reveal ───────────────────────────────────────────────────
+   One attribute pair drives every entrance on the page. `data-reveal` marks a
+   block; `hooks/useReveal` sets `data-dsr-in` on it the first time it enters the
+   scrollport and then stops watching it.
+
+   Transform and opacity only, and the transition is declared on the *revealed*
+   state rather than the resting one — so nothing animates on the way back out,
+   and an element that has not been reached yet is not holding a transition
+   waiting to fire.
+   ────────────────────────────────────────────────────────────────── */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+
+[data-reveal][data-dsr-in] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 640ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+/* A hairline that draws itself along the reading direction. The page's section
+   breaks are the one place a rule *is* the content, so they get the entrance
+   rather than fading in with everything else. */
+[data-reveal-rule] {
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+[data-reveal-rule][data-dsr-in] {
+  transform: scaleX(1);
+  transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─── Sticky in-page nav ──────────────────────────────────────────────
+   A scroll-spy, not a tab strip: every section is on the page at once, so the
+   strip reports where you are instead of deciding what exists.
+
+   The indicator is one shared element that slides, rather than a `::after` on
+   whichever link is current — that version teleported, which reads as the strip
+   redrawing rather than as one mark tracking your position. Its geometry arrives
+   as two custom properties measured once per change, so the travel itself is a
+   composited transform.
+   ────────────────────────────────────────────────────────────────── */
+.dsr-spy-link {
+  position: relative;
+  transition: color 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dsr-spy-glider {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: var(--spy-w, 0);
+  border-radius: 2px;
+  transform: translate3d(var(--spy-x, 0), 0, 0);
+  background: rgb(var(--dsr-accent));
+  box-shadow: 0 0 12px rgba(var(--dsr-accent), 0.55);
+  transition:
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, width;
+}
+
+/* Before the first measurement there is no meaningful position, so the indicator
+   must not fly in from x=0. */
+.dsr-spy-glider[data-ready="false"] {
+  opacity: 0;
+  transition: none;
+}
+
+/* ─── Containment ─────────────────────────────────────────────────────
+   Measured, not guessed. Scrolling this page top to bottom while sampling frame
+   intervals put the cost squarely on two subtrees: the collection grid and the
+   key heatmap. Hiding the grid alone took the 95th-percentile frame from 33ms
+   (one dropped frame at 60Hz, every time) to 16.7ms.
+
+   `content-visibility: auto` lets the browser skip rendering a subtree that is
+   off screen entirely. `contain-intrinsic-size: auto <px>` gives it a placeholder
+   height until it has measured the real one, and then remembers it — without the
+   `auto` keyword the scrollbar jumps as each block is measured for the first
+   time.
+   ────────────────────────────────────────────────────────────────── */
+.dsr-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+.dsr-contain-chart {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
+  contain: layout paint style;
+}
+
+.dsr-scroller {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── Academy Smooth Scrolling & Layout Containment ───────────────────
+   64 lesson rows and track cards previously paid for continuous layout,
+   paint, and filter compositing on every scroll frame.
+   content-visibility: auto isolates offscreen elements completely, while
+   academy-scroller promotes the scroll container to its own compositor layer. */
+.academy-scroller {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+  will-change: scroll-position;
+  contain: paint;
+}
+
+.academy-row-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 54px;
+}
+
+.academy-card-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 140px;
+}
+
+/* ─── Collection tile ─────────────────────────────────────────────────
+   The one grid on this page whose items are objects rather than readouts, so
+   it is the one place that earns surface behaviour rather than just an entrance.
+
+   Three layers, all hover-only and all painted at most one tile at a time:
+
+     ::before  a spotlight that tracks the pointer across the face
+     ::after   the same light, masked to the 1px rim, so the border illuminates
+               where the cursor is rather than uniformly
+
+   `--mx` / `--my` are written by one pointer handler on the grid, onto the tile
+   under the cursor only. That is the cost of the effect: a repaint of one tile
+   while the pointer is inside it, and nothing at all otherwise.
+   ────────────────────────────────────────────────────────────────── */
+.dsr-tile {
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  isolation: isolate;
+}
+
+.dsr-tile::before,
+.dsr-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Face light. Sits under the content, over the fill. */
+.dsr-tile::before {
+  z-index: -1;
+  background: radial-gradient(
+    380px circle at var(--mx) var(--my),
+    rgba(var(--dsr-accent), 0.14),
+    transparent 60%
+  );
+}
+
+/* Rim light. The mask keeps only the border ring, so the gradient reads as the
+   edge catching the light rather than as a second glow on the face. */
+.dsr-tile::after {
+  padding: 1px;
+  background: radial-gradient(
+    260px circle at var(--mx) var(--my),
+    rgba(var(--dsr-accent), 0.85),
+    transparent 62%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.dsr-tile:hover::before {
+  opacity: 1;
+}
+
+.dsr-tile:hover::after {
+  opacity: 0.9;
+}
+
+/* ─── The equipped tile ───────────────────────────────────────────────
+   The only looping animation on the page, and it is state rather than
+   decoration: exactly one tile in the grid is the title you are wearing, and a
+   slightly different border colour was not enough to find it at a glance.
+
+   Opacity on a pseudo-element, never `box-shadow`. A breathing shadow re-rasters
+   the tile and its surroundings on every frame; a breathing overlay is one
+   composited layer the GPU fades in place.
+   ────────────────────────────────────────────────────────────────── */
+@keyframes dsr-equipped-breathe {
+
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.95;
+  }
+}
+
+.dsr-tile-equipped::before {
+  /* Present without hover, and the hover light lands on top of it. */
+  opacity: 1;
+  background:
+    radial-gradient(220px circle at var(--mx) var(--my), rgba(var(--dsr-accent), 0.16), transparent 62%),
+    linear-gradient(140deg, rgba(var(--dsr-accent), 0.1), transparent 58%);
+}
+
+.dsr-tile-equipped .dsr-equipped-aura {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgb(var(--dsr-accent));
+  animation: dsr-equipped-breathe 4.2s ease-in-out infinite;
+}
+
+/* ─── Segmented pill under the active filter ──────────────────────────
+   Same measured-geometry trick as the section spy: two custom properties, one
+   composited transform. Two chips is exactly the case where a sliding pill is
+   worth it, because the travel is short enough to follow.
+   ────────────────────────────────────────────────────────────────── */
+.dsr-chip-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: var(--chip-w, 0);
+  border-radius: 9999px;
+  transform: translate3d(var(--chip-x, 0), 0, 0);
+  background: rgba(var(--dsr-accent), 0.12);
+  border: 1px solid rgba(var(--dsr-accent), 0.45);
+  transition:
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, width;
+}
+
+.dsr-chip-pill[data-ready="false"] {
+  opacity: 0;
+  transition: none;
 }
 
 /* ─── Animations ──────────────────────────────────────────────────── */
@@ -1024,7 +1531,6 @@
   .academy-portal-circle,
   .logo-wobble,
   .dossier-stagger>*,
-  .dossier-panel-in,
   .dossier-meter,
   .fx-spin,
   .fx-marquee,
@@ -1033,9 +1539,9 @@
   .fx-segment,
   .fx-pulse,
   .fx-bleed,
-  .spark-line,
-  .spark-area,
-  .spark-head {
+  .spark-in .spark-line,
+  .spark-in .spark-area,
+  .spark-in .spark-head {
     animation: none !important;
   }
 
@@ -1046,15 +1552,54 @@
   .lucid-scale,
   .lucid-slide,
   .stat-card,
-  .dossier-stagger>*,
-  .dossier-panel-in {
+  .dossier-stagger>* {
     opacity: 1 !important;
     transform: none !important;
   }
 
-  /* The tab indicator must jump, not slide. Its position is still correct —
-     only the travel is dropped. */
-  .dossier-glider {
+  /* Interactive surfaces keep their colour feedback and drop the lift. */
+  .dsr-interactive,
+  .dsr-interactive:hover:not(:disabled) {
+    transform: none !important;
+  }
+
+  /* Revealed content must be *present*, not merely un-animated. `useReveal`
+     also marks everything immediately under this preference, so this is the
+     belt to that braces. */
+  [data-reveal],
+  [data-reveal][data-dsr-in],
+  [data-reveal-rule],
+  [data-reveal-rule][data-dsr-in] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .dsr-spy-glider {
+    transition: none !important;
+  }
+
+  /* The tile's surface light and the equipped breath both go: the first is a
+     pointer-tracked repaint, the second is the only loop on the page. State is
+     still legible from the border colour and the Equipped chip. */
+  .dsr-tile::before,
+  .dsr-tile::after,
+  .dsr-tile:hover::before,
+  .dsr-tile:hover::after {
+    transition: none !important;
+  }
+
+  .dsr-tile::after,
+  .dsr-tile:hover::after {
+    opacity: 0 !important;
+  }
+
+  .dsr-tile-equipped .dsr-equipped-aura {
+    animation: none !important;
+    opacity: 0.7;
+  }
+
+  .dsr-chip-pill {
     transition: none !important;
   }
 
@@ -1062,6 +1607,24 @@
   .spark-line {
     stroke-dasharray: none !important;
   }
+
+  /* Interactive Form Chart: disable all entrance animations under
+     reduced-motion. The chart is still fully functional — hover tooltips
+     and crosshairs still work, just without the animated pop-ins. */
+  .ifc-crosshair,
+  .ifc-hover-dot,
+  .ifc-y-label {
+    animation: none !important;
+  }
+
+  .ifc-host {
+    transition: none !important;
+  }
+
+  .ifc-dot {
+    transition: none !important;
+  }
+
 
   /* A meter's fill is data, not decoration, so it keeps its scale — only the
      tween to it is dropped. */
@@ -1146,6 +1709,10 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.custom-scrollbar {
+  scrollbar-gutter: stable;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

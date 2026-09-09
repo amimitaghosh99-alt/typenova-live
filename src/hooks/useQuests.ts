@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { readLocalProgress, writeLocalProgress, type Quest, type QuestsState } from '@/lib/progress';
 import { todayKey } from '@/utils/seededRandom';
 
@@ -89,5 +89,5 @@ export function useQuests(grantXp?: (amount: number) => void) {
     if (totalXpGained > 0 && grantXp) grantXp(totalXpGained);
   }, [grantXp]);
 
-  return { questsState, progressQuest };
+  return useMemo(() => ({ questsState, progressQuest }), [questsState, progressQuest]);
 }

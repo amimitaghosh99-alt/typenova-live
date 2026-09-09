@@ -1,6 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { ACHIEVEMENTS } from '@/data/constants';
 import type { Achievement } from '@/data/constants';
+import { calculateXPProgression, type XpBreakdown } from '@/lib/scoringEngine';
+
+export type { XpBreakdown };
 
 const STORAGE_KEYS = {
   xp: 'typezen_xp',
@@ -36,6 +39,7 @@ export const useRPGSystem = () => {
   });
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
   const [xpGainedLast, setXpGainedLast] = useState(0);
+  const [xpBreakdownLast, setXpBreakdownLast] = useState<XpBreakdown | null>(null);
   const [leveledUp, setLeveledUp] = useState(false);
   const [heatmapData, setHeatmapData] = useState<Record<string, { total: number; errors: number; totalMs?: number }>>(() => {
     if (typeof window === 'undefined') return {};
@@ -75,7 +79,9 @@ export const useRPGSystem = () => {
     targetTextLength: number,
     microDrillActive: boolean,
     keystrokeLog: Array<{ expected: string; isError: boolean; isBackspace?: boolean; time: number }>,
-    onLevelUp: () => void
+    onLevelUp: () => void,
+    consistency?: number,
+    _rawErrors?: number
   ) => {
     const newTestsCompleted = testsCompleted + 1;
     setTestsCompleted(newTestsCompleted);
@@ -104,12 +110,21 @@ export const useRPGSystem = () => {
     setHeatmapData(updatedHeatmap);
     localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(updatedHeatmap));
 
-    // Calculate XP
+    // Calculate XP progression and structured breakdown
+    const xpBreakdown = calculateXPProgression(
+      finalWpm,
+      finalAcc,
+      currentMaxCombo,
+      consistency ?? 0,
+      targetTextLength,
+      microDrillActive
+    );
+    const gained = xpBreakdown.totalXp;
+    setXpGainedLast(gained);
+    setXpBreakdownLast(xpBreakdown);
+
     let newXp = xp;
-    if (finalWpm > 10 && finalAcc > 50 && !microDrillActive) {
-      const lengthMod = targetTextLength / 100;
-      const gained = Math.floor(finalWpm * (finalAcc / 100) * lengthMod * 2);
-      setXpGainedLast(gained);
+    if (gained > 0) {
       newXp = xp + gained;
       const oldLevel = Math.floor(Math.sqrt(xp / 100)) + 1;
       const newLevel = Math.floor(Math.sqrt(newXp / 100)) + 1;
@@ -120,7 +135,7 @@ export const useRPGSystem = () => {
       }
     }
 
-    return { newXp, newTestsCompleted, updatedHeatmap, newBestCombo };
+    return { newXp, newTestsCompleted, updatedHeatmap, newBestCombo, xpBreakdown };
   }, [xp, testsCompleted, heatmapData, bestCombo]);
 
   const checkAchievements = useCallback((
@@ -137,7 +152,8 @@ export const useRPGSystem = () => {
     seenThemesCount: number,
     totalThemes: number,
     isTimed: boolean = false,
-    dailyStreak: number = 0
+    dailyStreak: number = 0,
+    consistency: number = 0
   ) => {
     const newlyUnlocked: string[] = [];
     const check = (id: string) => !unlockedAchievements.includes(id);
@@ -149,6 +165,9 @@ export const useRPGSystem = () => {
     if (check('hyperspace') && finalWpm >= 140) unlock('hyperspace');
     if (check('sniper') && wordCount >= 50 && finalAcc === 100) unlock('sniper');
     if (check('unbreakable') && currentMaxCombo >= 200) unlock('unbreakable');
+    if (check('centurion_streak') && currentMaxCombo >= 100) unlock('centurion_streak');
+    if (check('flow_state') && consistency >= 85 && finalAcc >= 95) unlock('flow_state');
+    if (check('surgical_precision') && wordCount >= 50 && finalAcc === 100) unlock('surgical_precision');
     if (check('time_lord') && isTimed && finalWpm >= 100) unlock('time_lord');
     if (check('daredevil') && suddenDeath) unlock('daredevil');
     if (check('jedi_senses') && blindMode && fogMode) unlock('jedi_senses');
@@ -181,6 +200,7 @@ export const useRPGSystem = () => {
 
   const resetRPGFlags = useCallback(() => {
     setXpGainedLast(0);
+    setXpBreakdownLast(null);
     setLeveledUp(false);
   }, []);
 
@@ -213,15 +233,18 @@ export const useRPGSystem = () => {
     setTestsCompleted(0);
     setHeatmapData({});
     setBestCombo(0);
+    setXpGainedLast(0);
+    setXpBreakdownLast(null);
     setAchievementQueue(prev => [...prev, { id: 'reset', title: 'All Progress Reset', desc: '', icon: 'rotate-ccw', category: 'SUPER' }]);
   }, []);
 
-  return {
+  return useMemo(() => ({
     xp, setXp,
     testsCompleted,
     unlockedAchievements,
     achievementQueue,
     xpGainedLast,
+    xpBreakdownLast,
     leveledUp,
     heatmapData,
     bestCombo,
@@ -235,5 +258,25 @@ export const useRPGSystem = () => {
     unlockAllAchievements,
     resetAllProgress,
     hydrate,
-  };
+  }), [
+    xp,
+    testsCompleted,
+    unlockedAchievements,
+    achievementQueue,
+    xpGainedLast,
+    xpBreakdownLast,
+    leveledUp,
+    heatmapData,
+    bestCombo,
+    userLevel,
+    nextLevelXp,
+    currentLevelProgress,
+    xpNeeded,
+    processRPG,
+    checkAchievements,
+    resetRPGFlags,
+    unlockAllAchievements,
+    resetAllProgress,
+    hydrate,
+  ]);
 };

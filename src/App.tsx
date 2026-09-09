@@ -4,7 +4,7 @@
 /* eslint-disable react-hooks/purity */
 /* eslint-disable no-empty */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import {
   Lock
 } from 'lucide-react';
@@ -31,17 +31,19 @@ import { useModals } from '@/hooks/useModals';
 
 import { TypingController } from '@/components/TypingController';
 
+import { AudioDictationController, generateSimulatedBoundaries } from '@/lib/audioDictationEngine';
 import type { PaceSample, RivalPace } from '@/components/TypingArea';
 import { useModeLeaderboard, fetchRivalGhost, type ModeScoreRow, type RivalGhost } from '@/hooks/useModeLeaderboard';
-import { buildModeKey, pbStorageKeyFor, submittableModeKey } from '@/lib/modeKey';
-import { ResultsScreen } from '@/components/ResultsScreen';
-import { RaceResultsScreen } from '@/components/RaceResultsScreen';
-import { AIDrillResultsScreen } from '@/components/AIDrillResultsScreen';
+import { buildModeKey, formatModeLabelLong, parseModeKey, pbStorageKeyFor, submittableModeKey } from '@/lib/modeKey';
+const ResultsScreen = lazy(() => import('@/components/ResultsScreen').then(m => ({ default: m.ResultsScreen })));
+const RaceResultsScreen = lazy(() => import('@/components/RaceResultsScreen').then(m => ({ default: m.RaceResultsScreen })));
+const AIDrillResultsScreen = lazy(() => import('@/components/AIDrillResultsScreen').then(m => ({ default: m.AIDrillResultsScreen })));
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { appendHistory, loadHistory } from '@/lib/history';
 import type { HistoryEntry } from '@/lib/history';
+import { calculateCPI, calculateBurstWpm, calculateGhostDelta, type PerformanceGrade } from '@/lib/scoringEngine';
 import { loadPersonalBests } from '@/lib/personalBests';
-import { ReplayModal } from '@/components/ReplayModal';
+const ReplayModal = lazy(() => import('@/components/ReplayModal').then(m => ({ default: m.ReplayModal })));
 import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
 import { useChallenges } from '@/hooks/useChallenges';
 import { useRace, makeRoomCode } from '@/hooks/useRace';
@@ -56,29 +58,37 @@ import { ACADEMY_PROGRESS_CHANGED, onSyncEvent } from '@/lib/syncEvents';
 import { readLocalProgress, writeLocalProgress } from '@/lib/progress';
 import { useFriends } from '@/hooks/useFriends';
 import { PracticeArena } from '@/components/PracticeArena';
+import { HEX_ABILITIES, applyIncomingHex, pruneExpiredHexes, type ActiveHex, type HexType } from '@/lib/sabotageEngine';
 import { LeaderboardSidebar, type BoardTab } from '@/components/LeaderboardSidebar';
 import { BottomControlsDock } from '@/components/BottomControlsDock';
 import { AppModalManager } from '@/components/AppModalManager';
 import { TimedHud } from '@/components/TimedHud';
 
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router';
-import { Login } from '@/pages/Login';
-import { OperatorDossier } from '@/pages/OperatorDossier';
+const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login })));
+const OperatorDossier = lazy(() => import('@/pages/OperatorDossier').then(m => ({ default: m.OperatorDossier })));
+const OperatorAnalytics = lazy(() => import('@/pages/OperatorAnalytics').then(m => ({ default: m.OperatorAnalytics })));
+const PatronVault = lazy(() => import('@/pages/PatronVault').then(m => ({ default: m.PatronVault })));
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
-import { AnimatePresence, motion, type Variants } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { CHANGELOG } from '@/data/changelog';
 
-import { AcademyLayout } from '@/components/academy/AcademyLayout';
+const AcademyLayout = lazy(() => import('@/components/academy/AcademyLayout').then(m => ({ default: m.AcademyLayout })));
 import { useSmartDrills } from '@/hooks/useSmartDrills';
+import { useWordWeakness } from '@/hooks/useWordWeakness';
+import { aggregateWords, type DrillRunMeta } from '@/lib/wordWeakness';
+import { useCosmetics } from '@/hooks/useCosmetics';
 import { AI_KEYS } from '@/lib/aiClient';
 import { CosmicNavBar } from '@/components/CosmicNavBar';
 import CosmicLiquidShader from '@/components/CosmicLiquidShader';
+import { useShaderConfig } from '@/hooks/useShaderConfig';
 import { LobbyScreen } from '@/components/LobbyScreen';
 import { CompeteEntryScreen } from '@/components/CompeteEntryScreen';
 import { QuickMatchPanel } from '@/components/QuickMatchPanel';
 import { RoomBrowser } from '@/components/RoomBrowser';
 import { RankedHistoryPanel } from '@/components/RankedHistoryPanel';
+import { RankedTeaserCard } from '@/components/RankedTeaserCard';
 
 import { RaceTrack } from '@/components/RaceTrack';
 
@@ -90,30 +100,32 @@ const STAGE_PAGE_ORDER: Record<string, number> = {
   academy: 2,
 };
 
-const STAGE_PAGE_VARIANTS: Variants = {
-  initial: (dir: number) => ({
+/**
+ * Stage overlay transition variants.
+ * Uses pure opacity cross-fade to enable direct GPU compositor alpha blending.
+ * Avoiding `y` translation is critical: moving elements that contain `backdrop-filter: blur`
+ * forces Chrome/Edge to re-render Gaussian blur kernels across dozens of cards on every
+ * subpixel frame, which saturates GPU fill-rate and drops FPS.
+ */
+const STAGE_PAGE_VARIANTS = {
+  enterStart: {
     opacity: 0,
-    x: dir * 28,
-    scale: 0.99,
-  }),
-  animate: {
+    transition: { duration: 0 },
+  },
+  visible: {
     opacity: 1,
-    x: 0,
-    scale: 1,
     transition: {
-      duration: 0.45,
-      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+      duration: 0.18,
+      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
     },
   },
-  exit: (dir: number) => ({
+  hidden: {
     opacity: 0,
-    x: dir * -28,
-    scale: 0.99,
     transition: {
-      duration: 0.32,
-      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+      duration: 0.16,
+      ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
     },
-  }),
+  },
 };
 
 // ─── DRILL WORD POOL ──────────────────────────────────────────────────
@@ -193,11 +205,17 @@ function MainApp() {
     close: closeModal,
   } = useModals();
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('settings=1')) {
+      openModal('settings');
+    }
+  }, [openModal]);
+
   const [techAiState, setTechAiState] = useState({
 
     apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',
     baseUrl: localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1',
-    model: localStorage.getItem(AI_KEYS.byokModel) || 'llama-3.3-70b-versatile',
+    model: localStorage.getItem(AI_KEYS.byokModel) || 'groq/compound-mini',
     connectionStatus: 'idle' as const,
     connectionError: '',
     modelCount: 0
@@ -209,7 +227,7 @@ function MainApp() {
         ...prev,
         apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',
         baseUrl: localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1',
-        model: localStorage.getItem(AI_KEYS.byokModel) || 'llama-3.3-70b-versatile',
+        model: localStorage.getItem(AI_KEYS.byokModel) || 'groq/compound-mini',
       }));
     };
     window.addEventListener('storage', handleStorage);
@@ -218,12 +236,14 @@ function MainApp() {
 
   const openTabTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const academyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
       if (openTabTimeoutRef.current) clearTimeout(openTabTimeoutRef.current);
       if (academyTimeoutRef.current) clearTimeout(academyTimeoutRef.current);
+      if (stageTransitionTimerRef.current) clearTimeout(stageTransitionTimerRef.current);
     };
   }, []);
 
@@ -268,19 +288,129 @@ function MainApp() {
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
   const [isRankedMatch, setIsRankedMatch] = useState(false);
+
+  const isSabotagePreview = typeof window !== 'undefined' && window.location.search.includes('sabotage=1');
+  const [testHexes, setTestHexes] = useState<ActiveHex[]>([]);
+  const [testHexEnergy, setTestHexEnergy] = useState<number>(85);
+
+  useEffect(() => {
+    if (isSabotagePreview) {
+      setTestHexes([
+        {
+          id: 'preview-hex-1',
+          hexType: 'glitch_fog',
+          fromName: 'CyberPhantom',
+          fromId: 'rival-1',
+          appliedAt: Date.now(),
+          expiresAt: Date.now() + 60000,
+          durationMs: 60000,
+        },
+      ]);
+    }
+  }, [isSabotagePreview]);
+
+  useEffect(() => {
+    if (!isSabotagePreview || testHexes.length === 0) return;
+    const interval = setInterval(() => {
+      setTestHexes(prev => pruneExpiredHexes(prev));
+    }, 250);
+    return () => clearInterval(interval);
+  }, [isSabotagePreview, testHexes.length]);
   // A room is only advertised in the public directory when its host opted in.
   // Challenge and quick-match rooms are never listed.
   const [listRoomsPublicly, setListRoomsPublicly] = useState(() => {
     try { return localStorage.getItem('typenova_list_rooms') !== 'false'; } catch { return true; }
   });
   const [publicRoom, setPublicRoom] = useState(false);
-  const { generateDrill, isGenerating: isSmartDrillGenerating } = useSmartDrills();
-  const [currentStage, setCurrentStage] = useState<'practice' | 'compete' | 'academy'>('practice');
+  const { generateDrill, generateWordDrill, isGenerating: isSmartDrillGenerating } = useSmartDrills();
+  const wordWeakness = useWordWeakness();
+  /** Words the current drill was built to train, for SR grading on finish.
+      A ref on purpose: it changes only when a drill launches, and reading it
+      in the completion effect must never re-arm that effect. */
+  const drillTargetWordsRef = useRef<string[]>([]);
+  const [currentStage, setCurrentStageState] = useState<'practice' | 'compete' | 'academy'>('practice');
+  /** The stage whose layer is fully revealed. Trails `currentStage` by one painted
+      frame so a freshly-mounted stage can lay out invisibly BEFORE it fades in. */
+  const [settledStage, setSettledStage] = useState<'practice' | 'compete' | 'academy'>('practice');
+  const [_stageDirection, setStageDirection] = useState(1);
+  /** A stage that has ever been opened keeps its layer mounted (hidden) from then
+      on — remounting a full page inside the animated frames was dropping them all. */
+  const [visitedStages, setVisitedStages] = useState<Record<'practice' | 'compete' | 'academy', boolean>>({ practice: true, compete: false, academy: false });
+  const [isStageTransitioning, setIsStageTransitioning] = useState(false);
   const isAcademyMode = currentStage === 'academy';
 
-  const enterAcademy = useCallback(() => {
-    setCurrentStage('academy');
+  /** True once a full-cover stage overlay (Academy, or the Compete lobby) has
+      finished fading in. Behind those overlays the background shader is pure
+      invisible cost — a full-viewport fragment shader sampled by stacked
+      `backdrop-blur` panels, so every shader frame forces the GPU to re-blur
+      every glass panel. Pausing it while covered removes that whole pipeline.
+      Gated 320ms after entering (> the 200ms fade) so the transition itself
+      still plays over the live background; resumes instantly on exit. */
+  const [stageOverlaySettled, setStageOverlaySettled] = useState(false);
+  const stageOverlayCoversArena = currentStage === 'academy' || (currentStage === 'compete' && !raceActive);
+  useEffect(() => {
+    if (!stageOverlayCoversArena) {
+      setStageOverlaySettled(false);
+      return;
+    }
+    const timer = setTimeout(() => setStageOverlaySettled(true), 320);
+    return () => clearTimeout(timer);
+  }, [stageOverlayCoversArena]);
+
+  // Idle preload of Academy & Compete modules so opening any stage is instantaneous with zero stutter
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      import('@/components/academy/AcademyLayout');
+      import('@/components/CompeteEntryScreen');
+      import('@/components/RoomBrowser');
+      import('@/components/RankedTeaserCard');
+    }, 800);
+    return () => clearTimeout(timer);
   }, []);
+
+  /**
+   * Single writer for every stage switch (all call sites — `switchStage` is an
+   * alias). Derives the slide direction SYNCHRONOUSLY; the old useEffect did it
+   * one commit later, forcing a second render right as the transition started.
+   */
+  const currentStageRef = useRef(currentStage);
+  const setCurrentStage = useCallback((nextStage: 'practice' | 'compete' | 'academy') => {
+    const prevStage = currentStageRef.current;
+    if (prevStage === nextStage) return;
+    currentStageRef.current = nextStage;
+    setStageDirection(STAGE_PAGE_ORDER[nextStage] >= STAGE_PAGE_ORDER[prevStage] ? 1 : -1);
+    setVisitedStages(prev => (prev[nextStage] ? prev : { ...prev, [nextStage]: true }));
+
+    // Temporarily pause background WebGL simplex noise shader during the transition window
+    // to free 100% of GPU compute for Framer Motion and the compositor.
+    if (stageTransitionTimerRef.current) clearTimeout(stageTransitionTimerRef.current);
+    setIsStageTransitioning(true);
+    stageTransitionTimerRef.current = setTimeout(() => {
+      setIsStageTransitioning(false);
+    }, 240);
+
+    // Warm stages settle immediately with zero 2-RAF latency
+    if (visitedStages[nextStage]) {
+      setSettledStage(nextStage);
+    }
+    setCurrentStageState(nextStage);
+  }, [visitedStages]);
+  const switchStage = setCurrentStage;
+
+  /** Reveal the freshly-mounted stage only after it has painted once, invisible.
+      The cross-fade then runs against an idle compositor — zero mount work in the
+      animated frames, which is what killed the old AnimatePresence transition. */
+  useEffect(() => {
+    if (settledStage === currentStage) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setSettledStage(currentStage));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [currentStage, settledStage]);
 
   /**
    * The dossier is a route now, so the operator on screen comes from the URL
@@ -291,9 +421,19 @@ function MainApp() {
   const navigate = useNavigate();
   const { username: routeProfileUsername } = useParams<{ username?: string }>();
   const location = useLocation();
-  const dossierOpen = location.pathname.startsWith('/operator');
+  const isAnalytics = location.pathname.endsWith('/analytics');
+  const donateOpen = location.pathname === '/donate';
+  const dossierOpen = location.pathname.startsWith('/operator') && !isAnalytics;
+  const analyticsOpen = isAnalytics;
   /** Null when the URL carries no name, i.e. "my own dossier". */
   const selectedProfileUsername = routeProfileUsername ?? null;
+
+  const enterAcademy = useCallback(() => {
+    switchStage('academy');
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
+  }, [switchStage, location.pathname, navigate]);
 
   interface LeaderboardRow {
     username: string;
@@ -330,6 +470,7 @@ function MainApp() {
 
   const quests = useQuests((gained) => rpg.setXp((prev: number) => prev + gained));
   const particles = useParticles();
+  const shaderConfig = useShaderConfig();
 
   // Ref-based callback to break the dependency cycle between
   // handleReset (which lives in App.tsx) and the change handlers
@@ -356,9 +497,14 @@ function MainApp() {
       setRacesWon(readLocalProgress().racesWon);
     },
   });
+  const cosmetics = useCosmetics(
+    cloud.username,
+    supabase,
+    auth.user?.user_metadata?.avatar_url ?? auth.user?.user_metadata?.picture ?? null
+  );
   const isLoggedIn = !!auth.session;
-  const levelOptions = useMemo(() => (["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM"] as Level[]).map(l => ({
-    label: l,
+  const levelOptions = useMemo(() => (["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM", "DICTATION"] as Level[]).map(l => ({
+    label: l === 'DICTATION' ? 'AUDIO' : l,
     value: l,
     locked: !isLoggedIn && (l === "CODE" || l === "CUSTOM")
   })), [isLoggedIn]);
@@ -397,7 +543,7 @@ function MainApp() {
    * which is why those sections are marked private rather than zeroed.
    */
   const localRPGStatsMemo = useMemo(() => {
-    if (!dossierOpen) return undefined;
+    if (!dossierOpen && !analyticsOpen) return undefined;
     const isOwn = selectedProfileUsername
       ? !!cloud.username && selectedProfileUsername.toLowerCase() === cloud.username.toLowerCase()
       : true;
@@ -416,6 +562,8 @@ function MainApp() {
       // The dossier draws the key heatmap now — the standalone stats modal that
       // used to own it is gone.
       heatmap: rpg.heatmapData,
+      wordWeakness: wordWeakness.map,
+      wordWeaknessDue: wordWeakness.due,
       skillStats: {
         maxWpm: h.length ? Math.max(...h.map((e) => e.wpm)) : 0,
         avgAccuracy: recent.length ? Math.round(recent.reduce((a, e) => a + e.acc, 0) / recent.length) : 0,
@@ -425,27 +573,7 @@ function MainApp() {
         totalWordsTyped: h.reduce((a, e) => a + e.size, 0),
       }
     };
-  }, [dossierOpen, cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, rpg.bestCombo, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, racesWon]);
-
-  const handleChallengeFriend = (
-    friendUsername: string,
-    config?: { mode?: Level; words?: number; language?: CodeLanguage }
-  ) => {
-    if (!cloud.username) return;
-    const roomCode = makeRoomCode();
-    race.createRoom(cloud.username, 2, undefined, cloud.elo, roomCode, auth.user?.id, false);
-    setPublicRoom(false); // a private duel with one named friend
-    if (config) {
-      race.updateLobbyConfig(config);
-    }
-    challenges.sendChallenge(friendUsername, roomCode, cloud.elo, config);
-    const modeLabel = config ? `${config.mode}${config.words ? ` (${config.words}w)` : ''}` : '';
-    toast.success(`Challenge ${modeLabel} sent to ${friendUsername}! Waiting…`, { icon: '⚔️' });
-    closeModal();
-    setRaceActive(false);
-    setCurrentStage('compete');
-  };
-
+  }, [dossierOpen, analyticsOpen, cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, rpg.bestCombo, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, racesWon, wordWeakness.map, wordWeakness.due]);
 
   // ─── Online Heartbeat ────────────────────────────────────────────
   useEffect(() => {
@@ -492,8 +620,26 @@ function MainApp() {
       typing.setCountdownTimer(Math.max(1, Math.ceil((startAt - Date.now()) / 1000)));
       typing.setPhase('COUNTDOWN');
     },
-
   });
+
+  const handleChallengeFriend = useCallback((
+    friendUsername: string,
+    config?: { mode?: Level; words?: number; language?: CodeLanguage }
+  ) => {
+    if (!cloud.username) return;
+    const roomCode = makeRoomCode();
+    race.createRoom(cloud.username, 2, undefined, cloud.elo, roomCode, auth.user?.id, false);
+    setPublicRoom(false); // a private duel with one named friend
+    if (config) {
+      race.updateLobbyConfig(config);
+    }
+    challenges.sendChallenge(friendUsername, roomCode, cloud.elo, config);
+    const modeLabel = config ? `${config.mode}${config.words ? ` (${config.words}w)` : ''}` : '';
+    toast.success(`Challenge ${modeLabel} sent to ${friendUsername}! Waiting…`);
+    closeModal();
+    setRaceActive(false);
+    setCurrentStage('compete');
+  }, [cloud.username, cloud.elo, race.createRoom, race.updateLobbyConfig, auth.user?.id, challenges.sendChallenge, closeModal]);
 
   // ─── Quick Match ─────────────────────────────────────────────────
   // Presence key + host election need a stable, unique id per client. Guests
@@ -741,7 +887,8 @@ function MainApp() {
   const handleReset = useCallback((overrides: {
     level?: Level; wordCount?: number; mirrored?: boolean;
     testMode?: 'words' | 'time'; duration?: number;
-    numbers?: boolean; punctuation?: boolean; codeLanguage?: CodeLanguage; daily?: boolean;
+    numbers?: boolean; punctuation?: boolean; codeLanguage?: CodeLanguage;
+    dictationSpeed?: number; dictationTrackId?: string; daily?: boolean;
   } = {}) => {
     const cfg = game.configRef.current;
     const nextLevel = overrides.level ?? cfg.level;
@@ -752,13 +899,13 @@ function MainApp() {
     const nextNumbers = overrides.numbers ?? cfg.withNumbers;
     const nextPunct = overrides.punctuation ?? cfg.withPunctuation;
     const nextCodeLanguage = overrides.codeLanguage ?? cfg.codeLanguage;
+    const nextDictationTrackId = overrides.dictationTrackId ?? cfg.dictationTrackId;
     const nextDaily = overrides.daily ?? cfg.dailyActive;
     const nextCustom = cfg.customText;
 
     // Timed tests need a deep word buffer (240 words for 60s ≈ 240 WPM ceiling)
     const length = nextMode === 'time' ? nextDuration * 4 : nextCount;
 
-    typing.setPhase('CONFIGURING');
     if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
 
     typing.resetEngine();
@@ -766,10 +913,12 @@ function MainApp() {
       numbers: nextNumbers,
       punctuation: nextPunct,
       codeLanguage: nextCodeLanguage,
+      dictationTrackId: nextDictationTrackId,
+      isDaily: nextDaily,
       rng: nextDaily ? mulberry32(daySeed()) : undefined,
     }));
+    typing.setPhase('CONFIGURING');
 
-    game.setZenMode(false);
     setSaveStatus('');
     if (raceActive) {
       // Dropping the room while the stage is still 'compete' left the user on a
@@ -788,7 +937,7 @@ function MainApp() {
   }, [handleReset]);
   // ─── Save Score ──────────────────────────────────────────────────
   // First-login: claim a display name (creates the profile row).
-  const submitUsername = async () => {
+  const submitUsername = useCallback(async () => {
     const name = nameInput.trim();
     if (name.length < 2) { setNameErr('At least 2 characters'); return; }
     setSavingName(true);
@@ -796,14 +945,53 @@ function MainApp() {
     const res = await cloud.saveUsername(name);
     setSavingName(false);
     if (!res.ok) setNameErr(res.error || 'Failed');
-  };
+  }, [nameInput, cloud.saveUsername]);
+
+  // ─── Real-Time Audio Transcription Shadowing ─────────────────────
+  const [dictationSpokenIndex, setDictationSpokenIndex] = useState(0);
+  const dictationControllerRef = useRef<AudioDictationController | null>(null);
+
+  useEffect(() => {
+    dictationControllerRef.current = new AudioDictationController();
+    return () => {
+      dictationControllerRef.current?.stop();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typing.phase === 'TYPING' && game.level === 'DICTATION') {
+      if (!dictationControllerRef.current) {
+        dictationControllerRef.current = new AudioDictationController();
+      }
+      dictationControllerRef.current.setSpeed(game.dictationSpeed);
+      typing.setDictationSpeed(game.dictationSpeed);
+
+      // Immediately seed baseline boundaries so calculateStats always has valid baseline
+      const seedBoundaries = generateSimulatedBoundaries(typing.targetText, game.dictationSpeed);
+      typing.setSpokenBoundaries(seedBoundaries);
+
+      dictationControllerRef.current.start(typing.targetText, (_boundary, idx) => {
+        setDictationSpokenIndex(idx);
+        typing.setSpokenBoundaries(dictationControllerRef.current?.getBoundaries(typing.targetText) || seedBoundaries);
+      });
+    } else {
+      dictationControllerRef.current?.stop();
+      if (typing.phase === 'FINISHED' && game.level === 'DICTATION') {
+        const finalBoundaries = dictationControllerRef.current?.getBoundaries(typing.targetText) || [];
+        if (finalBoundaries.length > 0) {
+          typing.setSpokenBoundaries(finalBoundaries);
+        }
+      }
+    }
+  }, [typing.phase, game.level, game.dictationSpeed, typing.targetText]);
 
   // ─── Drills (single-key micro + heatmap smart) ───────────────────
-  const launchDrill = useCallback((text: string) => {
+  const launchDrill = useCallback((text: string, meta?: DrillRunMeta) => {
+    drillTargetWordsRef.current = meta?.targetWords ?? [];
     typing.resetEngine();
     game.setMicroDrillActive(true);
     typing.setTargetText(text);
-    typing.setPhase('READY');
+    typing.setPhase('CONFIGURING');
   }, [typing, game]);
 
   const startMicroDrill = useCallback((keyChar: string) => {
@@ -855,7 +1043,7 @@ function MainApp() {
   const startSmartDrill = useCallback(async (sessionKeys?: string[]) => {
     const targetKeys = sessionKeys && sessionKeys.length > 0 ? sessionKeys : smartDrillKeys;
     if (targetKeys.length === 0) {
-      toast.error('Not enough data! Play a few rounds first to generate weak keys.', { icon: '⚠️' });
+      toast.error('Not enough data! Play a few rounds first to generate weak keys.');
       return;
     }
 
@@ -867,7 +1055,26 @@ function MainApp() {
     }
   }, [smartDrillKeys, generateDrill, launchDrill]);
 
+  // ─── Word-weakness drills (dossier panel, practice badge, Academy trainer) ───
+  const startWordDrill = useCallback(async (words: string[]) => {
+    if (words.length === 0) {
+      toast.error('No weak words yet — finish a few runs first.');
+      return;
+    }
+    try {
+      const result = await generateWordDrill(words);
+      launchDrill(result.text, { targetWords: words });
+    } catch {
+      toast.error('Failed to generate word drill. Is Aru offline?');
+    }
+  }, [generateWordDrill, launchDrill]);
+
+  const startDueWordsDrill = useCallback(() => {
+    void startWordDrill(wordWeakness.due.slice(0, 10));
+  }, [startWordDrill, wordWeakness.due]);
+
   const exitMicroDrill = useCallback(() => {
+    drillTargetWordsRef.current = [];
     game.setMicroDrillActive(false);
     handleResetRef.current({});
   }, [game]);
@@ -877,7 +1084,7 @@ function MainApp() {
   // the rival ghost lookup, so all three always describe the same test config.
   const modeKey = buildModeKey(game.level, game.testMode, game.duration, game.wordCount);
   const pbStorageKey = pbStorageKeyFor(modeKey);
-  const pbGhost = useMemo((): { wpm: number; samples: PaceSample[] } | null => {
+  const pbGhost = useMemo((): { wpm: number; accuracy?: number; consistency?: number; flawlessStreak?: number; samples: PaceSample[] } | null => {
     if (game.level === 'CUSTOM' || game.mirroredMode || game.dailyActive) return null;
     try { return JSON.parse(localStorage.getItem(pbStorageKey) || 'null'); } catch { return null; }
     // typing.phase is a deliberate extra dep: reload the PB after each finish
@@ -904,10 +1111,25 @@ function MainApp() {
 
   const [rivalGhost, setRivalGhost] = useState<RivalGhost | null>(null);
   const [rivalPendingId, setRivalPendingId] = useState<string | null>(null);
+  /**
+   * Which mode the armed curve belongs to.
+   *
+   * A ref rather than state because only the disarm effect below reads it, and
+   * as a dependency it would re-run that effect on every arm — which is exactly
+   * the thing it must not do.
+   */
+  const rivalModeKeyRef = useRef<string | null>(null);
 
   // A ghost is only comparable within the mode it was recorded in, so changing
   // the config disarms it rather than racing a curve for a different test.
+  //
+  // Guarded on the armed curve's own mode: this used to clear unconditionally,
+  // which meant arming a ghost *and* switching to its mode in one action — what
+  // "race this run" from an operator's dossier does — armed the ghost and then
+  // immediately threw it away on the next commit.
   useEffect(() => {
+    if (rivalModeKeyRef.current && rivalModeKeyRef.current === boardModeKey) return;
+    rivalModeKeyRef.current = null;
     setRivalGhost(null);
     setRivalPendingId(null);
   }, [boardModeKey]);
@@ -916,6 +1138,7 @@ function MainApp() {
     if (!boardModeKey) return;
     // Re-picking the armed rival clears it, so the same row toggles.
     if (rivalGhost?.userId === row.user_id) {
+      rivalModeKeyRef.current = null;
       setRivalGhost(null);
       return;
     }
@@ -926,10 +1149,11 @@ function MainApp() {
       toast.error(`No replayable ghost stored for ${row.username} yet.`);
       return;
     }
+    rivalModeKeyRef.current = boardModeKey;
     setRivalGhost(ghost);
     game.setGhostMode('rival');
     game.setGhostPacer(true);
-    toast.success(`Ghost armed — ${ghost.username} @ ${ghost.wpm} WPM`, { icon: '👻' });
+    toast.success(`Ghost armed — ${ghost.username} @ ${ghost.wpm} WPM`);
   }, [boardModeKey, rivalGhost?.userId, game]);
 
   // The typing area only needs the pace, and only while 'rival' is selected.
@@ -1051,7 +1275,7 @@ function MainApp() {
     // oversized text buffer they run against.
     const isTimed = game.testMode === 'time';
     const typedWords = statsInput.trim() ? statsInput.trim().split(/\s+/).length : 0;
-    const effWordCount = isTimed ? typedWords : game.wordCount;
+    const effWordCount = isTimed ? typedWords : (game.dailyActive ? typing.targetText.trim().split(/\s+/).length : game.wordCount);
     const effLength = isTimed ? statsInput.length : typing.targetText.length;
 
     // Quest Progression (custom mode excluded)
@@ -1061,25 +1285,47 @@ function MainApp() {
       quests.progressQuest('acc_achieved', stats.currentAcc);
     }
 
+    const rawErrors = typing.keystrokeLog.current.filter(k => k.isError && !k.isBackspace).length;
     const result = rpg.processRPG(
       stats.currentWpm, stats.currentAcc, typing.maxCombo,
       effWordCount, effLength,
       game.microDrillActive || isCustom, typing.keystrokeLog.current,
-      () => audio.playSound('levelup')
+      () => audio.playSound('levelup'),
+      stats.consistency,
+      rawErrors
     );
 
-    // Daily Challenge streak
+    // Word-weakness aggregation. Every completed run counts — races included;
+    // CUSTOM excluded, because the player supplied that text so its words are
+    // not fair practice data (same exclusion as appendHistory). Drill runs
+    // additionally grade their target words into the Leitner schedule; the
+    // grade is scheduling-only, so no keystroke is ever counted twice.
+    if (!isCustom && typing.targetText && typing.keystrokeLog.current.length > 0) {
+      const aggregates = aggregateWords(typing.targetText, typing.keystrokeLog.current);
+      if (aggregates.length > 0) {
+        wordWeakness.recordRun(aggregates);
+        if (game.microDrillActive && drillTargetWordsRef.current.length > 0) {
+          const errorPerWord: Record<string, boolean> = {};
+          for (const a of aggregates) errorPerWord[a.word] = a.errors > 0;
+          wordWeakness.gradeDrill(drillTargetWordsRef.current, errorPerWord);
+        }
+      }
+    }
+
+    // Daily Challenge streak (only awarded for completed runs with valid precision)
     let streakNow = dailyStreak;
     if (game.dailyActive && !game.microDrillActive && !isCustom) {
-      const today = todayKey();
-      let prevDaily: { lastDay: string; streak: number } | null = null;
-      try { prevDaily = JSON.parse(localStorage.getItem('typezen_daily') || 'null'); } catch { /* corrupt — treat as fresh */ }
-      if (prevDaily?.lastDay === today) streakNow = prevDaily.streak;
-      else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
-      else streakNow = 1;
-      localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
+      if (stats.currentWpm > 0 && stats.currentAcc >= 50) {
+        const today = todayKey();
+        let prevDaily: { lastDay: string; streak: number } | null = null;
+        try { prevDaily = JSON.parse(localStorage.getItem('typezen_daily') || 'null'); } catch { /* corrupt — treat as fresh */ }
+        if (prevDaily?.lastDay === today) streakNow = prevDaily.streak;
+        else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
+        else streakNow = 1;
+        localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
 
-      setDailyStreak(streakNow);
+        setDailyStreak(streakNow);
+      }
     }
 
     // Result history for the stats dashboard (drills and custom mode excluded)
@@ -1099,6 +1345,9 @@ function MainApp() {
         if (!existing || stats.currentWpm > existing.wpm) {
           localStorage.setItem(pbStorageKey, JSON.stringify({
             wpm: stats.currentWpm,
+            accuracy: stats.currentAcc,
+            consistency: stats.consistency,
+            flawlessStreak: typing.flawlessStreak,
             samples: buildPaceSamples(typing.keystrokeLog.current),
           }));
         }
@@ -1113,7 +1362,8 @@ function MainApp() {
         result.newXp, effWordCount,
         game.suddenDeath, game.blindMode, game.fogMode, game.overclockedMode,
         result.newTestsCompleted, _seenThemes.size, THEME_KEYS.length,
-        isTimed, streakNow
+        isTimed, streakNow,
+        stats.consistency
       );
     }
 
@@ -1191,10 +1441,10 @@ function MainApp() {
 
   // ─── UI Derived State ────────────────────────────────────────────
   const isTypingOrCountdown = typing.phase === 'TYPING' || typing.phase === 'COUNTDOWN';
-  const shouldHideClutter = game.zenMode || isTypingOrCountdown;
+  const shouldHideClutter = isTypingOrCountdown;
   const progressPercent = typing.targetText.length > 0 ? (typing.input.length / typing.targetText.length) * 100 : 0;
   // Fixed-text levels have no meaningful word/time budget
-  const lengthLocked = game.level === 'CODE' || game.level === 'CUSTOM' || game.level === 'QUOTES';
+  const lengthLocked = game.level === 'CODE' || game.level === 'CUSTOM' || game.level === 'QUOTES' || game.level === 'DICTATION';
   // Number/punctuation mixing only applies to the plain word pools
   const mutatable = game.level === 'NOVICE' || game.level === 'ADEPT';
 
@@ -1242,7 +1492,7 @@ function MainApp() {
     }
     setRaceActive(false);
     setCurrentStage('compete');
-    toast.success(`Matched with ${mm.opponentName || 'an opponent'}!`, { icon: '⚔️' });
+    toast.success(`Matched with ${mm.opponentName || 'an opponent'}!`);
     matchmaking.clearMatch();
   }, [matchmaking.state, matchmaking.clearMatch, isLoggedIn, cloud.username, handleRaceCreate, handleRaceJoin]);
 
@@ -1277,7 +1527,7 @@ function MainApp() {
   const handleInviteFriendToRoom = useCallback((friendUsername: string) => {
     if (!cloud.username || !race.code) return;
     challenges.sendChallenge(friendUsername, race.code, cloud.elo, race.lobbyConfig);
-    toast.success(`Invite sent to ${friendUsername}`, { icon: '📨' });
+    toast.success(`Invite sent to ${friendUsername}`);
   }, [cloud.username, cloud.elo, race.code, race.lobbyConfig, challenges.sendChallenge]);
 
   /**
@@ -1314,30 +1564,152 @@ function MainApp() {
    * staged in a typing engine sitting behind a full-screen page.
    */
   const handleStartDossierDrill = useCallback((drillText: string) => {
-    typing.setTargetText(drillText);
-    typing.resetEngine();
+    launchDrill(drillText);
     setCurrentStage('practice');
     navigate('/', { replace: false });
-  }, [typing.setTargetText, typing.resetEngine, navigate]);
+  }, [launchDrill, navigate]);
+
+  const handleStartDossierWordDrill = useCallback(async (words: string[]) => {
+    await startWordDrill(words);
+    setCurrentStage('practice');
+    navigate('/', { replace: false });
+  }, [startWordDrill, navigate]);
+
+  /**
+   * Races a stored board run, armed from an operator's dossier.
+   *
+   * Every row on a mode board carries the pace curve of the exact attempt that
+   * set it, so any dossier's "best runs" list is a list of raceable opponents —
+   * including your own, where the curve is your personal best in that mode.
+   *
+   * The order matters. A ghost is only comparable inside the mode it was
+   * recorded in, so the arena is switched to that mode first and the curve armed
+   * second; the disarm effect keys on the board mode, and arming before the
+   * switch would clear the ghost on the next commit.
+   */
+  const handleRaceOperatorGhost = useCallback(async (
+    modeKey: string,
+    operatorId: string,
+    username: string,
+  ) => {
+    const parsed = parseModeKey(modeKey);
+    if (!parsed) return;
+
+    const ghost = await fetchRivalGhost(modeKey, operatorId);
+    if (!ghost) {
+      toast.error(`No replayable ghost stored for ${username} in ${formatModeLabelLong(modeKey)}.`);
+      return;
+    }
+
+    const level = parsed.level as Level;
+    game.setDailyActive(false);
+    game.setMirroredMode(false);
+    game.setLevel(level);
+    game.setTestMode(parsed.testMode);
+    if (parsed.testMode === 'time') game.setDuration(parsed.size);
+    else game.setWordCount(parsed.size);
+    // One reset for the whole config change. The `change*` helpers each reset on
+    // their own, so calling four of them would rebuild the passage four times
+    // from four partially-applied configs.
+    handleResetRef.current({
+      level,
+      testMode: parsed.testMode,
+      duration: parsed.testMode === 'time' ? parsed.size : undefined,
+      wordCount: parsed.testMode === 'words' ? parsed.size : undefined,
+      daily: false,
+      mirrored: false,
+    });
+
+    rivalModeKeyRef.current = modeKey;
+    setRivalGhost(ghost);
+    game.setGhostMode('rival');
+    game.setGhostPacer(true);
+
+    setCurrentStage('practice');
+    navigate('/', { replace: false });
+    toast.success(`Ghost armed — ${ghost.username} @ ${ghost.wpm} WPM`);
+  }, [game, navigate]);
 
 
   const exitAcademy = useCallback(() => {
-    setCurrentStage('practice');
-  }, []);
+    switchStage('practice');
+  }, [switchStage]);
 
-  const activeStagePage = currentStage;
-  const prevStagePageRef = useRef(activeStagePage);
-  const [stageDirection, setStageDirection] = useState(1);
-
-  if (activeStagePage !== prevStagePageRef.current) {
-    const prevIdx = STAGE_PAGE_ORDER[prevStagePageRef.current] ?? 0;
-    const currIdx = STAGE_PAGE_ORDER[activeStagePage] ?? 0;
-    const newDir = currIdx >= prevIdx ? 1 : -1;
-    if (stageDirection !== newDir) {
-      setStageDirection(newDir);
+  /* ── Stage-switch render freeze ──────────────────────────────────────────
+     CompeteEntryScreen / LobbyScreen / AcademyLayout are memoized now. While
+     their stage is hidden, these stable prop identities let React bail out of
+     the whole hidden subtree on every App commit — so a stage switch only
+     pays to render the layer that is actually animating, not both idle
+     stages plus the arena. Without this, every switch committed the full
+     Compete tree (RoomBrowser, RankedHistoryPanel) and Academy tree
+     (CyberHands, VirtualKeyboard) right inside the animation window. */
+  const handleCompeteHostCode = useCallback((targetCode: string) => {
+    handleRaceCreate(cloud.username || 'Player', race.roomSize || 4, false, targetCode, listRoomsPublicly);
+  }, [handleRaceCreate, cloud.username, race.roomSize, listRoomsPublicly]);
+  const handleCompeteCreate = useCallback((size: number, isRanked: boolean) => {
+    handleRaceCreate(cloud.username || 'Player', size, isRanked, undefined, listRoomsPublicly);
+  }, [handleRaceCreate, cloud.username, listRoomsPublicly]);
+  const handleHostPublicRoom = useCallback(() => {
+    if (!listRoomsPublicly) {
+      setListRoomsPublicly(true);
+      setPublicRoom(true);
+      try { localStorage.setItem('typenova_list_rooms', 'true'); } catch { }
     }
-    prevStagePageRef.current = activeStagePage;
-  }
+    handleRaceCreate(cloud.username || 'Player', race.roomSize || 4, false, undefined, true);
+  }, [handleRaceCreate, cloud.username, race.roomSize, listRoomsPublicly]);
+  const handleCompeteJoin = useCallback((targetCode: string) => {
+    handleRaceJoin(targetCode, cloud.username || 'Player');
+  }, [handleRaceJoin, cloud.username]);
+  const handleCompeteBack = useCallback(() => setCurrentStage('practice'), [setCurrentStage]);
+  const handleLobbyStart = useCallback(() => {
+    const cfg = race.lobbyConfig;
+    const text = generateText(cfg.mode, cfg.words, '', false, { codeLanguage: cfg.language });
+    handleRaceStart(text);
+  }, [race.lobbyConfig, handleRaceStart]);
+
+  const competeQuickMatchSlot = useMemo(() => (
+    <QuickMatchPanel
+      theme={theme}
+      state={matchmaking.state}
+      elo={cloud.elo ?? 1000}
+      isLoggedIn={isLoggedIn}
+      available={!!supabase}
+      onSearch={handleQuickMatch}
+      onCancel={matchmaking.cancel}
+    />
+  ), [theme, matchmaking.state, matchmaking.cancel, cloud.elo, isLoggedIn, handleQuickMatch]);
+
+  const competeSidebarSlot = useMemo(() => (
+    <>
+      <RoomBrowser
+        theme={theme}
+        rooms={roomDirectory.rooms}
+        busy={race.status === 'joining'}
+        joiningCode={race.status === 'joining' ? race.code : null}
+        connected={roomDirectory.connected}
+        listPublicly={listRoomsPublicly}
+        onToggleListPublicly={toggleListRoomsPublicly}
+        onJoin={handleCompeteJoin}
+        onRefresh={roomDirectory.refresh}
+        onHostPublicRoom={handleHostPublicRoom}
+      />
+      {isLoggedIn && !rankedHistory.unavailable ? (
+        <RankedHistoryPanel
+          theme={theme}
+          matches={rankedHistory.matches}
+          loading={rankedHistory.loading}
+          elo={cloud.elo ?? 1000}
+        />
+      ) : (
+        <RankedTeaserCard
+          theme={theme}
+          onSignIn={handleSignIn}
+        />
+      )}
+    </>
+  ), [theme, roomDirectory.rooms, roomDirectory.connected, roomDirectory.refresh, race.status, race.code, listRoomsPublicly, toggleListRoomsPublicly, handleCompeteJoin, handleHostPublicRoom, isLoggedIn, rankedHistory.unavailable, rankedHistory.matches, rankedHistory.loading, cloud.elo, handleSignIn]);
+
+
 
   const handleChangeLevel = useCallback((l: Level) => game.changeLevel(l), [game]);
   const handleLockedLevelClick = useCallback((l: Level) => {
@@ -1409,52 +1781,306 @@ function MainApp() {
     game.stickyKeysMode,
   ]);
 
-  // ─── Render ──────────────────────────────────────────────────────
+  // ─── Memoized Shell Callbacks & Modal Slices (Tier 2 Keystroke Boundary Optimization) ───
+  const EMPTY_TIMELINE = useMemo<ReturnType<typeof useTypingEngine>['timelinePoints']>(() => [], []);
+  const modalTyping = useMemo(() => ({
+    phase: typing.phase,
+    countdownTimer: typing.countdownTimer,
+    setPhase: typing.setPhase,
+    setCountdownTimer: typing.setCountdownTimer,
+    timelinePoints: activeModal === 'expandedGraph' ? typing.timelinePoints : EMPTY_TIMELINE,
+    wpm: activeModal === 'expandedGraph' ? typing.wpm : 0,
+  }), [typing.phase, typing.countdownTimer, typing.setPhase, typing.setCountdownTimer, activeModal, typing.timelinePoints, typing.wpm, EMPTY_TIMELINE]);
 
-  if (typing.phase === 'FINISHED') {
+  const handleOpenPractice = useCallback(() => {
+    switchStage('practice');
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
+  }, [switchStage, navigate, location.pathname]);
+
+  const handleOpenTrophies = useCallback(() => {
+    closeModal();
+    if (location.pathname === '/operator' || location.pathname.startsWith('/operator/')) {
+      const el = document.getElementById('hall-of-legends');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.history.replaceState(null, '', `${location.pathname}#hall-of-legends`);
+        return;
+      }
+    }
+    navigate('/operator#hall-of-legends');
+  }, [closeModal, navigate, location.pathname]);
+
+  const handleOpenRace = useCallback(() => {
+    setRaceActive(false);
+    switchStage('compete');
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
+  }, [switchStage, navigate, location.pathname]);
+
+  const handleOpenSocial = useCallback(() => {
+    if (isLoggedIn) openModal('social');
+    else toast.error("Sign in to view Community!", { icon: <Lock size={14} /> });
+  }, [isLoggedIn, openModal]);
+
+  const handleOpenComms = useCallback(() => {
+    if (isLoggedIn) openModal('comms');
+    else toast.error("Sign in to use Comms!", { icon: <Lock size={14} /> });
+  }, [isLoggedIn, openModal]);
+
+  const handleOpenSettings = useCallback(() => {
+    openModal('settings');
+  }, [openModal]);
+
+  const handleOpenDailyQuests = useCallback(() => {
+    openModal('quests');
+  }, [openModal]);
+
+  const handleToggleAru = useCallback(() => {
+    setIsAruOpen(prev => !prev);
+  }, []);
+
+  const handleOpenChangelog = useCallback(() => {
+    openModal('changelog');
+  }, [openModal]);
+
+  const handleBoardTabChange = useCallback((tab: BoardTab) => {
+    setBoardTab(tab);
+    if (tab === 'today') fetchDailyBoard();
+    if (tab === 'mode') refreshModeBoard();
+  }, [fetchDailyBoard, refreshModeBoard]);
+
+  const handleBoardChallengeFriend = useCallback((uname: string) => {
+    handleChallengeFriend(uname);
+  }, [handleChallengeFriend]);
+
+  const handleBoardRemoveFriend = useCallback((uname: string) => {
+    friendsState.removeFriend(uname);
+  }, [friendsState.removeFriend]);
+
+  const handleArenaChangeLevel = useCallback((val: string) => {
+    handleChangeLevel(val as Level);
+  }, [handleChangeLevel]);
+
+  const handleArenaChangeCountOrDuration = useCallback((val: string | number) => {
+    handleChangeCountOrDuration(Number(val));
+  }, [handleChangeCountOrDuration]);
+
+  const handleArenaChangeCodeLanguage = useCallback((val: string) => {
+    handleChangeCodeLanguage(val as CodeLanguage);
+  }, [handleChangeCodeLanguage]);
+
+  const handleArenaSetCustomTargetText = useCallback((text: string) => {
+    typing.setTargetText(text);
+  }, [typing.setTargetText]);
+
+  const handleArenaOpenGhostModal = useCallback(() => {
+    openModal('ghost');
+  }, [openModal]);
+
+  const handleArenaReset = useCallback(() => {
+    handleReset();
+  }, [handleReset]);
+
+  const handleArenaCastHex = useCallback((hex: HexType) => {
+    if (isSabotagePreview) {
+      const ability = HEX_ABILITIES[hex];
+      if (testHexEnergy < ability.cost) return false;
+      setTestHexEnergy(e => Math.max(0, e - ability.cost));
+      if (hex === 'cleanse_shield') {
+        setTestHexes(prev => applyIncomingHex({
+          activeHexes: prev,
+          incomingHex: { id: `shield-${Date.now()}`, hexType: 'cleanse_shield', fromName: 'Self', fromId: 'self', appliedAt: Date.now(), durationMs: 4000 }
+        }).updatedHexes);
+      } else {
+        setTestHexes(prev => [...prev, { id: `hex-${Date.now()}`, hexType: hex, fromName: 'CyberPhantom', fromId: 'rival', appliedAt: Date.now(), expiresAt: Date.now() + ability.durationMs, durationMs: ability.durationMs }]);
+      }
+      return true;
+    }
+    return race.castHex(hex);
+  }, [isSabotagePreview, testHexEnergy, race.castHex]);
+
+  const handleArenaPlaySfx = useCallback((sfx: 'hex_cast' | 'cleanse') => {
+    audio.playSound(sfx);
+  }, [audio]);
+
+  const handlePlayPreviewSound = useCallback((key?: string) => {
+    if (key) audio.setSoundProfile(key);
+    audio.playSound('key');
+  }, [audio]);
+
+
+  // ─── Render ──────────────────────────────────────────────────────
+  const isResultsPreview = typeof window !== 'undefined' && window.location.search.includes('results=1');
+
+  if (typing.phase === 'FINISHED' || isResultsPreview) {
     let ghostTimeline: Array<{ t: number; wpm: number }> | null = null;
     let ghostLabel = '';
     let ghostDeltaS: number | undefined = undefined;
+    let ghostDeltaAcc: number | undefined = undefined;
+    let ghostDeltaCons: number | undefined = undefined;
+    let ghostDeltaStreak: number | undefined = undefined;
+
+    const totalCharsTyped = Math.max(
+      typing.keystrokeLog.current.filter(k => !k.isBackspace).length,
+      typing.input.length,
+      1
+    );
+    const cpiBreakdown = calculateCPI(
+      typing.wpm,
+      typing.accuracy,
+      typing.flawlessStreak,
+      typing.consistency,
+      totalCharsTyped
+    );
+    const burstWpm = calculateBurstWpm(typing.keystrokeLog.current, typing.timelinePoints);
 
     if (game.ghostPacer) {
-      if (game.ghostMode === 'pb' && pbGhost?.samples && pbGhost.samples.length > 1) {
+      const computeGhostFinishTime = (samples: Array<{ t: number; chars: number }> | null | undefined, paceWpm: number): number => {
+        const safePaceWpm = Math.max(paceWpm, 1);
+        const cpm = safePaceWpm * 5;
+        if (!samples || samples.length < 2) {
+          return (totalCharsTyped / (cpm / 60)) * 1000;
+        }
+        const last = samples[samples.length - 1];
+        if (totalCharsTyped <= last.chars) {
+          let lo = 0, hi = samples.length - 1;
+          while (hi - lo > 1) {
+            const mid = (lo + hi) >> 1;
+            if (samples[mid].chars <= totalCharsTyped) lo = mid;
+            else hi = mid;
+          }
+          const a = samples[lo], b = samples[hi];
+          const span = b.chars - a.chars;
+          const frac = span === 0 ? 0 : (totalCharsTyped - a.chars) / span;
+          return a.t + (b.t - a.t) * frac;
+        } else {
+          const remainingChars = totalCharsTyped - last.chars;
+          const extraMs = (remainingChars / (cpm / 60)) * 1000;
+          return last.t + extraMs;
+        }
+      };
+
+      if (game.ghostMode === 'rival' && rivalGhost?.samples && rivalGhost.samples.length > 1) {
+        const rivalName = (rivalGhost.username || 'RIVAL').toUpperCase();
+        ghostLabel = `${rivalName} (${rivalGhost.wpm} WPM)`;
+        ghostTimeline = rivalGhost.samples.map(s => ({
+          t: s.t,
+          wpm: Math.round((s.chars / 5) / (Math.max(s.t, 1000) / 60000))
+        }));
+        const ghostFinishTimeMs = computeGhostFinishTime(rivalGhost.samples, rivalGhost.wpm);
+        const delta = calculateGhostDelta(
+          finishDurationMs,
+          typing.accuracy,
+          typing.consistency,
+          typing.flawlessStreak,
+          ghostFinishTimeMs,
+          rivalGhost.accuracy,
+          rivalGhost.consistency,
+          undefined
+        );
+        ghostDeltaS = delta.deltaS;
+        ghostDeltaAcc = delta.deltaAcc;
+        ghostDeltaCons = delta.deltaCons;
+        ghostDeltaStreak = delta.deltaStreak;
+      } else if (game.ghostMode === 'pb' && pbGhost?.samples && pbGhost.samples.length > 1) {
         ghostLabel = `PB (${pbGhost.wpm} WPM)`;
         ghostTimeline = pbGhost.samples.map(s => ({
           t: s.t,
           wpm: Math.round((s.chars / 5) / (Math.max(s.t, 1000) / 60000))
         }));
-        const ghostTotalTime = pbGhost.samples[pbGhost.samples.length - 1]?.t || finishDurationMs;
-        ghostDeltaS = (ghostTotalTime - finishDurationMs) / 1000;
+        const ghostFinishTimeMs = computeGhostFinishTime(pbGhost.samples, pbGhost.wpm);
+        const delta = calculateGhostDelta(
+          finishDurationMs,
+          typing.accuracy,
+          typing.consistency,
+          typing.flawlessStreak,
+          ghostFinishTimeMs,
+          pbGhost.accuracy,
+          pbGhost.consistency,
+          pbGhost.flawlessStreak
+        );
+        ghostDeltaS = delta.deltaS;
+        ghostDeltaAcc = delta.deltaAcc;
+        ghostDeltaCons = delta.deltaCons;
+        ghostDeltaStreak = delta.deltaStreak;
       } else {
-        const targetWpm = game.ghostMode === 'target' ? game.ghostTargetWpm : (pbGhost ? pbGhost.wpm : 60);
-        ghostLabel = `${targetWpm} WPM BOT`;
+        const targetWpm = game.ghostMode === 'target'
+          ? game.ghostTargetWpm
+          : game.ghostMode === 'rival' && rivalGhost
+          ? rivalGhost.wpm
+          : pbGhost
+          ? pbGhost.wpm
+          : 60;
+        ghostLabel = game.ghostMode === 'rival' && rivalGhost
+          ? `${(rivalGhost.username || 'RIVAL').toUpperCase()} (${rivalGhost.wpm} WPM)`
+          : game.ghostMode === 'pb' && pbGhost
+          ? `PB (${pbGhost.wpm} WPM)`
+          : `${targetWpm} WPM BOT`;
         ghostTimeline = [
           { t: 0, wpm: targetWpm },
           { t: Math.floor(finishDurationMs / 2), wpm: targetWpm },
           { t: finishDurationMs, wpm: targetWpm },
         ];
-        const botExpectedMs = (typing.targetText.length / ((targetWpm * 5) / 60)) * 1000;
-        ghostDeltaS = (botExpectedMs - finishDurationMs) / 1000;
+        const ghostFinishTimeMs = (totalCharsTyped / ((targetWpm * 5) / 60)) * 1000;
+        const delta = calculateGhostDelta(
+          finishDurationMs,
+          typing.accuracy,
+          typing.consistency,
+          typing.flawlessStreak,
+          ghostFinishTimeMs
+        );
+        ghostDeltaS = delta.deltaS;
       }
     }
 
     const resultsProps = {
-      wpm: typing.wpm,
-      rawWpm: typing.rawWpm,
-      accuracy: typing.accuracy,
-      consistency: typing.consistency,
-      flawlessStreak: typing.flawlessStreak,
+      wpm: typing.wpm || (isResultsPreview ? 108 : 0),
+      rawWpm: typing.rawWpm || (isResultsPreview ? 116 : 0),
+      accuracy: typing.accuracy || (isResultsPreview ? 98 : 0),
+      consistency: typing.consistency || (isResultsPreview ? 91 : 0),
+      flawlessStreak: typing.flawlessStreak || (isResultsPreview ? 142 : 0),
+      cpi: cpiBreakdown.cpi || (isResultsPreview ? 94 : 0),
+      grade: (cpiBreakdown.grade !== 'D' ? cpiBreakdown.grade : (isResultsPreview ? 'S' : 'D')) as PerformanceGrade,
+      burstWpm: burstWpm || (isResultsPreview ? 135 : 0),
+      ikiMetrics: typing.ikiMetrics,
+      shadowMetrics: typing.shadowMetrics,
       leveledUp: rpg.leveledUp,
-      xpGainedLast: rpg.xpGainedLast,
+      xpGainedLast: rpg.xpGainedLast || (isResultsPreview ? 42 : 0),
+      xpBreakdown: rpg.xpBreakdownLast || (isResultsPreview ? {
+        baseXp: 33,
+        flawlessBonusPct: 50,
+        comboBonusPct: 25,
+        consistencyBonusPct: 30,
+        totalMultiplier: 1.30,
+        totalXp: 42
+      } : undefined),
       theme,
       heatmapData: rpg.heatmapData,
       isLoggedIn: !!cloud.username,
       displayName: cloud.username,
-      saveStatus,
-      timelinePoints: typing.timelinePoints,
-      errorTimes,
-      durationMs: finishDurationMs,
-      keystrokeLog: typing.keystrokeLog.current,
+      saveStatus: saveStatus || (isResultsPreview ? 'SCORE SAVED!' : ''),
+      timelinePoints: typing.timelinePoints && typing.timelinePoints.length > 0 ? typing.timelinePoints : (isResultsPreview ? [
+        { t: 0, wpm: 75, rawWpm: 80, errors: 0 },
+        { t: 5000, wpm: 96, rawWpm: 102, errors: 0 },
+        { t: 10000, wpm: 108, rawWpm: 115, errors: 1 },
+        { t: 15000, wpm: 112, rawWpm: 120, errors: 1 },
+        { t: 20000, wpm: 108, rawWpm: 116, errors: 1 },
+      ] : []),
+      errorTimes: errorTimes && errorTimes.length > 0 ? errorTimes : (isResultsPreview ? [10200] : []),
+      durationMs: finishDurationMs || (isResultsPreview ? 20000 : 0),
+      keystrokeLog: (typing.keystrokeLog.current && typing.keystrokeLog.current.length > 0)
+        ? typing.keystrokeLog.current
+        : (isResultsPreview ? [
+            { key: 't', expected: 't', time: 100, isError: false, isBackspace: false },
+            { key: 'h', expected: 'h', time: 180, isError: false, isBackspace: false },
+            { key: 'e', expected: 'e', time: 260, isError: true, isBackspace: false },
+            { key: 'r', expected: 'r', time: 380, isError: true, isBackspace: false },
+            { key: 'o', expected: 'o', time: 470, isError: false, isBackspace: false },
+            { key: 'p', expected: 'p', time: 560, isError: true, isBackspace: false },
+          ] : []),
       testStartTime: typing.startTime || 0,
       onReset: handleReset,
       onWatchReplay: handleWatchReplay,
@@ -1464,30 +2090,64 @@ function MainApp() {
       ghostTimeline,
       ghostLabel,
       ghostDeltaS,
+      ghostDeltaAcc,
+      ghostDeltaCons,
+      ghostDeltaStreak,
     };
 
     if (raceActive) {
       return (
         <ErrorBoundary onReset={handleReset}>
-          <RaceResultsScreen
-            {...resultsProps}
-            players={race.players}
-            selfId={race.selfId ?? ''}
-            timelines={race.timelines}
+          <Suspense fallback={<div className="min-h-screen bg-[#080809] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest">LOADING RACE RESULTS...</div>}>
+            <RaceResultsScreen
+              {...resultsProps}
+              players={race.players}
+              selfId={race.selfId ?? ''}
+              timelines={race.timelines}
 
-            isRanked={isRankedMatch}
-            supabase={supabase}
-            raceId={race.raceId}
-            isHost={race.isHost}
-            onRequestDetails={race.requestDetails}
-            chatMessages={race.chatMessages}
-            onSendMessage={(msg) => race.sendChatMessage(msg, cloud.username || 'Typist')}
-            onRematch={handleRematchRace}
-            onReturnToRoom={handleReturnToRoom}
-            onLeaveRace={handleLeaveRace}
-            onUpdateElo={cloud.setElo}
-            onRaceWon={handleRaceWon}
-          />
+              isRanked={isRankedMatch}
+              supabase={supabase}
+              raceId={race.raceId}
+              isHost={race.isHost}
+              onRequestDetails={race.requestDetails}
+              chatMessages={race.chatMessages}
+              onSendMessage={(msg) => race.sendChatMessage(msg, cloud.username || 'Typist')}
+              onRematch={handleRematchRace}
+              onReturnToRoom={handleReturnToRoom}
+              onLeaveRace={handleLeaveRace}
+              onUpdateElo={cloud.setElo}
+              onRaceWon={handleRaceWon}
+            />
+            {activeModal === 'replay' && (
+              <ReplayModal
+                targetText={typing.targetText}
+                log={typing.keystrokeLog.current}
+                theme={theme}
+                onClose={closeModal}
+              />
+            )}
+          </Suspense>
+        </ErrorBoundary>
+      );
+    }
+
+    return (
+      <ErrorBoundary onReset={handleReset}>
+        <Suspense fallback={<div className="min-h-screen bg-[#080809] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest">ANALYZING SESSION TELEMETRY...</div>}>
+          {game.microDrillActive ? (
+            <AIDrillResultsScreen
+              wpm={typing.wpm}
+              accuracy={typing.accuracy}
+              theme={theme}
+              smartDrillKeys={smartDrillKeys}
+              isGenerating={isSmartDrillGenerating}
+              onGenerateAnother={startSmartDrill}
+              onRetry={handleRetryDrill}
+              onExit={exitMicroDrill}
+            />
+          ) : (
+            <ResultsScreen {...resultsProps} />
+          )}
           {activeModal === 'replay' && (
             <ReplayModal
               targetText={typing.targetText}
@@ -1496,34 +2156,7 @@ function MainApp() {
               onClose={closeModal}
             />
           )}
-        </ErrorBoundary>
-      );
-    }
-
-    return (
-      <ErrorBoundary onReset={handleReset}>
-        {game.microDrillActive ? (
-          <AIDrillResultsScreen
-            wpm={typing.wpm}
-            accuracy={typing.accuracy}
-            theme={theme}
-            smartDrillKeys={smartDrillKeys}
-            isGenerating={isSmartDrillGenerating}
-            onGenerateAnother={startSmartDrill}
-            onRetry={handleRetryDrill}
-            onExit={exitMicroDrill}
-          />
-        ) : (
-          <ResultsScreen {...resultsProps} />
-        )}
-        {activeModal === 'replay' && (
-          <ReplayModal
-            targetText={typing.targetText}
-            log={typing.keystrokeLog.current}
-            theme={theme}
-            onClose={closeModal}
-          />
-        )}
+        </Suspense>
       </ErrorBoundary>
     );
   }
@@ -1540,16 +2173,18 @@ function MainApp() {
         activeModal={activeModal}
         // The dossier is a page, not a dialog, so it isn't in `activeModal` —
         // without this every keystroke on it drove the test underneath.
-        keyboardBlocked={dossierOpen}
+        // Also block keyboard when not in practice stage (e.g. typing in compete lobby chat)
+        keyboardBlocked={dossierOpen || analyticsOpen || donateOpen || currentStage !== 'practice'}
         raceActive={raceActive}
         theme={theme}
         tetrisEffect={tetrisEffect}
         onUnlockGodMode={handleUnlockGodMode}
         onReset={handleReset}
         onExitMicroDrill={exitMicroDrill}
+        onChargeHexEnergy={race.chargeHexEnergy}
       />
       <div
-        className={`min-h-screen theme-transition transition-colors duration-700 ${theme.bg} font-mono selection:bg-transparent outline-none flex flex-col items-center relative overflow-x-hidden`}
+        className={`h-screen overflow-hidden theme-transition transition-colors duration-700 ${theme.bg} font-mono selection:bg-transparent outline-none flex flex-col items-center relative`}
         style={{
           backgroundColor:
             theme.name === 'nebula'
@@ -1574,7 +2209,15 @@ function MainApp() {
         }}
       >
         <AnimatePresence>
-          {themeIndex === -1 && wallpaperUrl ? (
+          {/* Nothing at all on the dossier or analytics route.
+              That page is a full-viewport `fixed` scroller that paints its own
+              opaque floor and its own backdrop (the operator's banner), so every
+              pixel of this layer is covered. Pausing the shader was only half the
+              saving: the wallpaper branch below carries `will-change: filter` on a
+              full-viewport filtered element, which keeps a promoted, filtered layer
+              alive and composited on every frame no matter what is on top of it.
+              Unmounting is the only way to stop paying for it. */}
+          {dossierOpen || analyticsOpen || donateOpen ? null : themeIndex === -1 && wallpaperUrl ? (
             <motion.div
               key="custom-bg"
               initial={{ opacity: 0 }}
@@ -1590,12 +2233,9 @@ function MainApp() {
                   is pinned off instead — the wallpaper stays sharp behind the
                   panels, at the brightness the user chose.
                 */
-                filter: currentStage === 'academy'
-                  ? `brightness(${brightness}) blur(0px)`
-                  : typing.phase === 'TYPING'
-                    ? `brightness(${Math.min(brightness, 0.45)}) blur(${Math.max(blur, 4)}px)`
-                    : `brightness(${brightness}) blur(${blur}px)`,
-                transition: 'filter 0.4s ease-out'
+                filter: typing.phase === 'TYPING'
+                  ? `brightness(${Math.min(brightness, 0.45)}) blur(${Math.max(blur, 4)}px)`
+                  : `brightness(${brightness}) blur(${blur}px)`,
               }}
             />
           ) : (
@@ -1613,7 +2253,10 @@ function MainApp() {
                   fragment shader (three octaves of simplex noise), so it is the
                   most expensive thing running on that route. `activeModal`
                   doesn't cover this case: the dossier is a page, not a dialog. */}
-              <CosmicLiquidShader theme={theme} isPaused={Boolean(activeModal) || dossierOpen} />
+              <CosmicLiquidShader
+                theme={theme}
+                isPaused={Boolean(activeModal) || dossierOpen || analyticsOpen || donateOpen || isAcademyMode || stageOverlaySettled || isStageTransitioning || (shaderConfig.activeTypingThrottle && typing.phase === 'TYPING')}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -1621,6 +2264,9 @@ function MainApp() {
         <CosmicNavBar
           theme={theme}
           username={cloud.username}
+          avatarId={cosmetics.avatarId}
+          bannerId={cosmetics.bannerId}
+          avatarUrl={cosmetics.avatarUrl}
           userLevel={rpg.userLevel}
           currentLevelProgress={rpg.currentLevelProgress}
           xpNeeded={rpg.xpNeeded}
@@ -1631,23 +2277,19 @@ function MainApp() {
           unlockedAchievements={rpg.unlockedAchievements}
           onOpenProfile={handleOpenProfile}
           onOpenAcademy={enterAcademy}
-          onOpenPractice={() => {
-            setCurrentStage('practice');
+          onOpenPractice={handleOpenPractice}
+          onOpenTrophies={handleOpenTrophies}
+          onOpenRace={handleOpenRace}
+          onOpenSocial={handleOpenSocial}
+          onOpenComms={handleOpenComms}
+          onOpenSettings={handleOpenSettings}
+          onOpenDailyQuests={handleOpenDailyQuests}
+          onOpenDonate={() => {
+            closeModal();
+            navigate('/donate');
           }}
-          onOpenTrophies={() => isLoggedIn ? openModal('trophy') : toast.error("Sign in to unlock Trophies!", { icon: <Lock size={14} /> })}
-          onOpenRace={() => {
-            // Deliberately does NOT open a room. Auto-creating one here meant a
-            // failed handshake left the user in a lobby with a blank code; the
-            // compete stage now asks whether to host or join first.
-            setRaceActive(false);
-            setCurrentStage('compete');
-          }}
-
-          onOpenSocial={() => isLoggedIn ? openModal('social') : toast.error("Sign in to view Community!", { icon: <Lock size={14} /> })}
-          onOpenComms={() => isLoggedIn ? openModal('comms') : toast.error("Sign in to use Comms!", { icon: <Lock size={14} /> })}
-          onOpenSettings={() => openModal('settings')}
-          onOpenDailyQuests={() => openModal('quests')}
-          activePage={dossierOpen ? 'dossier' : currentStage}
+          activePage={analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
+          shouldHide={shouldHideClutter}
         />
 
         {/* Noise texture overlay removed to fix GPU rendering white screen bug */}
@@ -1681,7 +2323,13 @@ function MainApp() {
         {/* Zen Mode Ambient */}
         {game.zenMode && (
           <div className="fixed inset-0 flex items-center justify-center pointer-events-none opacity-20 z-0 animate-in fade-in zoom-in duration-1000 ease-out">
-            <div className={`w-[80vw] h-[80vw] ${theme.solid} rounded-full blur-[250px] animate-pulse`} style={{ animationDuration: '6s' }} />
+            <div
+              className={`w-[80vw] h-[80vw] ${theme.solid} rounded-full blur-[250px] animate-pulse`}
+              style={{
+                animationDuration: '6s',
+                animationPlayState: typing.phase === 'TYPING' ? 'paused' : 'running',
+              }}
+            />
           </div>
         )}
 
@@ -1692,243 +2340,267 @@ function MainApp() {
             It sits outside the stage `AnimatePresence` because it is not one of
             the three stages — the presence group there only exists to give the
             stage swap a direction. */}
-        {dossierOpen ? (
-          <OperatorDossier
-            routeUsername={selectedProfileUsername}
-            onBack={handleLeaveDossier}
-            supabase={supabase}
-            localUsername={cloud.username}
-            theme={theme}
-            localRPGStats={localRPGStatsMemo}
-            // Loading a drill leaves the dossier for the arena, so the same
-            // handler the stats modal used gets a `navigate` first.
-            onStartDrill={handleStartDossierDrill}
-          />
+        {donateOpen ? (
+          <Suspense fallback={
+            <div className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest bg-[#080809]">
+              INITIALIZING PATRON VAULT...
+            </div>
+          }>
+            <PatronVault
+              onBack={() => navigate('/')}
+              theme={theme}
+              onTitleEquipped={(titleId) => setActiveTitle(titleId)}
+            />
+          </Suspense>
+        ) : analyticsOpen ? (
+          <Suspense fallback={
+            <div className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest bg-transparent">
+              LOADING OPERATOR ANALYTICS...
+            </div>
+          }>
+            <OperatorAnalytics
+              routeUsername={selectedProfileUsername}
+              onBack={() => {
+                const backPath = selectedProfileUsername
+                  ? `/operator/${encodeURIComponent(selectedProfileUsername)}`
+                  : '/operator';
+                navigate(backPath);
+              }}
+              supabase={supabase}
+              localUsername={cloud.username}
+              viewerId={auth.user?.id ?? null}
+              theme={theme}
+              localRPGStats={localRPGStatsMemo}
+              onRaceGhost={handleRaceOperatorGhost}
+            />
+          </Suspense>
+        ) : dossierOpen ? (
+          <Suspense fallback={
+            <div className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest bg-transparent">
+              LOADING OPERATOR DOSSIER...
+            </div>
+          }>
+            <OperatorDossier
+              routeUsername={selectedProfileUsername}
+              onBack={handleLeaveDossier}
+              supabase={supabase}
+              localUsername={cloud.username}
+              viewerId={auth.user?.id ?? null}
+              theme={theme}
+              localRPGStats={localRPGStatsMemo}
+              // Loading a drill leaves the dossier for the arena, so the same
+              // handler the stats modal used gets a `navigate` first.
+              onStartDrill={handleStartDossierDrill}
+              onStartWordDrill={handleStartDossierWordDrill}
+              onRaceGhost={handleRaceOperatorGhost}
+            />
+          </Suspense>
         ) : (
-        <AnimatePresence mode="wait" custom={stageDirection}>
-          {currentStage === 'academy' ? (
-            <motion.div
-              key="academy"
-              custom={stageDirection}
-              variants={STAGE_PAGE_VARIANTS}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex flex-col bg-transparent overflow-y-auto custom-scrollbar"
-            >
-              <div className="w-full px-4 sm:px-8 md:px-10 lg:px-12 py-6 max-w-[var(--w-ultra)] mx-auto">
-                <AcademyLayout onExit={exitAcademy} theme={theme} />
-              </div>
-            </motion.div>
-          ) : currentStage === 'compete' && !raceActive ? (
-            <motion.div
-              key="compete-lobby"
-              custom={stageDirection}
-              variants={STAGE_PAGE_VARIANTS}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              // Own scroll container pinned under the navbar, like the academy
-              // stage. In document flow the whole page scrolled by ~100px even
-              // though the cockpit almost fits, because nothing capped the
-              // content to the viewport.
-              className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] overflow-y-auto custom-scrollbar transform-gpu will-change-transform"
-            >
-              {/* Below xl the stacked layout genuinely can't fit one screen, so
-                  it grows and this container scrolls. It used to also carry
-                  `xl:h-full`, which pinned the cockpit to exactly one screen and
-                  forced its two columns to scroll internally — four nested scroll
-                  regions on one page, where which one a wheel event moved depended
-                  on the cursor's quadrant. The entry screen keeps its actions
-                  on-screen with `xl:sticky` instead. pb clears the fixed dock +
-                  changelog badge. */}
-              <div className="w-full max-w-[var(--w-wide)] mx-auto px-2 md:px-6 pt-4 pb-[calc(var(--dock-h)+1rem)] flex flex-col min-h-full">
-                {/* No live room yet → ask whether to host or join. Rendering the
-                  lobby in this state produced a dead screen: blank room code,
-                  empty slots, and a start button that could never fire. */}
-                {race.status === 'idle' || race.status === 'joining' ? (
-                  <CompeteEntryScreen
-                    username={cloud.username || 'Player'}
-                    theme={theme}
-                    themeTextClass={theme.text}
-                    defaultRoomSize={race.roomSize || 4}
-                    isBusy={race.status === 'joining'}
-                    error={race.error}
-                    multiplayerAvailable={!!supabase}
-                    emptyRoomCode={race.emptyRoomCode}
-                    quickMatchSlot={
-                      <QuickMatchPanel
+          <>
+            {/* Stage 1: Persistent Practice Arena (Zero-Jank Unified Positioning) */}
+            {(() => {
+              const practiceActive = currentStage === 'practice';
+              const revealed = practiceActive && (settledStage === 'practice' || visitedStages.practice);
+              return (
+                <motion.div
+                  key="practice-stage"
+                  variants={STAGE_PAGE_VARIANTS}
+                  initial="enterStart"
+                  animate={revealed ? 'visible' : practiceActive ? 'enterStart' : 'hidden'}
+                  className={`fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] overflow-y-auto custom-scrollbar ${
+                    practiceActive ? 'pointer-events-auto' : 'pointer-events-none'
+                  }`}
+                  style={{
+                    display: practiceActive || (!practiceActive && settledStage === 'practice') ? undefined : 'none',
+                    visibility: revealed || (!practiceActive && settledStage === 'practice') ? 'visible' : 'hidden',
+                    transition: `visibility 0s linear ${practiceActive ? 0 : 180}ms`,
+                  }}
+                  aria-hidden={!practiceActive}
+                  inert={!practiceActive}
+                >
+                  <div
+                    className={`w-full px-2 md:px-6 2xl:px-10 pt-4 pb-[calc(var(--dock-h)+2rem)] flex flex-col min-h-full transition-[max-width] duration-200 ease-out ${
+                      shouldHideClutter ? 'max-w-[95vw] mx-auto' : 'max-w-[var(--w-wide)] mx-auto'
+                    }`}
+                  >
+                    {raceActive && (
+                      <RaceTrack
+                        players={race.players}
+                        selfId={race.selfId ?? ''}
                         theme={theme}
-                        state={matchmaking.state}
-                        elo={cloud.elo ?? 1000}
-                        isLoggedIn={isLoggedIn}
-                        available={!!supabase}
-                        onSearch={handleQuickMatch}
-                        onCancel={matchmaking.cancel}
+                        roomCode={race.code}
+                        targetLength={typing.targetText.length}
+                        myProgress={progressPercent}
+                        myWpm={typing.wpm}
+                        myAccuracy={typing.accuracy}
+                        phase={typing.phase}
+                        countdown={typing.countdownTimer}
                       />
-                    }
-                    // Browse + history go in the right rail. Stacked in the same
-                    // slot as quick match, they pushed "Create room" and "Join
-                    // room" ~1200px down the page.
-                    sidebarSlot={
-                      <>
-                        <RoomBrowser
-                          theme={theme}
-                          rooms={roomDirectory.rooms}
-                          busy={race.status === 'joining'}
-                          /* `race.code` is set the moment a join starts, so the
-                             row you clicked owns the spinner instead of every row
-                             dimming off one shared flag. */
-                          joiningCode={race.status === 'joining' ? race.code : null}
-                          connected={roomDirectory.connected}
-                          listPublicly={listRoomsPublicly}
-                          onToggleListPublicly={toggleListRoomsPublicly}
-                          onJoin={(targetCode) => {
-                            handleRaceJoin(targetCode, cloud.username || 'Player');
-                          }}
-                        />
-                        {/* Hidden for guests (no ladder to show) and when the Elo
-                          migration hasn't been applied. */}
-                        {isLoggedIn && !rankedHistory.unavailable && (
-                          <RankedHistoryPanel
-                            theme={theme}
-                            matches={rankedHistory.matches}
-                            loading={rankedHistory.loading}
-                            elo={cloud.elo ?? 1000}
-                          />
-                        )}
-                      </>
-                    }
-                    onHostCode={(targetCode) => {
-                      handleRaceCreate(cloud.username || 'Player', race.roomSize || 4, false, targetCode, listRoomsPublicly);
-                    }}
-                    onCreate={(size, isRanked) => {
-                      handleRaceCreate(cloud.username || 'Player', size, isRanked, undefined, listRoomsPublicly);
-                    }}
-                    onJoin={(targetCode) => {
-                      handleRaceJoin(targetCode, cloud.username || 'Player');
-                    }}
-                    onBack={() => setCurrentStage('practice')}
-                  />
-                ) : (
-                  <LobbyScreen
-                    code={race.code}
-                    players={race.players}
-                    roomSize={race.roomSize}
-                    selfId={race.selfId ?? ''}
-                    isHost={race.isHost}
-                    lobbyConfig={race.lobbyConfig}
-                    updateLobbyConfig={race.updateLobbyConfig}
-                    updateRoomSize={race.updateRoomSize}
-                    chatMessages={race.chatMessages}
-                    sendChatMessage={race.sendChatMessage}
-                    onStart={() => {
-                      const cfg = race.lobbyConfig;
-                      const text = generateText(cfg.mode, cfg.words, '', false, { codeLanguage: cfg.language });
-                      handleRaceStart(text);
-                    }}
-                    onLeave={handleRaceLeave}
-                    theme={theme}
-                    themeTextClass={theme.text}
-                    // The handshake spinner belongs to the entry screen now — the
-                    // lobby only renders once the room is actually live.
-                    isJoining={false}
-                    error={race.error}
-                    countdown={race.countdown}
-                    connection={race.connection}
-                    onToggleReady={race.setReady}
-                    /* In-app invites, so filling a seat no longer means leaving
-                       the app to paste a link somewhere. */
-                    friends={friendsState.friends}
-                    friendsLoading={friendsState.loading}
-                    isLoggedIn={isLoggedIn}
-                    onInviteFriend={handleInviteFriendToRoom}
-                  />
+                    )}
+                    <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-center gap-6 lg:gap-8 xl:gap-10 2xl:gap-12 transition-[margin,padding] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] 3xl:grid-cols-[minmax(0,1fr)_460px] mt-2 sm:mt-4 pb-16'}`}>
+                      <PracticeArena
+                        game={game}
+                        typing={typing}
+                        particles={particles}
+                        theme={theme}
+                        shouldHideClutter={shouldHideClutter}
+                        levelOptions={levelOptions}
+                        lengthLocked={lengthLocked}
+                        mutatable={mutatable}
+                        pbGhost={pbGhost}
+                        rivalGhost={activeRivalPace}
+                        otherRacePlayers={otherRacePlayers ?? []}
+                        dictationSpokenIndex={dictationSpokenIndex}
+                        handleChangeLevel={handleArenaChangeLevel}
+                        handleLockedLevelClick={handleLockedLevelClick}
+                        handleChangeCountOrDuration={handleArenaChangeCountOrDuration}
+                        handleChangeCodeLanguage={handleArenaChangeCodeLanguage}
+                        onSetCustomTargetText={handleArenaSetCustomTargetText}
+                        onOpenGhostModal={handleArenaOpenGhostModal}
+                        onReset={handleArenaReset}
+                        dueWordsCount={wordWeakness.dueCount}
+                        onTrainDue={startDueWordsDrill}
+                        raceActive={raceActive || isSabotagePreview}
+                        hexEnergy={isSabotagePreview ? testHexEnergy : race.hexEnergy}
+                        activeHexes={isSabotagePreview ? testHexes : race.activeHexes}
+                        onCastHex={handleArenaCastHex}
+                        playSfx={handleArenaPlaySfx}
+                      />
 
-                )}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="practice"
-              custom={stageDirection}
-              variants={STAGE_PAGE_VARIANTS}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className={`relative w-full px-2 md:px-6 pt-[calc(var(--nav-h)+1.5rem)] pb-8 flex flex-col z-[var(--z-content)] transition-[max-width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] transform-gpu will-change-transform ${shouldHideClutter ? 'max-w-[95vw]' : 'max-w-[var(--w-wide)]'}`}
-            >
-              {raceActive && (
-                <RaceTrack
-                  players={race.players}
-                  selfId={race.selfId ?? ''}
-                  theme={theme}
-                  roomCode={race.code}
-                  targetLength={typing.targetText.length}
-                  myProgress={progressPercent}
-                  myWpm={typing.wpm}
-                  myAccuracy={typing.accuracy}
-                  phase={typing.phase}
-                  countdown={typing.countdownTimer}
-                />
-              )}
-              {/* One grid, not a flex row wrapping a second identical flex row.
-                  The duplicated wrapper meant the arena/leaderboard split was
-                  described twice and the two descriptions could disagree. */}
-              <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-start gap-8 transition-[margin,padding] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_minmax(18rem,30%)] mt-4 pb-20'}`}>
-                <PracticeArena
-                  game={game}
-                  typing={typing}
-                  particles={particles}
-                  theme={theme}
-                  shouldHideClutter={shouldHideClutter}
-                  levelOptions={levelOptions}
-                  lengthLocked={lengthLocked}
-                  mutatable={mutatable}
-                  pbGhost={pbGhost}
-                  rivalGhost={activeRivalPace}
-                  otherRacePlayers={otherRacePlayers ?? []}
-                  handleChangeLevel={(val) => handleChangeLevel(val as Level)}
-                  handleLockedLevelClick={handleLockedLevelClick}
-                  handleChangeCountOrDuration={(val) => handleChangeCountOrDuration(Number(val))}
-                  handleChangeCodeLanguage={(val) => handleChangeCodeLanguage(val as CodeLanguage)}
-                  onSetCustomTargetText={(text) => typing.setTargetText(text)}
-                  onOpenGhostModal={() => openModal('ghost')}
-                  onReset={() => handleReset()}
-                />
+                      <LeaderboardSidebar
+                        leaderboardClass={leaderboardClass}
+                        theme={theme}
+                        boardTab={boardTab}
+                        isLoggedIn={isLoggedIn}
+                        leaderboard={leaderboard}
+                        dailyBoard={dailyBoard}
+                        friendsBoard={friendsBoard}
+                        modeBoard={modeBoard}
+                        modeKey={boardModeKey}
+                        modeUnavailable={modeBoardUnavailable}
+                        currentUsername={cloud.username}
+                        onTabChange={handleBoardTabChange}
+                        onProfileClick={handleOpenProfile}
+                        onRaceGhost={handleSelectRival}
+                        onChallengeFriend={handleBoardChallengeFriend}
+                        onRemoveFriend={handleBoardRemoveFriend}
+                        enabled={practiceActive}
+                      />
+                    </main>
+                  </div>
+                </motion.div>
+              );
+            })()}
 
-                <LeaderboardSidebar
-                  leaderboardClass={leaderboardClass}
-                  theme={theme}
-                  boardTab={boardTab}
-                  isLoggedIn={isLoggedIn}
-                  leaderboard={leaderboard}
-                  dailyBoard={dailyBoard}
-                  friendsBoard={friendsBoard}
-                  modeBoard={modeBoard}
-                  modeKey={boardModeKey}
-                  modeUnavailable={modeBoardUnavailable}
-                  currentUsername={cloud.username}
-                  onTabChange={(tab) => {
-                    setBoardTab(tab);
-                    if (tab === 'today') fetchDailyBoard();
-                    if (tab === 'mode') refreshModeBoard();
+            {/* Stages 2 & 3: Overlay Stage Views (Academy & Compete Lobby).
+                Each layer mounts ONCE on first visit and stays mounted (hidden)
+                afterwards with zero unmounting/remounting cost.
+                Visibility flips cleanly with CSS delay so outgoing layers
+                fade smoothly without abrupt clipping. */}
+              {visitedStages.academy && (() => {
+                const academyActive = currentStage === 'academy';
+                const revealed = academyActive && (settledStage === 'academy' || visitedStages.academy);
+                return (
+                <motion.div
+                  key="academy"
+                  variants={STAGE_PAGE_VARIANTS}
+                  initial="enterStart"
+                  animate={revealed ? 'visible' : academyActive ? 'enterStart' : 'hidden'}
+                  className={`fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex flex-col bg-transparent overflow-y-auto custom-scrollbar academy-scroller ${academyActive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                  style={{
+                    display: academyActive || (!academyActive && settledStage === 'academy') ? undefined : 'none',
+                    visibility: revealed || (!academyActive && settledStage === 'academy') ? 'visible' : 'hidden',
+                    transition: `visibility 0s linear ${academyActive ? 0 : 180}ms`,
                   }}
-                  onProfileClick={handleOpenProfile}
-                  onRaceGhost={handleSelectRival}
-                  onChallengeFriend={(uname) => {
-                    // Opens a 1v1 room and shows the lobby. This used to flip
-                    // `raceActive` on with no race running, which dropped the
-                    // user into a keyboard-dead screen.
-                    handleChallengeFriend(uname);
-                  }}
+                  aria-hidden={!academyActive}
+                  inert={!academyActive}
+                >
+                  <div className="w-full px-4 sm:px-8 md:px-10 lg:px-12 2xl:px-16 py-6 pb-[calc(var(--dock-h)+2rem)] max-w-[var(--w-ultra)] mx-auto">
+                    <Suspense fallback={
+                      <div className="w-full py-24 flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest">
+                        INITIALIZING ACADEMY...
+                      </div>
+                    }>
+                      <AcademyLayout
+                        onExit={exitAcademy}
+                        theme={theme}
+                        dueWordsCount={wordWeakness.dueCount}
+                        onTrainDue={startDueWordsDrill}
+                      />
+                    </Suspense>
+                  </div>
+                </motion.div>
+                );
+              })()}
 
-                  onRemoveFriend={(uname) => friendsState.removeFriend(uname)}
-                />
-              </main>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {visitedStages.compete && (() => {
+                const competeActive = currentStage === 'compete' && !raceActive;
+                const revealed = competeActive && (settledStage === 'compete' || visitedStages.compete);
+                return (
+                <motion.div
+                  key="compete-lobby"
+                  variants={STAGE_PAGE_VARIANTS}
+                  initial="enterStart"
+                  animate={revealed ? 'visible' : competeActive ? 'enterStart' : 'hidden'}
+                  className={`fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] overflow-y-auto custom-scrollbar ${competeActive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                  style={{
+                    display: competeActive || (!competeActive && settledStage === 'compete') ? undefined : 'none',
+                    visibility: revealed || (!competeActive && settledStage === 'compete') ? 'visible' : 'hidden',
+                    transition: `visibility 0s linear ${competeActive ? 0 : 180}ms`,
+                  }}
+                  aria-hidden={!competeActive}
+                  inert={!competeActive}
+                >
+                  <div className="w-full max-w-[var(--w-wide)] mx-auto px-2 md:px-6 2xl:px-10 pt-4 pb-[calc(var(--dock-h)+1rem)] flex flex-col min-h-full">
+                    {race.status === 'idle' || race.status === 'joining' ? (
+                      <CompeteEntryScreen
+                        username={cloud.username || 'Player'}
+                        theme={theme}
+                        themeTextClass={theme.text}
+                        defaultRoomSize={race.roomSize || 4}
+                        isBusy={race.status === 'joining'}
+                        error={race.error}
+                        multiplayerAvailable={!!supabase}
+                        emptyRoomCode={race.emptyRoomCode}
+                        quickMatchSlot={competeQuickMatchSlot}
+                        sidebarSlot={competeSidebarSlot}
+                        onHostCode={handleCompeteHostCode}
+                        onCreate={handleCompeteCreate}
+                        onJoin={handleCompeteJoin}
+                        onBack={handleCompeteBack}
+                      />
+                    ) : (
+                      <LobbyScreen
+                        code={race.code}
+                        players={race.players}
+                        roomSize={race.roomSize}
+                        selfId={race.selfId ?? ''}
+                        isHost={race.isHost}
+                        lobbyConfig={race.lobbyConfig}
+                        updateLobbyConfig={race.updateLobbyConfig}
+                        updateRoomSize={race.updateRoomSize}
+                        chatMessages={race.chatMessages}
+                        sendChatMessage={race.sendChatMessage}
+                        onStart={handleLobbyStart}
+                        onLeave={handleRaceLeave}
+                        theme={theme}
+                        themeTextClass={theme.text}
+                        isJoining={false}
+                        error={race.error}
+                        countdown={race.countdown}
+                        connection={race.connection}
+                        onToggleReady={race.setReady}
+                        friends={friendsState.friends}
+                        friendsLoading={friendsState.loading}
+                        isLoggedIn={isLoggedIn}
+                        onInviteFriend={handleInviteFriendToRoom}
+                      />
+                    )}
+                  </div>
+                </motion.div>
+                );
+              })()}
+          </>
         )}
 
         {/* Floating Bottom Controls */}
@@ -1937,12 +2609,13 @@ function MainApp() {
           theme={theme}
           activeModal={activeModal}
           isAruOpen={isAruOpen}
-          onToggleAru={() => setIsAruOpen(!isAruOpen)}
-          onOpenSettings={() => openModal('settings')}
-          onOpenChangelog={() => openModal('changelog')}
+          onToggleAru={handleToggleAru}
+          onOpenSettings={handleOpenSettings}
+          onOpenChangelog={handleOpenChangelog}
           latestVersion={CHANGELOG[0].version}
           cloud={cloud}
           auth={auth}
+          avatarId={cosmetics.avatarId}
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
         />
@@ -1970,7 +2643,7 @@ function MainApp() {
           supabase={supabase}
           auth={auth}
           game={game}
-          typing={typing}
+          typing={modalTyping}
           rpg={rpg}
           quests={quests}
           friendsState={friendsState}
@@ -1996,7 +2669,14 @@ function MainApp() {
           techModifiersMemo={techModifiersMemo}
           techCapabilities={techCapabilities}
           onCloseModal={closeModal}
-          onOpenModal={openModal}
+          onOpenModal={(modal) => {
+            if (modal === 'donate') {
+              closeModal();
+              navigate('/donate');
+              return;
+            }
+            openModal(modal);
+          }}
           onSelectTheme={selectTheme}
 
           onSelectSoundProfile={selectSoundProfile}
@@ -2005,12 +2685,13 @@ function MainApp() {
           onOpenProfile={handleOpenProfile}
           onSetTetrisEffect={setTetrisEffect}
 
-          onToggleAru={() => setIsAruOpen(!isAruOpen)}
+          onToggleAru={handleToggleAru}
           onCloseAru={handleCloseAru}
           onStartSmartDrill={startSmartDrill}
           onSetNameInput={setNameInput}
           onSetNameErr={setNameErr}
           onSubmitUsername={submitUsername}
+          onPlayPreviewSound={handlePlayPreviewSound}
         />
       </div>
     </>
@@ -2050,8 +2731,22 @@ export default function App() {
           else's shareable link.
         */}
         <Route path="/operator" element={<AuthGuard><MainApp /></AuthGuard>} />
+        <Route path="/operator/analytics" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route path="/operator/:username" element={<AuthGuard><MainApp /></AuthGuard>} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/operator/:username/analytics" element={<AuthGuard><MainApp /></AuthGuard>} />
+        <Route path="/donate" element={<AuthGuard><MainApp /></AuthGuard>} />
+        <Route
+          path="/login"
+          element={
+            <Suspense fallback={
+              <div className="min-h-screen bg-[#080809] flex items-center justify-center text-zinc-500 font-bold uppercase tracking-widest text-xs font-mono">
+                INITIALIZING TYPENOVA...
+              </div>
+            }>
+              <Login />
+            </Suspense>
+          }
+        />
         {/* Anything else is a typo or a dead bookmark — send it home rather
             than rendering a blank screen with no navigation. */}
         <Route path="*" element={<Navigate to="/" replace />} />

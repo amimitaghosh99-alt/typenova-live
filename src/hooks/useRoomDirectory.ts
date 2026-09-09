@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
 /** A room a host has chosen to advertise. */
@@ -73,6 +73,14 @@ export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }
         channelRef.current = ch;
         readyRef.current = false;
 
+        // Fallback: If presence subscription doesn't resolve within 3.5s,
+        // release the connecting skeleton so the user is never stuck in loading.
+        const connectTimeout = setTimeout(() => {
+            if (!readyRef.current) {
+                setConnected(true);
+            }
+        }, 3500);
+
         const sync = () => {
             if (channelRef.current !== ch) return;
             const state = ch.presenceState<Record<string, unknown>>();
@@ -92,6 +100,7 @@ export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }
 
         ch.subscribe((status) => {
             if (status !== 'SUBSCRIBED' || channelRef.current !== ch) return;
+            clearTimeout(connectTimeout);
             readyRef.current = true;
             setConnected(true);
             // A room opened before the socket was ready still has to appear.
@@ -100,12 +109,28 @@ export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }
         });
 
         return () => {
+            clearTimeout(connectTimeout);
             channelRef.current = null;
             readyRef.current = false;
             setConnected(false);
             supabase.removeChannel(ch);
         };
     }, [supabase, enabled]);
+
+    // Manual re-scan
+    const refresh = useCallback(() => {
+        if (!channelRef.current) return;
+        const state = channelRef.current.presenceState<Record<string, unknown>>();
+        const byCode = new Map<string, OpenRoom>();
+        for (const entries of Object.values(state)) {
+            for (const raw of entries as unknown as OpenRoom[]) {
+                if (!raw || typeof raw.code !== 'string' || raw.code.length !== 6) continue;
+                const prev = byCode.get(raw.code);
+                if (!prev || (raw.players ?? 0) > (prev.players ?? 0)) byCode.set(raw.code, raw);
+            }
+        }
+        setRooms([...byCode.values()]);
+    }, []);
 
     // Advertise / unlist. Untracking matters as much as tracking: a room that
     // has started racing or been left must stop inviting strangers in.
@@ -134,5 +159,6 @@ export const useRoomDirectory = ({ supabase, publish, selfCode, enabled = true }
          * to — the entry screen already explains that separately).
          */
         connected: !enabled || !supabase ? true : connected,
+        refresh,
     };
 };

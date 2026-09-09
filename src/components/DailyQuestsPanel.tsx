@@ -1,13 +1,16 @@
 import { X, Flame, CheckCircle2, Award, Zap } from 'lucide-react';
 import type { Quest, QuestsState } from '@/lib/progress';
+import type { Theme } from '@/data/constants';
 
 interface DailyQuestsPanelProps {
   questsState: QuestsState | null;
   dailyStreak: number;
   onClose: () => void;
+  theme?: Theme;
 }
 
-export function DailyQuestsPanel({ questsState, dailyStreak, onClose }: DailyQuestsPanelProps) {
+export function DailyQuestsPanel({ questsState, dailyStreak, onClose, theme }: DailyQuestsPanelProps) {
+  const glowPrimary = theme?.glowPrimary || '34, 211, 238';
   const quests = questsState?.active || [];
   const completedCount = quests.filter((q) => q.completed).length;
 
@@ -47,8 +50,8 @@ export function DailyQuestsPanel({ questsState, dailyStreak, onClose }: DailyQue
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 Daily Quests
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300">
-                  🔥 {dailyStreak} Day Streak
+                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 font-mono">
+                  <Flame size={10} className="text-orange-400 shrink-0" /> {dailyStreak} Day Streak
                 </span>
               </h2>
               <p className="text-[10px] text-zinc-400">Resets daily at 00:00 UTC</p>
@@ -86,7 +89,11 @@ export function DailyQuestsPanel({ questsState, dailyStreak, onClose }: DailyQue
                       {quest.completed ? (
                         <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                       ) : (
-                        <Award size={16} className="text-cyan-400 shrink-0" />
+                        <Award
+                          size={16}
+                          className="shrink-0"
+                          style={{ color: `rgb(${glowPrimary})` }}
+                        />
                       )}
                       <span className="text-xs font-bold text-zinc-200">
                         {getQuestLabel(quest)}
@@ -102,18 +109,23 @@ export function DailyQuestsPanel({ questsState, dailyStreak, onClose }: DailyQue
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] text-zinc-400">
                       <span>Progress</span>
-                      <span className={quest.completed ? 'text-emerald-400 font-bold' : 'text-cyan-300'}>
+                      <span
+                        className={quest.completed ? 'text-emerald-400 font-bold' : ''}
+                        style={!quest.completed ? { color: `rgb(${glowPrimary})` } : undefined}
+                      >
                         {quest.progress} / {quest.target} ({progressPct}%)
                       </span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-white/5">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          quest.completed
-                            ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
-                            : 'bg-gradient-to-r from-cyan-500 to-teal-400'
-                        }`}
-                        style={{ width: `${progressPct}%` }}
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${progressPct}%`,
+                          backgroundColor: quest.completed ? '#34d399' : `rgb(${glowPrimary})`,
+                          boxShadow: quest.completed
+                            ? '0 0 8px rgba(52,211,153,0.8)'
+                            : `0 0 8px rgba(${glowPrimary}, 0.6)`,
+                        }}
                       />
                     </div>
                   </div>

@@ -1,55 +1,47 @@
-# BRIEFING — 2026-08-14T14:24:00Z
+# BRIEFING — 2026-09-01T02:15:30Z
 
 ## Mission
-Perform independent code review and adversarial evaluation of Milestone 1 (Dead Code Removal) to verify integrity, correctness, compilation, and safety.
+Adversarially review Milestone 1 (Core Scoring & Grading Engine) implementation in `src/lib/scoringEngine.ts`, verifying mathematical rigor, grading curve fairness, burst WPM calculation, accolades, tests, and build.
 
 ## 🔒 My Identity
-- Archetype: reviewer
+- Archetype: reviewer_critic
 - Roles: reviewer, critic
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m1_2
-- Original parent: 412c889d-1ef7-4df9-b65e-a77c07bb1031
-- Milestone: Milestone 1 (Dead Code Removal)
+- Original parent: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Milestone: Milestone 1 - Core Scoring & Grading Engine
 - Instance: 2 of 2
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
-- Evidence-based review with independent verification commands
-- Adversarial check for integrity violations, shortcuts, facade implementations, broken imports
+- Actively check for integrity violations (hardcoded test results, facade implementations, bypasses)
+- Verify 100% accuracy at 40 WPM produces A or S grade (never C or D)
+- Verify Burst WPM sliding window calculation, S+/S/A/B/C/D grade thresholds, and Accolades calculations
+- Run verification commands: `npx tsx src/tests/run_e2e.ts` and `npm run build`
 
 ## Current Parent
-- Conversation ID: 412c889d-1ef7-4df9-b65e-a77c07bb1031
-- Updated: 2026-08-14T14:24:00Z
+- Conversation ID: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Updated: 2026-09-01T02:15:30Z
 
 ## Review Scope
-- **Files to review**: All modified and deleted files in Milestone 1:
-  - Deleted: `src/utils/audio.ts`, `src/components/SplashCursor.tsx`
-  - Unused imports/params/types: `src/lib/progress.ts`, `src/components/AIChatBot.tsx`, `src/components/AccountMenu.tsx`, `src/components/RaceResultsScreen.tsx`, `src/App.tsx`, `src/components/SupportTechnician.tsx`, `src/hooks/useSmartEngineConfig.ts`, `src/data/constants.ts`, `src/hooks/useRPGSystem.ts`
-  - Redundant default exports: `src/components/BlurText.tsx`, `src/components/ui/bg-animate-button.tsx`, `src/components/ui/starfield-background.tsx`
-  - Localized internal-only symbols: `constants.ts`, `customization.ts`, `aiClient.ts`, `consent.ts`, `technicianBrain.ts`, `CyberHands.tsx`, `SettingsModal.tsx`, `StatsDashboard.tsx`, `shareCard.ts`
-  - Utility consolidation: `src/hooks/useQuests.ts` (`todayKey` from `seededRandom.ts`)
-- **Interface contracts**: ORIGINAL_REQUEST.md / PROJECT.md
-- **Review criteria**: correctness, integrity, export/import consistency, compilation, regression prevention
+- **Files to review**: `src/lib/scoringEngine.ts`, `src/hooks/useTypingEngine.ts`, `src/tests/scoringEngine.test.ts`, `src/tests/run_e2e.ts`
+- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md`
+- **Review criteria**: Mathematical rigor, correctness, edge cases, anti-cheating / integrity, build & test pass
 
 ## Review Checklist
-- **Items reviewed**: All 24 modified/deleted source files and all cross-module import/export call sites.
+- **Items reviewed**: `src/lib/scoringEngine.ts`, `src/hooks/useTypingEngine.ts`, `src/tests/scoringEngine.test.ts`, `src/tests/run_e2e.ts`, `src/tests/adversarialScoringStress.ts`
 - **Verdict**: APPROVE
-- **Unverified claims**: None. All verified via AST grep, typecheck, and production build.
+- **Unverified claims**: None (All 129 E2E tests and 537,459 stress test invariants verified directly)
 
 ## Attack Surface
-- **Hypotheses tested**:
-  - `SplashCursor.tsx` or `audio.ts` referenced via dynamic imports -> None found (0 references across `src/`).
-  - Localizing internal symbols broke external consumers -> Exhaustively grepped across `src/`; all symbols were strictly internal to their declaring files.
-  - Consolidating `getTodayString` with `todayKey` caused format divergence -> Verified both yield `YYYY-MM-DD` standard date strings.
-  - Deleting `roomSize` broke callers -> Verified single caller in `App.tsx` updated accordingly; build cleanly succeeds.
-  - Dual default exports removal broke import statements -> Verified all consumers import `{ BlurText }`, `{ BgAnimateButton }`, `{ StarfieldBackground }` by name.
-- **Vulnerabilities found**: None.
-- **Untested angles**: Runtime UI testing in browser (static typecheck and vite bundler passed 100%).
+- **Hypotheses tested**: Monotonicity of accuracy/consistency/streak/WPM, zero/NaN edge cases, 40 WPM 100% accuracy curve, burst rolling window, 0-division guards, XP multiplier stacking.
+- **Vulnerabilities found**: None in core scoring logic.
+- **Untested angles**: Downstream UI components (handled in M2/M3/M4).
 
 ## Key Decisions Made
-- Confirmed full compliance with requirements and approved Milestone 1.
+- Confirmed full mathematical rigor and integrity of `src/lib/scoringEngine.ts`.
+- Verified 100% test pass rate (129/129 tests) and clean production build (`npm run build`).
 
 ## Artifact Index
-- `.agents/reviewer_m1_2/DISPATCH.md` — Initial dispatch
-- `.agents/reviewer_m1_2/progress.md` — Liveness & progress tracker
-- `.agents/reviewer_m1_2/BRIEFING.md` — Situational awareness
-- `.agents/reviewer_m1_2/handoff.md` — Final review report and verdict
+- `.agents/reviewer_m1_2/handoff.md` — Final review report
+- `.agents/reviewer_m1_2/progress.md` — Progress heartbeat
+- `.agents/reviewer_m1_2/DISPATCH.md` — Dispatch record

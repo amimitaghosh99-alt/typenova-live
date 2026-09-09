@@ -51,7 +51,9 @@ const MASTER_SNIPPETS = [
 ];
 
 import { CODE_LANGUAGES, type CodeLanguage, CODE_LIBRARY } from './codeSnippets';
-export { CODE_LANGUAGES, type CodeLanguage };
+import { DICTATION_TRACKS, type DictationTrack } from './dictationLibrary';
+import { DAILY_SNIPPETS, getDailySnippet, getDailyChallengeText, getDailyChallengeWordCount, type DailySnippet } from './dailySnippets';
+export { CODE_LANGUAGES, type CodeLanguage, DICTATION_TRACKS, type DictationTrack, DAILY_SNIPPETS, getDailySnippet, getDailyChallengeText, getDailyChallengeWordCount, type DailySnippet };
 
 const QUOTES = [
   `"The only way to do great work is to love what you do." — Steve Jobs`,
@@ -76,12 +78,14 @@ const QUOTES = [
   `"What we know is a drop, what we don't know is an ocean." — Isaac Newton`
 ];
 
-export type Level = 'NOVICE' | 'ADEPT' | 'MASTER' | 'QUOTES' | 'CODE' | 'CUSTOM';
+export type Level = 'NOVICE' | 'ADEPT' | 'MASTER' | 'QUOTES' | 'CODE' | 'CUSTOM' | 'DICTATION';
 
 export interface GenerateOptions {
   numbers?: boolean;
   punctuation?: boolean;
   codeLanguage?: CodeLanguage;
+  dictationTrackId?: string;
+  isDaily?: boolean;
   /** Deterministic RNG (e.g. seeded for the Daily Challenge). Defaults to Math.random. */
   rng?: () => number;
 }
@@ -91,12 +95,26 @@ const PUNCT_ENDINGS = [',', '.', '!', '?', ';'];
 export const generateText = (level: Level, length: number, customText: string = '', isMirrored = false, opts: GenerateOptions = {}): string => {
   const rng = opts.rng ?? Math.random;
   let final = "";
-  if (level === 'CODE') {
+  if (opts.isDaily) {
+    final = getDailyChallengeText();
+  } else if (level === 'CODE') {
     const lang = opts.codeLanguage || 'JavaScript/TypeScript';
     const snippets = CODE_LIBRARY[lang];
     final = snippets[Math.floor(rng() * snippets.length)];
   } else if (level === 'QUOTES') {
     final = QUOTES[Math.floor(rng() * QUOTES.length)];
+  } else if (level === 'DICTATION') {
+    if (opts.dictationTrackId) {
+      const track = DICTATION_TRACKS.find(t => t.id === opts.dictationTrackId);
+      if (track) final = track.text;
+      else {
+        const fallback = DICTATION_TRACKS[Math.floor(rng() * DICTATION_TRACKS.length)];
+        final = fallback.text;
+      }
+    } else {
+      const track = DICTATION_TRACKS[Math.floor(rng() * DICTATION_TRACKS.length)];
+      final = track.text;
+    }
   } else if (level === 'CUSTOM') {
     final = customText.trim() || "Type your custom text above...";
   } else if (level === 'MASTER') {
@@ -266,10 +284,13 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'hyperspace', title: 'Hyperspace', desc: 'Break 140 WPM on any test.', icon: 'rocket', category: 'SKILL' },
   { id: 'sniper', title: 'Sniper', desc: 'Finish a test of 50+ words with 100% Accuracy.', icon: 'crosshair', category: 'SKILL' },
   { id: 'unbreakable', title: 'Unbreakable', desc: 'Reach a flawless streak (Combo) of 200+.', icon: 'shield', category: 'SKILL' },
+  { id: 'centurion_streak', title: 'Centurion', desc: 'Reach a flawless streak (Combo) of 100+.', icon: 'shield', category: 'SKILL' },
+  { id: 'flow_state', title: 'Flow State', desc: 'Complete a test with >= 85% consistency and >= 95% accuracy.', icon: 'waves', category: 'SKILL' },
+  { id: 'surgical_precision', title: 'Surgical Precision', desc: 'Finish a test of 50+ words with 100% accuracy.', icon: 'crosshair', category: 'HARDCORE' },
   { id: 'daredevil', title: 'Daredevil', desc: 'Complete a test with Sudden Death activated.', icon: 'skull', category: 'HARDCORE' },
   { id: 'jedi_senses', title: 'Jedi Senses', desc: 'Complete a test with Blind Mode and Fog of War.', icon: 'eye-off', category: 'HARDCORE' },
   { id: 'under_pressure', title: 'Under Pressure', desc: 'Complete a test with Overclocked (Accuracy > 95%).', icon: 'gauge', category: 'HARDCORE' },
-  { id: 'masochist', title: 'Masochist', desc: 'Win with Sudden Death, Overclocked, Blind, and Fog active.', icon: 'flame', category: 'HARDCORE' },
+  { id: 'masochist', title: 'Masochist', desc: 'Win with Sudden Death, Overclocked, Blind, and Fog active.', icon: 'biohazard', category: 'HARDCORE' },
   { id: 'time_lord', title: 'Time Lord', desc: 'Hit 100+ WPM in a timed test.', icon: 'hourglass', category: 'SKILL' },
   { id: 'apprentice', title: 'Apprentice', desc: 'Reach Level 5.', icon: 'star', category: 'GRIND' },
   { id: 'daily_devotee', title: 'Daily Devotee', desc: 'Complete a 7-day Daily Challenge streak.', icon: 'calendar-check', category: 'GRIND' },

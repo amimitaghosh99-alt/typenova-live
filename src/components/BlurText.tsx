@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useSprings, animated } from '@react-spring/web';
 
 interface BlurTextProps {
@@ -15,7 +15,7 @@ interface BlurTextProps {
   onAnimationComplete?: () => void;
 }
 
-export const BlurText = ({
+export const BlurText = React.memo(({
   text,
   delay = 200,
   className = '',
@@ -28,25 +28,33 @@ export const BlurText = ({
   easing,
   onAnimationComplete,
 }: BlurTextProps) => {
-  const elements = animateBy === 'words' ? text.split(' ') : text.split('');
+  const elements = useMemo(() => (animateBy === 'words' ? text.split(' ') : text.split('')), [text, animateBy]);
   const [inView, setInView] = useState(false);
   const ref = useRef<HTMLParagraphElement>(null);
+  const isCompletedRef = useRef(false);
   const animatedCount = useRef(0);
 
   // Default animations based on direction
-  const defaultFrom =
+  const defaultFrom = useMemo(() => (
     direction === 'top'
       ? { filter: 'blur(10px)', opacity: 0, transform: 'translate3d(0,-50px,0)' }
-      : { filter: 'blur(10px)', opacity: 0, transform: 'translate3d(0,50px,0)' };
+      : { filter: 'blur(10px)', opacity: 0, transform: 'translate3d(0,50px,0)' }
+  ), [direction]);
 
-  const defaultTo = [
+  const defaultTo = useMemo(() => [
     {
       filter: 'blur(5px)',
       opacity: 0.5,
       transform: direction === 'top' ? 'translate3d(0,5px,0)' : 'translate3d(0,-5px,0)',
     },
     { filter: 'blur(0px)', opacity: 1, transform: 'translate3d(0,0,0)' },
-  ];
+  ], [direction]);
+
+  const finalState = useMemo(() => ({
+    filter: 'blur(0px)',
+    opacity: 1,
+    transform: 'translate3d(0,0,0)',
+  }), []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -67,19 +75,24 @@ export const BlurText = ({
   const springs = useSprings(
     elements.length,
     elements.map((_, i) => ({
-      from: animationFrom || defaultFrom,
-      to: inView
+      from: isCompletedRef.current ? finalState : (animationFrom || defaultFrom),
+      to: isCompletedRef.current
+        ? finalState
+        : inView
         ? async (next: (arg: any) => Promise<void>) => {
             for (const step of animationTo || defaultTo) {
               await next(step);
             }
             animatedCount.current += 1;
-            if (animatedCount.current === elements.length && onAnimationComplete) {
-              onAnimationComplete();
+            if (animatedCount.current === elements.length) {
+              isCompletedRef.current = true;
+              if (onAnimationComplete) {
+                onAnimationComplete();
+              }
             }
           }
         : animationFrom || defaultFrom,
-      delay: i * delay,
+      delay: isCompletedRef.current ? 0 : i * delay,
       config: { easing: easing, tension: 280, friction: 60 },
     }))
   );
@@ -98,4 +111,6 @@ export const BlurText = ({
       ))}
     </span>
   );
-};
+});
+
+BlurText.displayName = 'BlurText';

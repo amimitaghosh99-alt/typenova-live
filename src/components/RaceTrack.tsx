@@ -73,7 +73,7 @@ export function RaceTrack({
             place++;
             if (r.isSelf || announcedRef.current.has(r.id)) continue;
             announcedRef.current.add(r.id);
-            toast(`${r.name} finished ${ordinal(place)} — ${r.liveWpm} WPM`, { icon: '🏁' });
+            toast(`${r.name} finished ${ordinal(place)} — ${r.liveWpm} WPM`);
         }
     }, [rows]);
 

@@ -131,6 +131,52 @@ The TypeNova Live bug remediation project has successfully identified, fixed, an
 - **Fix**: Added `typing.setPhase('READY')` synchronously in `handleReset` before scheduling the 300ms transition timeout.
 
 ### 22. LOGIC-10: Dangling timeout in ghost pacer hook
+### C. Full-Width Gameplay Challenge Engine & Interactive Sandbox
+Overhauled the **Gameplay Modifiers** tab to eliminate the empty dark void and elevate it into a full-scale tactical arena with live simulation:
+
+![Gameplay Modifiers Arena](C:/Users/risho/.gemini/antigravity/brain/4c417afc-203a-4f2c-bc1a-6178960c948d/audit_settings_gameplay_modifiers.png)
+
+1. **Top Threat Level & Presets Bar**:
+   - Dynamic **Threat Rating**: Computes real-time risk tiers (`STANDARD ARENA`, `TARGETED MODIFIER`, `HARDCORE CHALLENGE`, `NIGHTMARE PROTOCOL`).
+   - Dynamic **Match Yield**: Computes active XP multiplier bonuses up to `2.55x XP`.
+   - 1-Click Loadout Presets: `[ Hardcore ]`, `[ Stealth ]`, `[ Rival ]`, `[ Nightmare ]`, and `[ Reset ]`.
+2. **8-Card Challenge Modifiers Bento Grid (Zero-Bleed Layout)**:
+   - Fixed spacing by replacing unparsed `p-4.5` with full `p-5` (20px) inner padding across all cards, guaranteeing generous margins from all borders.
+   - Replaced bleeding edge indicator dots with fully contained, tactile mini-toggle switches (`w-9 h-5 rounded-full`) with animated thumbs.
+   - Preserves high-contrast badges (`+25% XP • Fatal`, `+25% XP • Velocity`, etc.) alongside the tactile switches with zero horizontal clipping.
+3. **Typing Arena Middle Spacing Overhaul**:
+   - **Unified Single-Line Header Bar**: Aligned difficulty levels (`NOVICE` ... `AUDIO`), word counts (`10` ... `100`), and `DAILY` into a single, compact Monkeytype-style horizontal bar with refined padding, preventing `DAILY` from awkwardly wrapping to a second row.
+   - **Grid Proportions Rebalanced**: Shifted `lg:grid-cols` from `minmax(18rem, 30%)` to `minmax(0, 1fr) 320px` (and `350px` on XL screens), giving the typing arena ~180px of additional breathing room and keeping the Leaderboard sidebar in clean proportion.
+   - **De-Congested Challenge Dock**: Doubled the bottom margin on the challenge modifiers dock (`mb-3` -> `mb-6`), separating it from the top border of the typing card.
+   - **Spacious Typing Canvas**: Added `min-h-[220px] md:min-h-[260px]`, expanded padding to `px-8 py-10 md:px-12 md:py-14`, and loosened text line-height to `leading-[2.2rem] md:leading-[2.6rem]` to eliminate the squished letterbox feel.
+   - **Non-Clipping Spacebar Prompt**: Increased bottom margin (`pb-12 mb-8`) and adjusted the prompt anchor (`-bottom-6`) so `PRESS SPACE TO READY UP` floats comfortably below the card without colliding with the border or page elements.
+4. **Competitive Integrity & Reset Footer**:
+   - Affirms competitive XP and accolade validity with quick Reset All action.
+Transformed the empty, cramped AI Stats tab into an expansive, high-density telemetry cockpit that fully utilizes the modal space:
+
+![AI Stats Telemetry Cockpit](C:/Users/risho/.gemini/antigravity/brain/4c417afc-203a-4f2c-bc1a-6178960c948d/audit_settings_ai_stats_telemetry.png)
+
+1. **Top Status & Probe Bar**:
+   - Header with glowing `Live Monitor` status badge.
+   - Interactive `[ ⚡ RUN LATENCY PROBE ]` button triggering live roundtrip pings.
+   - Shortcut `[ Smart Engine ↗ ]` button to jump straight to provider setup.
+2. **6-Card KPI Bento Grid**:
+   - `Tokens` (lifetime session count)
+   - `API Calls` (total model prompts)
+   - `Avg Prompt` (tokens per completion)
+   - `Free Value` (computed free cost @ $0.50/1M standard)
+   - `Latency` (live ms inference response)
+   - `Health` (100% nominal, zero throttles)
+3. **Dual-Column Rate Limit Consoles**:
+   - **60-Second Instantaneous Burst Load**: Live TPM & RPM gauges with tick marks (0, 25%, 50%, 75%, ceiling).
+   - **24-Hour Rolling Capacity Quota**: TPD & RPD meters with `∞ UNLIMITED` emerald pill badge for `groq/compound-mini`.
+4. **Model Architecture & Hardware Specs**:
+   - Specifications grid: Active Model, Context Window (131k), Max Output (8k), Free Token Rate.
+   - Engine Capabilities tags and real-time probe feedback indicator.
+5. **Local Telemetry & Privacy Control Strip**:
+   - Confirms 100% client-side hardware telemetry with zero external tracking servers.
+   - Styled `[ ↻ RESET STATS ]` action.
+
 - **Files Modified**: `src/components/TypingArea.tsx`
 - **Problem**: `useGhostRace` used a dangling `setTimeout(() => setGhost(null), 0)` to defer clearing ghost state on text reset, triggering unmounted component state set warnings.
 - **Fix**: Replaced dangling `setTimeout` with synchronous `setGhost(null)` inside `useGhostRace`.
@@ -162,26 +208,6 @@ The TypeNova Live bug remediation project has successfully identified, fixed, an
 
 ---
 
-## Verification Section
-
-### TypeScript Check (`npx tsc --noEmit`)
-```text
-$ npx tsc --noEmit
-Exit code: 0
-Errors: 0
-Type check passed cleanly.
-```
-
-### Production Build (`npm run build`)
-```text
-$ npm run build
-> typenova-live@0.1.0 build
-> vite build
-
-transforming...
-✓ 142 modules transformed.
-rendering chunks...
-computing checksums...
 dist/index.html                   0.45 kB │ gzip:  0.29 kB
 dist/assets/index-D8x2K3l9.css    14.82 kB │ gzip:  3.61 kB
 dist/assets/index-B7y1M9v2.js    284.15 kB │ gzip: 82.40 kB
@@ -194,3 +220,77 @@ Errors: 0
 - **Type Safety**: Verified 100% clean type checking with zero errors or warnings.
 - **Bundle Generation**: Production build completes under 1.5 seconds generating optimized CSS/JS dist bundles.
 - **Remediation Complete**: All 27 bugs across Logic, Performance, and UI categories are fully resolved.
+
+---
+
+## 9. Operator Dossier: Mechanical Keyboard Heatmap & Ergonomics Cockpit
+
+The user reported that the **Keyboard** section in the Operator Dossier felt isolated, minimal, and lacked animation and depth. We overhauled it into a **high-end, tactile, deeply animated, and feature-packed Mechanical Typing Intelligence Cockpit**.
+
+### Key Innovations Implemented
+
+1. **3D Sculpted Mechanical Keycaps & Secondary Sublabels**:
+   - Sculpted keycap profile with top face convex lighting, bevel edges, switch stem borders, and bottom lip elevation (`border-b-[3px] border-black/60`).
+   - Tactile home-row orientation nibs on **F** and **J** keys (`w-[10px] h-[2px] rounded-full bg-white/40`) replicating real mechanical keyboards.
+   - Dual-label keycaps: number and symbol keys display shifted secondary glyphs (e.g. `!` above `1`, `@` above `2`, `:` above `;`).
+
+2. **Five Comprehensive Diagnostic Heatmap Modes**:
+   - **Typos & Accuracy Mode**: Dynamic crimson ember heatmap visualising error distribution from clean charcoal to burning red with exact fumble counts.
+   - **Hesitation & Speed Mode**: Glacier cyan / neon blue heatmap exposing pauses and hesitation latency before key strikes.
+   - **Usage & Mileage Volume Mode**: Theme accent heatmap (`rgba(accent, ...)`) showing keystroke volume and wear-and-tear.
+   - **Finger Ergonomics Mode**: Color-coded touch-typing finger zones (Left Pinky through Right Pinky) with an animated **Hand Workload Balance Bar** comparing Left vs Right hand stroke percentages.
+   - **Transitions & Bigrams Mode**: Highlights bottleneck keys with latency $> 200\text{ms}$ alongside a responsive grid of primary transition bottlenecks with 1-click drill actions.
+
+3. **Dual Layout Engine (Compact Alphas vs Full 60% ANSI Mechanical)**:
+   - **Compact View**: Clean 4-row layout (Alphas + Space) centered and enlarged for focused letter diagnostics.
+   - **Full 60% ANSI Mechanical Board**: Complete flush 15.0u keyboard with Number row, Tab, Caps, Shift, Enter, Backspace, and modifier keys, fully wired to real stats.
+
+4. **Interactive Live Key Tester with Web Audio Switch Synthesiser**:
+   - Striking any physical key on your keyboard physically depresses and illuminates the matching virtual keycap on screen in real time with spring physics.
+   - Procedural Web Audio switch sound synthesiser with **3 switch profiles**:
+     - **Thock**: Deeper tactile switch (Brown / Holy Panda).
+     - **Clack**: Sharp clicky switch (Blue / Box White).
+     - **Creamy**: Smooth linear bottom-out (Red / Oil King).
+   - Audio is muted by default and equipped with an instant toggle button.
+
+5. **Pinned Key Inspector Cockpit (Split Two-Column Cockpit)**:
+   - Clicking any key locks it into the Inspector Card beside the board, turning the empty void into a rich diagnostic cockpit.
+   - Displays 3D keycap hero badge, hand and finger assignment, precision accuracy rating, performance grade badge (`S+` to `F`), average latency in ms, lifetime hits, total errors, animated accuracy bar, and an instant **"⚡ Drill This Key"** button.
+
+6. **Summary Telemetry HUD & Minimalist Control Bar**:
+   - Single-row control bar adhering strictly to `GEMINI.md` with small dot dividers, tight gaps, and dynamic theme colors.
+   - Real-time telemetry: Global Accuracy %, Fastest Key, Primary Bottleneck Key, Mastered Keys Count, and Smart Drill CTA.
+
+---
+
+## 10. Operator Analytics: True Edge-to-Edge Widescreen Expansion
+
+### Problem
+As reported by the user, the newly introduced dedicated **Operator Analytics** page (`/operator/analytics`) was previously trapped inside a narrow centered boxed container (`max-w-5xl` / `max-w-[1600px]`), resulting in large dead black letterboxing on both sides on 1080p, 1440p, and ultrawide screens. Furthermore, the chart was vertically compressed at 220px height and restricted to 50 test entries.
+
+### Solution & Changes Made
+1. **True Edge-to-Edge Container Layout**:
+   - Replaced boxed `max-w` constraints with the project's native `.dsr-container w-full max-w-full px-6` token in [OperatorAnalytics.tsx](file:///c:/Users/risho/OneDrive/Desktop/typenova-v2%20-%20Copy/src/pages/OperatorAnalytics.tsx).
+   - Content panels, header, and test history tables now align flush with `CosmicNavBar` (`px-6`) and the bottom footer dock (`px-6`), completely eliminating all dead side space.
+
+2. **Expanded Chart Geometry & Dynamic Scaling**:
+   - Added an optional `height?: number` prop to [InteractiveFormChart.tsx](file:///c:/Users/risho/OneDrive/Desktop/typenova-v2%20-%20Copy/src/components/profile/InteractiveFormChart.tsx), allowing caller customization.
+   - Expanded the chart canvas height to `280px` on the dedicated analytics page.
+   - Increased the plotted test trajectory from 50 to 100 recent tests (`slice(-100)`), taking full advantage of the widened horizontal viewport.
+
+3. **Telemetry Precision & Zero-Glitch Instant Updates**:
+   - Sanitized negative zero (`-0`) floating point edge cases in [useCountUp.ts](file:///c:/Users/risho/OneDrive/Desktop/typenova-v2%20-%20Copy/src/hooks/useCountUp.ts) by checking `Object.is(rounded, -0)`.
+   - Set `animate={false}` on the four summary telemetry `Figure` components in `OperatorAnalytics.tsx` to provide instantaneous, lag-free metric updates when switching between mode tabs.
+
+4. **Visual Browser Verification**:
+   - Verified in headless Edge browser at full 1080p (1920x1080) resolution.
+   - Measured actual rendered widths: `windowWidth = 1920px`, `containerWidth = 1908px`, `tableWidth = 1818px`.
+   - Captured and reviewed visual verification artifacts:
+     - `fullscreen_operator_analytics_top.png`: Full-bleed edge-to-edge header, mode tabs, aggregate figures (PB: 76 WPM, Avg: 53 WPM, Acc: 95%, Cons: 84%), and expanded 280px form chart.
+     - `fullscreen_operator_analytics_table.png`: Full-width completed test history table.
+
+5. **Automated Verification**:
+   - **Automated Tests**: Executed `npx tsx src/tests/run_e2e.ts` — **100% PASS (227 / 227 tests)** across 55 test suites.
+   - **Build Status**: Executed `npm run build` (`tsc -b && vite build`) — **Clean 0-error build** completed in 19.09s.
+
+

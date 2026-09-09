@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Level, CodeLanguage } from '@/data/constants';
 import type { GhostMode } from '@/components/TypingArea';
+import { getDailyChallengeWordCount } from '@/data/dailySnippets';
 
 const GHOST_MODES: readonly GhostMode[] = ['pb', 'target', 'rival'];
 
@@ -22,6 +23,8 @@ export interface ResetOverrides {
   numbers?: boolean;
   punctuation?: boolean;
   codeLanguage?: CodeLanguage;
+  dictationSpeed?: number;
+  dictationTrackId?: string;
   daily?: boolean;
 }
 
@@ -35,6 +38,8 @@ export interface GameConfigState {
   blindMode: boolean;
   mirroredMode: boolean;
   codeLanguage: CodeLanguage;
+  dictationSpeed: number;
+  dictationTrackId: string;
   fogMode: boolean;
   stickyKeysMode: boolean;
   overclockedMode: boolean;
@@ -51,7 +56,20 @@ export interface GameConfigState {
 }
 
 export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
-  const [zenMode, setZenMode] = useState(false);
+  const [zenMode, setZenModeState] = useState(() => {
+    try {
+      return localStorage.getItem('typezen_zen_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setZenMode = useCallback((val: boolean) => {
+    setZenModeState(val);
+    try {
+      localStorage.setItem('typezen_zen_mode', String(val));
+    } catch {}
+  }, []);
   const [suddenDeath, setSuddenDeath] = useState(false);
   const [ghostPacer, setGhostPacer] = useState(false);
   const [ghostMode, setGhostModeState] = useState<GhostMode>(readGhostMode);
@@ -76,6 +94,8 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
   const [blindMode, setBlindMode] = useState(false);
   const [mirroredMode, setMirroredMode] = useState(false);
   const [codeLanguage, setCodeLanguage] = useState<CodeLanguage>('JavaScript/TypeScript');
+  const [dictationSpeed, setDictationSpeed] = useState<number>(1.0);
+  const [dictationTrackId, setDictationTrackId] = useState<string>('steve_jobs_stanford');
   const [fogMode, setFogMode] = useState(false);
   const [stickyKeysMode, setStickyKeysMode] = useState(false);
   const [overclockedMode, setOverclockedMode] = useState(false);
@@ -94,7 +114,7 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
   // Synchronous ref for keyboard handler / handleReset
   const configRef = useRef<GameConfigState>({
     zenMode, suddenDeath, ghostPacer, ghostMode, ghostTargetWpm, focusMode, blindMode, mirroredMode,
-    codeLanguage, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
+    codeLanguage, dictationSpeed, dictationTrackId, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
     level, wordCount, testMode, duration, withNumbers, withPunctuation,
     dailyActive, customText, microDrillActive,
   });
@@ -102,13 +122,13 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
   useEffect(() => {
     configRef.current = {
       zenMode, suddenDeath, ghostPacer, ghostMode, ghostTargetWpm, focusMode, blindMode, mirroredMode,
-      codeLanguage, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
+      codeLanguage, dictationSpeed, dictationTrackId, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
       level, wordCount, testMode, duration, withNumbers, withPunctuation,
       dailyActive, customText, microDrillActive,
     };
   }, [
     zenMode, suddenDeath, ghostPacer, ghostMode, ghostTargetWpm, focusMode, blindMode, mirroredMode,
-    codeLanguage, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
+    codeLanguage, dictationSpeed, dictationTrackId, fogMode, stickyKeysMode, overclockedMode, stickyPenalty,
     level, wordCount, testMode, duration, withNumbers, withPunctuation,
     dailyActive, customText, microDrillActive,
   ]);
@@ -117,13 +137,18 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     setLevel(newLevel);
     setDailyActive(false);
     // Fixed-text levels have no meaningful word/time budget
-    const locked = newLevel === 'CODE' || newLevel === 'CUSTOM' || newLevel === 'QUOTES';
+    const locked = newLevel === 'CODE' || newLevel === 'CUSTOM' || newLevel === 'QUOTES' || newLevel === 'DICTATION';
     const currentTestMode = configRef.current.testMode;
+    const STANDARD_WORDS = [10, 25, 50, 100];
+    const validWordCount = STANDARD_WORDS.includes(configRef.current.wordCount) ? configRef.current.wordCount : 25;
+    if (!STANDARD_WORDS.includes(configRef.current.wordCount)) {
+      setWordCount(validWordCount);
+    }
     if (locked && currentTestMode === 'time') {
       setTestMode('words');
-      onReset({ level: newLevel, testMode: 'words', daily: false });
+      onReset({ level: newLevel, testMode: 'words', daily: false, wordCount: validWordCount });
     } else {
-      onReset({ level: newLevel, daily: false });
+      onReset({ level: newLevel, daily: false, wordCount: validWordCount });
     }
   }, [onReset]);
 
@@ -137,6 +162,18 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     setCodeLanguage(lang);
     setDailyActive(false);
     onReset({ codeLanguage: lang, daily: false });
+  }, [onReset]);
+
+  const changeDictationSpeed = useCallback((speed: number) => {
+    setDictationSpeed(speed);
+    setDailyActive(false);
+    onReset({ dictationSpeed: speed, daily: false });
+  }, [onReset]);
+
+  const changeDictationTrack = useCallback((trackId: string) => {
+    setDictationTrackId(trackId);
+    setDailyActive(false);
+    onReset({ dictationTrackId: trackId, daily: false });
   }, [onReset]);
 
   const changeTestMode = useCallback((mode: 'words' | 'time') => {
@@ -169,16 +206,20 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     const next = !configRef.current.dailyActive;
     setDailyActive(next);
     if (next) {
-      // Daily runs a fixed, comparable config with today's seeded text
+      // Daily runs a fixed, comparable config with today's curated snippet
+      const count = getDailyChallengeWordCount();
       setLevel('ADEPT');
-      setWordCount(50);
+      setWordCount(count);
       setTestMode('words');
       setMirroredMode(false);
       setWithNumbers(false);
       setWithPunctuation(false);
-      onReset({ daily: true, level: 'ADEPT', wordCount: 50, testMode: 'words', mirrored: false, numbers: false, punctuation: false });
+      onReset({ daily: true, level: 'ADEPT', wordCount: count, testMode: 'words', mirrored: false, numbers: false, punctuation: false });
     } else {
-      onReset({ daily: false });
+      const STANDARD_WORDS = [10, 25, 50, 100];
+      const fallbackCount = STANDARD_WORDS.includes(configRef.current.wordCount) ? configRef.current.wordCount : 25;
+      setWordCount(fallbackCount);
+      onReset({ daily: false, wordCount: fallbackCount });
     }
   }, [onReset]);
 
@@ -189,7 +230,7 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     onReset({ mirrored: next, daily: false });
   }, [onReset]);
 
-  return {
+  return useMemo(() => ({
     zenMode, setZenMode,
     suddenDeath, setSuddenDeath,
     ghostPacer, setGhostPacer,
@@ -199,6 +240,8 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     blindMode, setBlindMode,
     mirroredMode, setMirroredMode,
     codeLanguage, setCodeLanguage,
+    dictationSpeed, setDictationSpeed,
+    dictationTrackId, setDictationTrackId,
     fogMode, setFogMode,
     stickyKeysMode, setStickyKeysMode,
     overclockedMode, setOverclockedMode,
@@ -215,6 +258,8 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     changeLevel,
     changeWordCount,
     changeCodeLanguage,
+    changeDictationSpeed,
+    changeDictationTrack,
     changeTestMode,
     changeDuration,
     toggleNumbers,
@@ -222,5 +267,15 @@ export function useGameConfig(onReset: (overrides: ResetOverrides) => void) {
     toggleDaily,
     toggleMirror,
     configRef,
-  };
+  }), [
+    zenMode, suddenDeath, ghostPacer, ghostMode, ghostTargetWpm,
+    focusMode, blindMode, mirroredMode, codeLanguage, dictationSpeed,
+    dictationTrackId, fogMode, stickyKeysMode, overclockedMode,
+    stickyPenalty, level, wordCount, testMode, duration,
+    withNumbers, withPunctuation, dailyActive, customText,
+    microDrillActive, changeLevel, changeWordCount, changeCodeLanguage,
+    changeDictationSpeed, changeDictationTrack, changeTestMode,
+    changeDuration, toggleNumbers, togglePunctuation, toggleDaily,
+    toggleMirror
+  ]);
 }

@@ -1,16 +1,21 @@
-# Progress: Milestone 1 Empirical Challenge
+# Progress — Challenger 1 (Milestone 1)
 
-**Last visited**: 2026-08-14T14:26:55Z
-**Status**: COMPLETED
+Last visited: 2026-08-31T20:45:00Z
+Status: Completed - Findings Documented, Verdict REQUEST_CHANGES
 
-## Steps
-- [x] Initial briefing & dispatch setup
-- [x] Run automated typecheck (`npx tsc --noEmit` -> Exit 0) and build (`npm run build` -> Exit 0)
-- [x] Test production bundle runtime with Vite Preview (`npx vite preview --port 4173` -> HTTP 200)
-- [x] Adversarial Grep & AST Search:
-  - [x] Check for any lingering references to deleted files (`audio.ts`, `SplashCursor.tsx`) -> 0 found
-  - [x] Check for any default imports of `BlurText`, `BgAnimateButton`, `StarfieldBackground` -> 0 found (named imports only)
-  - [x] Check for any consumers of localized symbols (18 symbols tested) -> 0 external usages found
-  - [x] Check date format parity between `getTodayString()` vs `todayKey()` -> 100% compatible `YYYY-MM-DD`
-- [x] Stress-test module imports / dynamic imports across all app entry points & components (`src/lib/aiClient.ts` dynamic imports verified)
-- [x] Compile empirical findings into `handoff.md` and report to parent
+## Plan
+1. [x] Setup DISPATCH.md, BRIEFING.md, progress.md.
+2. [x] Read `PROJECT.md`, `ORIGINAL_REQUEST.md`, `worker_m1_1/handoff.md`, `src/lib/scoringEngine.ts`, and test files.
+3. [x] Design an empirical stress testing matrix & adversarial harness covering:
+   - NaN / Infinity / -Infinity / undefined / null inputs
+   - Negative durations, negative raw/net WPM, negative keystrokes
+   - Zero durations, zero keystrokes, empty keystroke log
+   - Hyper-speed / superhuman WPM (500, 1000, 10000)
+   - 100% error rate (0% accuracy, net WPM 0, negative net WPM)
+   - 100% backspaces / rapid delete storms / timestamps out of order or zero diffs
+   - Burst WPM edge cases (single keystroke, window size > total keystrokes, overlapping timestamps, sub-millisecond timestamps)
+   - Grading threshold boundary behavior (grade monotonicity, ties, precision floating point comparisons)
+4. [x] Run adversarial test suite via `npx tsx src/tests/run_challenger_stress.ts`.
+5. [x] Analyze results, identify any failures/edge cases/vulnerabilities (4 bugs discovered).
+6. [x] Update BRIEFING.md and write `handoff.md` with final verdict (REQUEST_CHANGES).
+7. [ ] Send message to parent orchestrator.

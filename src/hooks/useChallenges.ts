@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
@@ -70,12 +70,12 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
       })
       .on('broadcast', { event: 'challenge_accepted' }, ({ payload }: { payload: { roomCode: string } }) => {
         setSentChallengeTo(null);
-        toast.success('Challenge accepted! Entering race lobby…', { icon: '⚔️' });
+        toast.success('Challenge accepted! Entering race lobby…');
         onAcceptedRef.current?.(payload.roomCode);
       })
       .on('broadcast', { event: 'challenge_rejected' }, ({ payload }: { payload: { by: string } }) => {
         setSentChallengeTo(null);
-        toast.error(`${payload.by} declined your challenge.`, { icon: '😔' });
+        toast.error(`${payload.by} declined your challenge.`);
       })
       .subscribe();
 
@@ -162,5 +162,12 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
 
   const clearSentChallenge = useCallback(() => setSentChallengeTo(null), []);
 
-  return { pendingChallenge, sentChallengeTo, sendChallenge, acceptChallenge, rejectChallenge, clearSentChallenge };
+  return useMemo(() => ({
+    pendingChallenge,
+    sentChallengeTo,
+    sendChallenge,
+    acceptChallenge,
+    rejectChallenge,
+    clearSentChallenge
+  }), [pendingChallenge, sentChallengeTo, sendChallenge, acceptChallenge, rejectChallenge, clearSentChallenge]);
 }

@@ -110,10 +110,28 @@ export const StarRow = memo(function StarRow({ stars, size = 14, animate = true 
     const reduce = !!useReducedMotion();
     const on = animate && !reduce;
 
+    if (!on) {
+        return (
+            <span className="flex items-center gap-1">
+                {[1, 2, 3].map(n => {
+                    const earned = n <= stars;
+                    return earned ? (
+                        <Star key={n} size={size} className="fill-amber-400 text-amber-400" aria-hidden />
+                    ) : (
+                        <Star key={n} size={size} className="text-zinc-700" aria-hidden />
+                    );
+                })}
+                <span className="sr-only">{stars} of 3 stars</span>
+            </span>
+        );
+    }
+
     return (
         <motion.span
             className="flex items-center gap-1"
-            {...(on ? { variants: listParent(0.09, 0.05), initial: 'hidden', animate: 'show' } : {})}
+            variants={listParent(0.09, 0.05)}
+            initial="hidden"
+            animate="show"
         >
             {[1, 2, 3].map(n => {
                 const earned = n <= stars;
@@ -121,7 +139,7 @@ export const StarRow = memo(function StarRow({ stars, size = 14, animate = true 
                     return <Star key={n} size={size} className="text-zinc-700" aria-hidden />;
                 }
                 return (
-                    <motion.span key={n} {...(on ? { variants: popIn } : {})} className="inline-flex">
+                    <motion.span key={n} variants={popIn} className="inline-flex">
                         <Star
                             size={size}
                             className="fill-amber-400 text-amber-400"

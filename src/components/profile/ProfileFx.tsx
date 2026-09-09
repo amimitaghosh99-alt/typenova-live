@@ -11,10 +11,11 @@
 //  render, so no call site has to think about it.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { memo, type CSSProperties, type ReactNode } from 'react';
+import { memo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCountUp } from '@/hooks/useCountUp';
-import { DUR, EASE_OUT, EASE_OVERSHOOT, rgba, springFluid } from './profileMotion';
+import { useInViewOnce } from '@/hooks/useReveal';
+import { EASE_OUT, rgba, springFluid } from './profileMotion';
 
 /* ─── Frame furniture ─────────────────────────────────────────────────── */
 
@@ -65,32 +66,6 @@ export const CyberCorners = memo(function CyberCorners({
                 />
             ))}
         </span>
-    );
-});
-
-/** Blueprint grid. Pure CSS gradients — no extra DOM, no image request. */
-export const GridField = memo(function GridField({
-    cell = 26,
-    color = '255, 255, 255',
-    alpha = 0.05,
-    className = '',
-}: {
-    cell?: number;
-    color?: string;
-    alpha?: number;
-    className?: string;
-}) {
-    return (
-        <span
-            aria-hidden
-            className={`pointer-events-none absolute inset-0 ${className}`}
-            style={{
-                backgroundImage: `linear-gradient(to right, ${rgba(color, alpha)} 1px, transparent 1px), linear-gradient(to bottom, ${rgba(color, alpha)} 1px, transparent 1px)`,
-                backgroundSize: `${cell}px ${cell}px`,
-                maskImage: 'radial-gradient(ellipse at 50% 0%, black 10%, transparent 78%)',
-                WebkitMaskImage: 'radial-gradient(ellipse at 50% 0%, black 10%, transparent 78%)',
-            }}
-        />
     );
 });
 
@@ -271,12 +246,22 @@ export const StatCounter = memo(function StatCounter({
     duration?: number;
     className?: string;
 }) {
-    const ref = useCountUp(value, decimals, duration);
+    /**
+     * Counts when it is looked at, not when it mounts.
+     *
+     * The dossier is one long scroll, so most of these are far below the fold at
+     * mount — the Lifetime figures used to have finished counting a full page
+     * before anyone reached them, which is the same animation budget spent for
+     * none of the effect.
+     */
+    const hostRef = useRef<HTMLSpanElement | null>(null);
+    const active = useInViewOnce(hostRef);
+    const ref = useCountUp(value, decimals, duration, active);
     const settled =
         decimals > 0 ? value.toFixed(decimals) : Math.round(value).toLocaleString();
 
     return (
-        <span className={className}>
+        <span ref={hostRef} className={className}>
             <span ref={ref}>{settled}</span>
             {suffix}
         </span>
@@ -452,132 +437,13 @@ export const SegmentBar = memo(function SegmentBar({
     );
 });
 
-/* ─── Skill radar ─────────────────────────────────────────────────────── */
+/* ─── Removed: SkillRadar ─────────────────────────────────────────────
+   The operator dossier's Matrix tab was this component's only consumer, and
+   that tab is gone. It plotted speed, precision, volume, streak, output and
+   duels-won as six axes of one polygon — quantities with no shared unit and no
+   shared ceiling, so the shape it drew was an artefact of the six divisors
+   picked for it rather than a measurement, and its readout column restated the
+   same six numbers the Overview tiles already carried.
 
-export interface RadarAxis {
-    key: string;
-    label: string;
-    /** 0…1, already normalised against the axis ceiling. */
-    value: number;
-}
-
-/**
- * N-axis radar built from real stats. The axis count is dynamic because a
- * remote profile exposes fewer metrics than your own — the polygon simply
- * becomes a triangle rather than the chart lying with zeroes.
- */
-export const SkillRadar = memo(function SkillRadar({
-    axes,
-    size = 260,
-    color = '34, 211, 238',
-}: {
-    axes: RadarAxis[];
-    size?: number;
-    color?: string;
-}) {
-    const reduce = useReducedMotion();
-    const cx = size / 2;
-    const cy = size / 2;
-    const radius = size / 2 - 34;
-    const n = Math.max(axes.length, 3);
-
-    const pointAt = (index: number, scale: number) => {
-        const angle = (Math.PI * 2 * index) / n - Math.PI / 2;
-        return { x: cx + Math.cos(angle) * radius * scale, y: cy + Math.sin(angle) * radius * scale };
-    };
-
-    const ringPath = (scale: number) =>
-        axes
-            .map((_, i) => {
-                const p = pointAt(i, scale);
-                return `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-            })
-            .join(' ') + ' Z';
-
-    const dataPath =
-        axes
-            .map((axis, i) => {
-                const p = pointAt(i, Math.max(0.04, Math.min(1, axis.value)));
-                return `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-            })
-            .join(' ') + ' Z';
-
-    return (
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto max-w-full" role="img" aria-label="Skill matrix">
-            {/* Grid rings */}
-            {[0.25, 0.5, 0.75, 1].map((scale) => (
-                <path key={scale} d={ringPath(scale)} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={1} />
-            ))}
-
-            {/* Spokes */}
-            {axes.map((axis, i) => {
-                const p = pointAt(i, 1);
-                return <line key={axis.key} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.09)" strokeWidth={1} />;
-            })}
-
-            {/* Filled area */}
-            <motion.path
-                d={dataPath}
-                fill={rgba(color, 0.16)}
-                stroke="none"
-                initial={reduce ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.55 }}
-                animate={{ opacity: 1, scale: 1 }}
-                style={{ originX: '50%', originY: '50%' }}
-                transition={{ ...springFluid, delay: 0.1 }}
-            />
-
-            {/* Outline draws itself */}
-            <motion.path
-                d={dataPath}
-                fill="none"
-                stroke={rgba(color, 0.95)}
-                strokeWidth={2}
-                strokeLinejoin="round"
-                style={{ filter: `drop-shadow(0 0 6px ${rgba(color, 0.6)})` }}
-                initial={reduce ? { pathLength: 1 } : { pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.85, ease: EASE_OUT, delay: 0.08 }}
-            />
-
-            {/* Vertices */}
-            {axes.map((axis, i) => {
-                const p = pointAt(i, Math.max(0.04, Math.min(1, axis.value)));
-                return (
-                    <motion.circle
-                        key={axis.key}
-                        cx={p.x}
-                        cy={p.y}
-                        r={3.5}
-                        fill="#fff"
-                        stroke={rgba(color, 0.9)}
-                        strokeWidth={2}
-                        initial={reduce ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.4, ease: EASE_OVERSHOOT, delay: 0.5 + i * 0.07 }}
-                    />
-                );
-            })}
-
-            {/* Axis labels */}
-            {axes.map((axis, i) => {
-                const p = pointAt(i, 1.18);
-                const anchor = p.x > cx + 6 ? 'start' : p.x < cx - 6 ? 'end' : 'middle';
-                return (
-                    <motion.text
-                        key={axis.key}
-                        x={p.x}
-                        y={p.y}
-                        textAnchor={anchor}
-                        dominantBaseline="middle"
-                        className="fill-white/55 font-mono text-[9px] uppercase tracking-[0.2em]"
-                        initial={reduce ? { opacity: 1 } : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: DUR.base, delay: 0.45 + i * 0.06 }}
-                    >
-                        {axis.label}
-                    </motion.text>
-                );
-            })}
-        </svg>
-    );
-});
+   `GridField` went with it: a blueprint grid behind a chart nobody draws.
+   ────────────────────────────────────────────────────────────────── */

@@ -157,8 +157,8 @@ export const WpmGraph = ({
       >
         <defs>
           <linearGradient id="wpmGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            <stop offset="0%" stopColor={theme?.glowPrimary ? `rgb(${theme.glowPrimary})` : "currentColor"} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={theme?.glowPrimary ? `rgb(${theme.glowPrimary})` : "currentColor"} stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -179,7 +179,13 @@ export const WpmGraph = ({
         <line x1="60" y1={py(avgWpm)} x2="760" y2={py(avgWpm)} stroke="rgba(113,113,122,0.3)" strokeWidth="1" strokeDasharray="6 4" />
 
         {/* Gradient fill */}
-        <path fill="url(#wpmGradient)" d={gradientPoly} className={theme.text} opacity="0.5" />
+        <path
+          fill="url(#wpmGradient)"
+          d={gradientPoly}
+          style={{ color: theme?.glowPrimary ? `rgb(${theme.glowPrimary})` : undefined }}
+          className={theme?.glowPrimary ? undefined : theme.text}
+          opacity="0.5"
+        />
 
         {/* Raw WPM curve */}
         <path fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" strokeLinejoin="round" d={rawPoly} className="text-zinc-600" opacity="0.6" />
@@ -200,7 +206,16 @@ export const WpmGraph = ({
         )}
 
         {/* Net WPM curve */}
-        <path fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" d={poly} className={theme.text} />
+        <path
+          fill="none"
+          stroke={theme?.glowPrimary ? `rgb(${theme.glowPrimary})` : "currentColor"}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d={poly}
+          className={theme?.glowPrimary ? undefined : theme.text}
+          style={theme?.glowPrimary ? { filter: `drop-shadow(0 0 8px rgba(${theme.glowPrimary}, 0.5))` } : undefined}
+        />
 
         {/* Error dots on curve */}
         {errorTimes.map((t, i) => {

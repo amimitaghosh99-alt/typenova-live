@@ -86,12 +86,12 @@ export const zIndex = (layer: ZLayer): number => Z[layer];
  * `max-w-6xl`/1152px (both results screens) and `max-w-4xl` (zen mode).
  */
 export const CONTAINER = {
-    /** Forms, entry cards, results — anything read top-to-bottom. */
-    narrow: '1100px',
-    /** Practice arena and compete lobby — side-by-side cockpit layouts. */
-    wide: '1600px',
-    /** Academy skill tree, which genuinely needs the extra horizontal room. */
-    ultra: '1720px',
+    /** Forms, entry cards, results — 100% fluid width. */
+    narrow: '100%',
+    /** Practice arena and compete lobby — 100% fluid width. */
+    wide: '100%',
+    /** Academy skill tree — 100% fluid width. */
+    ultra: '100%',
 } as const;
 
 export type ContainerWidth = keyof typeof CONTAINER;
@@ -182,7 +182,9 @@ export type ModalKey =
     | 'settings'
     | 'changelog'
     | 'bugReports'
-    | 'ghost';
+    | 'ghost'
+    | 'webHidBenchmark'
+    | 'donate';
 
 /** `null` means "no dialog open". Use this for props and state. */
 export type ModalState = ModalKey | null;

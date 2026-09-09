@@ -23,7 +23,7 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ALL_BANNERS, AVATARS, type BannerDef } from '@/data/customization';
 import { BannerArt } from './profile/CosmeticArt';
-import { AvatarArt } from './profile/AvatarKeycap';
+import { AvatarArt, materialFor } from './profile/AvatarKeycap';
 import {
   ConicHalo, CyberCorners, DataStream, DrawCheck, EquipBurst, GlitchText,
   Scanlines, ScanSweep, SegmentBar,
@@ -229,6 +229,11 @@ export const ProfileCustomizationMenu = React.memo(function ProfileCustomization
 
       if (error) throw error;
 
+      try {
+        localStorage.setItem('typenova_avatar_id', draftAvatar);
+        localStorage.setItem('typenova_banner_id', draftBanner);
+      } catch {}
+
       onUpdate(draftAvatar, draftBanner);
       // Other surfaces (nav bar, lobby cards) listen for this to re-read cosmetics.
       window.dispatchEvent(new Event('cosmeticsChanged'));
@@ -410,6 +415,7 @@ export const ProfileCustomizationMenu = React.memo(function ProfileCustomization
                 <div className="space-y-2 rounded-2xl border bg-black/30 p-3" style={{ borderColor: rgba(accent, 0.16) }}>
                   {[
                     { label: 'Keycap', value: previewAvatar.name, ghost: !!ghostAvatar },
+                    { label: 'Tier', value: materialFor(0, previewAvatar.id).toUpperCase(), ghost: false },
                     { label: 'Banner', value: previewBanner.name, ghost: !!ghostBanner },
                   ].map((row) => (
                     <div key={row.label} className="flex items-baseline justify-between gap-2">
@@ -528,6 +534,12 @@ export const ProfileCustomizationMenu = React.memo(function ProfileCustomization
                                   {avatar.name}
                                 </span>
 
+                                {materialFor(0, avatar.id) === 'celestial' && (
+                                  <span className="absolute left-1.5 top-1.5 flex h-3 w-3 items-center justify-center text-amber-400" title="Celestial Artisan">
+                                    <Sparkles size={10} className="animate-pulse" />
+                                  </span>
+                                )}
+
                                 {live && !staged && (
                                   <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-white/40" title="Currently saved" />
                                 )}
@@ -585,7 +597,7 @@ export const ProfileCustomizationMenu = React.memo(function ProfileCustomization
 
                                 {/* Swatch — the live scene, cheap variant. */}
                                 <div className={`relative h-[76px] w-full overflow-hidden bg-[#05070c] ${unlocked ? '' : 'saturate-[0.2]'}`}>
-                                  <BannerArt id={banner.id} detail="compact" />
+                                  <BannerArt id={banner.id} detail="compact" animate={false} />
                                   <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#05070c] via-transparent to-transparent" />
                                   {!unlocked && (
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/60">

@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { LogIn, LogOut, Cloud, CloudOff, Loader, ChevronDown } from 'lucide-react';
+import { AvatarArt } from '@/components/profile/AvatarKeycap';
 import type { Theme } from '@/data/constants';
 import type { SyncStatus } from '@/hooks/useCloudSync';
 
@@ -9,6 +10,7 @@ interface AccountMenuProps {
   loggedIn: boolean;
   displayName: string | null;
   avatarUrl?: string | null;
+  avatarId?: string;
   status: SyncStatus;
   elo: number;
   onSignIn: () => void;
@@ -25,7 +27,7 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
 
 export const AccountMenu = memo(
   ({
-    theme, loggedIn, displayName, avatarUrl, status, elo, onSignOut,
+    theme, loggedIn, displayName, avatarUrl, avatarId, status, elo, onSignOut,
   }: AccountMenuProps) => {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -68,8 +70,12 @@ export const AccountMenu = memo(
           className={`flex items-center gap-2 rounded-full p-1 pr-2.5 transition-colors ${open ? 'bg-white/[0.08]' : 'hover:bg-white/[0.06]'}`}
           title="Account"
         >
-          {avatarUrl ? (
+          {avatarUrl && (!avatarId || avatarId === 'default') ? (
             <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-white/15" referrerPolicy="no-referrer" />
+          ) : avatarId && avatarId !== 'default' ? (
+            <div className="w-7 h-7 flex items-center justify-center shrink-0">
+              <AvatarArt id={avatarId} size={28} />
+            </div>
           ) : (
             <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white ${theme.solid}`}>{initial}</span>
           )}

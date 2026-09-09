@@ -1,16 +1,20 @@
-import { memo } from 'react';
+import { memo, lazy, Suspense } from 'react';
 import {
-  X, Trophy, Lock, Keyboard, Terminal, Zap, Star, RotateCcw
+  X, Trophy, Lock, Terminal, Zap, Star, RotateCcw
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { DailyQuestsPanel } from '@/components/DailyQuestsPanel';
-import { SocialModal } from '@/components/SocialModal';
-import { ChangelogModal } from '@/components/ChangelogModal';
-import { SettingsModal } from '@/components/SettingsModal';
-import { BugReportsModal } from '@/components/BugReportsModal';
-import { CommsModal } from '@/components/CommsModal';
-import { GhostPacerModal } from '@/components/GhostPacerModal';
-import { AIChatBot, type AruStats } from '@/components/AIChatBot';
+import type { AruStats } from '@/components/AIChatBot';
+
+const DailyQuestsPanel = lazy(() => import('@/components/DailyQuestsPanel').then(m => ({ default: m.DailyQuestsPanel })));
+const SocialModal = lazy(() => import('@/components/SocialModal').then(m => ({ default: m.SocialModal })));
+const ChangelogModal = lazy(() => import('@/components/ChangelogModal').then(m => ({ default: m.ChangelogModal })));
+const SettingsModal = lazy(() => import('@/components/SettingsModal').then(m => ({ default: m.SettingsModal })));
+const BugReportsModal = lazy(() => import('@/components/BugReportsModal').then(m => ({ default: m.BugReportsModal })));
+const CommsModal = lazy(() => import('@/components/CommsModal').then(m => ({ default: m.CommsModal })));
+const GhostPacerModal = lazy(() => import('@/components/GhostPacerModal').then(m => ({ default: m.GhostPacerModal })));
+const WebHidBenchmarkModal = lazy(() => import('@/components/profile/WebHidBenchmarkModal').then(m => ({ default: m.WebHidBenchmarkModal })));
+const DonateModal = lazy(() => import('@/components/DonateModal').then(m => ({ default: m.DonateModal })));
+const AIChatBot = lazy(() => import('@/components/AIChatBot').then(m => ({ default: m.AIChatBot })));
 import { type PaceSample, type RivalPace } from '@/components/TypingArea';
 import type { ModeScoreRow } from '@/hooks/useModeLeaderboard';
 import { ACHIEVEMENTS, type Theme, type SoundProfile } from '@/data/constants';
@@ -60,7 +64,7 @@ interface AppModalManagerProps {
     signOut: () => Promise<void>;
   };
   game: ReturnType<typeof useGameConfig>;
-  typing: ReturnType<typeof useTypingEngine>;
+  typing: Pick<ReturnType<typeof useTypingEngine>, 'phase' | 'countdownTimer' | 'setPhase' | 'setCountdownTimer' | 'timelinePoints' | 'wpm'>;
   rpg: ReturnType<typeof useRPGSystem>;
   quests: ReturnType<typeof useQuests>;
   friendsState: ReturnType<typeof useFriends>;
@@ -102,6 +106,7 @@ interface AppModalManagerProps {
   onSetNameInput: (v: string) => void;
   onSetNameErr: (v: string) => void;
   onSubmitUsername: () => void;
+  onPlayPreviewSound?: (profileKey?: string) => void;
 }
 
 export const AppModalManager = memo(function AppModalManager({
@@ -164,32 +169,11 @@ export const AppModalManager = memo(function AppModalManager({
   onSetNameInput,
   onSetNameErr,
   onSubmitUsername,
+  onPlayPreviewSound,
 }: AppModalManagerProps) {
   return (
     <>
       {/* ═══ OVERLAY MODALS ═══ */}
-      {/* Ready Modal */}
-      {typing.phase === 'READY' && (
-        <div key="ready-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-10 shadow-2xl flex flex-col gap-6 w-full max-w-md lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties}>
-            <div className="flex justify-center mb-2"><Keyboard className={theme.text} size={48} /></div>
-            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
-              <span className="text-white font-black tracking-widest text-sm">NORMAL MODE</span>
-              <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
-            </div>
-            <div className="flex justify-between items-center bg-zinc-900 p-5 rounded-2xl border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => { game.setZenMode(true); typing.setPhase('COUNTDOWN'); typing.setCountdownTimer(5); }}>
-              <span className="text-white font-black tracking-widest text-sm">ZEN MODE</span>
-              <div className="flex gap-2">
-                <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">SHIFT</span>
-                <span className="text-zinc-600 font-black text-xs self-center">+</span>
-                <span className="px-4 py-2 bg-zinc-800 rounded-lg text-xs font-black text-zinc-400 shadow-inner">ENTER</span>
-              </div>
-            </div>
-            <p className="text-center text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Press ESC to configure</p>
-          </div>
-        </div>
-      )}
-
       {/* Countdown */}
       {typing.phase === 'COUNTDOWN' && (
         <div key="countdown-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
@@ -251,9 +235,10 @@ export const AppModalManager = memo(function AppModalManager({
       )}
 
       {/* ─── MODAL LAYER ─── */}
-      {(() => {
-        if (!activeModal) return null;
-        switch (activeModal) {
+      <Suspense fallback={null}>
+        {(() => {
+          if (!activeModal) return null;
+          switch (activeModal) {
           case 'expandedGraph': return (
             <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-6 backdrop-blur-md animate-in fade-in duration-300" onClick={onCloseModal}>
               <div className="bg-zinc-900/95 p-8 rounded-3xl w-full max-w-4xl border border-zinc-800 shadow-2xl lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
@@ -298,6 +283,7 @@ export const AppModalManager = memo(function AppModalManager({
               questsState={quests.questsState}
               dailyStreak={dailyStreak}
               onClose={onCloseModal}
+              theme={theme}
             />
           );
 
@@ -352,6 +338,9 @@ export const AppModalManager = memo(function AppModalManager({
               selectCuratedWallpaper={selectCuratedWallpaper}
               handleFileUpload={handleFileUpload}
               clearWallpaper={clearWallpaper}
+              onOpenWebHidBenchmark={() => onOpenModal('webHidBenchmark')}
+              onPlayPreviewSound={onPlayPreviewSound}
+              onOpenDonate={() => onOpenModal('donate')}
             />
           );
 
@@ -492,6 +481,21 @@ export const AppModalManager = memo(function AppModalManager({
             />
           );
 
+          case 'webHidBenchmark': return (
+            <WebHidBenchmarkModal
+              theme={theme}
+              onClose={onCloseModal}
+            />
+          );
+
+          case 'donate': return (
+            <DonateModal
+              isOpen={activeModal === 'donate'}
+              theme={theme}
+              onClose={onCloseModal}
+            />
+          );
+
           // Exhaustiveness guard: `activeModal` is `never` here only if every
           // `ModalKey` above has a case. Add a key to the union in
           // `src/lib/layout.ts` without handling it here and this line fails to
@@ -502,19 +506,24 @@ export const AppModalManager = memo(function AppModalManager({
           }
         }
       })()}
+      </Suspense>
 
       {/* Ask Aru AI Drawer */}
-      <AIChatBot
-        stats={aruStats}
-        onStartDrill={onStartSmartDrill}
-        hideTrigger={shouldHideClutter}
-        theme={theme}
-        isOpen={isAruOpen}
-        onClose={onCloseAru}
-        techAiState={techAiState}
-        techModifiers={techModifiersMemo}
-        techCapabilities={techCapabilities}
-      />
+      {isAruOpen && (
+        <Suspense fallback={null}>
+          <AIChatBot
+            stats={aruStats}
+            onStartDrill={onStartSmartDrill}
+            hideTrigger={shouldHideClutter}
+            theme={theme}
+            isOpen={isAruOpen}
+            onClose={onCloseAru}
+            techAiState={techAiState}
+            techModifiers={techModifiersMemo}
+            techCapabilities={techCapabilities}
+          />
+        </Suspense>
+      )}
     </>
   );
 });

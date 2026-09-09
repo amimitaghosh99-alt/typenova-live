@@ -1,56 +1,57 @@
-# BRIEFING — 2026-08-14T14:24:00Z
+# BRIEFING — 2026-08-31T20:46:30Z
 
 ## Mission
-Perform independent adversarial review and verification of Milestone 1 (Dead Code Removal) changes.
+Perform an objective and adversarial review of Milestone 1 (Core Scoring & Grading Engine) implementations and test suite.
 
 ## 🔒 My Identity
-- Archetype: reviewer_critic
+- Archetype: reviewer
 - Roles: reviewer, critic
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m1_1
-- Original parent: 412c889d-1ef7-4df9-b65e-a77c07bb1031
-- Milestone: Milestone 1
+- Original parent: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Milestone: Milestone 1 (Core Scoring & Grading Engine)
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
-- Check for integrity violations (hardcoded test results, facade implementations, bypassed work, fabricated outputs)
-- Verify that dead code removals are strictly safe and did not break any functionality, imports, or interfaces
-- Independent execution and verification of build/typecheck commands
+- Actively check for integrity violations: hardcoded results, dummy facades, task shortcuts, fabricated verification, self-certifying work without independent verification
+- Deliver evidence-based APPROVE or REQUEST_CHANGES verdict
 
 ## Current Parent
-- Conversation ID: 412c889d-1ef7-4df9-b65e-a77c07bb1031
-- Updated: 2026-08-14T14:24:00Z
+- Conversation ID: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Updated: 2026-08-31T20:46:30Z
 
 ## Review Scope
-- **Files to review**: Worker changes from `worker_m1/changes.md`, `worker_m1/handoff.md`, `ORIGINAL_REQUEST.md`
-- **Interface contracts**: `PROJECT.md` / `SCOPE.md` / `ORIGINAL_REQUEST.md`
-- **Review criteria**: correctness, safety of dead code removal, typecheck 0 errors, build 0 errors, no broken imports or interfaces, integrity
+- **Files to review**: `src/lib/scoringEngine.ts`, `src/hooks/useTypingEngine.ts`, `src/tests/scoringEngine.test.ts`
+- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md`
+- **Review criteria**: Correctness, precision, edge case safety, integrity, build & test pass
 
 ## Review Checklist
 - **Items reviewed**:
-  - Deleted orphaned files (`src/utils/audio.ts`, `src/components/SplashCursor.tsx`)
-  - Unused imports & TS errors (`src/lib/progress.ts`)
-  - Dead variables/params/types (`AIChatBot.tsx`, `AccountMenu.tsx`, `RaceResultsScreen.tsx`, `App.tsx`, `SupportTechnician.tsx`, `useSmartEngineConfig.ts`, `constants.ts`, `useRPGSystem.ts`)
-  - Redundant default exports (`BlurText.tsx`, `bg-animate-button.tsx`, `starfield-background.tsx`)
-  - Localized internal-only symbols (13 symbols across 8 files)
-  - Consolidated duplicate date helper (`useQuests.ts` -> `todayKey`)
+  - `src/lib/scoringEngine.ts` (Core CPI, Grading, Burst WPM, Accolades, XP progression, Ghost delta)
+  - `src/hooks/useTypingEngine.ts` (CPI, Burst WPM, Grade integration, backward compatibility)
+  - `src/tests/scoringEngine.test.ts` (23 unit & integration tests)
+  - `src/tests/run_e2e.ts` (Master test runner with 33 suites, 129 tests)
+  - `src/tests/adversarialScoringStress.ts` (537,491 invariant stress checks)
 - **Verdict**: APPROVE
-- **Unverified claims**: None (all independently verified)
+- **Unverified claims**: None (all claims verified through direct automated execution and static analysis)
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Did deleting `SplashCursor.tsx` or `src/utils/audio.ts` break dynamic imports or runtime audio? -> Verified 0 references; runtime audio is managed by `useAudioEngine.ts`.
-  - Did date format in `todayKey()` diverge from `getTodayString()`? -> Verified identical `${y}-${m}-${day}` format.
-  - Were any localized symbols imported across module boundaries? -> Verified via grep across all `src/` files that all 13 symbols are private to their files.
-  - Did `RaceResultsScreen` prop removal break callers or UI? -> Verified in `App.tsx` and `RaceResultsScreen.tsx`.
+  - Low speed + 100% precision golden scenario (40 WPM @ 100% Acc) -> Verified: Evaluates to Grade S+ / S, never C/D.
+  - Zero/NaN boundary conditions -> Verified: Safe fallback to CPI 0, Grade D, 0 XP.
+  - 100% error / mash behavior -> Verified: Progressive penalty, demotion to Grade D, 0 XP.
+  - High volume streak scaling (up to 1,000+ combo) -> Verified: Numerical stability, zero overflow.
+  - Micro-burst calculation (50ms interval) -> Verified: Valid peak velocity calculation.
+  - Keystroke log filtering -> Verified: Errors and backspaces accurately excluded from burst calculation.
+  - Monotonicity across speed, accuracy, consistency, and streak dimensions -> Verified (537k checks).
 - **Vulnerabilities found**: None.
-- **Untested angles**: None within Milestone 1 scope.
+- **Untested angles**: None within M1 scope.
 
 ## Key Decisions Made
-- Confirmed full approval of Milestone 1 changes.
+- Confirmed full compliance with PROJECT.md and ORIGINAL_REQUEST.md requirements R1, R2, R3, R4.
+- Confirmed genuine mathematical implementation with zero integrity violations.
+- Confirmed clean build (`npm run build`) and 100% test pass (`npx tsx src/tests/run_e2e.ts`).
+- Verdict: APPROVE.
 
 ## Artifact Index
-- `.agents/reviewer_m1_1/DISPATCH.md` — Incoming dispatch message
-- `.agents/reviewer_m1_1/progress.md` — Liveness and task progress
-- `.agents/reviewer_m1_1/BRIEFING.md` — Persistent situational awareness
-- `.agents/reviewer_m1_1/handoff.md` — Final review report and verdict
+- c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\reviewer_m1_1\handoff.md — Final handoff report

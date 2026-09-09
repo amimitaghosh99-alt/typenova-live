@@ -1,14 +1,16 @@
-## 2026-08-14T14:21:16Z
-You are teamwork_preview_challenger_m1_1.
-Your working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_1
-Project root: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy
-Authoritative Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
-Worker Changes: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m1\changes.md
+## 2026-08-31T20:38:24Z
+You are Challenger 1 for Milestone 1 (Core Scoring & Grading Engine).
+Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_1
+Original Request: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\ORIGINAL_REQUEST.md
+Project Document: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\PROJECT.md
+Worker Report: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m1_1\handoff.md
 
-Task:
-Empirically challenge Milestone 1 changes:
-1. Run automated build and test suites.
-2. Stress test module imports, verify that all dynamic imports or components load properly.
-3. Verify that deleted files (`src/utils/audio.ts`, `src/components/SplashCursor.tsx`) were indeed not needed.
-4. Record your empirical verification verdict in `c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_1\handoff.md`.
-5. Send a completion message to parent.
+Tasks:
+1. Adversarially stress test `calculateCPI`, `evaluateGrade`, and `calculateBurstWpm` in `src/lib/scoringEngine.ts`.
+2. Write an empirical stress test harness testing chaotic edge cases: NaN, negative values, extreme WPM (500+), zero duration, all errors, all backspaces, rapid jitter.
+3. Execute your harness via tsx/node, verify no crashes, NaNs, or anomalous grade flips.
+4. Deliver your verdict (APPROVE or REQUEST_CHANGES).
+5. Write your handoff report to:
+   c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\challenger_m1_1\handoff.md
+
+Send a message back when done.

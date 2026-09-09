@@ -1,13 +1,14 @@
-# Progress Log - Explorer M1-1
+# Progress — explorer_m1_1
 
-Last visited: 2026-08-09T04:42:35Z
+Last visited: 2026-09-01T01:53:05+05:30
 
-- [x] Read DISPATCH.md and ORIGINAL_REQUEST.md
-- [x] Create BRIEFING.md and progress.md
-- [x] Locate source files in repository (`CyberHands.tsx`, `VirtualKeyboard.tsx`, `AcademyLayout.tsx`, `academyCurriculum.ts`)
-- [x] Analyze `VirtualKeyboard.tsx` key positions, hitboxes, layout dimensions, coordinate system
-- [x] Analyze `CyberHands.tsx` SVG structure, `viewBox`, joint coordinates (MCP, PIP, DIP, Tip), palm position, transformations, finger reach logic
-- [x] Analyze coordinate mapping/mismatch between `VirtualKeyboard` and `CyberHands`
-- [x] Analyze finger kinematics, rotation, detachment bug, and 3D hologram rendering
-- [x] Synthesize findings and write comprehensive `handoff.md`
-- [x] Send completion message to parent agent
+## Completed Tasks
+- [x] Initialized DISPATCH.md and BRIEFING.md
+- [x] Analyzed codebase and identified existing scoring deficiencies in `ResultsScreen.tsx` and `useTypingEngine.ts`
+- [x] Designed mathematical formulation for `calculateCPI`, `evaluateGrade`, `calculateBurstWpm`, and `calculateAccolades`
+- [x] Verified mathematical proofs ensuring 100% accuracy @ 40 WPM evaluates to Grade A or S
+- [x] Drafted exhaustive implementation blueprint for `src/lib/scoringEngine.ts` and integration plans for `useTypingEngine.ts` and `ResultsScreen.tsx`
+- [x] Delivered 5-component handoff report to `.agents/explorer_m1_1/handoff.md`
+
+## Next Steps
+- [x] Notify parent orchestrator

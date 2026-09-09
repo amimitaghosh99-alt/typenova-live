@@ -38,3 +38,19 @@ export function isYesterday(prevKey: string, curKey: string = todayKey()): boole
   prev.setDate(prev.getDate() + 1);
   return todayKey(prev) === curKey;
 }
+
+/** Check if today's daily challenge has already been completed by the player. */
+export function isTodayDailyCompleted(curKey: string = todayKey(), storageOverride?: { lastDay?: string } | null): boolean {
+  if (storageOverride !== undefined) {
+    return storageOverride?.lastDay === curKey;
+  }
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem('typezen_daily');
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    return d?.lastDay === curKey;
+  } catch {
+    return false;
+  }
+}

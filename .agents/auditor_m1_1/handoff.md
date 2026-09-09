@@ -1,111 +1,109 @@
-# Milestone 1: Dead Code Removal — Forensic Audit Report
+# Forensic Audit Report: Milestone 1 (Core Scoring & Grading Engine)
 
-## Forensic Audit Report
-
-**Work Product**: Milestone 1 (Dead Code Removal) code changes across `src/`  
-**Profile**: General Project  
-**Integrity Mode**: Development (from `ORIGINAL_REQUEST.md`)  
-**Verdict**: **CLEAN**  
-
-### Phase Results
-- **Hardcoded Output Detection**: PASS — No mocked assertions, no fake pass constants, no hardcoded test outputs found.
-- **Facade Detection**: PASS — No empty placeholder stubs or facade implementations. All active components maintain full logic.
-- **Pre-populated Artifact Detection**: PASS — No fabricated log files or pre-existing result files found in workspace.
-- **Dead Code Deletion Provenance**: PASS — `src/utils/audio.ts` (149 lines) and `src/components/SplashCursor.tsx` (1,367 lines) verified to have zero external references; deletion was genuine and cleanly isolated.
-- **Symbol Localization & Cleanup**: PASS — 13 internal-only exported symbols, 3 redundant default exports, and 7 unused parameters/types/variables safely localized/removed without contract violations.
-- **Behavioral & Compilation Verification**: PASS — `npx tsc --noEmit` passed with 0 errors (Exit code: 0). Production build `npm run build` (`tsc -b && vite build`) passed with 0 errors (Exit code: 0, built in 9.02s).
+**Work Product**: `src/lib/scoringEngine.ts`, `src/hooks/useTypingEngine.ts`, `src/tests/scoringEngine.test.ts`, `src/tests/run_e2e.ts`  
+**Auditor**: `auditor_m1_1`  
+**Profile**: General Project (Development Mode)  
+**Verdict**: `CLEAN`  
 
 ---
 
 ## 1. Observation
 
-### Empirical Checks & Tool Output
+Direct inspection and forensic analysis of the Milestone 1 deliverables was conducted on:
+- `src/lib/scoringEngine.ts` (505 lines, genuine mathematical scoring engine)
+- `src/hooks/useTypingEngine.ts` (392 lines, updated hook integrating CPI, burst velocity, grade, and telemetry)
+- `src/tests/scoringEngine.test.ts` (207 lines, direct unit & integration suite)
+- `src/tests/run_e2e.ts` (54 lines, master test runner)
 
-1. **Git Status & Changes Verification**:
-   - Total files modified: 23 files across `src/`
-   - Total files deleted: 2 files (`src/utils/audio.ts`, `src/components/SplashCursor.tsx`)
-   - Net line count delta: `-1,717` lines (`54` insertions, `1,771` deletions)
-   - Zero untracked or dangling production files introduced.
+### 1.1 Forensic Check Matrix
 
-2. **Orphaned File Verification**:
-   - Grep search for `SplashCursor` across `src/`: 0 references.
-   - Grep search for `audioEngine` and `utils/audio` across `src/`: 0 references.
-   - Confirmed `src/utils/audio.ts` was a legacy Web Audio singleton completely replaced by `src/hooks/useAudioEngine.ts`.
-   - Confirmed `src/components/SplashCursor.tsx` was an unused standalone WebGL canvas.
-
-3. **Symbol Localization & Interface Integrity**:
-   - `src/lib/progress.ts`: Removed unused import `recordConsent` (which triggered baseline `tsc -b` failure). Verified `recordConsent` is exported by `src/lib/consent.ts` and still properly imported by `ExpandableInfoModal.tsx` and `Login.tsx`.
-   - `src/data/constants.ts`: Removed unused array `PRESET_KEYS` (0 references across `src/`), localized `MASTER_SNIPPETS` and `QUOTES` (referenced only internally within `constants.ts`).
-   - `src/data/customization.ts`: Localized `FREE_BANNERS` and `PREMIUM_BANNERS` (used only internally to compose `ALL_BANNERS`).
-   - `src/lib/aiClient.ts`: Localized `USAGE_EVENT`, `getAIConfig`, `markModelWorking`, `trackUsage` (referenced only internally).
-   - `src/lib/consent.ts`: Localized `CURRENT_CONSENT_VERSION` and `CONSENT_KEYS` (referenced only internally).
-   - `src/lib/technicianBrain.ts`: Localized `MODIFIER_LABELS` (referenced only internally).
-   - `src/components/academy/CyberHands.tsx`: Localized `KEY_MAP`, `LEFT_HOLOGRAM_FINGERS`, `RIGHT_HOLOGRAM_FINGERS` (referenced only internally).
-   - `src/components/SettingsModal.tsx`: Localized `ToggleSwitch` and `ToggleSwitchProps`.
-   - `src/components/StatsDashboard.tsx`: Localized `loadPersonalBests`.
-   - `src/utils/shareCard.ts`: Localized `renderResultCard`.
-   - `src/hooks/useRPGSystem.ts`: Removed unused `AchievementState` interface (0 references).
-   - `src/hooks/useSmartEngineConfig.ts`: Corrected `let models` to `const models`.
-   - `src/components/SupportTechnician.tsx`: Cleaned unused catch variable `catch (error)` to `catch`.
-   - `src/components/RaceResultsScreen.tsx` & `src/App.tsx`: Removed unused `roomSize` prop.
-   - `src/hooks/useQuests.ts`: Consolidated private duplicate date formatter `getTodayString()` into standard `todayKey()` from `@/utils/seededRandom.ts` (1:1 identical date format `YYYY-MM-DD`).
-
-4. **Redundant Default Export Normalization**:
-   - `src/components/BlurText.tsx`, `src/components/ui/bg-animate-button.tsx`, `src/components/ui/starfield-background.tsx`: Removed redundant `export default` statements. All consumers exclusively use named imports (`{ BlurText }`, `{ BgAnimateButton }`, `{ StarfieldBackground }`).
-
-5. **Typecheck & Compilation Execution**:
-   - `npx tsc --noEmit` -> Exit Code: 0 (No type errors).
-   - `npm run build` (`tsc -b && vite build`) -> Exit Code: 0 (2,269 modules transformed, built in 9.02s, output generated in `dist/`).
+| Check # | Forensic Check Name | Expected Invariant | Empirical Observation | Status |
+|---|---|---|---|---|
+| **1** | **Hardcoded Test Outputs** | Zero hardcoded test names, zero input-specific bypasses | Grep / AST search found zero test names or literal short-circuits (`if (wpm === 40)` not found). All functions execute continuous formulas. | **PASS** |
+| **2** | **Facade / Mock Detection** | Real arithmetic computation, no `return <constant>` or stubs | `calculateCPI`, `evaluateGrade`, `calculateBurstWpm`, `calculateAccolades`, `calculateXPProgression`, `calculateGhostDelta` all execute parameterized algorithmic logic. | **PASS** |
+| **3** | **Fabricated Output Detection** | Zero pre-baked test logs or forged test outputs | Test suites executed directly from source via `npx tsx src/tests/run_e2e.ts` yielding 129 passing tests across 33 suites in real time. | **PASS** |
+| **4** | **Circumvention of Real Calculations** | Calculations must reflect real typing dynamics | Burst WPM uses real 5-keystroke sliding windows, micro-burst calculation, and 1000ms rolling intervals; CPI dynamically weights velocity by precision squared and consistency factor. | **PASS** |
+| **5** | **Self-Certifying Test Bypass** | Independent assertions matching domain specifications | Mathematical properties independently tested against 537,491 invariant combinations in `adversarialScoringStress.ts`. | **PASS** |
+| **6** | **Requirement R1 Fulfillment** | 40 WPM @ 100% Accuracy receives Grade S/S+/A | `calculateCPI(40, 100, 200, 90, 200)` computes CPI = 116 -> Grade S+ (or Grade S on shorter 125-char passages), never C or D. | **PASS** |
 
 ---
 
 ## 2. Logic Chain
 
-1. **Integrity Mode Assessment**:
-   - `ORIGINAL_REQUEST.md` specifies `Integrity mode: development`. Under development mode, the auditor checks for hardcoded test results, facade implementations, and fabricated artifacts.
-2. **Authenticity of Modifications**:
-   - The modifications consist strictly of genuine AST and syntax level dead-code removals, unused symbol localizations, and duplicate logic consolidation.
-   - No mock passes, dummy returns, or artificial shortcuts were introduced.
-3. **Absence of Breaking Side-Effects**:
-   - Deletion of orphaned files and unused exports was verified against all call-sites and consumers.
-   - Typechecking via `tsc --noEmit` and bundling via Vite confirmed zero broken imports or type mismatches.
-4. **Verdict Invariant**:
-   - Every Phase 1 and Phase 2 check passed with concrete empirical evidence. Hence, the verdict is **CLEAN**.
+1. **Analysis of `calculateCPI` (`src/lib/scoringEngine.ts:162-246`)**:
+   - Computes precision multiplier: $\text{precisionMultiplier} = (\text{acc}/100)^2$.
+   - Computes rhythm consistency factor: $k_{\text{cons}} = 1 + \frac{\text{cons} - 50}{250} \in [0.80, 1.20]$.
+   - Evaluates precision bonuses ($+35, +20, +10$) based on continuous thresholds.
+   - Evaluates combo bonuses ($+15$ for unbroken $\ge 20$ chars, $+15$ for $\ge 200$, $+10$ for $\ge 100$, $+5$ for $\ge 50$).
+   - Evaluates flow state consistency bonus ($+5$ for $\ge 85\%$) and low-accuracy progressive penalty ($20 \times \frac{85 - \text{acc}}{10}$).
+   - **Deduction**: The function executes continuous mathematical formulas without branching shortcuts or hardcoded outputs.
+
+2. **Analysis of `evaluateGrade` (`src/lib/scoringEngine.ts:116-156`)**:
+   - Classifies grades strictly by CPI score thresholds, accuracy thresholds, flawless status, and consistency.
+   - For a 100% accuracy run at 40 WPM (CPI $\approx 116$, Acc $= 100$, Flawless $=$ true, Cons $= 90$), evaluates to **Grade S+** (or **Grade S**).
+   - Resolves the legacy defect where a 40 WPM 100% accuracy run was downgraded to Grade C.
+   - **Deduction**: Grade evaluation is dynamic, objective, and fully adheres to Acceptance Criterion 1.
+
+3. **Analysis of `calculateBurstWpm` (`src/lib/scoringEngine.ts:251-313`)**:
+   - Filters out errors and backspaces.
+   - Analyzes consecutive 5-keystroke windows: $\text{instantWpm} = \text{round}\left(\frac{4/5}{\Delta t / 60000}\right)$.
+   - Analyzes micro-burst windows (2 to 4 keystrokes) and 1000ms rolling time slices.
+   - Checks against timeline points and clamps safely to $[0, 999\text{ WPM}]$.
+   - **Deduction**: Genuine rolling window calculation with complete defensive boundary handling.
+
+4. **Analysis of `useTypingEngine.ts` Integration (`src/hooks/useTypingEngine.ts`)**:
+   - Integrates `burstWpm`, `cpi`, `grade`, and `cpiBreakdown` into both live stats (500ms intervals) and final stats calculation (`finishTestImpl`).
+   - Cleanly resets all state metrics in `resetEngine`.
+   - **Deduction**: Clean end-to-end telemetry integration without mock facades.
 
 ---
 
 ## 3. Caveats
 
-- Pre-existing ESLint warnings in untouched files related to React 19 hook patterns (`react-hooks/set-state-in-effect`) exist in the repository baseline, but all TypeScript compilation and Vite production build steps pass with 0 errors.
+1. **Floating-Point Rounding in `calculateXPProgression`**:
+   - In `calculateXPProgression`: `Math.floor(baseXp * (1 + totalBonusPct / 100))` on `baseXp = 200` with `+130%` bonus (`2.3`) produces `Math.floor(459.99999999999994) = 459` instead of `460` in JS IEEE 754 float math. While functionally harmless in production, using `Math.round` before flooring is recommended for downstream milestones.
+2. **Strict `tsc -b` Build Scope**:
+   - Challenger agent stress test scripts placed under `src/tests/` temporarily triggered `noUnusedLocals` warnings during whole-project build. The implementation files (`scoringEngine.ts`, `useTypingEngine.ts`, `scoringEngine.test.ts`, `run_e2e.ts`) passed ESLint with 0 errors and 0 warnings.
 
 ---
 
 ## 4. Conclusion
 
-The Milestone 1 work product by `worker_m1` is genuine, correct, and strictly adheres to anti-cheating and integrity standards. No facade code, fabricated artifacts, or broken contracts were detected.
+**Verdict: `CLEAN`**
 
-**Audit Verdict**: **CLEAN**
+The implementation of Milestone 1 (Core Scoring & Grading Engine) in `src/lib/scoringEngine.ts` and `src/hooks/useTypingEngine.ts` is genuine, authentic, mathematically rigorous, and completely free of integrity violations, hardcoded test results, facade stubs, or bypassed logic.
 
 ---
 
 ## 5. Verification Method
 
-To independently reproduce the forensic verification:
+### Independent Reproduction Commands:
+```bash
+# 1. Execute Master E2E Test Suite (33 Suites, 129 Tests)
+npx tsx src/tests/run_e2e.ts
 
-1. **Verify TypeScript Compilation**:
-   ```powershell
-   npx tsc --noEmit
-   ```
-   *Expected result*: Exit Code 0.
+# 2. Execute Empirical Adversarial Invariant Stress Suite (537,491 checks)
+npx tsx src/tests/adversarialScoringStress.ts
 
-2. **Verify Production Bundle Build**:
-   ```powershell
-   npm run build
-   ```
-   *Expected result*: Exit Code 0 with full Vite bundle emission in `dist/`.
+# 3. Execute ESLint on Milestone 1 Deliverables
+npx eslint src/lib/scoringEngine.ts src/hooks/useTypingEngine.ts src/tests/scoringEngine.test.ts src/tests/run_e2e.ts
+```
 
-3. **Verify Absence of Broken Orphan References**:
-   ```powershell
-   git status
-   ```
-   *Expected result*: 2 files deleted, 23 files cleanly modified, 0 build failures.
+### Empirical Verification Output:
+```
+▶ npx tsx src/tests/run_e2e.ts
+  Total Suites: 33
+  Total Tests:  129
+  Passed:       129
+  Failed:       0
+  Duration:     10ms
+  Result:       ALL TESTS PASSED SUCCESSFULLY! (100% Pass Rate)
+
+▶ npx tsx src/tests/adversarialScoringStress.ts
+  Total Invariant Checks Executed: 537491
+  Total Violations Found:          0
+  Result:       ALL INVARIANTS SATISFIED (APPROVE)
+
+▶ npx eslint src/lib/scoringEngine.ts src/hooks/useTypingEngine.ts src/tests/scoringEngine.test.ts src/tests/run_e2e.ts
+  Result:       0 errors, 0 warnings
+```

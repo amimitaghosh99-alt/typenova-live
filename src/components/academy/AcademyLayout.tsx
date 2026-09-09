@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState, memo, useCallback, type CSSProperties } from 'react';
 import {
   Activity, Award, ChevronLeft, Flame, Gauge, Lightbulb, LayoutGrid, RotateCcw,
   ShieldAlert, Sparkles, Star, Target, Trophy, Unlock, Volume2, VolumeX, X, Zap,
@@ -8,6 +8,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { VirtualKeyboard } from './VirtualKeyboard';
 import { CyberHands } from './CyberHands';
 import { AcademySkillTree } from './AcademySkillTree';
+import { WeaknessTrainerCard } from './WeaknessTrainerCard';
 import { AcademyPassage } from './AcademyPassage';
 import { useAcademyEngine } from '@/hooks/useAcademyEngine';
 import { CATEGORY_LABELS, getMasteryTitle } from '@/data/academyCurriculum';
@@ -68,9 +69,11 @@ interface AcademyLayoutProps {
   /** Reserved for the host shell's exit affordance; the stage exits via its own header. */
   onExit?: () => void;
   theme?: Theme;
+  dueWordsCount?: number;
+  onTrainDue?: () => void;
 }
 
-export function AcademyLayout({ theme }: AcademyLayoutProps) {
+function AcademyLayoutImpl({ theme, dueWordsCount = 0, onTrainDue }: AcademyLayoutProps) {
   const [viewMode, setViewMode] = useState<'skill-tree' | 'stage'>('skill-tree');
   const engine = useAcademyEngine(viewMode === 'stage');
   const reduce = !!useReducedMotion();
@@ -114,10 +117,10 @@ export function AcademyLayout({ theme }: AcademyLayoutProps) {
       ? 'rgba(245,158,11,0.3)'
       : glow(themeGlow, 0.22);
 
-  const handleSelectNode = (nodeId: string) => {
+  const handleSelectNode = useCallback((nodeId: string) => {
     engine.startLessonById(nodeId);
     setViewMode('stage');
-  };
+  }, [engine.startLessonById]);
 
 
   return (
@@ -247,6 +250,11 @@ export function AcademyLayout({ theme }: AcademyLayoutProps) {
         <AnimatePresence mode="popLayout" initial={false}>
           {viewMode === 'skill-tree' ? (
             <motion.div key="skill-tree-view" {...enter(reduce, scaleIn)} className="w-full">
+              <WeaknessTrainerCard
+                dueWordsCount={dueWordsCount}
+                onTrainDue={onTrainDue}
+                accent={accent}
+              />
               <AcademySkillTree
                 mastery={engine.mastery}
                 academyXp={engine.academyXp}
@@ -853,3 +861,6 @@ export function AcademyLayout({ theme }: AcademyLayoutProps) {
     </div>
   );
 }
+
+export const AcademyLayout = memo(AcademyLayoutImpl);
+

@@ -64,6 +64,27 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const norm = id.replace(/\\/g, '/');
+          if (norm.includes('/node_modules/')) {
+            if (norm.includes('/three/')) return 'vendor-three';
+            if (norm.includes('/d3/') || norm.includes('/d3-')) return 'vendor-d3';
+            if (norm.includes('/@react-spring/')) return 'vendor-spring';
+            if (norm.includes('/framer-motion/') || norm.includes('/motion/')) return 'vendor-motion';
+            if (norm.includes('/@supabase/')) return 'vendor-supabase';
+            if (norm.includes('/@radix-ui/')) return 'vendor-radix';
+            if (norm.includes('/lucide-react/')) return 'vendor-icons';
+            if (norm.includes('/react-router/') || norm.includes('/react-router-dom/')) return 'vendor-router';
+            if (norm.includes('/react/') || norm.includes('/react-dom/') || norm.includes('/scheduler/')) return 'vendor-react';
+          }
+        }
+      }
+    }
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

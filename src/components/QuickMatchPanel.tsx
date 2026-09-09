@@ -110,24 +110,22 @@ export const QuickMatchPanel: React.FC<QuickMatchPanelProps> = ({
         (_, i) => ((i + 1) * ELO_BAND_INTERVAL_MS / ELO_BAND_OPEN_MS) * 100,
     );
 
-    /** Idle bobs, searching breathes, found punches once. All of it off under
-        `prefers-reduced-motion` — two of these looped forever, and a CSS
-        `@media` guard cannot reach a Framer `animate` prop. */
+    /** Searching breathes, found punches once. Idle remains calm to save GPU cycles. */
     const iconMotion = reduce
         ? undefined
         : searching
             ? { scale: [1, 1.08, 1], transition: { repeat: Infinity, duration: 2, ease: EASE_OUT } }
             : found
                 ? { scale: [1, 1.15, 1], transition: { duration: 0.3, ease: EASE_OUT } }
-                : { y: [0, -3, 0], transition: { repeat: Infinity, duration: 3, ease: EASE_OUT } };
+                : undefined;
 
     return (
         <motion.div
             {...reveal(reduce, shellIn)}
-            className={`w-full glass-panel !bg-[rgba(10,12,18,0.8)] backdrop-blur-[24px] rounded-3xl border p-5 flex flex-col gap-4 transition-colors ${
+            className={`w-full glass-panel !bg-[rgba(10,12,18,0.8)] hover:!bg-[rgba(14,16,24,0.85)] rounded-3xl border p-5 flex flex-col gap-4 transition-all duration-200 ${
                 searching ? 'border-emerald-500/50'
                 : found ? 'border-emerald-500/60'
-                : 'border-white/20'
+                : 'border-white/20 hover:border-white/35'
             }`}
         >
             {/* ── Top row: identity + action ── */}

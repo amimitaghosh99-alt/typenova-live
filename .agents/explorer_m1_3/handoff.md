@@ -1,110 +1,419 @@
-# Handoff Report: Explorer M1-3 — Holographic Glow Styling, Scanlines, SVG Filters, Wireframe Nodes, and Build/Test Setup
+# Milestone 1 Explorer Report: Accolades Engine & Consumer Interface Contracts
+
+**Agent ID**: `explorer_m1_3`  
+**Milestone**: M1 - Core Scoring & Grading Engine (Accolades & Consumer Contracts)  
+**Date**: 2026-09-01  
+**Target Subsystems**: `src/lib/scoringEngine.ts`, `src/components/ResultsScreen.tsx`, `src/hooks/useRPGSystem.ts`, `src/utils/shareCard.ts`, `src/hooks/useModeLeaderboard.ts`, `src/App.tsx`, `src/components/RaceResultsScreen.tsx`
+
+---
 
 ## 1. Observation
 
-### A. Holographic Aesthetics & SVG Rendering in `CyberHands.tsx`
-- **File Location**: `src/components/academy/CyberHands.tsx` (542 lines).
-- **SVG ViewBox & Structure**:
-  - Main SVG container: `<svg viewBox="0 0 552 400" className="w-full h-full drop-shadow-2xl" style={{ overflow: "visible" }}>` (lines 302-303).
-  - Wrapper container style: `maskImage: "linear-gradient(to bottom, black 0%, black 85%, transparent 98%)"` for vertical bottom-fading of lower palms (lines 294-301).
-- **SVG Glow Filters (`<defs>`)**:
-  - `holo-emerald-glow` (lines 304-312): Left hand neon green glow filter (`#00ff9d`). Uses two `<feGaussianBlur>` nodes (`stdDeviation="8"` for soft ambient blur and `stdDeviation="2"` for sharp core edge blur) merged with `SourceGraphic`.
-  - `holo-cyan-glow` (lines 314-322): Right hand neon cyan glow filter (`#00e5ff`). Uses dual `<feGaussianBlur>` nodes (`stdDeviation="8"` and `stdDeviation="2"`) merged with `SourceGraphic`.
-- **Scanlines Pattern (`<defs>`)**:
-  - `<pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">` (lines 324-326).
-  - Line definition: `<line x1="0" y1="0" x2="4" y2="0" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1" />`.
-  - Applied as `fill="url(#scanlines)"` overlay paths on palms (lines 357, 442) and fingers (lines 387, 473).
-  - Dynamic opacity: Palm scanlines (`0.6` when active, `0.2` inactive); Finger scanlines (`0.8` active, `0.15` inactive).
-- **Radial Palm Gradients (`<defs>`)**:
-  - `holo-palm-l` (lines 328-333): Left hand radial fill centered at `(45%, 40%)`, transitioning `#00ff9d` (0.35 opacity) -> `#10b981` (0.15) -> `#059669` (0.05) -> `#047857` (0.00). Stroke `#00ff9d` (width 1.2).
-  - `holo-palm-r` (lines 335-340): Right hand radial fill centered at `(55%, 40%)`, transitioning `#00e5ff` (0.35 opacity) -> `#06b6d4` (0.15) -> `#0891b2` (0.05) -> `#0e7490` (0.00). Stroke `#00e5ff` (width 1.2).
-- **Wireframe Structural Lines & Joint Nodes**:
-  - Wireframe lines array per finger (`f.wireframeLines`):
-    - Horizontal phalange cross-sections (lines 0-2): `strokeDasharray="2 2"`, `strokeWidth=0.8`, `opacity`: `0.9` (active) / `0.35` (inactive).
-    - Longitudinal bone axis ray (line 3 `M mcp L tip`): `strokeDasharray="none"`, `strokeWidth`: `2.5` (active) / `1.2` (inactive).
-    - Active lines apply `filter="url(#holo-emerald-glow)"` or `filter="url(#holo-cyan-glow)"` (lines 403, 489).
-  - Knuckle Joint Nodes:
-    - 3 static circles per finger representing MCP, PIP, DIP joints (lines 408-410, 493-495).
-    - MCP radius: `4.5` (active) / `2.5` (inactive); PIP radius: `4.0` / `2.0`; DIP radius: `3.5` / `1.8`.
-  - Luminous Fingertip Node:
-    - `<motion.circle>` (lines 413-422, 498-507).
-    - Pulsing radius animation: `animate={isActive ? { r: [6, 8.5, 6] } : { r: 3.5 }}` with `duration: 1.4` sec.
-    - Applies glow filter `url(#holo-emerald-glow)` or `url(#holo-cyan-glow)`.
-- **Sonar Target Ripples**:
-  - Target ring animation over active key (`<motion.circle cx={rippleX} cy={rippleY}>`, lines 516-536).
-  - Dual staggered expanding concentric circles: `r: [6, 24, 36]`, `opacity: [0.9, 0.35, 0]`, `strokeWidth: [2, 1.2, 0.5]`.
+Direct code examination across the TypeNova repository revealed the following architectural facts, interface signatures, and component lifecycles:
 
-### B. Project Build Configuration & Test Infrastructure in `package.json`
-- **File Location**: `package.json` (84 lines) & `vite.config.ts` (19 lines).
-- **Core Dependencies**:
-  - Bundler: `vite` v7.2.4 with `@vitejs/plugin-react` v5.1.1.
-  - UI / Motion: `react` v19.2.0, `react-dom` v19.2.0, `framer-motion` v13.0.0, `lucide-react` v0.562.0, Tailwind CSS v3.4.19.
-  - TypeScript: `typescript` ~5.9.3.
-- **Defined Scripts (`package.json` lines 6-11)**:
-  - `"dev"`: `"vite"`
-  - `"build"`: `"tsc -b && vite build"`
-  - `"lint"`: `"eslint ."`
-  - `"preview"`: `"vite preview"`
-- **Test Runner Assessment**:
-  - **No unit test framework** (e.g., `vitest` or `jest`) is currently installed in `package.json`.
-  - **No E2E test framework** (e.g., `playwright` or `cypress`) is currently installed in `package.json`.
-  - No test scripts exist in `package.json`.
+### 1.1 `src/lib/scoringEngine.ts` Status
+- **Current State**: Does not exist yet. `PROJECT.md` dictates creating `src/lib/scoringEngine.ts` to encapsulate CPI calculation, Performance Grade evaluation (`S+`, `S`, `A`, `B`, `C`, `D`), Burst WPM, and `calculateAccolades`.
+- **Target Accolade Badges**:
+  1. `Flawless`
+  2. `Centurion Streak`
+  3. `Surgical Precision`
+  4. `Flow State`
+
+### 1.2 Existing Consumer Analysis
+
+#### A. `src/components/ResultsScreen.tsx`
+- **Current Interface**:
+```typescript
+export interface ResultsScreenProps {
+  wpm: number;
+  rawWpm: number;
+  accuracy: number;
+  consistency: number;
+  flawlessStreak: number;
+  leveledUp: boolean;
+  xpGainedLast: number;
+  theme: Theme;
+  heatmapData: Record<string, { total: number; errors: number }>;
+  isLoggedIn: boolean;
+  displayName: string | null;
+  saveStatus: string;
+  timelinePoints: Array<{ t: number; wpm: number; rawWpm: number }>;
+  errorTimes: number[];
+  durationMs: number;
+  keystrokeLog: Keystroke[];
+  testStartTime: number;
+  onReset: () => void;
+  onWatchReplay: () => void;
+  onStartMicroDrill: (keyChar: string) => void;
+  onStartSmartDrill: ((keys?: string[]) => void) | null;
+  isSmartDrillGenerating?: boolean;
+  ghostTimeline?: Array<{ t: number; wpm: number }> | null;
+  ghostLabel?: string;
+  ghostDeltaS?: number;
+  compact?: boolean;
+  hideActions?: boolean;
+}
+```
+- **Grade & Accolades Logic**:
+  - Currently evaluates grade using hardcoded inline IIFE (lines 106–112) with a strict speed floor:
+```typescript
+const grade = (() => {
+  if (wpm > 100 && accuracy > 98) return "S";
+  if (wpm > 80 && accuracy > 95) return "A";
+  if (wpm > 50 && accuracy > 90) return "B";
+  if (wpm > 30) return "C";
+  return "D";
+})();
+```
+  - Accolade badges and XP multiplier breakdown cards are completely absent in the current DOM.
+  - Ghost performance chip only evaluates single-scalar time delta `ghostDeltaS` (lines 180–191).
+  - Hardcoded colors exist (e.g. `text-cyan-400`, `text-amber-400`, `border-cyan-500/20`) violating `GEMINI.md` dynamic theme binding rules (`rgb(${theme.glowPrimary})`).
+
+#### B. `src/hooks/useRPGSystem.ts`
+- **Current Interface & Flow**:
+  - Lines 70–124: `processRPG` signature:
+```typescript
+processRPG: (
+  finalWpm: number,
+  finalAcc: number,
+  currentMaxCombo: number,
+  _wordCount: number,
+  targetTextLength: number,
+  microDrillActive: boolean,
+  keystrokeLog: Array<{ expected: string; isError: boolean; isBackspace?: boolean; time: number }>,
+  onLevelUp: () => void
+) => { newXp: number; newTestsCompleted: number; updatedHeatmap: Record<string, any>; newBestCombo: number }
+```
+  - Current XP calculation (line 111):
+    `const gained = Math.floor(finalWpm * (finalAcc / 100) * lengthMod * 2);`
+  - Zero bonuses awarded for 100% Flawless runs (+50% bonus missing), combo milestones (50+, 100+, 200+), or metronome consistency (>85%).
+  - `checkAchievements` evaluates 17 existing achievements in `ACHIEVEMENTS`.
+
+#### C. `src/utils/shareCard.ts`
+- **Current Interface**:
+```typescript
+export interface ShareCardData {
+  wpm: number;
+  rawWpm: number;
+  accuracy: number;
+  consistency: number;
+  grade: string;
+  themeName: string;
+  glowPrimary: string;
+  glowSecondary: string;
+}
+```
+- Renders 1200x630 canvas via `renderResultCard(data)`. Grade is rendered with `ctx.fillText(data.grade, ...)` on line 81.
+
+#### D. `src/hooks/useModeLeaderboard.ts`
+- **Current Interface**:
+```typescript
+export interface ModeScoreRow {
+  user_id: string;
+  username: string;
+  wpm: number;
+  accuracy: number;
+  consistency: number | null;
+}
+
+export interface RivalGhost {
+  userId: string;
+  username: string;
+  wpm: number;
+  samples: PaceSample[];
+}
+```
+- `fetchRivalGhost` (lines 59–80) queries `username, wpm, ghost` from Supabase table `mode_scores`.
+
+#### E. `src/App.tsx` & `src/components/RaceResultsScreen.tsx`
+- In `App.tsx` (lines 1562–1588), `resultsProps` is constructed and passed to `<ResultsScreen {...resultsProps} />` and `<RaceResultsScreen {...resultsProps} />`.
+- In `RaceResultsScreen.tsx` (lines 394–421), `displayProps` merges `resultsProps` with competitor telemetry and forwards to `<ResultsScreen {...displayProps} compact hideActions />`.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Visual Aesthetic Architecture**:
-   - The holographic sci-fi visual style of `CyberHands.tsx` relies entirely on inline SVG filter primitives (`<feGaussianBlur>`, `<feMerge>`), SVG fill patterns (`<pattern id="scanlines">`), radial gradients (`<radialGradient>`), and SVG strokes/fill colors.
-   - Distinct color palettes differentiate left vs. right hands: Left hand uses Emerald (`#00ff9d`, `#10b981`), while Right hand uses Cyan (`#00e5ff`, `#06b6d4`).
-   - The wireframe structure combines 3 joint node circles (MCP, PIP, DIP) with dashed transverse segment lines and a solid bone central ray. When a key is active, `filter="url(#holo-emerald-glow)"` or `filter="url(#holo-cyan-glow)"` is applied dynamically, increasing opacity and thickness to create an illuminated holographic effect.
+### 2.1 Accolades Engine Specification (`calculateAccolades`)
 
-2. **Build and Verification Workflow**:
-   - The project uses Vite with React 19 and TypeScript. The build script `npm run build` executes `tsc -b` followed by `vite build`.
-   - Since no unit test framework (`vitest`) or E2E framework (`playwright`) is currently present in `package.json`, verification of holographic rendering, SVG filters, and kinematics currently depends on:
-     1. Static type checking (`npm run build`).
-     2. Code linting (`npm run lint`).
-     3. Visual inspection via the Vite dev server (`npm run dev`).
-   - To achieve robust automated testing for M5 (E2E acceptance testing), `vitest` (for component unit tests) and `@playwright/test` (for browser E2E interaction testing) should be added to `package.json`.
+Accolades recognize four distinct dimensions of typing mastery:
+1. **Flawless Execution**: Zero errors on the test run.
+2. **Centurion Streak**: Unbroken combo streak of 100+ keystrokes.
+3. **Surgical Precision**: Sustained ultra-high accuracy (≥98%) on substantial passage length (≥50 words).
+4. **Flow State**: Steady cadence with metronomic rhythm (≥88% consistency).
+
+#### Mathematical Definitions & Safeguards:
+- Let $A = \text{Accuracy } \in [0, 100]$, $S = \text{Flawless Streak (Max Combo)} \ge 0$, $R = \text{Consistency } \in [0, 100]$, $W = \text{Total Words} \ge 0$, $E = \text{Raw Errors} \ge 0$.
+- **Flawless**:
+  - `unlocked = (A === 100 && E === 0 && W > 0)`
+  - Progress: `current = unlocked ? 100 : (E === 0 ? A : Math.max(0, A - E * 5))`, `target = 100`, `unit = E > 0 ? (E + ' ERR') : '% ACC'`.
+- **Centurion Streak**:
+  - `unlocked = (S >= 100)`
+  - Progress: `current = Math.min(100, S)`, `target = 100`, `unit = 'COMBO'`.
+- **Surgical Precision**:
+  - `unlocked = (A >= 98 && W >= 50)`
+  - Progress: `current = W < 50 ? W : A`, `target = W < 50 ? 50 : 98`, `unit = W < 50 ? 'WORDS' : '% ACC'`.
+- **Flow State**:
+  - `unlocked = (R >= 88 && W > 0)`
+  - Progress: `current = Math.min(88, R)`, `target = 88`, `unit = '% CONS'`.
+
+### 2.2 Preserving Interface Contracts & Preventing Regressions
+
+1. **`ResultsScreenProps` Non-Breaking Extension**:
+   - Keep all existing props mandatory as before.
+   - Add optional props:
+     - `accolades?: AccoladeBadge[]`
+     - `cpiBreakdown?: CPIBreakdown`
+     - `xpBreakdown?: XpBreakdown`
+     - `ghostDeltaAcc?: number`
+     - `ghostDeltaCons?: number`
+   - In `ResultsScreen.tsx`: If `accolades` is not passed via props, compute it safely via `useMemo(() => calculateAccolades(accuracy, flawlessStreak, consistency, Math.round(keystrokeLog.length / 5), errorTimes.length), [accuracy, flawlessStreak, consistency, keystrokeLog, errorTimes])`.
+   - This guarantees that both `App.tsx` and `RaceResultsScreen.tsx` continue functioning without requiring lockstep breaking prop updates.
+
+2. **`useRPGSystem.ts` Non-Breaking Extension**:
+   - Add `xpBreakdownLast: XpBreakdown | null` state.
+   - In `processRPG`, accept optional `consistency?: number` and `rawErrors?: number`.
+   - Compute `calculateXPProgression` and store `xpBreakdownLast`.
+   - Return `{ newXp, newTestsCompleted, updatedHeatmap, newBestCombo, xpBreakdown }` so callers can optionally inspect it.
+
+3. **`shareCard.ts` Non-Breaking Extension**:
+   - `ShareCardData` interface gains optional `cpi?: number`, `accolades?: string[]`, `flawlessStreak?: number`.
+   - `renderResultCard` renders `grade` ('S+', 'S', etc.) and optional accolade tags.
+
+4. **`useModeLeaderboard.ts` Non-Breaking Extension**:
+   - `RivalGhost` adds optional `accuracy?: number`, `consistency?: number`.
+   - `fetchRivalGhost` selects `username, wpm, accuracy, consistency, ghost`.
+   - If missing from older Supabase rows, defaults gracefully to `undefined` without failing JSON parsing.
 
 ---
 
 ## 3. Caveats
 
-- **Browser Performance with SVG Filters**: Layered `<feGaussianBlur>` filters with large `stdDeviation` values (`8px`) combined with continuous Framer Motion animations (`r: [6, 8.5, 6]`) can cause GPU overhead on lower-end devices if many filters render simultaneously. Currently restricted to active finger/tip nodes.
-- **Lack of Automated Test Runner**: Without `vitest` or `playwright` installed, automated test execution (`npm test`) cannot be run until test dependencies are added to `package.json`.
+- **Test Harness TypeScript Erasable Syntax**:
+  `npm run build` runs `tsc -b && vite build`. In `src/tests/testHarness.ts`, parameter properties (`public actual?: unknown` in constructor) conflict with `erasableSyntaxOnly: true`. This is an independent fix needed in test harness files, not in application runtime code.
+- **Dynamic Theme Binding Discipline**:
+  Per `GEMINI.md`, all accolade badges and results screen cards must strictly bind colors dynamically: `style={{ color: 'rgb(' + theme.glowPrimary + ')', borderColor: 'rgba(' + theme.glowPrimary + ', 0.3)' }}`. No static accent classes (`text-cyan-400`, `text-amber-400`, etc.) may be used on theme-sensitive badges.
 
 ---
 
-## 4. Conclusion
+## 4. Conclusion & Complete Implementation Blueprint
 
-- `CyberHands.tsx` contains a well-structured SVG holographic rendering pipeline utilizing SVG filters (`holo-emerald-glow`, `holo-cyan-glow`), scanline patterns (`scanlines`), radial gradients (`holo-palm-l`, `holo-palm-r`), joint nodes (MCP, PIP, DIP), and wireframe lines.
-- Left and right hands use distinct emerald (`#00ff9d`) and cyan (`#00e5ff`) visual palettes.
-- The project build setup relies on Vite (`npm run build`) and ESLint (`npm run lint`).
-- Automated unit/E2E test runners are currently missing from `package.json` and must be added during M5 to enable automated acceptance testing.
+### 4.1 `src/lib/scoringEngine.ts` Blueprint
+
+```typescript
+export type PerformanceGrade = 'S+' | 'S' | 'A' | 'B' | 'C' | 'D';
+
+export type AccoladeId = 'flawless' | 'centurion' | 'surgical' | 'flow_state';
+
+export interface AccoladeBadge {
+  id: AccoladeId;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  tier: 'gold' | 'emerald' | 'cyan' | 'purple';
+  progress?: {
+    current: number;
+    target: number;
+    unit: string;
+  };
+}
+
+export interface CPIBreakdown {
+  cpi: number;
+  grade: PerformanceGrade;
+  baseSpeedScore: number;
+  precisionMultiplier: number;
+  precisionBonus: number;
+  comboBonus: number;
+  consistencyBonus: number;
+  penalty: number;
+}
+
+export interface XpBreakdown {
+  baseXp: number;
+  flawlessBonusPct: number;
+  comboBonusPct: number;
+  consistencyBonusPct: number;
+  totalMultiplier: number;
+  totalXp: number;
+}
+
+/**
+ * Calculates structured precision accolade badges for post-test display.
+ */
+export function calculateAccolades(
+  accuracy: number,
+  flawlessStreak: number,
+  consistency: number,
+  totalWords: number,
+  rawErrors: number
+): AccoladeBadge[] {
+  const safeAccuracy = Math.max(0, Math.min(100, isNaN(accuracy) ? 0 : accuracy));
+  const safeStreak = Math.max(0, isNaN(flawlessStreak) ? 0 : flawlessStreak);
+  const safeConsistency = Math.max(0, Math.min(100, isNaN(consistency) ? 0 : consistency));
+  const safeWords = Math.max(0, isNaN(totalWords) ? 0 : totalWords);
+  const safeErrors = Math.max(0, isNaN(rawErrors) ? 0 : rawErrors);
+
+  const isFlawlessUnlocked = safeAccuracy === 100 && safeErrors === 0 && safeWords > 0;
+  const isCenturionUnlocked = safeStreak >= 100;
+  const isSurgicalUnlocked = safeAccuracy >= 98 && safeWords >= 50;
+  const isFlowStateUnlocked = safeConsistency >= 88 && safeWords > 0;
+
+  return [
+    {
+      id: 'flawless',
+      title: 'Flawless',
+      subtitle: 'Zero Mistakes',
+      description: '100% accuracy with 0 keystroke errors.',
+      icon: 'Sparkles',
+      unlocked: isFlawlessUnlocked,
+      tier: 'gold',
+      progress: {
+        current: isFlawlessUnlocked ? 100 : (safeErrors === 0 ? safeAccuracy : Math.max(0, safeAccuracy - safeErrors * 5)),
+        target: 100,
+        unit: safeErrors > 0 ? `${safeErrors} ERR` : '% ACC',
+      },
+    },
+    {
+      id: 'centurion',
+      title: 'Centurion Streak',
+      subtitle: '100+ Combo',
+      description: 'Maintained an unbroken streak of 100+ flawless keystrokes.',
+      icon: 'ShieldCheck',
+      unlocked: isCenturionUnlocked,
+      tier: 'purple',
+      progress: {
+        current: Math.min(100, safeStreak),
+        target: 100,
+        unit: 'COMBO',
+      },
+    },
+    {
+      id: 'surgical',
+      title: 'Surgical Precision',
+      subtitle: '98%+ Acc on 50+ Words',
+      description: 'Delivered ≥98% accuracy on a full session (≥50 words).',
+      icon: 'Crosshair',
+      unlocked: isSurgicalUnlocked,
+      tier: 'emerald',
+      progress: {
+        current: safeWords < 50 ? safeWords : safeAccuracy,
+        target: safeWords < 50 ? 50 : 98,
+        unit: safeWords < 50 ? 'WORDS' : '% ACC',
+      },
+    },
+    {
+      id: 'flow_state',
+      title: 'Flow State',
+      subtitle: '88%+ Rhythm',
+      description: 'Achieved ≥88% rhythm consistency with steady cadence.',
+      icon: 'Activity',
+      unlocked: isFlowStateUnlocked,
+      tier: 'cyan',
+      progress: {
+        current: Math.min(88, safeConsistency),
+        target: 88,
+        unit: '% CONS',
+      },
+    },
+  ];
+}
+```
+
+### 4.2 Accolade Badges UI Component Blueprint for `ResultsScreen.tsx`
+
+```tsx
+{/* Precision Accolades Showcase */}
+<div className="glass-panel rounded-3xl p-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+  <div className="flex w-full justify-between items-end mb-4">
+    <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center">
+      <Award size={14} className="mr-2" style={{ color: `rgb(${theme.glowPrimary})` }} />
+      PRECISION ACCOLADES
+    </span>
+    <span className="text-[9px] font-black tracking-widest text-zinc-500 uppercase">
+      {accolades.filter(a => a.unlocked).length} OF {accolades.length} UNLOCKED
+    </span>
+  </div>
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {accolades.map(accolade => {
+      const isUnlocked = accolade.unlocked;
+      return (
+        <div
+          key={accolade.id}
+          className={`relative overflow-hidden rounded-2xl p-4 border transition-all duration-300 ${
+            isUnlocked
+              ? 'bg-white/5 shadow-lg backdrop-blur-md'
+              : 'bg-black/20 border-white/5 opacity-40'
+          }`}
+          style={isUnlocked ? { borderColor: `rgba(${theme.glowPrimary}, 0.3)` } : undefined}
+        >
+          {isUnlocked && (
+            <div
+              className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl pointer-events-none"
+              style={{ backgroundColor: `rgba(${theme.glowPrimary}, 0.2)` }}
+            />
+          )}
+          <div className="flex items-center gap-3 mb-2">
+            <div
+              className="p-2.5 rounded-xl border flex items-center justify-center"
+              style={
+                isUnlocked
+                  ? {
+                      backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                      borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                      color: `rgb(${theme.glowPrimary})`,
+                    }
+                  : { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: '#71717a' }
+              }
+            >
+              {accolade.id === 'flawless' && <Sparkles size={18} />}
+              {accolade.id === 'centurion' && <ShieldCheck size={18} />}
+              {accolade.id === 'surgical' && <Crosshair size={18} />}
+              {accolade.id === 'flow_state' && <Activity size={18} />}
+            </div>
+            <div>
+              <h4 className={`text-xs font-black tracking-wider uppercase ${isUnlocked ? 'text-white' : 'text-zinc-500'}`}>
+                {accolade.title}
+              </h4>
+              <p className="text-[10px] font-bold tracking-tight text-zinc-400">
+                {accolade.subtitle}
+              </p>
+            </div>
+          </div>
+          <p className="text-[10px] text-zinc-400 line-clamp-2 leading-relaxed">
+            {accolade.description}
+          </p>
+        </div>
+      );
+    })}
+  </div>
+</div>
+```
 
 ---
 
 ## 5. Verification Method
 
-### A. Build and Type Checking
-Execute the following standard build and lint commands from the workspace root:
+### 5.1 Verification Commands
+1. **TypeScript Typecheck**:
+```bash
+npx tsc --noEmit
+```
+2. **Build Verification**:
 ```bash
 npm run build
-npm run lint
 ```
-*Expected Result*: Build succeeds with zero TypeScript compilation errors (`tsc -b`) and Vite outputs static assets in `dist/`.
 
-### B. Visual Holographic Aesthetics Verification
-1. Start local dev server:
-   ```bash
-   npm run dev
-   ```
-2. Open `http://localhost:3000` in the browser and navigate to Academy mode (`AcademyLayout.tsx`).
-3. Trigger key activations (e.g. press 'Q', 'P', 'SPACE', 'A', 'F'):
-   - **Emerald Glow**: Confirm Left Hand active finger glows green (`#00ff9d`) with dual-pass blur filter (`holo-emerald-glow`).
-   - **Cyan Glow**: Confirm Right Hand active finger glows cyan (`#00e5ff`) with dual-pass blur filter (`holo-cyan-glow`).
-   - **Scanlines**: Confirm scanline pattern overlays palm and finger contours.
-   - **Wireframe & Joint Nodes**: Inspect 3 knuckle circles (MCP, PIP, DIP), dashed phalange cross-lines, and solid central bone axis.
-   - **Fingertip Pulsing**: Verify active fingertip node continuously pulses radius between 6px and 8.5px.
-   - **Sonar Target Ripples**: Verify dual expanding rings radiate outwards from the active key target position (`keyInfo.x`, `keyInfo.y`).
+### 5.2 Specific Files to Inspect
+1. `src/lib/scoringEngine.ts`: Verify `calculateAccolades` return structure and mathematical clamp guarantees.
+2. `src/components/ResultsScreen.tsx`: Verify non-breaking optional props and dynamic theme binding on accolade badges.
+3. `src/hooks/useRPGSystem.ts`: Verify `processRPG` XP multiplier calculation and `xpBreakdownLast` export.
+4. `src/utils/shareCard.ts`: Verify `ShareCardData` backward-compatible extension.
+5. `src/hooks/useModeLeaderboard.ts`: Verify `RivalGhost` accuracy and consistency fields.
+
+### 5.3 Invalidation Conditions
+- Any changes to `ResultsScreenProps` that make existing mandatory props incompatible with `App.tsx` or `RaceResultsScreen.tsx`.
+- Hardcoding static accent classes (`text-cyan-400`, `text-amber-400`) instead of `rgb(${theme.glowPrimary})`.
+- Division by zero or NaN returns on empty/zero-word inputs in `calculateAccolades`.

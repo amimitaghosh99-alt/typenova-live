@@ -62,34 +62,113 @@ export function targetChars(weakKeys: string[]): string[] {
 }
 
 /**
+ * Normalizes digraph targets (2-character transition pairs e.g. "th", "pl").
+ */
+export function targetDigraphs(targets: string[]): string[] {
+    const cleaned = targets
+        .filter(t => t && t !== 'SPACE' && t !== 'ENTER')
+        .map(t => t.toLowerCase().replace(/[^a-z0-9]/g, ''))
+        .filter(t => t.length === 2);
+    return Array.from(new Set(cleaned));
+}
+
+/**
  * Splice in every target the text doesn't already contain.
  *
- * The procedural word pool is ordinary English — no digits, almost no
- * punctuation — and a model may ignore the instruction to feature them, so
- * without this step a drill for `;` can come back with no `;` in it.
+ * Supports both single characters (';', 'x') and 2-character digraphs ('pl', 'th').
  */
 export function ensureTargets(text: string, targets: string[]): string {
     const words = text.split(' ').filter(Boolean);
-    const missing = targets.filter(ch => !text.includes(ch));
+    const missing = targets.filter(t => !text.toLowerCase().includes(t.toLowerCase()));
     if (missing.length === 0) return words.join(' ');
     if (words.length === 0) return missing.join(' ');
 
-    // Round-robin, so injections spread across the drill instead of piling onto
-    // one word.
+    // Round-robin, so injections spread across the drill instead of piling onto one word.
     let cursor = 0;
-    for (const ch of missing) {
+    for (const target of missing) {
         for (let n = 0; n < INJECTIONS_PER_TARGET; n++) {
             const at = cursor++ % words.length;
             const word = words[at];
-            // Punctuation reads naturally at a word edge; digits and letters belong
-            // inside a word, which is also where they are hardest to reach.
-            if (/[a-z0-9]/.test(ch)) {
+            
+            if (target.length === 2) {
+                // Digraph injection: place inside word
                 const mid = Math.ceil(word.length / 2);
-                words[at] = word.slice(0, mid) + ch + word.slice(mid);
+                words[at] = word.slice(0, mid) + target + word.slice(mid);
+            } else if (/[a-z0-9]/.test(target)) {
+                // Single letter or digit
+                const mid = Math.ceil(word.length / 2);
+                words[at] = word.slice(0, mid) + target + word.slice(mid);
             } else {
-                words[at] = word + ch;
+                // Punctuation
+                words[at] = word + target;
             }
         }
     }
     return words.join(' ');
+}
+
+/**
+ * Weak-word targets reduced to clean drill words (the whole-word counterpart
+ * of `targetChars`). Internal whitespace collapses to a hyphen so a stray
+ * multi-word entry still produces one typeable token.
+ */
+export function targetWords(words: string[]): string[] {
+    const cleaned = words
+        .map(w => w.toLowerCase().replace(/[^a-z0-9'\u2019 -]/g, '').trim())
+        .map(w => w.replace(/\s+/g, '-'))
+        .filter(w => w.length >= 3);
+    return Array.from(new Set(cleaned));
+}
+
+/**
+ * Whole-word counterpart of `ensureTargets`. A word drill must contain every
+ * target as its own word — splicing letters inside random words (what
+ * `ensureTargets` does for characters) would not rehearse the word's motor
+ * sequence. Missing targets are inserted at spread positions, twice each, so
+ * even a short review hits every word.
+ */
+export function ensureWordTargets(text: string, targets: string[]): string {
+    const normalized = targetWords(targets);
+    const parts = text.split(' ').filter(Boolean);
+    const present = new Set(parts.map(p => p.toLowerCase()));
+    const missing = normalized.filter(w => !present.has(w));
+    if (missing.length === 0) return parts.join(' ');
+    if (parts.length === 0) return missing.join(' ');
+
+    let cursor = 0;
+    for (const word of missing) {
+        for (let n = 0; n < 2; n++) {
+            cursor += 3;
+            const at = Math.min(parts.length, cursor);
+            parts.splice(at, 0, word);
+        }
+    }
+    return parts.join(' ');
+}
+
+/**
+ * Procedural word-drill builder. `pool` is an externally-supplied word source
+ * (the caller derives it from NOVICE_SENTENCES) so this stays pure and
+ * unit-testable. Related words — pool words that share a stem or appear as a
+ * substring of a target — fill out the passage around the targets themselves;
+ * `ensureWordTargets` then guarantees nothing was lost to the shuffle.
+ */
+export function buildProceduralWordDrill(targets: string[], pool: string[], length = 20): string {
+    const cleaned = targetWords(targets);
+    if (cleaned.length === 0) return '';
+
+    const targetSet = new Set(cleaned);
+    const stems = cleaned.map(t => t.slice(0, 3));
+    const related = pool.filter(w => {
+        const word = w.toLowerCase();
+        if (targetSet.has(word) || word.length < 3) return false;
+        return stems.some(stem => word.includes(stem)) || cleaned.some(t => t.includes(word));
+    });
+
+    const base = related.length >= 10 ? [...cleaned, ...related] : [...cleaned, ...pool];
+    const drillWords: string[] = [];
+    for (let i = 0; i < length; i++) {
+        drillWords.push(base[Math.floor(Math.random() * base.length)] || cleaned[i % cleaned.length]);
+    }
+    return ensureWordTargets(drillWords.join(' '), cleaned);
 }

@@ -1,55 +1,63 @@
-# BRIEFING — 2026-08-09T04:44:30Z
+# BRIEFING — 2026-09-01T02:39:15Z
 
 ## Mission
-Implement Milestone 2 coordinate alignment and key mapping fixes in VirtualKeyboard.tsx, CyberHands.tsx, and AcademyLayout.tsx.
+Implement Milestone 2: RPG Progression & Precision Multipliers in useRPGSystem, constants, and titles.
 
 ## 🔒 My Identity
-- Archetype: implementer
+- Archetype: worker
 - Roles: implementer, qa, specialist
 - Working directory: c:\Users\risho\OneDrive\Desktop\typenova-v2 - Copy\.agents\worker_m2_1
-- Original parent: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Milestone: M2 - Coordinate System Alignment & Key Mapping
+- Original parent: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Milestone: Milestone 2 (RPG Progression & Precision Multipliers)
 
 ## 🔒 Key Constraints
-- Exclusively edit:
-  - `src/components/academy/VirtualKeyboard.tsx`
-  - `src/components/academy/CyberHands.tsx`
-  - `src/components/academy/AcademyLayout.tsx`
-- Do not cheat or hardcode values.
-- Must run `npm run build` and `npm run lint` with 0 errors.
+- Exclusive write ownership: `src/hooks/useRPGSystem.ts`, `src/data/constants.ts`, `src/data/titles.ts`.
+- No dummy/facade implementations; must produce genuine real logic and state.
+- All 129 E2E tests + build must pass cleanly.
 
 ## Current Parent
-- Conversation ID: 471ff7c5-c4df-45c8-ba50-22ae5b175b9c
-- Updated: 2026-08-09T04:44:30Z
+- Conversation ID: 4e8a4c92-0b53-4a43-a689-1892c5452a1a
+- Updated: 2026-09-01T02:39:15Z
 
 ## Task Summary
 - **What to build**:
-  1. VirtualKeyboard.tsx: update ROWS[1] to include ';' key: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';']
-  2. CyberHands.tsx:
-     - Fix middle finger resting Y coordinates: left-middle tip [147, 76] and right-middle tip [412, 76] in LEFT_HOLOGRAM_FINGERS and RIGHT_HOLOGRAM_FINGERS.
-     - Fix Spacebar finger routing logic: SPACE / ' ' routes to thumb (Left Thumb if X <= 276, Right Thumb if X > 276) without breaking active state.
-     - Fix sonar target ripple null check: render circle only when `keyInfo && normalizedKey !== ""`.
-     - Fix zIndex layering: CyberHands div zIndex changed to 1 (or behind VirtualKeyboard).
-  3. Verify build & lint.
-  4. Handoff report.
-
+  - Integrate `calculateXPProgression` & `XpBreakdown` into `useRPGSystem.ts`.
+  - Add `xpBreakdownLast` state and expose in return object.
+  - In `processRPG`, accept `consistency` and `rawErrors`, calculate `XpBreakdown`, return updated object with `xpBreakdown`.
+  - Update `checkAchievements` in `useRPGSystem.ts` for new precision/combo achievements.
+  - Add `centurion_streak`, `flow_state`, `surgical_precision` achievements in `constants.ts`.
+  - Add `centurion`, `flow_master` title badges in `titles.ts`.
 - **Success criteria**:
-  - All M2 objectives completed.
-  - Zero build or lint errors.
-- **Interface contracts**: PROJECT.md
+  - `npx tsx src/tests/run_e2e.ts` passes (all 129 tests) -> PASSED (129/129)
+  - `npm run build` succeeds (exit code 0) -> PASSED (exit code 0)
+- **Interface contracts**: `PROJECT.md`
+- **Code layout**: `src/hooks/useRPGSystem.ts`, `src/data/constants.ts`, `src/data/titles.ts`
 
 ## Key Decisions Made
-- Starting M2 tasks directly following instructions.
+- `useRPGSystem.ts`: Imported `calculateXPProgression` & `XpBreakdown` from `src/lib/scoringEngine.ts`.
+- Re-exported `type XpBreakdown` from `useRPGSystem.ts`.
+- Maintained backward compatibility by making `consistency` and `rawErrors` optional with safe defaults.
+- Updated `checkAchievements` to unlock `centurion_streak` (100+ combo), `flow_state` (>=85% cons & >=95% acc), `surgical_precision` (50+ words & 100% acc).
+- Added `centurion` and `flow_master` badges to `TITLE_BADGES` and added `bestCombo` / `avgConsistency` to `UserSkillStats`.
 
 ## Change Tracker
-- **Files modified**: None yet
-- **Build status**: Untested
+- **Files modified**:
+  - `src/hooks/useRPGSystem.ts` (XP progression integration, xpBreakdownLast state, precision achievements)
+  - `src/data/constants.ts` (ACHIEVEMENTS: centurion_streak, flow_state, surgical_precision)
+  - `src/data/titles.ts` (TITLE_BADGES: centurion, flow_master, UserSkillStats)
+- **Build status**: PASS
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: TBD
-- **Lint status**: TBD
-- **Tests added/modified**: None
+- **Build/test result**: All 129 E2E tests passing, `npm run build` exits 0.
+- **Lint status**: Clean
+- **Tests added/modified**: Verified against E2E test suite
 
 ## Loaded Skills
-- None
+- None requested
+
+## Artifact Index
+- `.agents/worker_m2_1/DISPATCH.md` — Assignment instructions
+- `.agents/worker_m2_1/BRIEFING.md` — Working memory and status
+- `.agents/worker_m2_1/progress.md` — Liveness heartbeat and step tracking
+- `.agents/worker_m2_1/handoff.md` — Final handoff report

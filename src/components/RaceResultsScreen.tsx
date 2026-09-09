@@ -1,5 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Trophy, LogOut, ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  Trophy, LogOut, ArrowLeft, Crown, Clock, Zap, Shield, Sparkles,
+  Flame, AlertTriangle, Delete, Anchor, WifiOff, Timer, Crosshair, Flag, Activity,
+  Medal, RotateCcw, TrendingUp, TrendingDown,
+} from 'lucide-react';
 import type { RacerState } from '@/hooks/useRace';
 import { compareRacers } from '@/hooks/useRace';
 
@@ -11,9 +16,36 @@ import { assignRaceStyles } from './race/raceColors';
 import { MarkerSwatch } from './race/RaceMarkerGlyph';
 import { useRaceDetailSync } from '@/hooks/useRaceDetailSync';
 import { calculatePlayerTitle } from '../utils/playerTitles';
-import type { PlayerTitleStats, TitleIntervalRanking } from '../utils/playerTitles';
+import type { PlayerTitleStats, TitleIntervalRanking, CalculatedTitle } from '../utils/playerTitles';
 import type { SetStateAction } from 'react';
 import { PostMatchChat } from './PostMatchChat';
+import { useAudioEngine } from '@/hooks/useAudioEngine';
+
+interface EloTier {
+  name: string;
+  min: number;
+  max: number;
+  color: string;
+  glow: string;
+}
+
+const ELO_TIERS: EloTier[] = [
+  { name: 'GRANDMASTER', min: 2100, max: 9999, color: '#f43f5e', glow: 'rgba(244, 63, 94, 0.4)' },
+  { name: 'MASTER', min: 1900, max: 2099, color: '#a855f7', glow: 'rgba(168, 85, 247, 0.4)' },
+  { name: 'DIAMOND', min: 1700, max: 1899, color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.4)' },
+  { name: 'PLATINUM', min: 1500, max: 1699, color: '#2dd4bf', glow: 'rgba(45, 212, 191, 0.4)' },
+  { name: 'GOLD', min: 1300, max: 1499, color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.4)' },
+  { name: 'SILVER', min: 1100, max: 1299, color: '#94a3b8', glow: 'rgba(148, 163, 184, 0.4)' },
+  { name: 'BRONZE', min: 0, max: 1099, color: '#d97706', glow: 'rgba(217, 119, 6, 0.4)' },
+];
+
+function getEloTier(elo: number): { tier: EloTier; progressPct: number; currentInTier: number; tierSpan: number } {
+  const current = ELO_TIERS.find(t => elo >= t.min) || ELO_TIERS[ELO_TIERS.length - 1];
+  const span = current.max - current.min + 1;
+  const inTier = Math.max(0, elo - current.min);
+  const pct = Math.min(100, Math.round((inTier / span) * 100));
+  return { tier: current, progressPct: pct, currentInTier: inTier, tierSpan: span };
+}
 
 interface RaceResultsScreenProps extends ResultsScreenProps {
   players: RacerState[];
@@ -40,6 +72,32 @@ interface RaceResultsScreenProps extends ResultsScreenProps {
   onRaceWon?: () => void;
   chatMessages: import('../hooks/useRace').ChatMessage[];
   onSendMessage: (text: string) => void;
+}
+
+function renderTitleIcon(iconKey?: string) {
+  switch (iconKey) {
+    case 'alert-triangle': return <AlertTriangle size={12} className="text-amber-400 shrink-0" />;
+    case 'sparkles': return <Sparkles size={12} className="text-cyan-400 shrink-0" />;
+    case 'delete': return <Delete size={12} className="text-zinc-400 shrink-0" />;
+    case 'shield': return <Shield size={12} className="text-emerald-400 shrink-0" />;
+    case 'anchor': return <Anchor size={12} className="text-blue-400 shrink-0" />;
+    case 'flame': return <Flame size={12} className="text-rose-400 shrink-0" />;
+    case 'zap': return <Zap size={12} className="text-amber-400 shrink-0" />;
+    case 'activity': return <Activity size={12} className="text-pink-400 shrink-0" />;
+    case 'wifi-off': return <WifiOff size={12} className="text-zinc-500 shrink-0" />;
+    case 'timer': return <Timer size={12} className="text-cyan-400 shrink-0" />;
+    case 'crosshair': return <Crosshair size={12} className="text-emerald-400 shrink-0" />;
+    case 'flag':
+    default: return <Flag size={12} className="text-zinc-400 shrink-0" />;
+  }
+}
+
+function renderRankBadge(idx: number, isWinner: boolean, isDnf: boolean) {
+  if (isDnf) return <span title="DNF" className="inline-flex shrink-0"><Clock size={15} className="text-zinc-500 shrink-0" /></span>;
+  if (isWinner || idx === 0) return <span title="Winner" className="inline-flex shrink-0"><Crown size={16} className="text-amber-400 shrink-0" /></span>;
+  if (idx === 1) return <span className="font-mono text-xs font-black text-zinc-300 bg-white/10 px-1.5 py-0.5 rounded shrink-0">#2</span>;
+  if (idx === 2) return <span className="font-mono text-xs font-black text-amber-600/90 bg-white/10 px-1.5 py-0.5 rounded shrink-0">#3</span>;
+  return <span className="font-mono text-xs font-black text-zinc-500 bg-white/5 px-1.5 py-0.5 rounded shrink-0">#{idx + 1}</span>;
 }
 
 export function RaceResultsScreen({
@@ -155,6 +213,28 @@ export function RaceResultsScreen({
   const [eloTransfer, setEloTransfer] = useState<{ amount: number; direction: 'up' | 'down' } | null>(null);
   const [eloNote, setEloNote] = useState('');
   const [waitExpired, setWaitExpired] = useState(false);
+  const [hasVotedRematch, setHasVotedRematch] = useState(false);
+
+  const { playSound } = useAudioEngine();
+  const audioPlayedRef = useRef<{ elo?: boolean; win?: boolean }>({});
+
+  useEffect(() => {
+    if (eloTransfer && !audioPlayedRef.current.elo) {
+      audioPlayedRef.current.elo = true;
+      if (eloTransfer.direction === 'up') {
+        playSound('levelup');
+      } else {
+        playSound('error');
+      }
+    }
+  }, [eloTransfer, playSound]);
+
+  useEffect(() => {
+    if (iWon && !audioPlayedRef.current.win) {
+      audioPlayedRef.current.win = true;
+      playSound('achievement');
+    }
+  }, [iWon, playSound]);
 
   // Presence drops a disconnected racer out of `players` entirely, so keep the
   // last snapshot we saw. Without it, an opponent who rage-quits mid-race makes
@@ -311,7 +391,7 @@ export function RaceResultsScreen({
 
   // ── AWARDS LOGIC ──
   const awards = useMemo(() => {
-    if (!allFinished || maxRaceDurationMs === 0) return {} as Record<string, { title: string; emoji: string }>;
+    if (!allFinished || maxRaceDurationMs === 0) return {} as Record<string, CalculatedTitle>;
 
     // 1. Build Interval Rankings
     const intervals: TitleIntervalRanking[] = [];
@@ -358,22 +438,13 @@ export function RaceResultsScreen({
     }));
 
     // 3. Assign titles
-    const result: Record<string, { title: string; emoji: string }> = {};
+    const result: Record<string, CalculatedTitle> = {};
     for (const stats of allStats) {
       result[stats.id] = calculatePlayerTitle(stats, allStats, intervals);
     }
 
     return result;
   }, [allFinished, ranking, resultsProps.timelinePoints, selfId, timelines, maxRaceDurationMs]);
-
-  const medalColors = [
-    'text-amber-400 border-amber-500/50 bg-amber-500/10 shadow-[0_0_30px_rgba(245,158,11,0.3)]',   // 1st gold
-    'text-zinc-300 border-zinc-400/40 bg-zinc-400/10 shadow-[0_0_20px_rgba(161,161,170,0.2)]',      // 2nd silver
-    'text-orange-400 border-orange-500/40 bg-orange-500/10 shadow-[0_0_20px_rgba(251,146,60,0.2)]', // 3rd bronze
-    'text-zinc-500 border-zinc-700 bg-zinc-800/50',                                                   // 4th
-  ];
-
-  const medalStrokeColors = ['#fbbf24', '#d4d4d8', '#fb923c', '#71717a'];
 
   const placementText = (rank: number) => {
     if (rank === 0) return '1ST PLACE';
@@ -470,6 +541,196 @@ export function RaceResultsScreen({
   }, [chartSeries]);
   const effectiveMetric = canCompare ? chartMetric : 'wpm';
 
+  const myPlayer = roster.find(p => p.id === selfId);
+  const myBaseElo = myPlayer?.elo ?? 1000;
+  const finalElo = eloTransfer
+    ? (eloTransfer.direction === 'up' ? myBaseElo + eloTransfer.amount : Math.max(0, myBaseElo - eloTransfer.amount))
+    : myBaseElo;
+  const tierInfo = getEloTier(finalElo);
+
+  const renderPodiumPillar = (player: RacerState | undefined, rankIdx: number, tierType: 'gold' | 'silver' | 'bronze') => {
+    if (!player) return null;
+    const isFirst = tierType === 'gold';
+    const isSecond = tierType === 'silver';
+    const isSelected = player.id === selectedPlayerId;
+    const isMe = player.id === selfId;
+    const award = awards[player.id];
+    const seriesStyle = raceStyles.get(player.id);
+
+    const deltaWpm = (rankIdx > 0 && ranking[0]?.finishWpm)
+      ? Math.max(0, (ranking[0].finishWpm ?? 0) - (player.finishWpm ?? 0))
+      : 0;
+
+    const tierConfig = {
+      gold: {
+        label: '1ST // CHAMPION',
+        pillarHeight: 'h-48 sm:h-60',
+        borderColor: isSelected ? 'border-amber-300' : 'border-amber-500/45',
+        shadow: isSelected ? 'shadow-[0_0_35px_rgba(245,158,11,0.55)]' : 'shadow-[0_0_20px_rgba(245,158,11,0.2)]',
+        bg: 'bg-gradient-to-b from-amber-500/20 via-amber-950/40 to-black/90',
+        badgeBg: 'bg-amber-400 text-slate-950',
+        textColor: 'text-amber-300',
+        avatarBorder: 'border-amber-400/80 shadow-[0_0_20px_rgba(245,158,11,0.4)]',
+        numeral: '1',
+        delay: 0.35,
+      },
+      silver: {
+        label: '2ND // RUNNER UP',
+        pillarHeight: 'h-36 sm:h-44',
+        borderColor: isSelected ? 'border-slate-200' : 'border-slate-400/40',
+        shadow: isSelected ? 'shadow-[0_0_25px_rgba(203,213,225,0.45)]' : 'shadow-[0_0_15px_rgba(203,213,225,0.15)]',
+        bg: 'bg-gradient-to-b from-slate-400/15 via-slate-900/40 to-black/90',
+        badgeBg: 'bg-slate-300 text-slate-950',
+        textColor: 'text-slate-200',
+        avatarBorder: 'border-slate-300/80 shadow-[0_0_15px_rgba(203,213,225,0.3)]',
+        numeral: '2',
+        delay: 0.2,
+      },
+      bronze: {
+        label: '3RD // PODIUM',
+        pillarHeight: 'h-28 sm:h-32',
+        borderColor: isSelected ? 'border-amber-600' : 'border-amber-700/40',
+        shadow: isSelected ? 'shadow-[0_0_20px_rgba(180,83,9,0.45)]' : 'shadow-[0_0_12px_rgba(180,83,9,0.15)]',
+        bg: 'bg-gradient-to-b from-amber-700/15 via-stone-900/40 to-black/90',
+        badgeBg: 'bg-amber-700 text-amber-100',
+        textColor: 'text-amber-200',
+        avatarBorder: 'border-amber-700/80 shadow-[0_0_12px_rgba(180,83,9,0.3)]',
+        numeral: '3',
+        delay: 0.1,
+      },
+    }[tierType];
+
+    return (
+      <motion.div
+        key={player.id}
+        initial={{ opacity: 0, y: 60, scale: 0.92 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: tierConfig.delay, type: 'spring', stiffness: 240, damping: 22 }}
+        onClick={() => setSelectedPlayerId(player.id)}
+        className={`flex-1 max-w-[240px] flex flex-col items-center justify-end cursor-pointer group transition-all relative ${
+          isSelected ? 'z-20 scale-105' : 'z-10 hover:scale-[1.02]'
+        }`}
+      >
+        {/* Light Beam for Gold Winner */}
+        {isFirst && (
+          <div className="absolute top-8 bottom-0 w-3/4 bg-gradient-to-t from-amber-400/25 via-amber-400/5 to-transparent blur-md pointer-events-none -z-10" />
+        )}
+
+        {/* Floating Top Aura: Crown / Medal + Avatar */}
+        <div className="flex flex-col items-center gap-1.5 mb-2.5 relative">
+          {isFirst ? (
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+              className="p-1 rounded-full bg-amber-500/20 border border-amber-400/50 shadow-[0_0_18px_rgba(245,158,11,0.6)]"
+            >
+              <Crown size={22} className="text-amber-300" />
+            </motion.div>
+          ) : isSecond ? (
+            <div className="p-1 rounded-full bg-slate-400/15 border border-slate-300/40">
+              <Medal size={18} className="text-slate-300" />
+            </div>
+          ) : (
+            <div className="p-1 rounded-full bg-amber-700/15 border border-amber-700/40">
+              <Medal size={16} className="text-amber-600" />
+            </div>
+          )}
+
+          {/* Avatar Squircle */}
+          <div
+            className={`w-14 sm:w-16 h-14 sm:h-16 rounded-2xl border-2 flex items-center justify-center font-black text-xl sm:text-2xl shadow-2xl transition-all relative bg-slate-900 ${tierConfig.avatarBorder}`}
+            style={{ color: isFirst ? '#fef08a' : isSecond ? '#f1f5f9' : '#fed7aa' }}
+          >
+            {player.name.charAt(0).toUpperCase()}
+            {isMe && (
+              <span className="absolute -bottom-1.5 text-[8px] font-mono font-black px-1.5 py-0.2 rounded-full bg-white/15 border border-white/30 text-white backdrop-blur-md shadow-md">
+                YOU
+              </span>
+            )}
+          </div>
+
+          {/* Name & Headline Speed */}
+          <div className="flex flex-col items-center text-center mt-1">
+            <div className="flex items-center gap-1.5">
+              {seriesStyle && <MarkerSwatch marker={seriesStyle.marker} color={seriesStyle.color} size={10} />}
+              <span className="font-mono text-xs font-black text-white tracking-wider max-w-[120px] truncate">
+                {player.name}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className={`text-2xl sm:text-3xl font-black font-mono ${tierConfig.textColor}`}>
+                {player.finishWpm ?? 0}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-zinc-500">WPM</span>
+            </div>
+
+            {/* Split Delta (Runner-up) or Finish Time */}
+            <div className="flex items-center gap-1.5 text-[9px] font-mono text-zinc-400 mt-0.5">
+              {deltaWpm > 0 ? (
+                <span className="text-zinc-400 font-bold">-{deltaWpm} WPM</span>
+              ) : (
+                <span className="text-amber-400/90 font-bold">{player.finishAcc ? `${player.finishAcc}% ACC` : 'FINISHED'}</span>
+              )}
+              {player.finishMs && (
+                <span className="text-zinc-500">• {((player.finishMs) / 1000).toFixed(1)}s</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 3D Glass Pedestal Body */}
+        <div
+          className={`w-full ${tierConfig.pillarHeight} rounded-t-3xl border-t-2 border-x-2 transition-all relative overflow-hidden flex flex-col items-center justify-between p-3 shadow-2xl ${tierConfig.borderColor} ${tierConfig.bg} ${tierConfig.shadow}`}
+        >
+          {/* Holographic light sheen sweep */}
+          <motion.div
+            animate={{ x: ['-100%', '200%'] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1 }}
+            className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 pointer-events-none"
+          />
+
+          {/* Giant Engraved Numeral Watermark */}
+          <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-7xl sm:text-8xl font-black font-mono opacity-15 select-none pointer-events-none text-white">
+            {tierConfig.numeral}
+          </span>
+
+          {/* Rank Badge Header */}
+          <span className={`px-2.5 py-0.5 rounded-full font-mono text-[9px] font-black tracking-widest uppercase shadow-md relative z-10 ${tierConfig.badgeBg}`}>
+            {tierConfig.label}
+          </span>
+
+          {/* Award title badge if present */}
+          {award?.title ? (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-black/60 border border-white/10 text-[9px] font-mono font-black text-amber-200/90 tracking-wider relative z-10 max-w-[95%]">
+              {renderTitleIcon(award.icon)}
+              <span className="truncate">{award.title}</span>
+            </div>
+          ) : <div />}
+
+          {/* Active Inspection Indicator */}
+          <div className="font-mono text-[9px] font-bold tracking-widest uppercase relative z-10">
+            {isSelected ? (
+              <span
+                className="flex items-center gap-1 font-black animate-pulse"
+                style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }}
+                />
+                INSPECTING
+              </span>
+            ) : (
+              <span className="text-zinc-500 opacity-60 group-hover:opacity-100 transition-opacity">
+                CLICK TO VIEW
+              </span>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-y-auto">
@@ -480,30 +741,98 @@ export function RaceResultsScreen({
         />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 py-8 md:py-12">
+      <div className="relative z-10 w-full max-w-[var(--w-ultra)] mx-auto px-6 sm:px-10 lg:px-14 xl:px-16 2xl:px-20 py-8 md:py-12">
 
         {/* 🏆 WINNER BANNER 🏆 */}
         <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative">
 
-          {isRanked && !eloTransfer && eloNote && (
-            <div className="flex items-center justify-center mb-8 h-16">
-              <div className="text-xs font-black tracking-widest uppercase text-zinc-500 border border-zinc-800 bg-zinc-900/50 rounded-full px-5 py-3">
-                {eloNote}
-              </div>
-            </div>
-          )}
+          {/* ⚡ Dynamic Ranked Division ELO Progression Card ⚡ */}
+          {isRanked && (
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="max-w-xl mx-auto mb-8 p-4 sm:p-5 rounded-3xl glass-panel border border-white/15 bg-black/50 shadow-2xl relative overflow-hidden backdrop-blur-xl"
+            >
+              {/* Subtle ambient light */}
+              <div
+                className="absolute -top-12 -right-12 w-32 h-32 rounded-full blur-2xl pointer-events-none opacity-30"
+                style={{ background: tierInfo.tier.color }}
+              />
 
-          {/* Fluid Elo Transfer Animation */}
-          {isRanked && eloTransfer && (
-            <div className="flex items-center justify-center pointer-events-none mb-8 h-16">
-              <div className={`transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] ${eloTransfer ? 'opacity-100 translate-y-0 scale-125' : 'opacity-0 translate-y-8 scale-50'}`}>
-                {eloTransfer && (
-                  <div className={`text-5xl font-black tracking-widest uppercase drop-shadow-2xl ${eloTransfer.direction === 'up' ? 'text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.5)]' : 'text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]'}`}>
-                    {eloTransfer.direction === 'up' ? '+' : '-'}{eloTransfer.amount} ELO
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="p-1.5 rounded-xl border flex items-center justify-center"
+                    style={{
+                      borderColor: tierInfo.tier.color,
+                      background: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.1)`,
+                      color: tierInfo.tier.color,
+                      boxShadow: `0 0 14px ${tierInfo.tier.glow}`,
+                    }}
+                  >
+                    <Trophy size={15} />
                   </div>
+                  <div className="flex flex-col text-left font-mono">
+                    <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">RANKED DIVISION</span>
+                    <span className="text-sm font-black tracking-widest" style={{ color: tierInfo.tier.color }}>
+                      {tierInfo.tier.name}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Transfer Pill */}
+                {eloTransfer ? (
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full border font-mono text-xs font-black tracking-wider ${
+                      eloTransfer.direction === 'up'
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.35)]'
+                        : 'bg-rose-500/15 border-rose-500/40 text-rose-400 shadow-[0_0_16px_rgba(244,63,94,0.35)]'
+                    }`}
+                  >
+                    {eloTransfer.direction === 'up' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                    <span>{eloTransfer.direction === 'up' ? '+' : '-'}{eloTransfer.amount} ELO</span>
+                  </motion.div>
+                ) : eloNote ? (
+                  <span className="text-[10px] font-mono font-bold text-zinc-400 border border-white/10 px-3 py-1 rounded-full bg-white/5">
+                    {eloNote}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono font-bold text-sky-400 flex items-center gap-1.5 border border-sky-500/20 px-3 py-1 rounded-full bg-sky-500/10">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
+                    CALCULATING ELO...
+                  </span>
                 )}
               </div>
-            </div>
+
+              {/* Rolling Rating Progression & Bar */}
+              <div className="flex flex-col gap-2 font-mono">
+                <div className="flex items-center justify-between text-xs font-black">
+                  <span className="text-zinc-400 tracking-wider">
+                    CURRENT RATING: <span className="text-white text-base">{finalElo}</span> ELO
+                  </span>
+                  <span className="text-[10px] text-zinc-400 tracking-wider">
+                    {tierInfo.progressPct}% TO NEXT TIER
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden relative">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${tierInfo.progressPct}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                    className="h-full rounded-full relative"
+                    style={{
+                      backgroundColor: tierInfo.tier.color,
+                      boxShadow: `0 0 10px ${tierInfo.tier.glow}`,
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.div>
           )}
 
           <Trophy
@@ -519,7 +848,7 @@ export function RaceResultsScreen({
           {myRank >= 0 && (
             <p className={`text-xl font-black tracking-[0.3em] uppercase ${!allFinished ? 'text-zinc-500' : myRank === 0 ? 'text-amber-400' : myRank === 1 ? 'text-zinc-300' : myRank === 2 ? 'text-orange-400' : 'text-zinc-500'
               }`}>
-              {!allFinished ? 'RESULTS PENDING' : iWon ? '🏆 YOU WIN!' : `${placementText(myRank)}`}
+              {!allFinished ? 'RESULTS PENDING' : iWon ? <><Trophy size={18} className="inline mr-2 text-amber-400 align-text-bottom" />YOU WIN!</> : `${placementText(myRank)}`}
             </p>
           )}
         </div>
@@ -591,85 +920,104 @@ export function RaceResultsScreen({
           </div>
         </div>
 
-        {/* ── INTERACTIVE SUMMARY CARDS ──────────────────────── */}
-        <div className="flex flex-wrap justify-center gap-4 mb-12">
-          {/* Stragglers/disconnects are listed as DNF instead of vanishing. */}
-          {[...ranking, ...unfinished].map((player, idx) => {
-            const isDnf = !player.finished;
-            const isSelf = player.id === selfId;
-            const isSelected = !isDnf && player.id === selectedPlayerId;
-            const isWinner = idx === 0 && allFinished && !isDnf;
+        {/* ════ 🏆 OLYMPIC 3D VICTORY PODIUM 🏆 ════ */}
+        <div className="mb-14 animate-in fade-in slide-in-from-bottom-6 duration-700">
+          <div className="text-center mb-6">
+            <span
+              className="text-[10px] font-mono font-black uppercase tracking-[0.3em] px-3.5 py-1 rounded-full border"
+              style={{
+                borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.35)`,
+                background: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.08)`,
+                color: `rgb(${theme?.glowPrimary || '6, 182, 212'})`,
+                boxShadow: `0 0 16px rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+              }}
+            >
+              CHAMPIONSHIP PODIUM // STANDINGS
+            </span>
+          </div>
 
-            const colorClass = medalColors[idx] || medalColors[3];
-            const strokeColor = medalStrokeColors[idx] || medalStrokeColors[3];
-            const award = awards[player.id];
-            /* Same hue + shape as this racer's line, so a card can be tied back
-               to the chart above it. Kept separate from the medal colours, which
-               encode placement rather than identity. */
-            const seriesStyle = raceStyles.get(player.id);
-            const sync = detailSync.get(player.id);
+          {/* 3D Tiered Pedestals Container */}
+          <div className="w-full max-w-4xl mx-auto flex items-end justify-center gap-3 sm:gap-6 px-2 min-h-[380px] pb-2">
+            {ranking.length >= 3 ? (
+              <>
+                {/* 2nd Place (Silver) - Left */}
+                {renderPodiumPillar(ranking[1], 1, 'silver')}
 
-            return (
-              <button
-                key={player.id}
-                onClick={() => { if (!isDnf) setSelectedPlayerId(player.id); }}
-                disabled={isDnf}
+                {/* 1st Place (Gold) - Center */}
+                {renderPodiumPillar(ranking[0], 0, 'gold')}
 
-                className={`relative overflow-hidden group text-left px-6 py-4 rounded-3xl transition-all duration-300 glass-panel ${isWinner ? 'scale-105 saturate-150 shadow-2xl z-20' :
-                  isSelected ? 'scale-100 shadow-xl opacity-100 z-10' :
-                    'scale-95 opacity-50 hover:opacity-80 grayscale-[0.5] z-0'
-                  }`}
-                style={
-                  isWinner ? { boxShadow: `0 0 30px ${medalStrokeColors[0]}60`, borderColor: medalStrokeColors[0] } :
-                    isSelected ? { boxShadow: `0 0 15px ${strokeColor}40`, borderColor: strokeColor } : {}
-                }
-              >
-                {isSelected && (
-                  <div className="absolute inset-0 opacity-10" style={{ backgroundColor: strokeColor }}></div>
-                )}
-                {isWinner && (
-                  <div className="absolute inset-0 animate-pulse pointer-events-none border-2 border-amber-400/30 rounded-3xl" style={{ boxShadow: 'inset 0 0 20px rgba(251,191,36,0.1)' }}></div>
-                )}
-                <div className="relative z-10 flex flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{isDnf ? '⌛' : isWinner ? '👑' : ['🥇', '🥈', '🥉', '4th'][idx] || '·'}</span>
+                {/* 3rd Place (Bronze) - Right */}
+                {renderPodiumPillar(ranking[2], 2, 'bronze')}
+              </>
+            ) : ranking.length === 2 ? (
+              <>
+                {/* 1st Place (Gold) */}
+                {renderPodiumPillar(ranking[0], 0, 'gold')}
 
-                    {/* Identity swatch: ties this card to its line on the chart. */}
-                    {seriesStyle && (
-                      <MarkerSwatch marker={seriesStyle.marker} color={seriesStyle.color} size={11} />
-                    )}
-                    <span className={`font-black tracking-widest uppercase ${isSelected || isWinner ? 'text-white' : 'text-zinc-400'}`}>
+                {/* 2nd Place (Silver) */}
+                {renderPodiumPillar(ranking[1], 1, 'silver')}
+              </>
+            ) : ranking.length === 1 ? (
+              <>
+                {/* 1st Place Solo */}
+                {renderPodiumPillar(ranking[0], 0, 'gold')}
+              </>
+            ) : (
+              /* Waiting state */
+              <div className="text-center py-12 font-mono text-xs text-zinc-500 tracking-widest uppercase">
+                <span className="animate-pulse">Awaiting race resolution...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Runners-Up Row (4th+ Place & DNFs) */}
+          {(ranking.length > 3 || unfinished.length > 0) && (
+            <div className="w-full max-w-3xl mx-auto mt-6 pt-4 border-t border-white/10 flex flex-wrap items-center justify-center gap-2.5">
+              <span className="w-full text-center text-[9px] font-mono font-bold tracking-widest text-zinc-500 uppercase mb-1">
+                RUNNERS & TELEMETRY
+              </span>
+              {[...ranking.slice(3), ...unfinished].map((player, subIdx) => {
+                const actualIdx = ranking.length > 3 ? 3 + subIdx : subIdx;
+                const isDnf = !player.finished;
+                const isSelf = player.id === selfId;
+                const isSelected = !isDnf && player.id === selectedPlayerId;
+                const seriesStyle = raceStyles.get(player.id);
+                const award = awards[player.id];
+
+                return (
+                  <button
+                    key={player.id}
+                    onClick={() => { if (!isDnf) setSelectedPlayerId(player.id); }}
+                    disabled={isDnf}
+                    className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border font-mono transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-white/15 border-white/40 shadow-lg scale-105'
+                        : isDnf
+                          ? 'bg-white/[0.02] border-white/5 opacity-40 cursor-not-allowed'
+                          : 'bg-white/5 border-white/10 hover:border-white/20 text-zinc-300 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black text-zinc-400">
+                      {renderRankBadge(actualIdx, false, isDnf)}
+                    </span>
+                    {seriesStyle && <MarkerSwatch marker={seriesStyle.marker} color={seriesStyle.color} size={9} />}
+                    <span className="text-xs font-black text-white truncate max-w-[100px]">
                       {player.name}
                     </span>
                     {isSelf && (
-                      <span className="ml-1 text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-full bg-white/10 border border-white/20">YOU</span>
+                      <span className="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-white/10 text-white">YOU</span>
                     )}
-                  </div>
-                  <div className="flex justify-between items-baseline mt-2">
-                    <span className={`text-2xl font-black ${isSelected ? colorClass.split(' ')[0] : 'text-white'}`}>
-                      {isDnf ? 'DNF' : (player.finishWpm ?? 0)} <span className="text-xs text-zinc-500">{isDnf ? 'NO RESULT' : 'WPM'}</span>
+                    <span className="text-xs font-black text-zinc-200 ml-1">
+                      {isDnf ? 'DNF' : `${player.finishWpm ?? 0} WPM`}
                     </span>
-                  </div>
-                  {/* Detail-sync state, so a card whose panel will be thin says so
-                      up front instead of opening onto an empty graph. */}
-                  {sync && (
-                    <div className={`mt-1 flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.16em] ${sync === 'syncing' ? 'text-sky-300/70' : 'text-zinc-500'
-                      }`}>
-                      {sync === 'syncing' && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-sky-300/70 fx-pulse" />}
-                      <span>{sync === 'syncing' ? 'Syncing details' : 'Details unavailable'}</span>
-                    </div>
-                  )}
-                  {!isDnf && award?.title && (
-
-                    <div className="mt-2 flex items-center gap-1.5 text-[9px] font-black tracking-widest px-2.5 py-1.5 rounded-md border border-white/10 bg-white/5 uppercase text-amber-200/80 w-fit">
-                      <span className="text-sm">{award.emoji}</span>
-                      <span>{award.title}</span>
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+                    {award?.title && (
+                      <span className="text-[9px] text-amber-300/80 hidden sm:inline">• {award.title}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* ── SELECTED PLAYER DETAILED STATS ─────────────────────────── */}
@@ -707,6 +1055,93 @@ export function RaceResultsScreen({
 
         </div>
 
+        {/* ── CYBER SABOTAGE COMBAT BREAKDOWN ────────────── */}
+        {players.some(p => p.sabotageStats && (p.sabotageStats.hexesCast > 0 || p.sabotageStats.hexesDeflected > 0 || p.sabotageStats.hexesAfflicted > 0)) && (
+          <div
+            className="mb-8 p-6 rounded-3xl border glass-panel bg-zinc-950/60 backdrop-blur-xl relative overflow-hidden"
+            style={{
+              borderColor: `rgba(${theme?.glowPrimary || '34, 211, 238'}, 0.25)`,
+              boxShadow: `0 0 25px rgba(${theme?.glowPrimary || '34, 211, 238'}, 0.08)`,
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-2 h-2 rounded-full animate-ping"
+                  style={{ backgroundColor: `rgb(${theme?.glowPrimary || '34, 211, 238'})` }}
+                />
+                <h3
+                  className="font-mono text-xs font-black tracking-widest uppercase"
+                  style={{ color: `rgb(${theme?.glowPrimary || '34, 211, 238'})` }}
+                >
+                  CYBER COMBAT ENGAGEMENT LOG
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+                1V1 TACTICAL HEX PROTOCOL
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {players.map(player => {
+                const stats = player.sabotageStats || { hexesCast: 0, hexesDeflected: 0, hexesAfflicted: 0, cleanseCount: 0 };
+                const isSelf = player.id === selfId;
+
+                return (
+                  <div
+                    key={player.id}
+                    className="p-4 rounded-2xl border border-white/5 bg-white/[0.02] flex flex-col gap-2.5 font-mono"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black tracking-wider text-white truncate">
+                        {player.name}
+                      </span>
+                      {isSelf && (
+                        <span
+                          className="text-[8px] font-black px-1.5 py-0.5 rounded border"
+                          style={{
+                            borderColor: `rgba(${theme?.glowPrimary || '34, 211, 238'}, 0.4)`,
+                            color: `rgb(${theme?.glowPrimary || '34, 211, 238'})`,
+                          }}
+                        >
+                          YOU
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-left pt-1">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Cast</span>
+                        <span className="flex items-center gap-1 text-sm font-black text-white">
+                          <Zap size={12} className="text-amber-400 shrink-0" /> {stats.hexesCast}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Deflected</span>
+                        <span className="flex items-center gap-1 text-sm font-black text-emerald-400">
+                          <Shield size={12} className="text-emerald-400 shrink-0" /> {stats.hexesDeflected}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Cleansed</span>
+                        <span className="flex items-center gap-1 text-sm font-black text-cyan-400">
+                          <Sparkles size={12} className="text-cyan-400 shrink-0" /> {stats.cleanseCount}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Endured</span>
+                        <span className="flex items-center gap-1 text-sm font-black text-rose-400">
+                          <Flame size={12} className="text-rose-400 shrink-0" /> {stats.hexesAfflicted}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── POST-MATCH CHAT ────────────────────────────── */}
         <div className="border-t border-zinc-800/50 pt-8 pb-4 animate-in fade-in slide-in-from-bottom-8">
           <PostMatchChat
@@ -722,27 +1157,66 @@ export function RaceResultsScreen({
         {/* ── RACE ACTIONS ────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-center gap-4 mt-6 pb-12 font-mono">
           {isHost ? (
-            <button
-              onClick={() => (onReturnToRoom || onRematch)?.()}
-              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black tracking-wider text-sm shadow-[0_0_25px_rgba(6,182,212,0.5)] hover:scale-105 active:scale-100 transition-all cursor-pointer"
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => (onRematch || onReturnToRoom)?.()}
+              className="flex items-center gap-3 px-10 py-4 rounded-2xl text-slate-950 font-black tracking-widest text-sm shadow-2xl transition-all cursor-pointer relative overflow-hidden group"
+              style={{
+                backgroundColor: `rgb(${theme?.glowPrimary || '6, 182, 212'})`,
+                boxShadow: `0 0 35px rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.55)`
+              }}
             >
-              <ArrowLeft size={18} className="stroke-[2.5]" />
-              <span>RETURN TO ROOM</span>
-              <span className="text-[10px] opacity-75 font-bold uppercase tracking-normal bg-black/20 px-2 py-0.5 rounded-full">(PULLS ALL PLAYERS)</span>
-            </button>
+              {/* Holographic light sweep */}
+              <motion.div
+                animate={{ x: ['-100%', '220%'] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1 }}
+                className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 pointer-events-none"
+              />
+              <RotateCcw size={18} className="stroke-[2.5] group-hover:rotate-180 transition-transform duration-500" />
+              <span>RUN IT BACK // REMATCH</span>
+              <span className="text-[10px] uppercase font-bold bg-black/25 px-2 py-0.5 rounded-full text-black">
+                PULLS ALL PLAYERS
+              </span>
+            </motion.button>
           ) : (
-            <button
-              onClick={() => (onReturnToRoom || onRematch)?.()}
-              className="flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 font-black tracking-wider text-sm shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:bg-cyan-500/30 hover:scale-105 active:scale-100 transition-all cursor-pointer"
-            >
-              <ArrowLeft size={18} className="stroke-[2.5]" />
-              <span>BACK TO ROOM LOBBY</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  setHasVotedRematch(true);
+                  onSendMessage('⚡ Voted for REMATCH! Ready to run it back!');
+                }}
+                disabled={hasVotedRematch}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black tracking-wider text-sm transition-all border cursor-pointer ${
+                  hasVotedRematch
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.35)]'
+                    : 'bg-white/10 hover:bg-white/15 border-white/20 text-white'
+                }`}
+              >
+                <Flame size={17} className={hasVotedRematch ? 'text-emerald-400 animate-pulse' : 'text-amber-400'} />
+                <span>{hasVotedRematch ? 'VOTED FOR REMATCH' : 'VOTE REMATCH'}</span>
+              </motion.button>
+
+              <button
+                onClick={() => (onReturnToRoom || onRematch)?.()}
+                className="flex items-center gap-2 px-6 py-4 rounded-2xl font-bold tracking-wider text-sm hover:scale-105 transition-all cursor-pointer border"
+                style={{
+                  backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+                  borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.35)`,
+                  color: `rgb(${theme?.glowPrimary || '6, 182, 212'})`,
+                }}
+              >
+                <ArrowLeft size={16} className="stroke-[2]" />
+                <span>BACK TO LOBBY</span>
+              </button>
+            </div>
           )}
 
           <button
             onClick={onLeaveRace}
-            className="flex items-center gap-2.5 px-6 py-4 glass-panel rounded-2xl text-zinc-400 font-bold tracking-wider text-sm hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all border border-white/5"
+            className="flex items-center gap-2.5 px-6 py-4 glass-panel rounded-2xl text-zinc-400 font-bold tracking-wider text-sm hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all border border-white/5 cursor-pointer"
             title="Leave room and return to solo practice"
           >
             <LogOut size={16} />

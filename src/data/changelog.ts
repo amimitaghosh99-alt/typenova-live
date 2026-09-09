@@ -18,9 +18,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v2.9.0',
+    date: 'September 3, 2026',
+    title: 'Cosmetics Synchronization, Unified Aru Coaching & Adaptive Widescreen Arena',
+    changes: [
+      { type: 'feature', description: 'Live Identity Capsule & Banner Sync: The top navbar capsule now mirrors your equipped 3D mechanical keycap avatar (from AvatarArt) and equipped banner styling (gradients, accent borders, and glow reflections), fully synced in real-time with the Loadout Forge and Supabase.' },
+      { type: 'feature', description: 'Unified Aru AI Coaching Core: Multi-tier intelligence system with BYOK cloud providers (Groq, OpenAI, Anthropic, Gemini, DeepSeek), offline procedural coaching fallbacks, and 4 dedicated coaching personas (Precision, Cadence, Telemetry, Velocity).' },
+      { type: 'feature', description: 'Interactive Neuro-Debrief & Action Directives: Aru evaluates post-test telemetry to surface weak keys and actionable drill directives ([[action:drill:...]]), rendering 1-click practice launch cards directly on the results screen.' },
+      { type: 'feature', description: 'Wide Leaderboard Sidebar: Expanded sidebar card width to 340px/380px/420px, providing 100px of extra breathing room so long player tags never crowd WPM and accuracy metrics.' },
+      { type: 'fix', description: 'Arena Spacing & Laptop Display Balancing: Overhauled the main arena grid with centered vertical rhythm, deeper canvas padding, and a single-row Monkeytype toolbar (~793px) that never wraps or squishes on 1366×768 or 1280×720 screens.' },
+      { type: 'fix', description: 'Persona Selector Dropdown Clipping: Resolved header overflow clipping in Aru chat so persona dropdowns and settings controls float cleanly above all layers.' },
+      { type: 'tweak', description: 'Global Cosmetics Event Pipeline: Added useCosmetics hook with instant localStorage first-frame paint, cross-tab synchronization, and live updates across navbar, drawer, and bottom account menus.' }
+    ],
+    impact: {
+      fixes: 6,
+      tweaks: 9,
+      linesChanged: 2850,
+      perfGain: 'Zero-Latency First-Frame Cosmetics & Guaranteed Single-Row Toolbar'
+    }
+  },
+  {
     version: 'v2.8.0',
     date: 'August 30, 2026',
-    title: 'Ghost Net, Per-Mode Leaderboards & the Tactical Compete Rebuild 👻🏁',
+    title: 'Ghost Net, Per-Mode Leaderboards & the Tactical Compete Rebuild',
     changes: [
       { type: 'feature', description: 'Ghost Net — Race Anyone on the Board: submit_score already shipped your full keystroke log to Postgres to verify your WPM, then threw it away. It now reduces that verified log to a pace curve and stores it, so every leaderboard row is a downloadable opponent you can race side by side instead of a number you read.' },
       { type: 'feature', description: 'Per-Mode Leaderboards: a new MODE board partitions scores by the exact config that produced them, so a 15-second sprint no longer competes with a 100-word marathon. Boards are keyed as LEVEL:t30 / LEVEL:w50 — the same namespace personal-best ghosts have always used.' },
@@ -45,7 +65,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.7.0',
     date: 'August 27, 2026',
-    title: 'Operator Dossier, Tactical Multiplayer Arena & Cosmetic Forge Overhaul 🪪⚡',
+    title: 'Operator Dossier, Tactical Multiplayer Arena & Cosmetic Forge Overhaul',
     changes: [
       { type: 'feature', description: 'Dedicated Operator Dossier Page: Replaced popup modal with full-route /operator/:username dossier featuring a sticky identity rail, dynamic banner sync, and seamless tab transitions.' },
       { type: 'feature', description: 'Interactive Key Heatmap & Smart Drills: 27-key per-key accuracy and hesitation delay heatmaps with one-click procedural and AI drill generation.' },
@@ -66,7 +86,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.6.0',
     date: 'August 25, 2026',
-    title: 'Neural Academy Rebuild — 64 Lessons, Themed Surfaces & Sharp Wallpapers 🎓',
+    title: 'Neural Academy Rebuild — 64 Lessons, Themed Surfaces & Sharp Wallpapers',
     changes: [
       { type: 'feature', description: 'Full Academy Curriculum: 64 lessons across 10 progressive tracks, three-star grading per lesson, boss checks that gate the next track, and a 50-level mastery ladder with titles.' },
       { type: 'feature', description: 'Live Passage Rail: Multi-word lessons now scroll a real passage with per-character state instead of one key at a time, so drills read like typing rather than flashcards.' },
@@ -90,7 +110,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.5.1',
     date: 'August 24, 2026',
-    title: 'Master-Detail Changelog, Zero-Lag WebGL Pausing & Push Alerts ⚡',
+    title: 'Master-Detail Changelog, Zero-Lag WebGL Pausing & Push Alerts',
     changes: [
       { type: 'feature', description: 'Master-Detail Changelog: Complete dual-pane overhaul with smooth vertical spring rail navigation and dedicated active release stage.' },
       { type: 'feature', description: 'Native Desktop Push & Email Alerts: Functional subscription system with browser notification permission and persistent email patch dispatch.' },
@@ -108,7 +128,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.5.0',
     date: 'August 24, 2026',
-    title: 'Multiplayer Cockpit, Zero-Lag 4K Engine & Liquid Stage Flow 💎🚀',
+    title: 'Multiplayer Cockpit, Zero-Lag 4K Engine & Liquid Stage Flow',
     changes: [
       { type: 'feature', description: 'Zero-Scroll Multiplayer Cockpit: Widescreen split tactical layout with a dedicated Neural Comms chat hub, live telemetry stream, and 4-column racer podiums.' },
       { type: 'feature', description: 'Seamless Room Flow & Post-Match Retention: Return directly to the lobby room after matches without room recreation or losing party members.' },
@@ -128,7 +148,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.4.0',
     date: 'August 14, 2026',
-    title: '3D Kinetic Landing & Open Source Evolution 🚀',
+    title: '3D Kinetic Landing & Open Source Evolution',
     changes: [
       { type: 'feature', description: '3D Kinetic Keyboard Hero: Real-time Three.js interactive wave-animated 3D keyboard tiles with glowing cyber neon lighting.' },
       { type: 'feature', description: 'Cosmic Nebula Background: Custom WebGL fragment shader with procedural space dust, zero blowout, and seamless dark obsidian palette.' },
@@ -146,7 +166,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.2.0',
     date: 'August 13, 2026',
-    title: 'The Triple Threat Engine & Working Models ⭐',
+    title: 'The Triple Threat Engine & Working Models',
     changes: [
       { type: 'feature', description: 'Gemini Nano Integration: Aru now natively hooks into Chrome\'s local Prompt API, allowing offline, zero-latency inference without an API key.' },
       { type: 'feature', description: 'Working Models Tracker: Automatically remembers your successful models from custom endpoints and pins them to the top of dropdowns with a ⭐.' },
@@ -163,7 +183,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.1.0',
     date: 'August 10, 2026',
-    title: 'Dual-Agent Architecture & The Technician 🤖',
+    title: 'Dual-Agent Architecture & The Technician',
     changes: [
       { type: 'feature', description: 'Dual-Agent Architecture: Aru now runs exclusively on BYOK, while the new Dumb Technician uses the TypeNova Cloud.' },
       { type: 'feature', description: 'Dumb Technician UI: Added a dedicated support chat in the AI Settings to guide users.' },
@@ -180,7 +200,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v2.0.1',
     date: 'August 10, 2026',
-    title: 'Academy & Massive UI Overhaul 🎓',
+    title: 'Academy & Massive UI Overhaul',
     changes: [
       { type: 'feature', description: 'Academy curriculum and progression system, including CyberHands and VirtualKeyboard.' },
       { type: 'feature', description: 'Profile Customization Menu with Avatars and Banners.' },
@@ -198,7 +218,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.6.5',
     date: 'August 6, 2026',
-    title: 'Post-Match Chat Updates & Agents 🤖',
+    title: 'Post-Match Chat Updates & Agents',
     changes: [
       { type: 'feature', description: 'AI Teams: Integrated new background agent teamwork workflows.' },
       { type: 'fix', description: 'Post-Match Chat: Added missing identity props to fix multiplayer chat routing.' }
@@ -208,7 +228,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.6.4',
     date: 'August 4, 2026',
-    title: 'Video Calling & Global Settings 📹⚙️',
+    title: 'Video Calling & Global Settings',
     changes: [
       { type: 'feature', description: 'Video Calling: Added WebRTC-based video call overlays so you can see your friends while racing.' },
       { type: 'feature', description: 'Settings Modal: Centralized settings management with a new dedicated modal and contexts.' },
@@ -219,7 +239,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.6.3',
     date: 'August 3, 2026',
-    title: 'Direct Messages & UI Fixes 💬',
+    title: 'Direct Messages & UI Fixes',
     changes: [
       { type: 'feature', description: 'Direct Messages: Added the foundation for real-time direct messaging with a new Comms modal.' },
       { type: 'fix', description: 'UI Tweaks: Fixed undefined property references and duplicate class warnings in the core typing engine UI.' }
@@ -229,7 +249,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.6.2',
     date: 'August 2, 2026',
-    title: 'The Great Bug Sweep & Stability Update 🛡️',
+    title: 'The Great Bug Sweep & Stability Update',
     changes: [
       { type: 'fix', description: 'Critical Fixes: Patched 7 critical bugs including unmatched array crashes, chat null pointer exceptions, and network blip aborts that caused complete application failure.' },
       { type: 'fix', description: 'Multiplayer Stability: Resolved memory leaks from stale chat subscriptions, channel collisions, and recursive infinite re-render loops during Ranked matchmaking.' },
@@ -242,7 +262,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.6.1',
     date: 'August 2, 2026',
-    title: 'Post-Match Chat & Custom Friend Challenges 💬⚔️',
+    title: 'Post-Match Chat & Custom Friend Challenges',
     changes: [
       { type: 'feature', description: 'Post-Match Chat: Added a zero-DB real-time broadcast chat panel to the VS Mode Results screen with auto-scrolling, player graph color matching, and quick-chat preset pills (gg, Rematch?, So close!, My keyboard lagged!).' },
       { type: 'feature', description: 'Selectable Challenge Modes: Configure difficulty (Novice, Adept, Master, Quotes, Code), word count (10, 25, 50, 100), and programming language before sending direct friend challenges.' },
@@ -254,7 +274,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.6.0',
     date: 'August 2, 2026',
-    title: 'The Feature Trilogy & Direct Challenges ⚔️',
+    title: 'The Feature Trilogy & Direct Challenges',
     changes: [
       { type: 'feature', description: 'Direct Friend Challenges: Challenge online friends directly to a live race from the Social Hub! Friends receive a real-time banner notification with Accept/Decline and a 30s countdown.' },
       { type: 'feature', description: 'Prestige Badges & Skill Titles: Unlockable title badges (Speed Demon, Warp Speed, Precision Master, etc.) based on performance milestones, equipped on your profile card and shown in the top bar.' },
@@ -267,7 +287,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.5.4',
     date: 'July 30, 2026',
-    title: 'The 144Hz Butter Smooth Update 🧈',
+    title: 'The 144Hz Butter Smooth Update',
     changes: [
       { type: 'perf', description: 'Hardware Acceleration: Aggressively optimized UI animations by removing heavy nested glass-panel blurs during keyframe transitions, allowing for flawless 144Hz rendering.' },
       { type: 'perf', description: 'Scroll Lag Eliminated: Removed nested background blurs from scrolling release cards and enabled GPU hardware acceleration for buttery smooth scrolling.' },
@@ -279,7 +299,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.5.3',
     date: 'July 30, 2026',
-    title: 'Changelog Redesign & Search 🔍',
+    title: 'Changelog Redesign & Search',
     changes: [
       { type: 'feature', description: 'Completely redesigned the Update Log modal with a beautiful glassmorphic timeline layout.' },
       { type: 'feature', description: 'Added a functional search bar to the Update Log to instantly filter through past releases.' },
@@ -291,7 +311,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.5.2',
     date: 'July 30, 2026',
-    title: 'UI Polish & Bug Fixes 🛠️',
+    title: 'UI Polish & Bug Fixes',
     changes: [
       { type: 'fix', description: 'Applied numerous bug fixes to improve overall stability and performance.' },
       { type: 'fix', description: 'Fixed a visual issue where modals would flash on the screen when changing difficulty or settings.' },
@@ -303,7 +323,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.5.1',
     date: 'July 28, 2026',
-    title: 'Ranked Idempotency & Visual Polish 🛡️',
+    title: 'Ranked Idempotency & Visual Polish',
     changes: [
       { type: 'fix', description: 'Database Idempotency: Patched a major edge-case in Ranked Duels where both clients resolving the match simultaneously would result in double Elo transfers. The backend now strictly enforces single-resolution using a unique Match Key.' },
       { type: 'fix', description: 'Chromium Z-Index Glitches: Aggressively fixed a notoriously annoying optical illusion and rendering bug where the typing leaderboard text would falsely bleed through dropdown menus.' },
@@ -315,7 +335,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.5.0',
     date: 'July 26, 2026',
-    title: 'The Smoothness Overhaul Update 🚀',
+    title: 'The Smoothness Overhaul Update',
     changes: [
       { type: 'feature', description: 'Replaced the static caret with a buttery-smooth, hardware-accelerated gliding caret that physically tracks across the letters, just like Monkeytype.' },
       { type: 'feature', description: 'Added premium Apple-style sliding pill segmented controls for mode selection, replacing static option buttons.' },
@@ -339,7 +359,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: 'v1.4.0',
     date: 'July 26, 2026',
-    title: 'New Feature: Detailed Keyboard Heatmaps 📊',
+    title: 'New Feature: Detailed Keyboard Heatmaps',
     changes: [
       { type: 'feature', description: 'Added a beautiful, dynamic Finger Heatmap to the Stats Dashboard!' },
       { type: 'feature', description: 'You can now toggle the heatmap between "Accuracy" mode (to see exactly which keys you make the most typos on, highlighted in glowing red) and "Speed" mode (to see which keys you are the slowest at pressing, highlighted in blue).' },

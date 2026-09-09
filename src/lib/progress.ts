@@ -7,6 +7,7 @@ import {
   normalizeRecords, normalizeStreak,
   type LessonRecord, type DayStreak,
 } from '@/lib/academyStorage';
+import { normalizeWordWeakness, mergeWordWeakness, type WordWeaknessMap } from '@/lib/wordWeakness';
 
 const K = {
   xp: 'typezen_xp',
@@ -17,6 +18,7 @@ const K = {
   quests: 'typezen_quests',
   bestCombo: 'typezen_best_combo',
   racesWon: 'typezen_races_won',
+  wordWeakness: 'typezen_word_weakness',
 };
 
 export interface DailyState { lastDay: string; streak: number; }
@@ -72,6 +74,13 @@ export interface ProgressSnapshot {
   academyStreak: DayStreak;
   /** DPDP/GDPR Statutory Consent Audit Record */
   consent?: ConsentRecord | null;
+  /**
+   * Word-level weakness map + Leitner review schedule (`lib/wordWeakness.ts`).
+   * Kept in the snapshot for the same reason academyRecords is: while it was
+   * device-local, signing in on a second device started every review streak
+   * from zero and the first cloud write clobbered the original device's map.
+   */
+  wordWeakness: WordWeaknessMap;
 }
 
 function safeParse<T>(raw: string | null, fallback: T): T {
@@ -105,6 +114,7 @@ export function readLocalProgress(): ProgressSnapshot {
     academyRecords: academy.records,
     academyXp: academy.xp,
     academyStreak: academy.streak,
+    wordWeakness: normalizeWordWeakness(safeParse<unknown>(localStorage.getItem(K.wordWeakness), null)),
     consent: getConsentRecord(),
   };
 }
@@ -129,6 +139,7 @@ export function writeLocalProgress(s: ProgressSnapshot): void {
       xp: s.academyXp,
       streak: s.academyStreak,
     });
+    localStorage.setItem(K.wordWeakness, JSON.stringify(s.wordWeakness));
     if (s.consent && !getConsentRecord()) {
       localStorage.setItem('typenova_terms_accepted', s.consent.accepted ? 'true' : 'false');
       localStorage.setItem('typenova_consent_timestamp', s.consent.timestamp);
@@ -153,6 +164,7 @@ function normalize(p: Partial<ProgressSnapshot> | null | undefined): ProgressSna
     academyRecords: normalizeRecords(p?.academyRecords),
     academyXp: Number(p?.academyXp) || 0,
     academyStreak: normalizeStreak(p?.academyStreak),
+    wordWeakness: normalizeWordWeakness(p?.wordWeakness),
     consent: p?.consent ?? null,
   };
 }
@@ -230,6 +242,7 @@ export function mergeProgress(
     academyRecords: mergeAcademyRecords(A.academyRecords, B.academyRecords),
     academyXp: Math.max(A.academyXp, B.academyXp),
     academyStreak: pickAcademyStreak(A.academyStreak, B.academyStreak),
+    wordWeakness: mergeWordWeakness(A.wordWeakness, B.wordWeakness),
     consent: A.consent || B.consent || null,
   };
 }

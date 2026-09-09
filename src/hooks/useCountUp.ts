@@ -2,8 +2,11 @@ import { useLayoutEffect, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
 /** How a counted value is printed. Matches the dossier's numeral style. */
-const formatValue = (value: number, decimals: number): string =>
-  decimals > 0 ? value.toFixed(decimals) : Math.round(value).toLocaleString();
+const formatValue = (value: number, decimals: number): string => {
+  const rounded = decimals > 0 ? Number(value.toFixed(decimals)) : Math.round(value);
+  const normalized = Object.is(rounded, -0) || rounded === 0 ? 0 : rounded;
+  return decimals > 0 ? normalized.toFixed(decimals) : normalized.toLocaleString();
+};
 
 /**
  * Eases a number from its previous value up to `target` and writes each frame
@@ -33,6 +36,12 @@ export function useCountUp(
   target: number,
   decimals = 0,
   durationMs = 900,
+  /**
+   * Gate. `false` leaves the settled value the caller already rendered, so a
+   * counter far below the fold has not silently spent its entrance before the
+   * reader arrives. Flipping it to `true` runs the count from zero.
+   */
+  active = true,
 ): React.RefObject<HTMLSpanElement | null> {
   const ref = useRef<HTMLSpanElement | null>(null);
   const reduce = useReducedMotion();
@@ -40,7 +49,7 @@ export function useCountUp(
   const fromRef = useRef(0);
 
   useLayoutEffect(() => {
-    if (reduce) return;
+    if (reduce || !active) return;
 
     const node = ref.current;
     if (!node) return;
@@ -67,7 +76,7 @@ export function useCountUp(
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [target, decimals, durationMs, reduce]);
+  }, [target, decimals, durationMs, reduce, active]);
 
   return ref;
 }

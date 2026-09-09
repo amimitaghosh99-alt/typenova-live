@@ -27,6 +27,7 @@ interface BottomControlsDockProps {
       };
     } | null;
   };
+  avatarId?: string;
   onSignIn: () => void;
   onSignOut: () => void;
 }
@@ -42,6 +43,7 @@ export const BottomControlsDock = memo(function BottomControlsDock({
   latestVersion,
   cloud,
   auth,
+  avatarId,
   onSignIn,
   onSignOut,
 }: BottomControlsDockProps) {
@@ -105,7 +107,14 @@ export const BottomControlsDock = memo(function BottomControlsDock({
                 <>
                   {/* AI Core Pulse Indicator */}
                   <div className="relative flex items-center justify-center">
-                    <Bot size={16} className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] group-hover:rotate-12 group-hover:scale-110 transition-transform duration-500" />
+                    <Bot
+                      size={16}
+                      className="group-hover:rotate-12 group-hover:scale-110 transition-transform duration-500"
+                      style={{
+                        color: `rgb(${theme.glowPrimary})`,
+                        filter: `drop-shadow(0 0 8px rgba(${theme.glowPrimary}, 0.8))`,
+                      }}
+                    />
                     <span className="absolute -top-1 -right-1 flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-fuchsia-400 opacity-75 duration-1000" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-fuchsia-500 shadow-[0_0_10px_#d946ef]" />
@@ -128,6 +137,7 @@ export const BottomControlsDock = memo(function BottomControlsDock({
             loggedIn={!!cloud.username}
             displayName={cloud.username}
             avatarUrl={auth.user?.user_metadata?.avatar_url ?? auth.user?.user_metadata?.picture ?? null}
+            avatarId={avatarId}
             status={cloud.status}
             elo={cloud.elo}
             onSignIn={onSignIn}

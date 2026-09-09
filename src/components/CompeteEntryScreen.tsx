@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { OTPInput, REGEXP_ONLY_DIGITS_AND_CHARS, type SlotProps } from 'input-otp';
 import {
@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { useRecentRooms } from '@/hooks/useRecentRooms';
 import {
-    hoverLift, iconPop, listChild, listParent, reveal, shellIn, springFluid, springSnappy, tapPress,
+    iconPop, listChild, listParent, reveal, shellIn, springFluid, springSnappy, tapPress,
 } from '@/lib/motion';
 import type { Theme } from '@/data/constants';
 
@@ -159,7 +159,7 @@ const CodeSlot: React.FC<SlotProps & { invalid: boolean; accentRgb: string }> = 
  * near-white — so against a cream or pastel image an unfilled surface renders
  * white-on-white. The fill is the legibility floor, independent of the blur.
  */
-export const CompeteEntryScreen: React.FC<CompeteEntryScreenProps> = ({
+const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
     username,
     theme,
     themeTextClass = 'text-cyan-400',
@@ -249,7 +249,7 @@ export const CompeteEntryScreen: React.FC<CompeteEntryScreenProps> = ({
     };
 
     return (
-        <div className="w-full flex-1 min-h-0 flex flex-col gap-4 animate-in fade-in duration-300">
+        <div className="w-full flex-1 min-h-0 flex flex-col gap-4 animate-in fade-in duration-300 pb-16">
 
             {/* ── Header ──
                 Was three stacked rows: a pill row, a `text-4xl` title, and a
@@ -397,8 +397,7 @@ export const CompeteEntryScreen: React.FC<CompeteEntryScreenProps> = ({
                             only renders when it can actually be changed. */}
                         <motion.div
                             {...reveal(reduce, shellIn)}
-                            whileHover={hoverLift(reduce, -4)}
-                            className="glass-panel !bg-[rgba(10,12,18,0.8)] backdrop-blur-[24px] rounded-3xl p-5 sm:p-6 border border-white/20 flex flex-col gap-4"
+                            className="glass-panel !bg-[rgba(10,12,18,0.8)] hover:!bg-[rgba(14,16,24,0.85)] rounded-3xl p-5 sm:p-6 border border-white/20 hover:border-white/35 transition-all duration-200 flex flex-col gap-4"
                         >
                             <div className="flex items-center gap-3">
                                 <motion.div
@@ -494,8 +493,7 @@ export const CompeteEntryScreen: React.FC<CompeteEntryScreenProps> = ({
                             to `theme.glowPrimary`, per `GEMINI.md`. */}
                         <motion.div
                             {...reveal(reduce, shellIn)}
-                            whileHover={hoverLift(reduce, -4)}
-                            className="glass-panel !bg-[rgba(10,12,18,0.8)] backdrop-blur-[24px] rounded-3xl p-5 sm:p-6 border flex flex-col gap-4"
+                            className="glass-panel !bg-[rgba(10,12,18,0.8)] hover:!bg-[rgba(14,16,24,0.85)] rounded-3xl p-5 sm:p-6 border transition-all duration-200 flex flex-col gap-4"
                             style={{ borderColor: `rgba(${accentRgb}, 0.35)` }}
                         >
                             <div className="flex items-center gap-3">
@@ -750,3 +748,6 @@ export const CompeteEntryScreen: React.FC<CompeteEntryScreenProps> = ({
         </div>
     );
 };
+
+export const CompeteEntryScreen = memo(CompeteEntryScreenImpl);
+

@@ -183,7 +183,8 @@ export type ModalKey =
     | 'changelog'
     | 'bugReports'
     | 'ghost'
-    | 'webHidBenchmark';
+    | 'webHidBenchmark'
+    | 'whatsNew';
     // 'donate' used to be listed here: the donation modal was consolidated
     // into the PatronVault page at /donate, so it is a route, not a dialog.
 

@@ -1848,6 +1848,23 @@ function MainApp() {
     openModal('changelog');
   }, [openModal]);
 
+  const handleOpenWhatsNew = useCallback(() => {
+    openModal('whatsNew');
+  }, [openModal]);
+
+  // Auto-display What's New update popup on first visit after a release
+  useEffect(() => {
+    if (raceActive || donateOpen) return;
+    try {
+      const seenVersion = localStorage.getItem('typenova_seen_version');
+      if (seenVersion !== 'v3.0.0') {
+        openModal('whatsNew');
+      }
+    } catch {
+      // Ignore localStorage restrictions
+    }
+  }, [raceActive, donateOpen, openModal]);
+
   const handleBoardTabChange = useCallback((tab: BoardTab) => {
     setBoardTab(tab);
     if (tab === 'today') fetchDailyBoard();
@@ -2290,6 +2307,7 @@ function MainApp() {
             // Donations are a page, not a dialog — no modal cleanup needed.
             navigate('/donate');
           }}
+          onOpenWhatsNew={handleOpenWhatsNew}
           activePage={analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
           shouldHide={shouldHideClutter}
         />
@@ -2634,6 +2652,7 @@ function MainApp() {
           onToggleAru={handleToggleAru}
           onOpenSettings={handleOpenSettings}
           onOpenChangelog={handleOpenChangelog}
+          onOpenWhatsNew={handleOpenWhatsNew}
           latestVersion={CHANGELOG[0].version}
           cloud={cloud}
           auth={auth}

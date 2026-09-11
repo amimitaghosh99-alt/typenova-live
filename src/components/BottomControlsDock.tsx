@@ -13,6 +13,7 @@ interface BottomControlsDockProps {
   onToggleAru: () => void;
   onOpenSettings: () => void;
   onOpenChangelog: () => void;
+  onOpenWhatsNew?: () => void;
   latestVersion: string;
   cloud: {
     username: string | null;
@@ -40,6 +41,7 @@ export const BottomControlsDock = memo(function BottomControlsDock({
   onToggleAru,
   onOpenSettings,
   onOpenChangelog,
+  onOpenWhatsNew,
   latestVersion,
   cloud,
   auth,
@@ -148,10 +150,10 @@ export const BottomControlsDock = memo(function BottomControlsDock({
 
       {/* Floating Bottom-Left Version/Changelog Badge */}
       <button
-        onClick={onOpenChangelog}
+        onClick={onOpenWhatsNew || onOpenChangelog}
         className="fixed bottom-6 left-6 z-[var(--z-dock)] flex items-center gap-2 px-3 py-1.5 rounded-full glass-pill border-white/10 hover:border-white/25 text-zinc-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] active:scale-95"
 
-        title="View Changelog & Updates"
+        title="View What's New & Updates"
       >
         <Sparkles
           size={12}

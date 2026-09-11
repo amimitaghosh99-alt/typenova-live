@@ -35,6 +35,7 @@ interface CosmicNavBarProps {
   onOpenSettings?: () => void;
   onOpenDailyQuests: () => void;
   onOpenDonate?: () => void;
+  onOpenWhatsNew?: () => void;
   // Active page for nav link highlighting
   activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier' | 'donate';
   // Clutter hiding state during typing
@@ -65,6 +66,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   onOpenSettings: _onOpenSettings,
   onOpenDailyQuests,
   onOpenDonate,
+  onOpenWhatsNew,
   activePage = 'practice',
   shouldHide = false,
 }: CosmicNavBarProps) {
@@ -318,6 +320,23 @@ export const CosmicNavBar = memo(function CosmicNavBar({
               <span>{dailyStreak}d</span>
             </button>
 
+            {/* Version / What's New Pill */}
+            {onOpenWhatsNew && (
+              <button
+                onClick={onOpenWhatsNew}
+                className="nav-pill h-9 px-2.5 flex items-center gap-1.5 transition-all cursor-pointer group hover:border-white/30 hover:bg-white/[0.06]"
+                title="What's New in v3.0.0 — View Updates"
+              >
+                <span 
+                  className="w-1.5 h-1.5 rounded-full animate-ping shrink-0"
+                  style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                />
+                <span className="text-[11px] font-mono font-bold text-zinc-300 group-hover:text-white tracking-wider">
+                  v3.0.0
+                </span>
+              </button>
+            )}
+
             {/* No surface at all: the tools sit directly on the bar and only
                 grow a background on hover. They each used to carry a
                 `glass-pill` — a fill darker than the navbar itself, plus a 30px
@@ -451,6 +470,20 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 <Flame size={14} className="animate-pulse" />
                 <span>{dailyStreak}d</span>
               </button>
+
+              {onOpenWhatsNew && (
+                <button
+                  onClick={() => { onOpenWhatsNew(); setMobileMenuOpen(false); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white text-xs font-mono font-bold transition-all"
+                  title="What's New in v3.0.0"
+                >
+                  <span 
+                    className="w-1.5 h-1.5 rounded-full animate-ping shrink-0"
+                    style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                  />
+                  <span>v3.0.0 Updates</span>
+                </button>
+              )}
               {/* Same bare row as the desktop tray. */}
               <div className="flex items-center gap-0.5">
                 <ActionButton icon={Swords} onClick={() => { onOpenRace(); setMobileMenuOpen(false); }} isLoggedIn={true} title="Race" theme={theme} />

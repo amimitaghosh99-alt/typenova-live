@@ -13,6 +13,7 @@ const BugReportsModal = lazy(() => import('@/components/BugReportsModal').then(m
 const CommsModal = lazy(() => import('@/components/CommsModal').then(m => ({ default: m.CommsModal })));
 const GhostPacerModal = lazy(() => import('@/components/GhostPacerModal').then(m => ({ default: m.GhostPacerModal })));
 const WebHidBenchmarkModal = lazy(() => import('@/components/profile/WebHidBenchmarkModal').then(m => ({ default: m.WebHidBenchmarkModal })));
+const UpdateAnnouncementModal = lazy(() => import('@/components/UpdateAnnouncementModal').then(m => ({ default: m.UpdateAnnouncementModal })));
 // DonateModal was removed: donations live on the PatronVault page at /donate.
 const AIChatBot = lazy(() => import('@/components/AIChatBot').then(m => ({ default: m.AIChatBot })));
 import { type PaceSample, type RivalPace } from '@/components/TypingArea';
@@ -312,6 +313,14 @@ export const AppModalManager = memo(function AppModalManager({
             <ChangelogModal
               theme={theme}
               onClose={onCloseModal}
+            />
+          );
+
+          case 'whatsNew': return (
+            <UpdateAnnouncementModal
+              theme={theme}
+              onClose={onCloseModal}
+              onOpenChangelog={() => onOpenModal('changelog')}
             />
           );
 

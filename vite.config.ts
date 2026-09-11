@@ -14,6 +14,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'favicon.png', 'favicon-32x32.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'logo.png'],
       manifest: {
+        id: '/',
         name: 'TypeNova - Next-Gen Gamified Typing',
         short_name: 'TypeNova',
         description: 'Next-Gen Gamified Typing Platform with AI Coach, RPG CyberHands, and Global Multiplayer.',

@@ -1,0 +1,1 @@
+fix(auth): restore reliable OAuth flow and configure PWA manifest headers

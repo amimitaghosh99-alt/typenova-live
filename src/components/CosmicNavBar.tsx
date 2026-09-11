@@ -7,7 +7,7 @@ import { TITLE_BADGES } from '@/data/titles';
 import { TITLE_MARK } from '@/lib/titleIcons';
 import { AvatarArt } from '@/components/profile/AvatarKeycap';
 import { ALL_BANNERS, AVATARS } from '@/data/customization';
-import { DONATION_CONFIG, getDonationProgressPercent } from '@/data/donation';
+import { getDonationProgressPercent, PREMIUM_ACCENT } from '@/data/donation';
 import type { Theme } from '@/data/constants';
 
 interface CosmicNavBarProps {
@@ -269,35 +269,44 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
           {/* Action Tray */}
           <div className="flex items-center gap-2">
-            {/* Community Support & Donate Capsule (Matches target progress design) */}
+            {/* Community Support Capsule — premium gold treatment */}
             <button
               onClick={onOpenDonate}
-              className={`nav-pill h-9 px-2.5 sm:px-3 flex flex-col justify-center text-left transition-all cursor-pointer group ${
+              className={`nav-pill h-9 px-2.5 sm:px-3 flex items-center gap-2 text-left transition-all cursor-pointer group ${
                 activePage === 'donate'
-                  ? 'border-rose-400 bg-rose-500/25 shadow-[0_0_20px_rgba(244,63,94,0.35)] ring-1 ring-rose-400/50'
-                  : 'border-rose-500/30 hover:border-rose-500/60 bg-rose-500/10 hover:bg-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
+                  ? 'ring-1 shadow-[0_0_20px_rgba(212,175,55,0.30)]'
+                  : 'shadow-[0_0_12px_rgba(212,175,55,0.10)] hover:shadow-[0_0_18px_rgba(212,175,55,0.22)]'
               }`}
-              title={`Support TypeNova — $${DONATION_CONFIG.goal.currentAmount} / $${DONATION_CONFIG.goal.targetAmount} (${donationGoalPercent}% Funded)`}
+              style={
+                activePage === 'donate'
+                  ? {
+                      borderColor: 'rgba(212, 175, 55, 0.55)',
+                      background: 'rgba(212, 175, 55, 0.18)',
+                      // @ts-expect-error ring color as CSS property
+                      '--tw-ring-color': 'rgba(212, 175, 55, 0.45)',
+                    }
+                  : {
+                      borderColor: 'rgba(212, 175, 55, 0.28)',
+                      background: 'rgba(212, 175, 55, 0.07)',
+                    }
+              }
+              title={`Support TypeNova — ${donationGoalPercent}% of community goal funded`}
             >
-              <div className="flex items-center gap-1.5 leading-none">
-                <HandHeart size={13} className="text-rose-400 group-hover:scale-110 transition-transform shrink-0" />
-                <span className="text-[11.5px] font-bold text-white tracking-wide">Donate</span>
-              </div>
-              <div className="flex items-center gap-1.5 mt-0.5 w-full">
-                <div className="w-8 sm:w-9 h-1 rounded-full bg-white/15 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${donationGoalPercent}%`,
-                      background: 'linear-gradient(to right, #fb7185, #f43f5e)',
-                      boxShadow: '0 0 6px rgba(244,63,94,0.8)',
-                    }}
-                  />
-                </div>
-                <span className="text-[8.5px] font-mono font-bold text-rose-300">
-                  {donationGoalPercent}%
-                </span>
-              </div>
+              <HandHeart
+                size={13}
+                className="group-hover:scale-110 transition-transform shrink-0"
+                style={{ color: PREMIUM_ACCENT }}
+              />
+              <span className="text-[11.5px] font-bold text-white tracking-wide">Support</span>
+              {/* Refined progress dot: marks the goal without shouting */}
+              <span
+                className="w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-700"
+                style={{
+                  backgroundColor: PREMIUM_ACCENT,
+                  boxShadow: `0 0 6px rgba(212, 175, 55, ${donationGoalPercent > 0 ? 0.9 : 0.4})`,
+                  opacity: donationGoalPercent > 0 ? 1 : 0.5,
+                }}
+              />
             </button>
 
             <button
@@ -424,11 +433,14 @@ export const CosmicNavBar = memo(function CosmicNavBar({
             <div className="mt-auto pt-8 flex flex-wrap gap-2.5 items-center">
               <button
                 onClick={() => { onOpenDonate?.(); setMobileMenuOpen(false); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20 text-xs font-mono font-bold transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-zinc-900 text-xs font-mono font-bold transition-all"
+                style={{
+                  boxShadow: `0 0 15px ${PREMIUM_ACCENT}50`,
+                }}
                 title="Support TypeNova"
               >
-                <HandHeart size={14} className="text-rose-400" />
-                <span>Donate ({donationGoalPercent}%)</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 animate-pulse" />
+                <span>Support</span>
               </button>
 
               <button

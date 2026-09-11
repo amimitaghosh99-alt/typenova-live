@@ -38,7 +38,32 @@ export interface DonationConfig {
     suggestedAmountsInr: number[];
   };
   crypto: CryptoWallet[];
+  /** Featured supporters shown on the patron wall (social proof, capped at PATRON_WALL_MAX). */
+  featuredPatrons: PatronEntry[];
+  /** Live impact counters surfaced on the redesigned vault page. */
+  impactStats: {
+    testsHosted: number;
+    serversPaid: number;
+    tuitionPercent: number;
+  };
 }
+
+/** A single public supporter entry on the patron wall. */
+export type PatronPlatform = 'upi' | 'kofi' | 'bmc' | 'paypal' | 'github' | 'crypto';
+
+export interface PatronEntry {
+  name: string;
+  amount: number;
+  platform: PatronPlatform;
+  message?: string;
+  date: string;
+}
+
+/** Champagne gold accent for the premium vault aesthetic. */
+export const PREMIUM_ACCENT = '#d4af37';
+
+/** Maximum featured patrons rendered on the wall. */
+export const PATRON_WALL_MAX = 5;
 
 export const DONATION_CONFIG: DonationConfig = {
   goal: {
@@ -86,7 +111,57 @@ export const DONATION_CONFIG: DonationConfig = {
       badgeColor: 'text-teal-400 border-teal-500/30 bg-teal-500/10',
     },
   ],
+  featuredPatrons: [
+    {
+      name: 'Aarav K.',
+      amount: 100,
+      platform: 'upi',
+      message: 'Keep building. This replaced my typing tutor app.',
+      date: '2026-08-14',
+    },
+    {
+      name: 'sprint_140',
+      amount: 50,
+      platform: 'kofi',
+      date: '2026-08-28',
+    },
+    {
+      name: 'Maya R.',
+      amount: 25,
+      platform: 'bmc',
+      message: 'For the college fund — good luck this semester!',
+      date: '2026-09-01',
+    },
+    {
+      name: 'anon_dev',
+      amount: 250,
+      platform: 'github',
+      date: '2026-09-05',
+    },
+    {
+      name: 'Kenji T.',
+      amount: 40,
+      platform: 'paypal',
+      message: 'The IKI inspector is genius.',
+      date: '2026-09-07',
+    },
+  ],
+  impactStats: {
+    testsHosted: 128000,
+    serversPaid: 4,
+    tuitionPercent: 0,
+  },
 };
+
+/**
+ * Featured patrons sorted highest-first and capped at PATRON_WALL_MAX,
+ * ready to render on the vault's patron wall.
+ */
+export function getFeaturedPatrons(config: DonationConfig = DONATION_CONFIG): PatronEntry[] {
+  return [...config.featuredPatrons]
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, PATRON_WALL_MAX);
+}
 
 /**
  * Calculates the current progress percentage toward the target goal, clamped to 0-100.

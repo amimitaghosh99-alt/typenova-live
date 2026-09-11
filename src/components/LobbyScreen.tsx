@@ -1217,11 +1217,21 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                     </span>
                   </button>
                 ) : (
-                  <div className="w-full glass-panel py-3 px-5 rounded-2xl border-2 border-white/20 text-white font-mono tracking-widest font-black text-xs flex items-center justify-center gap-3 shadow-xl bg-black/60">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                    <span className="text-zinc-200">WAITING FOR PLAYERS ({players.length}/{roomSize} CONNECTED)</span>
-                    <span className="text-zinc-500 font-normal hidden sm:inline">• Need at least 2 racers</span>
-                  </div>
+                  /* Solo host — allow practice / solo start while waiting */
+                  <button
+                    onClick={onStart}
+                    className="w-full font-mono text-sm uppercase tracking-[0.25em] py-3.5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 font-black cursor-pointer shadow-2xl hover:scale-[1.015] active:scale-[0.98]"
+                    style={{
+                      backgroundColor: 'rgba(139,92,246,0.18)',
+                      border: '1px solid rgba(139,92,246,0.45)',
+                      color: '#c4b5fd',
+                      boxShadow: '0 0 25px rgba(139,92,246,0.25)',
+                    }}
+                    title="Start a solo practice race — others can still join the room"
+                  >
+                    <Play size={18} className="fill-current" />
+                    <span>SOLO START (1/{roomSize} CONNECTED)</span>
+                  </button>
                 )
               ) : (
                 iAmReady ? (

@@ -52,7 +52,7 @@ import { useRoomDirectory } from '@/hooks/useRoomDirectory';
 import { useRankedHistory } from '@/hooks/useRankedHistory';
 import { mulberry32, daySeed, todayKey, isYesterday } from '@/utils/seededRandom';
 import { supabase, fireAndForget } from '@/lib/supabase';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, AuthProvider } from '@/hooks/useAuth';
 import { useCloudSync } from '@/hooks/useCloudSync';
 import { ACADEMY_PROGRESS_CHANGED, onSyncEvent } from '@/lib/syncEvents';
 import { readLocalProgress, writeLocalProgress } from '@/lib/progress';
@@ -613,9 +613,11 @@ function MainApp() {
       game.setZenMode(false); game.setMirroredMode(false); game.setDailyActive(false);
       game.setSuddenDeath(false); game.setBlindMode(false); game.setFogMode(false);
       game.setStickyKeysMode(false); game.setOverclockedMode(false);
-      // Everyone counts down to the SAME absolute timestamp. Rounding the
-      // remaining time up to whole seconds used to let clients start up to a
-      // second apart, which quietly skewed the whole race.
+      // Everyone counts down to the SAME absolute timestamp. The lobby already
+      // ran a visible 5→1 countdown, so this 1.5s buffer is purely for network
+      // sync. We still use COUNTDOWN phase so the RaceTrack header shows
+      // "STARTING IN…", but the giant AppModalManager overlay is suppressed
+      // during races (see below).
       typing.scheduleStart(startAt);
       typing.setCountdownTimer(Math.max(1, Math.ceil((startAt - Date.now()) / 1000)));
       typing.setPhase('COUNTDOWN');
@@ -2285,7 +2287,7 @@ function MainApp() {
           onOpenSettings={handleOpenSettings}
           onOpenDailyQuests={handleOpenDailyQuests}
           onOpenDonate={() => {
-            closeModal();
+            // Donations are a page, not a dialog — no modal cleanup needed.
             navigate('/donate');
           }}
           activePage={analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
@@ -2399,8 +2401,8 @@ function MainApp() {
           <>
             {/* Stage 1: Persistent Practice Arena (Zero-Jank Unified Positioning) */}
             {(() => {
-              const practiceActive = currentStage === 'practice';
-              const revealed = practiceActive && (settledStage === 'practice' || visitedStages.practice);
+              const practiceActive = currentStage === 'practice' || raceActive;
+              const revealed = practiceActive && (settledStage === 'practice' || visitedStages.practice || raceActive);
               return (
                 <motion.div
                   key="practice-stage"
@@ -2506,7 +2508,7 @@ function MainApp() {
                   variants={STAGE_PAGE_VARIANTS}
                   initial="enterStart"
                   animate={revealed ? 'visible' : academyActive ? 'enterStart' : 'hidden'}
-                  className={`fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex flex-col bg-transparent overflow-y-auto custom-scrollbar academy-scroller ${academyActive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                  className={`fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex flex-col bg-transparent ${academyActive ? 'pointer-events-auto' : 'pointer-events-none'}`}
                   style={{
                     display: academyActive || (!academyActive && settledStage === 'academy') ? undefined : 'none',
                     visibility: revealed || (!academyActive && settledStage === 'academy') ? 'visible' : 'hidden',
@@ -2515,19 +2517,39 @@ function MainApp() {
                   aria-hidden={!academyActive}
                   inert={!academyActive}
                 >
-                  <div className="w-full px-4 sm:px-8 md:px-10 lg:px-12 2xl:px-16 py-6 pb-[calc(var(--dock-h)+2rem)] max-w-[var(--w-ultra)] mx-auto">
-                    <Suspense fallback={
-                      <div className="w-full py-24 flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest">
-                        INITIALIZING ACADEMY...
-                      </div>
-                    }>
-                      <AcademyLayout
-                        onExit={exitAcademy}
-                        theme={theme}
-                        dueWordsCount={wordWeakness.dueCount}
-                        onTrainDue={startDueWordsDrill}
-                      />
-                    </Suspense>
+                  {/* Fixed reading scrim — pinned to viewport, NEVER scrolls */}
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 -z-10"
+                    style={{
+                      background: [
+                        `radial-gradient(120% 78% at 50% 0%, rgba(${theme?.glowPrimary || '0, 240, 255'}, 0.08), transparent 64%)`,
+                        'linear-gradient(180deg,' +
+                        ' rgba(4, 6, 11, 0.88) 0px,' +
+                        ' rgba(4, 6, 11, 0.82) 120px,' +
+                        ' rgba(4, 6, 11, 0.6) 300px,' +
+                        ' rgba(4, 6, 11, 0.48) 520px,' +
+                        ' rgba(4, 6, 11, 0.48) 100%)',
+                      ].join(', '),
+                    }}
+                  />
+
+                  {/* Independent scroll container */}
+                  <div className="w-full h-full overflow-y-auto custom-scrollbar academy-scroller flex flex-col">
+                    <div className="w-full px-4 sm:px-8 md:px-10 lg:px-12 2xl:px-16 py-6 pb-[calc(var(--dock-h)+2rem)] max-w-[var(--w-ultra)] mx-auto">
+                      <Suspense fallback={
+                        <div className="w-full py-24 flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest">
+                          INITIALIZING ACADEMY...
+                        </div>
+                      }>
+                        <AcademyLayout
+                          onExit={exitAcademy}
+                          theme={theme}
+                          dueWordsCount={wordWeakness.dueCount}
+                          onTrainDue={startDueWordsDrill}
+                        />
+                      </Suspense>
+                    </div>
                   </div>
                 </motion.div>
                 );
@@ -2669,14 +2691,7 @@ function MainApp() {
           techModifiersMemo={techModifiersMemo}
           techCapabilities={techCapabilities}
           onCloseModal={closeModal}
-          onOpenModal={(modal) => {
-            if (modal === 'donate') {
-              closeModal();
-              navigate('/donate');
-              return;
-            }
-            openModal(modal);
-          }}
+          onOpenModal={openModal}
           onSelectTheme={selectTheme}
 
           onSelectSoundProfile={selectSoundProfile}
@@ -2692,6 +2707,7 @@ function MainApp() {
           onSetNameErr={setNameErr}
           onSubmitUsername={submitUsername}
           onPlayPreviewSound={handlePlayPreviewSound}
+          raceActive={raceActive}
         />
       </div>
     </>
@@ -2701,10 +2717,16 @@ function MainApp() {
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, authReady } = useAuth();
 
-  if (!authReady) {
+  const hasOAuthCode = typeof window !== 'undefined' && (
+    window.location.search.includes('code=') ||
+    window.location.hash.includes('access_token=')
+  );
+
+  if (!authReady || (hasOAuthCode && !session)) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-zinc-500 font-black tracking-widest text-xs">
-        LOADING...
+      <div className="min-h-screen bg-[#080809] flex flex-col items-center justify-center gap-3 text-zinc-400 font-bold uppercase tracking-widest text-xs font-mono">
+        <div className="w-8 h-8 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
+        <span>AUTHENTICATING WITH GOOGLE...</span>
       </div>
     );
   }
@@ -2720,7 +2742,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <>
+    <AuthProvider>
       <Routes>
         <Route path="/" element={<AuthGuard><MainApp /></AuthGuard>} />
         {/*
@@ -2752,6 +2774,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster position="top-center" theme="dark" />
-    </>
+    </AuthProvider>
   );
 }

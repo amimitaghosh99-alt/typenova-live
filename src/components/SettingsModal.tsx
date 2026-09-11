@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { X, Settings, Skull, Ghost, Brain, Bot, Zap, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, Sparkles, Sun, Sliders, UploadCloud, Trash2, Cpu, Type, Play, ArrowLeft, Crosshair, Activity, Terminal, ShieldCheck, Radio, Layers, ArrowUpRight, Gauge, Moon, Waves, HelpCircle, HandHeart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { springGlider, springSnappy, springFluid } from '@/lib/motion';
@@ -6,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { SettingsFAQPanel } from './settings/SettingsFAQPanel';
 import { THEMES, THEME_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
-import { getDonationProgressPercent } from '@/data/donation';
+import { getDonationProgressPercent, PREMIUM_ACCENT } from '@/data/donation';
 import { toast } from 'sonner';
 import { AI_KEYS, PROVIDER_PRESETS, limitsForModel, ARU_PERSONAS, type AruPersona, type DebriefPolicy } from '@/lib/aiClient';
 import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
@@ -55,7 +56,7 @@ interface SettingsModalProps {
   clearWallpaper: () => void;
   onOpenWebHidBenchmark?: () => void;
   onPlayPreviewSound?: (profileKey?: string) => void;
-  onOpenDonate?: () => void;
+  // onOpenDonate removed: the footer card navigates to /donate directly.
 }
 
 interface ToggleSwitchProps {
@@ -244,8 +245,12 @@ export const SettingsModal = React.memo(function SettingsModal({
   clearWallpaper,
   onOpenWebHidBenchmark,
   onPlayPreviewSound,
-  onOpenDonate,
 }: SettingsModalProps) {
+  const navigate = useNavigate();
+  const openDonationPage = () => {
+    onClose();
+    navigate('/donate');
+  };
   const [activeTab, setActiveTab] = useState<'gameplay' | 'visuals' | 'shaders' | 'system' | 'ai' | 'usage' | 'faq' | 'report'>('visuals');
   const donationGoalPercent = getDonationProgressPercent();
   const [isDragging, setIsDragging] = useState(false);
@@ -485,28 +490,40 @@ export const SettingsModal = React.memo(function SettingsModal({
 
         {/* Sidebar Footer & Return to Arena button */}
         <div className="hidden md:flex flex-col gap-3 pt-5 border-t border-white/10">
-          {/* Community Supporter Card */}
+          {/* Community Supporter Card — premium gold, links to the /donate page */}
           <button
-            onClick={() => {
-              onClose();
-              onOpenDonate?.();
+            onClick={openDonationPage}
+            className="w-full p-2.5 rounded-2xl border text-left transition-all group cursor-pointer"
+            style={{
+              borderColor: 'rgba(212, 175, 55, 0.30)',
+              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.10), rgba(212, 175, 55, 0.04))',
+              boxShadow: '0 0 15px rgba(212, 175, 55, 0.12)',
             }}
-            className="w-full p-2.5 rounded-2xl border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/20 text-left transition-all group cursor-pointer shadow-[0_0_15px_rgba(244,63,94,0.12)]"
             title="Support TypeNova Community Goal"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                <HandHeart size={14} className="text-rose-400 group-hover:scale-110 transition-transform shrink-0" />
+                <HandHeart
+                  size={14}
+                  className="group-hover:scale-110 transition-transform shrink-0"
+                  style={{ color: PREMIUM_ACCENT }}
+                />
                 <span>Support TypeNova</span>
               </div>
-              <span className="text-[10px] font-mono font-bold text-rose-300">{donationGoalPercent}%</span>
+              <span
+                className="text-[10px] font-mono font-bold"
+                style={{ color: PREMIUM_ACCENT }}
+              >
+                {donationGoalPercent}%
+              </span>
             </div>
             <div className="w-full h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${donationGoalPercent}%`,
-                  background: 'linear-gradient(to right, #fb7185, #f43f5e)',
+                  background: 'linear-gradient(90deg, #b8860b, #d4af37, #f0e68c)',
+                  boxShadow: '0 0 8px rgba(212, 175, 55, 0.5)',
                 }}
               />
             </div>

@@ -13,7 +13,7 @@ const BugReportsModal = lazy(() => import('@/components/BugReportsModal').then(m
 const CommsModal = lazy(() => import('@/components/CommsModal').then(m => ({ default: m.CommsModal })));
 const GhostPacerModal = lazy(() => import('@/components/GhostPacerModal').then(m => ({ default: m.GhostPacerModal })));
 const WebHidBenchmarkModal = lazy(() => import('@/components/profile/WebHidBenchmarkModal').then(m => ({ default: m.WebHidBenchmarkModal })));
-const DonateModal = lazy(() => import('@/components/DonateModal').then(m => ({ default: m.DonateModal })));
+// DonateModal was removed: donations live on the PatronVault page at /donate.
 const AIChatBot = lazy(() => import('@/components/AIChatBot').then(m => ({ default: m.AIChatBot })));
 import { type PaceSample, type RivalPace } from '@/components/TypingArea';
 import type { ModeScoreRow } from '@/hooks/useModeLeaderboard';
@@ -107,6 +107,9 @@ interface AppModalManagerProps {
   onSetNameErr: (v: string) => void;
   onSubmitUsername: () => void;
   onPlayPreviewSound?: (profileKey?: string) => void;
+  /** When true, the giant full-screen countdown overlay is suppressed because
+      the lobby already ran its own visual countdown. */
+  raceActive?: boolean;
 }
 
 export const AppModalManager = memo(function AppModalManager({
@@ -170,12 +173,14 @@ export const AppModalManager = memo(function AppModalManager({
   onSetNameErr,
   onSubmitUsername,
   onPlayPreviewSound,
+  raceActive,
 }: AppModalManagerProps) {
   return (
     <>
       {/* ═══ OVERLAY MODALS ═══ */}
-      {/* Countdown */}
-      {typing.phase === 'COUNTDOWN' && (
+      {/* Countdown — suppressed during multiplayer races (lobby already ran
+          its own visible countdown; the RaceTrack bar still shows "STARTING IN…"). */}
+      {typing.phase === 'COUNTDOWN' && !raceActive && (
         <div key="countdown-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
           <span className={`text-[12rem] font-black ${theme.text} caret-lucid drop-shadow-2xl`}>{typing.countdownTimer}</span>
         </div>
@@ -340,7 +345,7 @@ export const AppModalManager = memo(function AppModalManager({
               clearWallpaper={clearWallpaper}
               onOpenWebHidBenchmark={() => onOpenModal('webHidBenchmark')}
               onPlayPreviewSound={onPlayPreviewSound}
-              onOpenDonate={() => onOpenModal('donate')}
+              // DonateModal removed: settings links to the /donate page instead.
             />
           );
 
@@ -488,13 +493,7 @@ export const AppModalManager = memo(function AppModalManager({
             />
           );
 
-          case 'donate': return (
-            <DonateModal
-              isOpen={activeModal === 'donate'}
-              theme={theme}
-              onClose={onCloseModal}
-            />
-          );
+          // 'donate' is a route (/donate → PatronVault page), not a dialog.
 
           // Exhaustiveness guard: `activeModal` is `never` here only if every
           // `ModalKey` above has a case. Add a key to the union in

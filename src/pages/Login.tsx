@@ -26,14 +26,29 @@ export function Login() {
   }, [authReady, session, navigate]);
 
   const handleLogin = async () => {
-    if (!hasAgreed) return;
+    if (isSigningIn) return;
+    if (!hasAgreed) {
+      setHasAgreed(true);
+      recordConsent('hero_checkbox');
+    }
     setIsSigningIn(true);
-    await signInWithGoogle();
-    setTimeout(() => setIsSigningIn(false), 3000);
+    try {
+      const result = await signInWithGoogle();
+      if (result?.error) {
+        console.warn('[Login] OAuth error:', result.error);
+        setIsSigningIn(false);
+      }
+      setTimeout(() => setIsSigningIn(false), 8000);
+    } catch {
+      setIsSigningIn(false);
+    }
   };
 
   const handleGuest = () => {
-    if (!hasAgreed) return;
+    if (!hasAgreed) {
+      setHasAgreed(true);
+      recordConsent('hero_checkbox');
+    }
     localStorage.setItem('guestMode', 'true');
     navigate('/');
   };
@@ -211,27 +226,15 @@ export function Login() {
               {/* Ultra-Premium Radiant Google Sign-In Button */}
               <button 
                 onClick={handleLogin} 
-                disabled={!hasAgreed || isSigningIn} 
-                className={`relative group p-[1px] rounded-2xl overflow-hidden transition-all duration-500 z-50 ${
-                  hasAgreed 
-                    ? 'hover:scale-[1.03] active:scale-[0.98] shadow-[0_0_35px_rgba(0,240,255,0.35),0_0_80px_rgba(0,240,255,0.15)] hover:shadow-[0_0_60px_rgba(0,240,255,0.6),0_0_100px_rgba(0,240,255,0.3)] cursor-pointer' 
-                    : 'opacity-40 grayscale cursor-not-allowed shadow-none'
-                }`}
+                disabled={isSigningIn} 
+                className="relative group p-[1px] rounded-2xl overflow-hidden transition-all duration-500 z-50 hover:scale-[1.03] active:scale-[0.98] shadow-[0_0_35px_rgba(0,240,255,0.35),0_0_80px_rgba(0,240,255,0.15)] hover:shadow-[0_0_60px_rgba(0,240,255,0.6),0_0_100px_rgba(0,240,255,0.3)] cursor-pointer disabled:opacity-60 disabled:cursor-wait"
               >
                 {/* Luminous Animated Border Gradient */}
-                <div className={`absolute inset-0 transition-all duration-500 ${
-                  hasAgreed 
-                    ? 'bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 opacity-90 group-hover:opacity-100 animate-pulse-subtle' 
-                    : 'bg-white/10 opacity-30'
-                }`}></div>
+                <div className="absolute inset-0 transition-all duration-500 bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 opacity-90 group-hover:opacity-100 animate-pulse-subtle"></div>
                 
                 {/* Inner Core Surface */}
-                <div className={`relative px-7 py-3.5 rounded-[15px] backdrop-blur-xl flex items-center justify-center gap-3 transition-colors duration-300 ${
-                  hasAgreed 
-                    ? 'bg-[#090d14]/90 group-hover:bg-[#0c121e]/80 text-white' 
-                    : 'bg-zinc-900/80 text-zinc-500'
-                }`}>
-                  <svg className={`w-4 h-4 shrink-0 transition-transform duration-300 ${hasAgreed ? 'group-hover:scale-110' : 'opacity-40'}`} viewBox="0 0 24 24">
+                <div className="relative px-7 py-3.5 rounded-[15px] backdrop-blur-xl flex items-center justify-center gap-3 transition-colors duration-300 bg-[#090d14]/90 group-hover:bg-[#0c121e]/80 text-white">
+                  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
@@ -240,9 +243,7 @@ export function Login() {
                   <span className="font-sans font-semibold text-[15px] tracking-tight">
                     {isSigningIn ? 'Authenticating...' : 'Sign in with Google'}
                   </span>
-                  <span className={`material-symbols-outlined text-lg transition-transform duration-300 ${
-                    hasAgreed ? 'text-cyan-300 group-hover:translate-x-1' : 'text-zinc-600'
-                  }`}>
+                  <span className="material-symbols-outlined text-lg transition-transform duration-300 text-cyan-300 group-hover:translate-x-1">
                     arrow_forward
                   </span>
                 </div>
@@ -251,21 +252,12 @@ export function Login() {
               {/* Ultra-Premium Frosted Obsidian Guest Button */}
               <button 
                 onClick={handleGuest} 
-                disabled={!hasAgreed}
-                className={`relative group px-7 py-3.5 rounded-2xl backdrop-blur-xl border transition-all duration-300 flex items-center justify-center gap-3 z-50 ${
-                  hasAgreed 
-                    ? 'bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.12] hover:border-white/[0.28] hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.08)] cursor-pointer' 
-                    : 'bg-white/[0.01] border-white/5 opacity-40 cursor-not-allowed shadow-none'
-                }`}
+                className="relative group px-7 py-3.5 rounded-2xl backdrop-blur-xl border transition-all duration-300 flex items-center justify-center gap-3 z-50 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.12] hover:border-white/[0.28] hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.08)] cursor-pointer"
               >
-                <span className={`material-symbols-outlined text-xl transition-colors duration-300 ${
-                  hasAgreed ? 'text-zinc-400 group-hover:text-cyan-300' : 'text-zinc-600'
-                }`}>
+                <span className="material-symbols-outlined text-xl transition-colors duration-300 text-zinc-400 group-hover:text-cyan-300">
                   sports_esports
                 </span>
-                <span className={`font-sans font-medium text-[15px] tracking-tight transition-colors duration-300 ${
-                  hasAgreed ? 'text-zinc-200 group-hover:text-white' : 'text-zinc-500'
-                }`}>
+                <span className="font-sans font-medium text-[15px] tracking-tight transition-colors duration-300 text-zinc-200 group-hover:text-white">
                   Play as Guest
                 </span>
               </button>

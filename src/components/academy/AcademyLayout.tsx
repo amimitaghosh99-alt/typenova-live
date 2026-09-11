@@ -134,36 +134,9 @@ function AcademyLayoutImpl({ theme, dueWordsCount = 0, onTrainDue }: AcademyLayo
       style={{ '--academy-tint': themeGlow } as CSSProperties}
     >
       {/*
-        Reading scrim — deliberately light. Every piece of text in the Academy
-        sits on one of the opaque SURFACE panels, so the scrim only has to settle
-        the gutters between them; pushing it any darker just turned a sharp
-        wallpaper into a grey haze, which is what read as "still blurred".
-
-        It covers the whole viewport, and it's graded rather than flat. The top
-        strip is the one place bare wallpaper meets the near-black panels head on
-        — the nav's rounded bottom corners expose it, and the content column is
-        inset from the viewport edges — so a flat 0.5 left a bright wedge in the
-        top-left and top-right corners. The gradient lands heavier up there and
-        eases off by the time it reaches the cards, where the wallpaper is free
-        to show. Sitting at -z-10 inside the stage's z-20 layer keeps it well
-        under the z-50 nav, so it dims the wallpaper behind the nav without
-        touching the nav itself.
+        Reading scrim is now pinned to the stage viewport in App.tsx so it never
+        scrolls with the content or cuts off at the bottom.
       */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10"
-        style={{
-          background: [
-            `radial-gradient(120% 78% at 50% 0%, ${tint(0.08)}, transparent 64%)`,
-            'linear-gradient(180deg,' +
-            ' rgba(4, 6, 11, 0.88) 0px,' +
-            ' rgba(4, 6, 11, 0.82) 120px,' +
-            ' rgba(4, 6, 11, 0.6) 300px,' +
-            ' rgba(4, 6, 11, 0.48) 520px,' +
-            ' rgba(4, 6, 11, 0.48) 100%)',
-          ].join(', '),
-        }}
-      />
 
       {/* ── Stage control bar ─────────────────────────────────────── */}
       <AnimatePresence>

@@ -2307,7 +2307,6 @@ function MainApp() {
             // Donations are a page, not a dialog — no modal cleanup needed.
             navigate('/donate');
           }}
-          onOpenWhatsNew={handleOpenWhatsNew}
           activePage={analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
           shouldHide={shouldHideClutter}
         />

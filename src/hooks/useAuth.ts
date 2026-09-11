@@ -50,6 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sb.auth.getSession().then(({ data }) => {
       if (!active) return;
       setSession(data.session);
+      if (data.session && typeof window !== 'undefined' && window.opener && window.name === 'typenova_oauth_popup') {
+        try {
+          window.close();
+        } catch { }
+        return;
+      }
       // Only declare authReady if we have a session or there is no pending OAuth code
       if (data.session || !hasOAuthCode) {
         setAuthReady(true);
@@ -72,9 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         codeTimeout = null;
       }
 
-      // Clean up PKCE code or implicit hash fragments from the URL so the
-      // browser history doesn't carry auth artefacts.
       if (next) {
+        // If this window was opened as a PWA OAuth popup, close it cleanly
+        if (typeof window !== 'undefined' && window.opener && window.name === 'typenova_oauth_popup') {
+          try {
+            window.close();
+          } catch { }
+          return;
+        }
+
         const url = new URL(window.location.href);
         if (url.searchParams.has('code') || url.hash.includes('access_token=') || url.hash.includes('error=')) {
           window.history.replaceState(null, '', url.pathname);
@@ -93,6 +105,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sb = supabase;
     if (!sb) return { error: new Error('Supabase not configured') };
     try {
+      // Detect standalone PWA mode (installed desktop or mobile web app)
+      const isStandalone = typeof window !== 'undefined' && (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches ||
+        (window.navigator as unknown as { standalone?: boolean }).standalone === true
+      );
+
+      if (isStandalone) {
+        // In standalone PWA, full-window redirect to accounts.google.com triggers
+        // Chrome's out-of-scope in-app browser bar (with 'X' cancel button).
+        // Using a focused popup keeps the main PWA window cleanly in-scope.
+        const { data, error } = await sb.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error) return { error };
+        if (data?.url) {
+          const w = 520;
+          const h = 650;
+          const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - w) / 2));
+          const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - h) / 2));
+          const popup = window.open(
+            data.url,
+            'typenova_oauth_popup',
+            `width=${w},height=${h},left=${left},top=${top},status=no,menubar=no,toolbar=no`
+          );
+
+          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+            // Popup blocked by browser settings — fallback to standard redirect
+            window.location.href = data.url;
+            return;
+          }
+
+          // Poll popup completion to sync session immediately upon return
+          const timer = setInterval(async () => {
+            if (popup.closed) {
+              clearInterval(timer);
+              const { data: sessionData } = await sb.auth.getSession();
+              if (sessionData.session) {
+                setSession(sessionData.session);
+                setAuthReady(true);
+              }
+            }
+          }, 500);
+        }
+        return { data };
+      }
+
+      // Standard browser tab redirect
       return await sb.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: window.location.origin },

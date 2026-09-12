@@ -154,6 +154,33 @@ export const TITLE_BADGES: TitleBadge[] = [
     color: 'text-rose-300 border-rose-500/50 bg-rose-500/15 shadow-[0_0_20px_rgba(244,63,94,0.4)]',
     isUnlocked: () => true,
   },
+  {
+    id: 'server_sustainer',
+    name: 'Server Sustainer',
+    description: 'Tier-2 benefactor powering TypeNova cloud relays, hosting stability & low ping.',
+    category: 'endurance',
+    icon: 'shield-check',
+    color: 'text-sky-300 border-sky-500/50 bg-sky-500/15 shadow-[0_0_20px_rgba(56,189,248,0.4)]',
+    isUnlocked: () => true,
+  },
+  {
+    id: 'grand_architect',
+    name: 'Grand Architect',
+    description: 'Tier-3 benefactor funding semester university tuition and core engine architecture.',
+    category: 'endurance',
+    icon: 'crown',
+    color: 'text-amber-300 border-amber-500/50 bg-amber-500/15 shadow-[0_0_20px_rgba(245,158,11,0.4)]',
+    isUnlocked: () => true,
+  },
+  {
+    id: 'eternal_benefactor',
+    name: 'Eternal Benefactor',
+    description: 'Celestial-tier benefactor immortalized in TypeNova open source history.',
+    category: 'endurance',
+    icon: 'sparkles',
+    color: 'text-purple-300 border-purple-500/50 bg-purple-500/15 shadow-[0_0_20px_rgba(168,85,247,0.4)]',
+    isUnlocked: () => true,
+  },
 ];
 
 const ACTIVE_TITLE_KEY = 'typenova_active_title';

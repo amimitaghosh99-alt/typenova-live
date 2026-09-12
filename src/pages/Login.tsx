@@ -309,7 +309,7 @@ export function Login() {
         <div className="font-label-mono text-label-caps text-on-surface-variant text-xs opacity-70 hover:opacity-100 transition-opacity tracking-widest text-center flex items-center gap-2">
           <span>© {new Date().getFullYear()} TYPENOVA</span>
           <span className="text-white/20">•</span>
-          <span>MIT LICENSE</span>
+          <span>GPL v3 LICENSE</span>
           <span className="text-white/20">•</span>
           <button onClick={() => openCard('changelog')} className="text-secondary-fixed hover:underline cursor-pointer">
             {CHANGELOG[0]?.version || 'v2.8.0'}

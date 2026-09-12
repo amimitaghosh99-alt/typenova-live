@@ -4,8 +4,8 @@
 
 ### *The Next-Gen Cybernetic Gamified Typing Platform*
 
-[![Version](https://img.shields.io/badge/version-2.5.1-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live)
-[![License: MIT](https://img.shields.io/badge/License-MIT-00f2fe?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-3.0.1-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-00f2fe?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![React 19](https://img.shields.io/badge/React-19.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-purple?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
@@ -181,7 +181,7 @@ typenova/
 ├── PRD.md                  # Comprehensive Product Requirements Document
 ├── ARCHITECTURE.md         # System Architecture & Technical Specifications
 ├── CONTRIBUTING.md         # Developer contribution guidelines
-└── LICENSE                 # MIT License
+└── LICENSE                 # GNU General Public License v3.0 (GPLv3)
 ```
 
 ---
@@ -195,7 +195,9 @@ Check out our [**Contributing Guide**](CONTRIBUTING.md) to get started with pull
 
 ## 📄 License
 
-TypeNova is 100% Free and Open Source under the **[MIT License](LICENSE)**.
+TypeNova is 100% Free and Open Source software licensed under the **[GNU General Public License v3.0 (GPLv3)](LICENSE)**.
+
+Anyone is free to run, study, modify, and redistribute this software. In accordance with the GPLv3 copyleft terms, any derivative works or software incorporating TypeNova code must also be licensed under the GPLv3 and have their source code made publicly available.
 
 ---
 

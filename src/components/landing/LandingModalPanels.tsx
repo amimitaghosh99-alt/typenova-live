@@ -380,7 +380,7 @@ export function FAQPanel() {
   const faqs = [
     {
       q: 'Is TypeNova completely free & open source?',
-      a: 'Yes, 100%. TypeNova is released under the MIT License on GitHub. There are no paywalls, subscriptions, or hidden microtransactions. All gameplay, leaderboards, RPG cosmetics, and multiplayer arenas are free for everyone.',
+      a: 'Yes, 100%. TypeNova is released under the GNU General Public License v3.0 (GPLv3) on GitHub. There are no paywalls, subscriptions, or hidden microtransactions. All gameplay, leaderboards, RPG cosmetics, and multiplayer arenas are free and open source forever, ensuring derivative works also remain open.',
       icon: Sparkles,
       tag: 'Licensing & Pricing',
     },

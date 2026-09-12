@@ -39,7 +39,7 @@ export const LANDING_CARDS: Record<string, LandingCardItem> = {
               Free &amp; Open Source
             </div>
             <p className="text-xs text-zinc-400 leading-relaxed max-w-lg">
-              TypeNova is a 100% free, open-source platform released under the <strong>MIT License</strong>. The software is provided &quot;as is&quot;, without warranty of any kind. You are free to view, fork, and modify the code on our GitHub repository.
+              TypeNova is a 100% free, copyleft open-source platform released under the <strong>GNU General Public License v3.0 (GPLv3)</strong>. You are free to view, study, and modify the code on GitHub; all derivative works must remain free and open source.
             </p>
           </div>
 

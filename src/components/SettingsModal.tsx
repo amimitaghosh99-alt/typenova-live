@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Settings, Skull, Ghost, Brain, Bot, Zap, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, Sparkles, Sun, Sliders, UploadCloud, Trash2, Cpu, Type, Play, ArrowLeft, Crosshair, Activity, Terminal, ShieldCheck, Radio, Layers, ArrowUpRight, Gauge, Moon, Waves, HelpCircle, HandHeart } from 'lucide-react';
+import { X, Settings, Skull, Ghost, Brain, Bot, Zap, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, Sparkles, Sun, Sliders, UploadCloud, Trash2, Cpu, Type, Play, ArrowLeft, Crosshair, Activity, Terminal, ShieldCheck, Radio, Layers, ArrowUpRight, Gauge, Moon, Waves, HelpCircle, HandHeart, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { springGlider, springSnappy, springFluid } from '@/lib/motion';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +14,7 @@ import { useSmartEngineConfig } from '@/hooks/useSmartEngineConfig';
 import { useShaderConfig, SHADER_MODES, type ShaderSpeed } from '@/hooks/useShaderConfig';
 import { CURATED_WALLPAPERS, type CuratedWallpaper } from '@/hooks/useWallpaperTheme';
 import { ACCENT_SWATCHES } from '@/lib/colorExtractor';
+import { useDisplayScale, DISPLAY_SCALE_PRESETS, MIN_DISPLAY_SCALE, MAX_DISPLAY_SCALE } from '@/hooks/useDisplayScale';
 
 interface SettingsModalProps {
   theme: Theme;
@@ -255,6 +256,17 @@ export const SettingsModal = React.memo(function SettingsModal({
   const donationGoalPercent = getDonationProgressPercent();
   const [isDragging, setIsDragging] = useState(false);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
+
+  // In-webapp display scaling & OS DPI override
+  const {
+    scale: displayScale,
+    counteractDpi,
+    detectedOsScalePercent,
+    effectiveZoom,
+    setScale: setDisplayScale,
+    setCounteractDpi,
+    resetScale: resetDisplayScale,
+  } = useDisplayScale();
 
   // Live Sandbox state
   const [sandboxInput, setSandboxInput] = useState('');
@@ -1372,6 +1384,185 @@ export const SettingsModal = React.memo(function SettingsModal({
 
                     </div>
                   )}
+                </div>
+
+                {/* ── Display Scaling & UI Zoom ── */}
+                <div
+                  className="p-5 rounded-2xl border bg-white/[0.02] backdrop-blur-xl relative overflow-hidden"
+                  style={{
+                    borderColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                    boxShadow: `0 0 25px rgba(${theme.glowPrimary}, 0.05)`,
+                  }}
+                >
+                  {/* Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className="p-2 rounded-xl border"
+                        style={{
+                          backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                          borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                          color: `rgb(${theme.glowPrimary})`,
+                        }}
+                      >
+                        <Monitor size={16} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white tracking-wider uppercase flex items-center gap-2">
+                          Display Scaling & In-App Zoom
+                        </h4>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          Scale viewport & typography independently of your OS or browser zoom.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Live detected OS DPI indicator chip & Reset */}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="px-2.5 py-1 rounded-xl border flex items-center gap-1.5 text-[10px] font-mono"
+                        style={{
+                          backgroundColor: `rgba(${theme.glowPrimary}, 0.08)`,
+                          borderColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                          color: `rgb(${theme.glowPrimary})`,
+                        }}
+                      >
+                        <span
+                          className="w-1.5 h-1.5 rounded-full animate-pulse"
+                          style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                        />
+                        <span>OS DPI: {detectedOsScalePercent}%</span>
+                        {counteractDpi && detectedOsScalePercent > 100 && (
+                          <span className="text-emerald-400 font-bold ml-1">→ 1:1 ACTIVE</span>
+                        )}
+                      </div>
+
+                      {(displayScale !== 100 || counteractDpi) && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={resetDisplayScale}
+                          className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                          title="Reset display scale to 100%"
+                        >
+                          <RotateCcw size={10} /> Reset
+                        </motion.button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    {DISPLAY_SCALE_PRESETS.map((preset) => {
+                      const isSelected = displayScale === preset;
+                      return (
+                        <motion.button
+                          key={preset}
+                          whileHover={{ scale: 1.04, y: -1 }}
+                          whileTap={{ scale: 0.96 }}
+                          transition={springSnappy}
+                          onClick={() => setDisplayScale(preset)}
+                          style={
+                            isSelected
+                              ? {
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.55)`,
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                                  color: '#ffffff',
+                                  boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.25)`,
+                                }
+                              : undefined
+                          }
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer border ${
+                            isSelected
+                              ? ''
+                              : 'text-zinc-400 bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15 hover:text-white'
+                          }`}
+                        >
+                          {preset}%{preset === 100 ? ' (Default)' : ''}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Range Slider & Fine Tuner */}
+                  <div className="space-y-2 mb-4 pt-3 border-t border-white/5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-zinc-400 text-[11px] font-bold tracking-wider uppercase">Fine-Tune Scale</span>
+                      <span
+                        className="font-bold px-2 py-0.5 rounded-lg border text-xs"
+                        style={{
+                          borderColor: `rgba(${theme.glowPrimary}, 0.35)`,
+                          backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                          color: `rgb(${theme.glowPrimary})`,
+                        }}
+                      >
+                        {displayScale}% ({effectiveZoom}x effective)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-mono text-zinc-500">{MIN_DISPLAY_SCALE}%</span>
+                      <input
+                        type="range"
+                        min={MIN_DISPLAY_SCALE}
+                        max={MAX_DISPLAY_SCALE}
+                        step={5}
+                        value={displayScale}
+                        onChange={(e) => setDisplayScale(Number(e.target.value))}
+                        className="flex-1 cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none"
+                        style={{
+                          accentColor: `rgb(${theme.glowPrimary})`,
+                        }}
+                      />
+                      <span className="text-[10px] font-mono text-zinc-500">{MAX_DISPLAY_SCALE}%</span>
+                    </div>
+                  </div>
+
+                  {/* Counteract OS DPI Scaling 1:1 Mode Toggle */}
+                  <div
+                    onClick={() => setCounteractDpi(!counteractDpi)}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none flex items-center justify-between ${
+                      counteractDpi
+                        ? 'border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-2 rounded-lg border ${
+                          counteractDpi ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-white/5 border-white/10 text-zinc-400'
+                        }`}
+                      >
+                        <Zap size={14} />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                          <span>Counteract OS DPI Scaling (1:1 Native Resolution)</span>
+                          {detectedOsScalePercent > 100 && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-zinc-300">
+                              Windows {detectedOsScalePercent}% detected
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          {detectedOsScalePercent > 100
+                            ? `Neutralizes your OS ${detectedOsScalePercent}% zoom so TypeNova renders at ultra-crisp 1:1 hardware pixels.`
+                            : 'Ensures 1:1 pixel rendering if running on high-DPI or scaled displays.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`w-10 h-5 rounded-full transition-colors relative flex items-center px-0.5 shrink-0 ${
+                        counteractDpi ? 'bg-emerald-500' : 'bg-white/15'
+                      }`}
+                    >
+                      <motion.div
+                        animate={{ x: counteractDpi ? 20 : 0 }}
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        className="w-4 h-4 rounded-full bg-white shadow-md"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Typography Section — Rich Specimen Cards */}

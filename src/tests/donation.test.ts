@@ -3,6 +3,12 @@ import {
   DONATION_CONFIG,
   getDonationProgressPercent,
   getFeaturedPatrons,
+  getCombinedPatrons,
+  SUPPORTED_CURRENCIES,
+  convertCurrency,
+  formatCurrency,
+  SUPPORTER_TIERS,
+  generatePatronCertificateSerial,
   PATRON_WALL_MAX,
   PREMIUM_ACCENT,
   type DonationConfig,
@@ -131,7 +137,7 @@ export function registerDonationTests(): void {
     });
   });
 
-  describe('Supporter Rewards — Cyber Patron Title Badge', () => {
+  describe('Supporter Rewards — Patron Title Badges & Icons', () => {
     it('registers cyber_patron title in TITLE_BADGES with hand-heart icon', () => {
       const patronTitle = TITLE_BADGES.find((b) => b.id === 'cyber_patron');
       expect(patronTitle).not.toBe(undefined);
@@ -147,9 +153,112 @@ export function registerDonationTests(): void {
       })).toBe(true);
     });
 
-    it('maps hand-heart icon to Lucide HandHeart in TITLE_ICONS and TITLE_MARK', () => {
-      expect(TITLE_ICONS['hand-heart']).not.toBe(undefined);
-      expect(TITLE_MARK['cyber_patron']).not.toBe(undefined);
+    it('registers server_sustainer, grand_architect, and eternal_benefactor in TITLE_BADGES', () => {
+      const titles = ['server_sustainer', 'grand_architect', 'eternal_benefactor'];
+      titles.forEach((id) => {
+        const badge = TITLE_BADGES.find((b) => b.id === id);
+        expect(badge).not.toBe(undefined);
+        expect(badge?.name.length).toBeGreaterThan(0);
+        expect(badge?.isUnlocked({
+          maxWpm: 0,
+          avgAccuracy: 0,
+          testsCompleted: 0,
+          dailyStreak: 0,
+          racesWon: 0,
+          totalWordsTyped: 0,
+        })).toBe(true);
+      });
+    });
+
+    it('maps all supporter title icons in TITLE_ICONS and resolves them in TITLE_MARK', () => {
+      const titles = ['cyber_patron', 'server_sustainer', 'grand_architect', 'eternal_benefactor'];
+      titles.forEach((id) => {
+        const badge = TITLE_BADGES.find((b) => b.id === id)!;
+        expect(TITLE_ICONS[badge.icon]).not.toBe(undefined);
+        expect(TITLE_MARK[id]).not.toBe(undefined);
+      });
+    });
+  });
+
+  describe('Multi-Currency & Conversion Engine', () => {
+    it('supports 7 global currencies with positive rates and suggested amounts', () => {
+      const keys = ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'JPY', 'AUD'] as const;
+      keys.forEach((k) => {
+        const info = SUPPORTED_CURRENCIES[k];
+        expect(info).not.toBe(undefined);
+        expect(info.code).toBe(k);
+        expect(info.symbol.length).toBeGreaterThan(0);
+        expect(info.rateToUsd).toBeGreaterThan(0);
+        expect(info.suggestedAmounts.length).toBeGreaterThanOrEqual(4);
+      });
+    });
+
+    it('converts currencies accurately and handles edge cases', () => {
+      // Identity
+      expect(convertCurrency(100, 'USD', 'USD')).toBe(100);
+      expect(convertCurrency(0, 'USD', 'INR')).toBe(0);
+      expect(convertCurrency(-5, 'USD', 'EUR')).toBe(-5);
+
+      // USD to INR: 10 USD = ~865 INR
+      const inr = convertCurrency(10, 'USD', 'INR');
+      expect(inr).toBe(865);
+
+      // INR to USD: 865 INR = 10 USD
+      const usd = convertCurrency(865, 'INR', 'USD');
+      expect(usd).toBe(10);
+    });
+
+    it('formats currencies with appropriate symbols and decimal rules', () => {
+      expect(formatCurrency(250, 'INR')).toBe('₹250');
+      expect(formatCurrency(1000, 'JPY')).toBe('¥1,000');
+      expect(formatCurrency(25, 'USD')).toBe('$25');
+      expect(formatCurrency(15.5, 'EUR')).toBe('€15.50');
+    });
+  });
+
+  describe('Supporter Tiers & Milestone Transparency Budgets', () => {
+    it('defines 4 structured benefactor tiers in ascending USD amounts', () => {
+      expect(SUPPORTER_TIERS.length).toBe(4);
+      for (let i = 1; i < SUPPORTER_TIERS.length; i++) {
+        expect(SUPPORTER_TIERS[i].usdAmount > SUPPORTER_TIERS[i - 1].usdAmount).toBe(true);
+      }
+      SUPPORTER_TIERS.forEach((t) => {
+        expect(t.name.length).toBeGreaterThan(0);
+        expect(t.badge.length).toBeGreaterThan(0);
+        expect(t.perks.length).toBeGreaterThanOrEqual(3);
+        expect(TITLE_BADGES.some((b) => b.id === t.titleRewardId)).toBe(true);
+      });
+    });
+
+    it('attaches itemized budget breakdowns to all community milestones', () => {
+      DONATION_CONFIG.goal.milestones.forEach((m) => {
+        expect(m.budgetBreakdown).not.toBe(undefined);
+        expect(m.budgetBreakdown!.length).toBeGreaterThan(0);
+        m.budgetBreakdown!.forEach((item) => {
+          expect(item.item.length).toBeGreaterThan(0);
+          expect(item.cost.length).toBeGreaterThan(0);
+          expect(item.purpose.length).toBeGreaterThan(0);
+        });
+      });
+    });
+
+    it('generates a valid cryptographic certificate serial number', () => {
+      const s1 = generatePatronCertificateSerial('Typist_Ace', 25);
+      expect(s1.startsWith('TN-VAULT-')).toBe(true);
+      expect(s1.endsWith('-GOLD')).toBe(true);
+
+      const s2 = generatePatronCertificateSerial('Legend_99', 50);
+      expect(s2.endsWith('-LEGEND')).toBe(true);
+
+      const s3 = generatePatronCertificateSerial('Supporter_1', 5);
+      expect(s3.endsWith('-PATRON')).toBe(true);
+    });
+
+    it('handles local patron contributions and combined ledger safely', () => {
+      const combined = getCombinedPatrons();
+      expect(combined.length).toBeGreaterThan(0);
+      expect(combined.length).toBeLessThanOrEqual(PATRON_WALL_MAX);
     });
   });
 }
+

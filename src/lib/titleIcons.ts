@@ -16,7 +16,7 @@
  */
 
 import {
-    Anvil, Award, CloudLightning, Flame, Footprints, HandHeart, Rocket, Sprout, Target, Trophy, Zap,
+    Anvil, Award, CloudLightning, Crown, Flame, Footprints, HandHeart, Rocket, ShieldCheck, Sparkles, Sprout, Target, Trophy, Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { TITLE_BADGES } from '@/data/titles';
@@ -40,6 +40,9 @@ export const TITLE_ICONS: Record<string, LucideIcon> = {
     'flame': Flame,
     'trophy': Trophy,
     'hand-heart': HandHeart,
+    'shield-check': ShieldCheck,
+    'crown': Crown,
+    'sparkles': Sparkles,
 };
 
 /** Never returns undefined: an unmapped key falls back to a generic award. */

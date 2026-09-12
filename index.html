@@ -22,6 +22,21 @@
   <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Sora:wght@600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <!-- Pre-hydration Display Scale Bootloader -->
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('typenova_display_scale');
+        if (raw) {
+          var cfg = JSON.parse(raw);
+          var s = Math.min(150, Math.max(70, Number(cfg.scale) || 100));
+          var dpr = window.devicePixelRatio || 1;
+          var zoom = cfg.counteractDpi && dpr > 1 ? (s / 100) / dpr : (s / 100);
+          document.documentElement.style.zoom = Number(zoom.toFixed(3));
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>

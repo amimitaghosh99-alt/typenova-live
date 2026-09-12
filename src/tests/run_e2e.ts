@@ -27,6 +27,7 @@ import { registerDisplayDiagnosticsTests } from './displayDiagnostics.test.ts';
 import { registerDailyChallengeTests } from './dailyChallenge.test.ts';
 import { registerDonationTests } from './donation.test.ts';
 import { registerHallOfLegendsTests } from './test_hall_of_legends.ts';
+import { registerDisplayScaleTests } from './display_scale.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -78,6 +79,9 @@ async function main(): Promise<void> {
 
   // Hall of Legends: 20-achievement roster, category groupings, prestige rankings & dynamic theming
   registerHallOfLegendsTests();
+
+  // In-Webapp Display Scaling & OS DPI Override Engine
+  registerDisplayScaleTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

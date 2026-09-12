@@ -1,1 +1,0 @@
-fix(ui): remove v3.0.0 pill from top CosmicNavBar

@@ -18,19 +18,59 @@ import {
   Server,
   BookOpen,
   Code2,
-  ChevronRight,
   MessageSquareHeart,
+  CreditCard,
+  DollarSign,
+  Send,
+  HelpCircle,
+  Lock,
+  Crown,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { toast } from 'sonner';
 import {
   DONATION_CONFIG,
   getDonationProgressPercent,
-  getFeaturedPatrons,
-  type PatronEntry,
+  getCombinedPatrons,
+  SUPPORTED_CURRENCIES,
+  convertCurrency,
+  formatCurrency,
+  SUPPORTER_TIERS,
+  type CurrencyCode,
 } from '@/data/donation';
 import { getActiveTitleId, setActiveTitleId } from '@/data/titles';
 import type { Theme } from '@/data/constants';
+import { PaymentGatewayModal } from '@/components/donation/PaymentGatewayModal';
+import { SupporterCertificateModal } from '@/components/donation/SupporterCertificateModal';
+import { RecordContributionModal } from '@/components/donation/RecordContributionModal';
+
+// Generative avatar color from patron name
+const AVATAR_PALETTE = [
+  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+  '#f43f5e', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+  '#22c55e', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6',
+];
+function getAvatarBg(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+
+// SVG Progress Ring for tuition goal
+function ProgressRing({ percent, size = 100, stroke = 5, glow }: { percent: number; size?: number; stroke?: number; glow: string }) {
+  const r = (size - stroke) / 2;
+  const c = r * 2 * Math.PI;
+  const offset = c - (Math.min(percent, 100) / 100) * c;
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={`rgb(${glow})`}
+        strokeWidth={stroke} strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+        style={{ filter: `drop-shadow(0 0 6px rgba(${glow}, 0.5))`, transition: 'stroke-dashoffset 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}
+      />
+    </svg>
+  );
+}
 
 export interface PatronVaultProps {
   onBack?: () => void;
@@ -38,7 +78,8 @@ export interface PatronVaultProps {
   onTitleEquipped?: (titleId: string) => void;
 }
 
-type PaymentTab = 'upi' | 'global';
+type PaymentTab = 'upi' | 'card';
+type WallFilter = 'all' | 'top' | 'recent';
 
 export const PatronVault: React.FC<PatronVaultProps> = ({
   onBack,
@@ -46,33 +87,70 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
   onTitleEquipped,
 }) => {
   const [activeTab, setActiveTab] = useState<PaymentTab>('upi');
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>('INR');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [selectedInr, setSelectedInr] = useState<number>(250);
-  const [customInr, setCustomInr] = useState<string>('');
+
+  const [selectedAmount, setSelectedAmount] = useState<number>(250);
+  const [customAmount, setCustomAmount] = useState<string>('');
   const [isCustomMode, setIsCustomMode] = useState<boolean>(false);
-  const [isPatronTitleEquipped, setIsPatronTitleEquipped] = useState<boolean>(() => {
-    return getActiveTitleId() === 'cyber_patron';
+
+  const [expandedMilestone, setExpandedMilestone] = useState<number | null>(null);
+
+  const [activeTitle, setActiveTitle] = useState<string>(() => getActiveTitleId());
+
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isCertificateOpen, setIsCertificateOpen] = useState(false);
+  const [isRecordOpen, setIsRecordOpen] = useState(false);
+  const [certificateData, setCertificateData] = useState<{
+    callsign: string;
+    amount: number;
+    currency: CurrencyCode;
+  }>({
+    callsign: 'Benefactor',
+    amount: 25,
+    currency: 'USD',
   });
+
+  const [wallFilter, setWallFilter] = useState<WallFilter>('all');
+  const [patronRefreshCounter, setPatronRefreshCounter] = useState(0);
 
   const progressPercent = getDonationProgressPercent(DONATION_CONFIG);
   const goal = DONATION_CONFIG.goal;
-  const gp = theme.glowPrimary; // shorthand for RGB triplet string (e.g. '245, 158, 11')
-  const featuredPatrons = useMemo(() => getFeaturedPatrons(DONATION_CONFIG), []);
+  const gp = theme.glowPrimary;
 
-  // Active amount for UPI link generation
-  const activeInrAmount = isCustomMode ? (Number(customInr) || 250) : selectedInr;
+  const combinedPatrons = useMemo(() => {
+    const list = getCombinedPatrons(DONATION_CONFIG, 20);
+    if (wallFilter === 'top') {
+      return [...list].sort((a, b) => b.amount - a.amount);
+    }
+    if (wallFilter === 'recent') {
+      return [...list].sort((a, b) => (b.date > a.date ? 1 : -1));
+    }
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallFilter, patronRefreshCounter]);
 
-  // Dynamic UPI payment URL for QR & mobile deep link
+  const activeAmount = useMemo(() => {
+    if (isCustomMode) {
+      const parsed = parseFloat(customAmount);
+      return !isNaN(parsed) && parsed > 0 ? parsed : 10;
+    }
+    return selectedAmount;
+  }, [isCustomMode, customAmount, selectedAmount]);
+
+  const upiInrAmount = useMemo(() => {
+    if (selectedCurrency === 'INR') return Math.round(activeAmount);
+    return Math.round(convertCurrency(activeAmount, selectedCurrency, 'INR'));
+  }, [activeAmount, selectedCurrency]);
+
   const upiDeepLink = useMemo(() => {
     const vpa = DONATION_CONFIG.upi.upiId;
     const name = encodeURIComponent(DONATION_CONFIG.upi.payeeName);
     const note = encodeURIComponent(DONATION_CONFIG.upi.defaultNote);
-    return `upi://pay?pa=${vpa}&pn=${name}&am=${activeInrAmount}&cu=INR&tn=${note}`;
-  }, [activeInrAmount]);
+    return `upi://pay?pa=${vpa}&pn=${name}&am=${upiInrAmount}&cu=INR&tn=${note}`;
+  }, [upiInrAmount]);
 
-  // Dynamic QR Code SVG generated offline locally
-  const [qrSvg, setQrSvg] = useState<string>('');
-
+  const [upiQrSvg, setUpiQrSvg] = useState<string>('');
   useEffect(() => {
     let active = true;
     QRCode.toString(upiDeepLink, {
@@ -81,26 +159,38 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
       color: { dark: '#050608', light: '#ffffff' },
     })
       .then((svg) => {
-        if (active) setQrSvg(svg);
+        if (active) setUpiQrSvg(svg);
       })
       .catch((err) => {
-        console.error('QR generation failed:', err);
+        console.error('UPI QR generation failed:', err);
       });
     return () => {
       active = false;
     };
   }, [upiDeepLink]);
 
-  // Keyboard shortcut: Escape to go back
+  const handleCurrencyChange = (newCurr: CurrencyCode) => {
+    const oldCurr = selectedCurrency;
+    setSelectedCurrency(newCurr);
+    setIsCustomMode(false);
+    const converted = convertCurrency(activeAmount, oldCurr, newCurr);
+    const suggested = SUPPORTED_CURRENCIES[newCurr].suggestedAmounts;
+    const closest = suggested.reduce((prev, curr) =>
+      Math.abs(curr - converted) < Math.abs(prev - converted) ? curr : prev
+    );
+    setSelectedAmount(closest);
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onBack) onBack();
+      if (e.key === 'Escape' && onBack && !isCheckoutOpen && !isCertificateOpen && !isRecordOpen) {
+        onBack();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onBack]);
+  }, [onBack, isCheckoutOpen, isCertificateOpen, isRecordOpen]);
 
-  // Copy helper with feedback
   const handleCopy = useCallback((text: string, key: string, label: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text);
@@ -110,28 +200,46 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
     }
   }, []);
 
-  // Share page link
   const handleShare = useCallback(() => {
     const url = window.location.origin + '/donate';
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(url);
       setCopiedKey('share');
-      toast.success('Page link copied!', { description: url });
+      toast.success('Patron Vault URL copied!', { description: url });
       setTimeout(() => setCopiedKey(null), 2500);
     }
   }, []);
 
-  // Equip Cyber Patron title
-  const handleEquipPatronTitle = useCallback(() => {
-    setActiveTitleId('cyber_patron');
-    setIsPatronTitleEquipped(true);
-    onTitleEquipped?.('cyber_patron');
-    toast.success('Holographic "Cyber Patron" Title Equipped!', {
-      description: 'Radiating in your dossier, leaderboards, and lobbies.',
-    });
-  }, [onTitleEquipped]);
+  const handleEquipTitle = useCallback(
+    (titleId: string, titleName: string) => {
+      setActiveTitleId(titleId);
+      setActiveTitle(titleId);
+      onTitleEquipped?.(titleId);
+      toast.success(`Holographic "${titleName}" Title Equipped!`, {
+        description: 'Radiating in your dossier, leaderboards, and lobbies.',
+      });
+    },
+    [onTitleEquipped]
+  );
 
-  // Milestone icon mapping
+  const handlePaymentSuccess = useCallback(
+    (details: {
+      name: string;
+      amount: number;
+      currency: CurrencyCode;
+      txHash: string;
+      platform: 'gateway' | 'upi';
+    }) => {
+      setCertificateData({
+        callsign: details.name,
+        amount: details.amount,
+        currency: details.currency,
+      });
+      setPatronRefreshCounter((prev) => prev + 1);
+    },
+    []
+  );
+
   const getMilestoneIcon = (index: number) => {
     switch (index) {
       case 0:
@@ -180,749 +288,695 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
 
   return (
     <div
-      className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] overflow-y-auto text-zinc-100 selection:bg-white/20 custom-scrollbar"
-      style={{ backgroundColor: '#07090e' }}
+      className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] overflow-y-auto text-zinc-100 selection:bg-white/20 custom-scrollbar bg-[#07090e]"
     >
-      {/* ═══ CALIBRATED ATMOSPHERIC STAGE ═══ */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Primary dynamic accent radial - soft top bloom */}
         <div
-          className="absolute -top-48 left-1/2 -translate-x-1/2 w-[1200px] h-[600px] rounded-full blur-[160px] opacity-[0.22] transition-colors duration-700 pointer-events-none"
+          className="absolute -top-48 left-1/2 -translate-x-1/2 w-[1200px] h-[600px] rounded-full blur-[160px] opacity-[0.18] transition-colors duration-700 pointer-events-none"
           style={{ backgroundColor: `rgb(${gp})` }}
         />
-        {/* Subtle geometric dot matrix */}
         <div
-          className="absolute inset-0 opacity-[0.02] pointer-events-none"
+          className="absolute inset-0 opacity-[0.015] pointer-events-none"
           style={{
             backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)',
             backgroundSize: '32px 32px',
           }}
         />
-        {/* Top edge shadow gradient */}
-        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
       </div>
 
-      {/* ═══ ROOT WIDESCREEN CONTAINER (FILLS MONITOR) ═══ */}
-      <div className="relative z-10 w-full px-5 sm:px-8 lg:px-12 xl:px-16 2xl:px-24 py-6 sm:py-8 space-y-8 max-w-[1920px] mx-auto">
-
-        {/* ── 1. STAGE BAR / COMMAND STRIP ── */}
-        <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] pb-4">
-          <button
-            onClick={onBack}
-            className="group flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-medium text-zinc-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer"
-          >
-            <ArrowLeft size={13} className="group-hover:-translate-x-1 transition-transform" />
-            <span>RETURN</span>
-            <span className="text-[10px] text-zinc-600 hidden sm:inline ml-0.5">[ESC]</span>
-          </button>
-
-          {/* Minimalist Center Pill Group */}
-          <div className="hidden md:flex items-center gap-3 px-4 py-1.5 rounded-full text-xs font-mono bg-[#0e1219]/80 border border-white/[0.08] text-zinc-400 backdrop-blur-md">
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: `rgb(${gp})` }} />
-            <span className="text-zinc-200 font-semibold">Independent Academic Project</span>
-            <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span>100% Free &amp; Ad-Free</span>
-            <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span>Zero Tracking</span>
+      <div className="relative z-10 w-full px-5 sm:px-8 lg:px-12 py-6 sm:py-8 space-y-8 max-w-[1440px] mx-auto">
+        
+        {/* Section 1 - Command Strip */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
+          <div className="flex items-center gap-4 rounded-full bg-[#0c0f16]/80 backdrop-blur-2xl border border-white/[0.06] px-4 py-2 w-full sm:w-auto overflow-x-auto custom-scrollbar">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-xs font-mono font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              <ArrowLeft size={14} />
+              <span>RETURN</span>
+            </button>
+            
+            <div className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+            
+            <div className="flex items-center gap-2 text-xs font-mono text-zinc-300 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: `rgb(${gp})` }} />
+              <span>Undergraduate Academic Project</span>
+              <span className="text-zinc-500">•</span>
+              <span>100% Free & Ad-Free</span>
+            </div>
+            
+            <div className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+            
+            <div className="flex items-center gap-2 shrink-0">
+              <DollarSign size={14} style={{ color: `rgb(${gp})` }} />
+              <select
+                value={selectedCurrency}
+                onChange={(e) => handleCurrencyChange(e.target.value as CurrencyCode)}
+                className="bg-transparent text-white font-mono text-xs font-bold focus:outline-none cursor-pointer"
+              >
+                {(Object.keys(SUPPORTED_CURRENCIES) as CurrencyCode[]).map((c) => (
+                  <option key={c} value={c} className="bg-[#0b0e15] text-white">
+                    {c} ({SUPPORTED_CURRENCIES[c].symbol})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+            
+            <button
+              onClick={() => setIsRecordOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-mono font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              <Heart size={14} style={{ color: `rgb(${gp})` }} />
+              <span>CLAIM BADGE</span>
+            </button>
+            
+            <div className="w-1 h-1 rounded-full bg-white/20 shrink-0" />
+            
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 text-xs font-mono font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              {copiedKey === 'share' ? <Check size={14} className="text-emerald-400" /> : <Share2 size={14} />}
+              <span>{copiedKey === 'share' ? 'COPIED' : 'SHARE'}</span>
+            </button>
           </div>
-
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono font-medium text-zinc-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer"
-            title="Share page URL"
-          >
-            {copiedKey === 'share' ? <Check size={13} className="text-emerald-400" /> : <Share2 size={13} />}
-            <span>{copiedKey === 'share' ? 'COPIED' : 'SHARE'}</span>
-          </button>
         </div>
 
-        {/* ── 2. EDITORIAL HERO & MISSION ── */}
-        <div className="space-y-4 max-w-5xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-mono font-semibold tracking-wider uppercase bg-white/[0.03] border border-white/[0.08] text-zinc-300">
-            <GraduationCap size={13} style={{ color: `rgb(${gp})` }} />
-            <span>STUDENT TUITION &amp; CLOUD SUSTENANCE FUND</span>
+        {/* Section 2 - Cinematic Hero */}
+        <div className="py-16 lg:py-24 max-w-4xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono font-bold tracking-[0.2em] uppercase bg-white/[0.03] border border-white/[0.08] text-zinc-400 mb-6">
+            <GraduationCap size={14} style={{ color: `rgb(${gp})` }} />
+            <span>STUDENT TUITION & CLOUD INFRASTRUCTURE LEDGER</span>
           </div>
-
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white font-display leading-[1.15] text-balance">
-            Support TypeNova &amp;{' '}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] text-white">
+            Fuel TypeNova &{' '}
             <span
               className="inline-block"
               style={{
                 color: `rgb(${gp})`,
-                textShadow: `0 0 35px rgba(${gp}, 0.35)`,
+                textShadow: `0 0 40px rgba(${gp}, 0.4)`,
               }}
             >
-              Help Pay My College Fees.
+              Support My College Studies.
             </span>
           </h1>
-
-          <p className="text-sm sm:text-base text-zinc-300 leading-relaxed font-sans max-w-4xl">
-            TypeNova is built entirely by an undergraduate student between classes, labs, and late nights.
-            There are no venture capitalists, no paywalled statistics, and zero tracking ads.
-            Every rupee and dollar contributed directly pays down semester tuition fees and funds
-            the annual cloud servers keeping TypeNova online, fast, and free for all typists worldwide.
+          <p className="text-base sm:text-lg text-zinc-400 max-w-2xl leading-relaxed mt-6">
+            TypeNova is engineered entirely by an undergraduate student between lectures, labs, and late nights.
+            There is zero venture capital, zero paywalled stats, and zero ad-tracking telemetry.
+            Every contribution directly pays down semester tuition fees and maintains the multiplayer servers worldwide.
           </p>
         </div>
 
-        {/* ── 3. PRECISION IMPACT METRICS ROW ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            {
-              label: 'TESTS HOSTED GLOBALLY',
-              value: '128,000+',
-              sub: 'Fast, ad-free typing sessions',
-            },
-            {
-              label: 'SEMESTER TUITION GOAL',
-              value: `$${goal.currentAmount} / $${goal.targetAmount}`,
-              sub: `${progressPercent}% funded towards target`,
-              highlight: true,
-            },
-            {
-              label: 'SOURCE CODE',
-              value: '100% MIT',
-              sub: 'Publicly inspectable on GitHub',
-            },
-            {
-              label: 'TRACKING & TELEMETRY',
-              value: '0.00%',
-              sub: 'Completely private by architecture',
-            },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-2xl bg-[#0b0e15]/80 border border-white/[0.07] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-            >
-              <span className="text-[10px] font-mono tracking-widest uppercase text-zinc-400 block mb-1">
-                {stat.label}
-              </span>
-              <div
-                className="text-xl sm:text-2xl font-black font-mono tracking-tight"
-                style={stat.highlight ? { color: `rgb(${gp})` } : { color: '#ffffff' }}
-              >
-                {stat.value}
-              </div>
-              <p className="text-[11px] text-zinc-400 mt-1 font-mono">{stat.sub}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* ═══ 4. ASYMMETRIC DUAL COCKPIT (7 COLS LEDGER / 5 COLS TERMINAL) ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-start">
-
-          {/* ── LEFT COLUMN (7 COLS): SUSTENANCE ROADMAP & COMMUNITY PROOF ── */}
-          <div className="lg:col-span-7 space-y-6">
-
-            {/* A. SUSTENANCE MILESTONE ROADMAP (Doppelrand Shell + Inner Core) */}
-            <div className="rounded-[1.75rem] p-1 bg-white/[0.02] border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <div className="p-5 sm:p-7 rounded-[calc(1.75rem-0.25rem)] bg-[#0c0f16]/90 backdrop-blur-2xl border border-white/[0.05] space-y-6">
-
-                {/* Header with Title & Goal Figures */}
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <GraduationCap size={18} style={{ color: `rgb(${gp})` }} />
-                      <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                        {goal.label}
-                      </h2>
-                    </div>
-                    <p className="text-xs text-zinc-400 mt-0.5 font-mono">
-                      Target: $2,000 USD (~₹2,00,000 INR) for semester tuition &amp; infrastructure
-                    </p>
+        {/* Section 3 - Impact Bento Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="py-10"
+        >
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* Tuition Goal Card (col-span-2) */}
+            <div className="col-span-2 rounded-2xl p-px bg-gradient-to-b from-white/[0.08] to-white/[0.02]">
+              <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-5 sm:p-6 lg:p-8 flex items-center justify-between h-full backdrop-blur-xl">
+                <div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400 block mb-2">SEMESTER TUITION GOAL</span>
+                  <div className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+                    ${goal.currentAmount} / ${goal.targetAmount}
                   </div>
-
-                  <div className="flex items-baseline gap-2 font-mono shrink-0">
-                    <span className="text-3xl font-black text-white">
-                      {goal.currency}{goal.currentAmount}
-                    </span>
-                    <span className="text-xs text-zinc-400">
-                      / {goal.currency}{goal.targetAmount}
-                    </span>
-                    <span
-                      className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ml-1 font-mono"
-                      style={{
-                        backgroundColor: `rgba(${gp}, 0.12)`,
-                        borderColor: `rgba(${gp}, 0.35)`,
-                        color: `rgb(${gp})`,
-                      }}
-                    >
-                      {progressPercent}% FUNDED
-                    </span>
+                  <div className="text-sm text-zinc-400 mt-2 font-mono">
+                    <span style={{ color: `rgb(${gp})` }}>{progressPercent}% funded</span> towards target
                   </div>
                 </div>
-
-                {/* Glowing Hardware Progress Track */}
-                <div className="space-y-2">
-                  <div className="relative w-full h-3 bg-black/60 rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
-                    <div
-                      className="h-full rounded-full transition-all duration-1000 relative"
-                      style={{
-                        width: `${Math.max(progressPercent, 1)}%`,
-                        backgroundColor: `rgb(${gp})`,
-                        boxShadow: `0 0 16px rgba(${gp}, 0.6), 0 0 32px rgba(${gp}, 0.25)`,
-                      }}
-                    >
-                      {progressPercent > 0 && (
-                        <div className="absolute right-0 top-0 bottom-0 w-2 bg-white rounded-full shadow-[0_0_8px_#ffffff]" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-[10px] font-mono text-zinc-400">
-                    <span>$0 (Genesis)</span>
-                    <span style={{ color: `rgb(${gp})` }}>Phase Roadmap Active</span>
-                    <span>$2,000 (Tuition Cap)</span>
-                  </div>
-                </div>
-
-                {/* 4 Connected Ledger Milestones */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 pt-1">
-                  {goal.milestones.map((m, idx) => {
-                    const isReached = goal.currentAmount >= m.amount;
-                    return (
-                      <div
-                        key={m.amount}
-                        className={`p-4 rounded-2xl border transition-all flex flex-col justify-between relative ${
-                          isReached
-                            ? 'bg-white/[0.06] border-white/20 text-white'
-                            : 'bg-[#090b10]/90 border-white/[0.06] text-zinc-400'
-                        }`}
-                        style={
-                          isReached
-                            ? {
-                                borderColor: `rgba(${gp}, 0.4)`,
-                                boxShadow: `0 0 20px rgba(${gp}, 0.12)`,
-                              }
-                            : undefined
-                        }
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-2.5">
-                            <div
-                              className="w-7 h-7 rounded-lg flex items-center justify-center"
-                              style={
-                                isReached
-                                  ? {
-                                      backgroundColor: `rgba(${gp}, 0.2)`,
-                                      color: `rgb(${gp})`,
-                                    }
-                                  : {
-                                      backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                                      color: '#a1a1aa',
-                                    }
-                              }
-                            >
-                              {getMilestoneIcon(idx)}
-                            </div>
-                            <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.08] text-zinc-200">
-                              ${m.amount}
-                            </span>
-                          </div>
-                          <div className="font-bold text-xs text-white leading-snug">
-                            {m.label}
-                          </div>
-                        </div>
-                        <p className="text-[11px] text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
-                          {m.description}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-              </div>
-            </div>
-
-            {/* B. EXCLUSIVE SUPPORTER REWARD: "CYBER PATRON" TITLE */}
-            <div className="rounded-[1.75rem] p-1 bg-white/[0.02] border border-white/[0.08]">
-              <div className="p-5 sm:p-6 rounded-[calc(1.75rem-0.25rem)] bg-[#0c0f16]/90 backdrop-blur-2xl border border-white/[0.05] space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center border shrink-0"
-                      style={{
-                        backgroundColor: `rgba(${gp}, 0.15)`,
-                        borderColor: `rgba(${gp}, 0.35)`,
-                        color: `rgb(${gp})`,
-                      }}
-                    >
-                      <Award size={18} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm sm:text-base font-bold text-white font-display">
-                        Supporter Perk: "Cyber Patron" Holographic Title
-                      </h3>
-                      <p className="text-xs text-zinc-400 mt-0.5">
-                        Radiates beside your name in leaderboards, operator dossiers, and race lobbies.
-                      </p>
-                    </div>
-                  </div>
-
-                  <span
-                    className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border shrink-0"
-                    style={{
-                      backgroundColor: `rgba(${gp}, 0.1)`,
-                      borderColor: `rgba(${gp}, 0.3)`,
-                      color: `rgb(${gp})`,
-                    }}
-                  >
-                    PERMANENT
-                  </span>
-                </div>
-
-                {/* Holographic Badge Preview & One-Click Equip Button */}
-                <div className="p-4 rounded-2xl bg-black/60 border border-white/[0.07] flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold font-mono text-white border border-white/10">
-                      TN
-                    </div>
-                    <span className="text-xs font-mono font-bold text-white">OPERATOR</span>
-                    <span
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase border flex items-center gap-1.5"
-                      style={{
-                        backgroundColor: `rgba(${gp}, 0.18)`,
-                        borderColor: `rgba(${gp}, 0.5)`,
-                        color: `rgb(${gp})`,
-                        boxShadow: `0 0 16px rgba(${gp}, 0.35)`,
-                      }}
-                    >
-                      <Sparkles size={11} />
-                      <span>CYBER PATRON</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-zinc-400 hidden sm:inline">
-                      LVL 50+
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={handleEquipPatronTitle}
-                    className="w-full sm:w-auto px-5 py-2 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border shrink-0"
-                    style={
-                      isPatronTitleEquipped
-                        ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            borderColor: 'rgba(16, 185, 129, 0.4)',
-                            color: '#34d399',
-                          }
-                        : {
-                            backgroundColor: `rgb(${gp})`,
-                            color: '#000000',
-                            borderColor: `rgb(${gp})`,
-                            boxShadow: `0 0 20px rgba(${gp}, 0.4)`,
-                          }
-                    }
-                  >
-                    {isPatronTitleEquipped ? (
-                      <>
-                        <Check size={13} strokeWidth={2.5} />
-                        <span>EQUIPPED IN DOSSIER &amp; LOBBIES ✓</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={13} />
-                        <span>EQUIP TITLE BADGE</span>
-                      </>
-                    )}
-                  </button>
+                <div className="shrink-0 ml-4 hidden sm:block">
+                  <ProgressRing percent={progressPercent} size={90} stroke={6} glow={gp} />
                 </div>
               </div>
             </div>
 
-            {/* C. COMMUNITY PATRON WALL (AUTHENTIC SOCIAL PROOF) */}
-            <div className="rounded-[1.75rem] p-1 bg-white/[0.02] border border-white/[0.08]">
-              <div className="p-5 sm:p-6 rounded-[calc(1.75rem-0.25rem)] bg-[#0c0f16]/90 backdrop-blur-2xl border border-white/[0.05] space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <MessageSquareHeart size={17} style={{ color: `rgb(${gp})` }} />
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                      Recent Typist Supporters
-                    </h3>
-                  </div>
-                  <span className="text-[11px] font-mono text-zinc-400">
-                    Community Backers
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {featuredPatrons.map((patron: PatronEntry, idx: number) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-xl bg-[#090b10]/90 border border-white/[0.06] flex flex-col justify-between text-xs font-mono"
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="font-bold text-white truncate">{patron.name}</span>
-                        <span
-                          className="font-bold px-2 py-0.5 rounded text-[10px] shrink-0"
-                          style={{
-                            backgroundColor: `rgba(${gp}, 0.12)`,
-                            color: `rgb(${gp})`,
-                          }}
-                        >
-                          ${patron.amount}
-                        </span>
-                      </div>
-                      {patron.message ? (
-                        <p className="text-[11px] text-zinc-400 italic line-clamp-2">
-                          "{patron.message}"
-                        </p>
-                      ) : (
-                        <span className="text-[10px] text-zinc-400 uppercase tracking-widest">
-                          Supporter · {patron.platform}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+            {/* Tests Hosted */}
+            <div className="rounded-2xl p-px bg-gradient-to-b from-white/[0.08] to-white/[0.02]">
+              <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-5 sm:p-6 lg:p-8 h-full backdrop-blur-xl flex flex-col justify-center">
+                <Zap size={24} style={{ color: `rgb(${gp})` }} className="mb-4 opacity-80" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400 block mb-1">TESTS HOSTED</span>
+                <div className="text-xl sm:text-2xl font-black text-white">128,000+</div>
               </div>
             </div>
 
+            {/* Source Code */}
+            <div className="rounded-2xl p-px bg-gradient-to-b from-white/[0.08] to-white/[0.02]">
+              <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-5 sm:p-6 lg:p-8 h-full backdrop-blur-xl flex flex-col justify-center">
+                <Code2 size={24} style={{ color: `rgb(${gp})` }} className="mb-4 opacity-80" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400 block mb-1">SOURCE CODE</span>
+                <div className="text-xl sm:text-2xl font-black text-white">GPL v3</div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Section 4 - Payment Terminal */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+          className="py-14 sm:py-20"
+        >
+          <div className="text-center mb-10">
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400 block mb-2">CHOOSE YOUR SUPPORT METHOD</span>
+            <h2 className="text-3xl sm:text-4xl font-black text-white">Fund TypeNova.</h2>
           </div>
 
-          {/* ── RIGHT COLUMN (5 COLS): INTERACTIVE PAYMENT TERMINAL (NO CRYPTO) ── */}
-          <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-6">
+          <div className="max-w-2xl mx-auto mb-8 flex p-1 bg-white/[0.03] rounded-full border border-white/[0.06]">
+            <button
+              onClick={() => setActiveTab('upi')}
+              className={`flex-1 py-3 rounded-full text-sm font-bold font-mono transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'upi' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              style={activeTab === 'upi' ? { backgroundColor: `rgba(${gp}, 0.15)`, borderColor: `rgba(${gp}, 0.5)`, boxShadow: `0 0 20px rgba(${gp}, 0.1)` } : {}}
+            >
+              <QrCode size={16} /> UPI Rail
+            </button>
+            <button
+              onClick={() => setActiveTab('card')}
+              className={`flex-1 py-3 rounded-full text-sm font-bold font-mono transition-all flex items-center justify-center gap-2 ${
+                activeTab === 'card' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              style={activeTab === 'card' ? { backgroundColor: `rgba(${gp}, 0.15)`, borderColor: `rgba(${gp}, 0.5)`, boxShadow: `0 0 20px rgba(${gp}, 0.1)` } : {}}
+            >
+              <CreditCard size={16} /> Cards & Fiat
+            </button>
+          </div>
 
-            {/* Segmented Mode Selector (UPI vs. Global Cards) */}
-            <div className="p-1 rounded-2xl bg-[#0b0e15] border border-white/10 flex items-center gap-1 font-mono text-xs shadow-xl">
-              <button
-                onClick={() => setActiveTab('upi')}
-                style={
-                  activeTab === 'upi'
-                    ? {
-                        backgroundColor: `rgba(${gp}, 0.18)`,
-                        borderColor: `rgba(${gp}, 0.5)`,
-                        color: `rgb(${gp})`,
-                        boxShadow: `0 0 16px rgba(${gp}, 0.25)`,
-                      }
-                    : undefined
-                }
-                className={`flex-1 py-2.5 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border border-transparent ${
-                  activeTab === 'upi' ? 'font-black' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <QrCode size={14} />
-                <span>UPI (India &amp; Nepal)</span>
-              </button>
+          <div className="max-w-4xl mx-auto rounded-2xl p-px bg-gradient-to-b from-white/[0.08] to-white/[0.02]">
+            <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-5 sm:p-8 lg:p-10 backdrop-blur-xl">
+              
+              {activeTab === 'upi' && (
+                <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-6">
+                    <div>
+                      <h3 className="text-xl font-black text-white flex items-center gap-2">
+                        Instant UPI Gateway
+                      </h3>
+                      <p className="text-sm text-zinc-400 mt-1">Directly scan using any Indian payment app.</p>
+                    </div>
+                    <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-mono font-bold">0% Fee</span>
+                  </div>
 
-              <button
-                onClick={() => setActiveTab('global')}
-                style={
-                  activeTab === 'global'
-                    ? {
-                        backgroundColor: `rgba(${gp}, 0.18)`,
-                        borderColor: `rgba(${gp}, 0.5)`,
-                        color: `rgb(${gp})`,
-                        boxShadow: `0 0 16px rgba(${gp}, 0.25)`,
-                      }
-                    : undefined
-                }
-                className={`flex-1 py-2.5 rounded-xl font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border border-transparent ${
-                  activeTab === 'global' ? 'font-black' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Globe size={14} />
-                <span>Cards &amp; Global Fiat</span>
-              </button>
-            </div>
-
-            {/* Main Terminal Frame */}
-            <div className="rounded-[1.75rem] p-1 bg-white/[0.02] border border-white/[0.08] shadow-2xl">
-              <div className="p-5 sm:p-6 rounded-[calc(1.75rem-0.25rem)] bg-[#0c0f16]/95 backdrop-blur-2xl border border-white/[0.05] space-y-5">
-                <AnimatePresence mode="wait">
-
-                  {/* ── TAB 1: INSTANT UPI GATEWAY ── */}
-                  {activeTab === 'upi' && (
-                    <motion.div
-                      key="upi"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.18 }}
-                      className="space-y-5"
-                    >
-                      {/* Terminal Header */}
-                      <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3.5">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-white font-mono">
-                              Instant UPI Gateway
-                            </h3>
-                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              0% Fee
-                            </span>
-                          </div>
-                          <p className="text-xs text-zinc-400 mt-0.5">
-                            Direct student payment with instant settlement in India &amp; Nepal.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Amount Quick Selectors */}
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between text-xs font-mono">
-                          <label className="text-zinc-400 uppercase tracking-wider block">
-                            Select Amount:
-                          </label>
-                          <span
-                            className="font-black text-sm"
-                            style={{ color: `rgb(${gp})` }}
-                          >
-                            ₹{activeInrAmount}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                          {[50, 100, 250, 500, 1000].map((amt) => {
-                            const isSelected = !isCustomMode && selectedInr === amt;
-                            return (
-                              <button
-                                key={amt}
-                                onClick={() => {
-                                  setSelectedInr(amt);
-                                  setIsCustomMode(false);
-                                }}
-                                style={
-                                  isSelected
-                                    ? {
-                                        backgroundColor: `rgb(${gp})`,
-                                        color: '#000000',
-                                        borderColor: `rgb(${gp})`,
-                                        boxShadow: `0 0 14px rgba(${gp}, 0.35)`,
-                                      }
-                                    : undefined
-                                }
-                                className={`py-2 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer border ${
-                                  isSelected
-                                    ? 'font-black'
-                                    : 'bg-white/[0.03] border-white/10 text-zinc-300 hover:border-white/30 hover:text-white'
-                                }`}
-                              >
-                                ₹{amt}
-                              </button>
-                            );
-                          })}
-
-                          <button
-                            onClick={() => setIsCustomMode(true)}
-                            className={`py-2 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer border ${
-                              isCustomMode
-                                ? 'bg-white text-black border-white font-black'
-                                : 'bg-white/[0.03] border-white/10 text-zinc-300 hover:border-white/30 hover:text-white'
-                            }`}
-                          >
-                            Custom
-                          </button>
-                        </div>
-
-                        {isCustomMode && (
-                          <div className="relative pt-1">
-                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-zinc-400 text-xs">
-                              ₹
-                            </span>
-                            <input
-                              type="number"
-                              min="10"
-                              placeholder="Enter amount in INR"
-                              value={customInr}
-                              onChange={(e) => setCustomInr(e.target.value)}
-                              className="w-full pl-8 pr-4 py-2 bg-black/60 border border-white/20 rounded-xl font-mono text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/60 transition-colors"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* QR Code Chamber & UPI ID Details */}
-                      <div
-                        className="p-4 rounded-2xl border flex flex-col sm:flex-row items-center gap-4 relative overflow-hidden"
-                        style={{
-                          backgroundColor: '#090b10',
-                          borderColor: `rgba(${gp}, 0.2)`,
+                  <div className="space-y-4">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400 block">SELECT AMOUNT: ~₹{upiInrAmount} INR</span>
+                    <div className="flex flex-wrap gap-3">
+                      {SUPPORTED_CURRENCIES[selectedCurrency].suggestedAmounts.map((amt) => (
+                        <button
+                          key={amt}
+                          onClick={() => {
+                            setIsCustomMode(false);
+                            setSelectedAmount(amt);
+                          }}
+                          className={`px-6 py-3 rounded-xl font-mono text-sm font-bold transition-all border ${
+                            !isCustomMode && selectedAmount === amt
+                              ? 'bg-white/[0.08] text-white border-white/20'
+                              : 'bg-white/[0.02] text-zinc-400 border-white/5 hover:border-white/10 hover:text-zinc-200'
+                          }`}
+                          style={!isCustomMode && selectedAmount === amt ? { borderColor: `rgba(${gp}, 0.5)`, backgroundColor: `rgba(${gp}, 0.1)`, color: `rgb(${gp})` } : {}}
+                        >
+                          {SUPPORTED_CURRENCIES[selectedCurrency].symbol}{amt}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => {
+                          setIsCustomMode(true);
+                          setCustomAmount('');
                         }}
+                        className={`px-6 py-3 rounded-xl font-mono text-sm font-bold transition-all border ${
+                          isCustomMode
+                            ? 'bg-white/[0.08] text-white border-white/20'
+                            : 'bg-white/[0.02] text-zinc-400 border-white/5 hover:border-white/10 hover:text-zinc-200'
+                        }`}
+                        style={isCustomMode ? { borderColor: `rgba(${gp}, 0.5)`, backgroundColor: `rgba(${gp}, 0.1)`, color: `rgb(${gp})` } : {}}
                       >
-                        {/* High-Contrast Crisp QR Canvas with Scannable Reticle */}
-                        <div className="shrink-0 p-2.5 rounded-xl bg-white flex flex-col items-center shadow-lg">
-                          {qrSvg ? (
-                            <div
-                              className="w-28 h-28 [&>svg]:w-full [&>svg]:h-full"
-                              dangerouslySetInnerHTML={{ __html: qrSvg }}
-                            />
-                          ) : (
-                            <div className="w-28 h-28 flex items-center justify-center bg-zinc-100 rounded text-zinc-400">
-                              <QrCode size={28} className="animate-pulse" />
+                        CUSTOM
+                      </button>
+                    </div>
+                    
+                    {isCustomMode && (
+                      <div className="flex items-center gap-3 mt-4">
+                        <div className="relative flex-1 max-w-xs">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-mono">
+                            {SUPPORTED_CURRENCIES[selectedCurrency].symbol}
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={customAmount}
+                            onChange={(e) => setCustomAmount(e.target.value)}
+                            placeholder="Enter amount"
+                            className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 pl-8 pr-4 text-white font-mono focus:outline-none focus:border-white/30 transition-colors"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white/[0.02] rounded-2xl p-6 border border-white/[0.05] flex flex-col items-center">
+                    <div className="rounded-2xl bg-white p-3 w-48 h-48 mx-auto shadow-2xl relative">
+                      {upiQrSvg ? (
+                        <div className="w-full h-full [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: upiQrSvg }} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-zinc-100 rounded text-zinc-400">
+                          <QrCode size={32} className="animate-pulse" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 border border-black/5 rounded-2xl pointer-events-none" />
+                    </div>
+                    
+                    <div className="mt-6 flex items-center gap-3">
+                      <span className="font-mono text-sm text-zinc-300">{DONATION_CONFIG.upi.upiId}</span>
+                      <button
+                        onClick={() => handleCopy(DONATION_CONFIG.upi.upiId, 'upi', 'UPI ID')}
+                        className="p-2 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] transition-colors text-zinc-400 hover:text-white"
+                      >
+                        {copiedKey === 'upi' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+
+                    <a
+                      href={upiDeepLink}
+                      className="mt-6 sm:hidden w-full py-4 rounded-xl font-bold font-mono text-sm bg-white text-black flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                    >
+                      <Send size={16} /> PAY VIA UPI APP
+                    </a>
+                  </div>
+
+                  <div className="text-center">
+                    <button
+                      onClick={() => setIsRecordOpen(true)}
+                      className="px-6 py-3 rounded-xl font-mono text-sm font-bold text-zinc-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-colors inline-flex items-center gap-2"
+                    >
+                      <Check size={16} className="text-emerald-400" /> I HAVE COMPLETED THIS TRANSFER
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-6 pt-6 opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
+                    <div className="text-xs font-bold font-sans">GPay</div>
+                    <div className="text-xs font-bold font-sans">PhonePe</div>
+                    <div className="text-xs font-bold font-sans">Paytm</div>
+                    <div className="text-xs font-bold font-sans">BHIM</div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'card' && (
+                <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-6">
+                    <div>
+                      <h3 className="text-xl font-black text-white flex items-center gap-2">
+                        Instant In-App Checkout
+                      </h3>
+                      <p className="text-sm text-zinc-400 mt-1">Accepts Visa, Mastercard, Amex via secure gateway.</p>
+                    </div>
+                    <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-mono font-bold">256-Bit SSL</span>
+                  </div>
+
+                  <div className="py-8 text-center">
+                    <button
+                      onClick={() => setIsCheckoutOpen(true)}
+                      className="w-full sm:w-auto px-10 py-5 rounded-2xl font-black text-lg sm:text-xl text-black inline-flex items-center justify-center gap-3 transition-transform hover:scale-105 active:scale-95 shadow-[0_0_40px_rgba(255,255,255,0.1)]"
+                      style={{ backgroundColor: `rgb(${gp})`, boxShadow: `0 0 40px rgba(${gp}, 0.3)` }}
+                    >
+                      <Lock size={20} className="text-black/70" /> LAUNCH SECURE CHECKOUT
+                    </button>
+                    <div className="mt-4 text-xs text-zinc-500 font-mono">
+                      Payments processed instantly. You will be prompted to enter your amount and details.
+                    </div>
+                  </div>
+
+                  <div className="relative py-6">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/[0.06]"></div></div>
+                    <div className="relative flex justify-center"><span className="bg-[#0a0d14] px-4 text-xs font-mono text-zinc-500 uppercase tracking-widest">— Or choose an external platform —</span></div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {globalPlatforms.map((platform, i) => (
+                      <div key={i} className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] transition-colors group">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-white/[0.05] text-zinc-300 group-hover:text-white transition-colors">
+                              {platform.icon}
                             </div>
-                          )}
-                          <span className="text-[10px] font-mono font-black text-zinc-900 mt-1">
-                            ₹{activeInrAmount} INR
+                            <span className="font-bold text-white">{platform.name}</span>
+                          </div>
+                          <span className="text-[9px] font-mono font-bold px-2 py-1 rounded bg-white/[0.05] text-zinc-400">
+                            {platform.tag}
                           </span>
                         </div>
-
-                        {/* UPI Address & Action Buttons */}
-                        <div className="space-y-3 flex-1 min-w-0 text-center sm:text-left">
-                          <div className="space-y-0.5">
-                            <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block">
-                              VPA / UPI ID
-                            </span>
-                            <div className="font-mono text-sm font-bold text-white truncate">
-                              {DONATION_CONFIG.upi.upiId}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                            <button
-                              onClick={() => handleCopy(DONATION_CONFIG.upi.upiId, 'upiId', 'UPI ID')}
-                              className="px-3.5 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.16] border border-white/10 text-white font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                            >
-                              {copiedKey === 'upiId' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                              <span>{copiedKey === 'upiId' ? 'COPIED' : 'COPY'}</span>
-                            </button>
-
-                            <a
-                              href={upiDeepLink}
-                              className="px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-1.5 border"
-                              style={{
-                                backgroundColor: `rgba(${gp}, 0.15)`,
-                                borderColor: `rgba(${gp}, 0.4)`,
-                                color: `rgb(${gp})`,
-                              }}
-                            >
-                              <span>PAY VIA APP</span>
-                              <ExternalLink size={12} />
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Supported Apps Monospace Bar */}
-                      <div className="text-[10px] font-mono text-zinc-400 text-center flex items-center justify-center gap-1.5 flex-wrap">
-                        <span>Google Pay</span>
-                        <span>•</span>
-                        <span>PhonePe</span>
-                        <span>•</span>
-                        <span>Paytm</span>
-                        <span>•</span>
-                        <span>BHIM</span>
-                        <span>•</span>
-                        <span>Cred</span>
-                        <span>•</span>
-                        <span>Fonepay</span>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* ── TAB 2: GLOBAL FIAT PLATFORMS ── */}
-                  {activeTab === 'global' && (
-                    <motion.div
-                      key="global"
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.18 }}
-                      className="space-y-3"
-                    >
-                      <div className="text-xs text-zinc-400 mb-2 font-mono">
-                        Global credit/debit cards, Apple Pay, Google Pay &amp; PayPal:
-                      </div>
-
-                      {globalPlatforms.map((p) => (
+                        <p className="text-xs text-zinc-400 mb-4 line-clamp-2">{platform.description}</p>
                         <a
-                          key={p.name}
-                          href={p.url}
+                          href={platform.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="group p-3.5 rounded-2xl bg-[#090b10]/90 hover:bg-[#0f131c] border border-white/[0.07] hover:border-white/20 transition-all flex items-center justify-between gap-3"
+                          className="text-xs font-mono font-bold text-white flex items-center gap-2 hover:underline decoration-white/30 underline-offset-4"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform"
-                              style={{
-                                backgroundColor: `rgba(${gp}, 0.12)`,
-                                color: `rgb(${gp})`,
-                              }}
-                            >
-                              {p.icon}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-white">{p.name}</span>
-                                <span
-                                  className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border"
-                                  style={{
-                                    backgroundColor: `rgba(${gp}, 0.1)`,
-                                    borderColor: `rgba(${gp}, 0.3)`,
-                                    color: `rgb(${gp})`,
-                                  }}
-                                >
-                                  {p.tag}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-zinc-400 truncate mt-0.5">
-                                {p.description}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="w-7 h-7 rounded-full bg-white/[0.04] group-hover:bg-white/[0.1] flex items-center justify-center shrink-0 transition-colors">
-                            <ChevronRight size={14} className="text-zinc-400 group-hover:text-white transition-colors" />
-                          </div>
+                          OPEN PLATFORM <ExternalLink size={12} />
                         </a>
-                      ))}
-                    </motion.div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
 
-                </AnimatePresence>
+        {/* Section 5 - Supporter Tiers */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          className="py-14 sm:py-20"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-zinc-400 mb-2">
+                <Crown size={14} style={{ color: `rgb(${gp})` }} /> TITLES & PERKS
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black text-white">Unlock Supporter Titles.</h2>
+            </div>
+            <button
+              onClick={() => {
+                setCertificateData({ callsign: 'Benefactor', amount: activeAmount, currency: selectedCurrency });
+                setIsCertificateOpen(true);
+              }}
+              className="px-5 py-2.5 rounded-full font-mono text-xs font-bold text-zinc-300 hover:text-white bg-white/[0.04] border border-white/10 transition-colors flex items-center gap-2 w-fit"
+            >
+              <Award size={14} style={{ color: `rgb(${gp})` }} /> PREVIEW CERTIFICATE
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {SUPPORTER_TIERS.map((tier) => {
+              const isEquipped = activeTitle === tier.titleRewardId;
+              let gradientBorder = '';
+              if (tier.id === 'tier_supporter') gradientBorder = 'from-[#cd7f32]/40 to-[#cd7f32]/10';
+              else if (tier.id === 'tier_sustainer') gradientBorder = 'from-[#e0e0e0]/40 to-[#e0e0e0]/10';
+              else if (tier.id === 'tier_scholar') gradientBorder = 'from-[#d4af37]/40 to-[#d4af37]/10';
+              else if (tier.id === 'tier_legend') gradientBorder = 'from-[#a855f7]/40 to-[#a855f7]/10';
+              
+              return (
+                <div key={tier.id} className={`rounded-2xl p-px bg-gradient-to-b ${gradientBorder} relative`}>
+                  {tier.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-white text-black text-[9px] font-mono font-black rounded-full shadow-lg z-10 whitespace-nowrap">
+                      MOST CHOSEN
+                    </div>
+                  )}
+                  <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-5 sm:p-6 h-full flex flex-col backdrop-blur-xl">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider w-fit mb-4 bg-white/5 border border-white/10" style={{ color: tier.color }}>
+                      {tier.badge}
+                    </span>
+                    <h3 className="text-xl font-black text-white mb-1">{tier.name}</h3>
+                    <div className="font-mono text-lg font-bold text-zinc-300 mb-6">
+                      ~{formatCurrency(convertCurrency(tier.usdAmount, 'USD', selectedCurrency), selectedCurrency)}
+                    </div>
+                    
+                    <div className="mb-4">
+                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1">Rewards</div>
+                      <div className="text-sm font-bold" style={{ color: tier.color }}>Title: "{tier.titleRewardName}"</div>
+                    </div>
+                    
+                    <ul className="space-y-3 mb-8 flex-1">
+                      {tier.perks.map((perk, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-zinc-400 font-mono">
+                          <Check size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+                          <span>{perk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    
+                    <button
+                      onClick={() => handleEquipTitle(tier.titleRewardId, tier.titleRewardName)}
+                      className={`w-full py-3 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+                        isEquipped
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                          : 'bg-white/[0.04] border-white/10 text-white hover:bg-white/[0.08]'
+                      }`}
+                    >
+                      {isEquipped ? (
+                        <>
+                          <Check size={14} strokeWidth={3} /> EQUIPPED
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={14} /> EQUIP TITLE
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* Section 6 - Milestone Roadmap */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+          className="py-14 sm:py-20"
+        >
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-zinc-400 mb-2">
+              <GraduationCap size={14} style={{ color: `rgb(${gp})` }} /> BUDGET TRANSPARENCY
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-black text-white">How funds are utilized.</h2>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-6 sm:gap-0">
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/5 hidden sm:block -translate-y-1/2 pointer-events-none" />
+              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-white/5 sm:hidden pointer-events-none" />
+              
+              {goal.milestones.map((m, idx) => {
+                const isReached = goal.currentAmount >= m.amount;
+                const isExpanded = expandedMilestone === idx;
+                return (
+                  <div key={idx} className="relative z-10 flex sm:flex-col items-center gap-4 sm:gap-4 pl-4 sm:pl-0 cursor-pointer group" onClick={() => setExpandedMilestone(isExpanded ? null : idx)}>
+                    <div
+                      className={`w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all bg-[#07090e] shadow-xl relative ${
+                        isReached ? 'border-transparent text-black' : 'border-white/10 text-zinc-500 group-hover:border-white/30'
+                      }`}
+                      style={isReached ? { backgroundColor: `rgb(${gp})`, boxShadow: `0 0 20px rgba(${gp}, 0.3)` } : {}}
+                    >
+                      {getMilestoneIcon(idx)}
+                      {isExpanded && <div className="absolute -bottom-2 w-1.5 h-1.5 rounded-full bg-white hidden sm:block" />}
+                    </div>
+                    <div className="sm:text-center pt-1 sm:pt-0">
+                      <div className="font-mono text-sm font-bold text-white">${m.amount}</div>
+                      <div className="text-xs text-zinc-400 font-medium mt-1">{m.label}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <AnimatePresence>
+              {expandedMilestone !== null && goal.milestones[expandedMilestone]?.budgetBreakdown && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, y: 10 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: 10 }}
+                  className="mt-12 overflow-hidden"
+                >
+                  <div className="rounded-2xl p-px bg-gradient-to-b from-white/[0.08] to-white/[0.02]">
+                    <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-6 sm:p-8 backdrop-blur-xl">
+                      <h4 className="text-lg font-black text-white mb-6 flex items-center gap-2">
+                        <HelpCircle size={18} style={{ color: `rgb(${gp})` }} />
+                        {goal.milestones[expandedMilestone].label} Ledger
+                      </h4>
+                      <div className="space-y-3">
+                        {goal.milestones[expandedMilestone].budgetBreakdown.map((item, i) => (
+                          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                            <div>
+                              <div className="font-bold text-white text-sm">{item.item}</div>
+                              <div className="text-xs text-zinc-400 mt-1">{item.purpose}</div>
+                            </div>
+                            <div className="font-mono font-bold mt-3 sm:mt-0" style={{ color: `rgb(${gp})` }}>
+                              {item.cost}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+
+        {/* Section 7 - Patron Wall */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
+          className="py-14 sm:py-20 border-t border-white/[0.06]"
+        >
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-10 gap-6">
+            <div className="flex items-center gap-3">
+              <MessageSquareHeart size={24} style={{ color: `rgb(${gp})` }} />
+              <h2 className="text-2xl sm:text-3xl font-black text-white">Community Supporters.</h2>
+            </div>
+            
+            <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/5">
+              {(['all', 'top', 'recent'] as WallFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setWallFilter(f)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-mono font-bold capitalize transition-colors ${
+                    wallFilter === f ? 'bg-white/[0.08] text-white' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {combinedPatrons.map((patron, i) => (
+              <div key={i} className="rounded-2xl p-px bg-gradient-to-b from-white/[0.08] to-white/[0.02]">
+                <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-5 backdrop-blur-xl h-full flex flex-col">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-lg shadow-inner"
+                        style={{ backgroundColor: getAvatarBg(patron.name) }}
+                      >
+                        {patron.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-bold text-white text-sm flex items-center gap-2">
+                          {patron.name}
+                          {patron.isLocal && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">YOU</span>}
+                        </div>
+                        <div className="text-xs text-zinc-500 font-mono mt-0.5">
+                          {new Date(patron.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-black text-white">${patron.amount}</div>
+                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">{patron.platform}</div>
+                    </div>
+                  </div>
+                  {patron.message && (
+                    <div className="mt-auto pt-4 border-t border-white/[0.06] text-sm text-zinc-400 italic">
+                      "{patron.message}"
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-10 text-center">
+            <button
+              onClick={() => setIsRecordOpen(true)}
+              className="px-6 py-3 rounded-full font-mono text-xs font-bold text-black transition-transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+              style={{ backgroundColor: `rgb(${gp})` }}
+            >
+              POST YOUR SUPPORT NOTE
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Section 8 - Ethos Footer */}
+        <div className="py-10 border-t border-white/[0.06]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex gap-4">
+              <Code2 size={24} className="text-emerald-400 shrink-0" />
+              <div>
+                <h4 className="font-bold text-white mb-1">GPL v3 Copyleft</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">TypeNova is completely free and open source forever. Auditable codebase on GitHub.</p>
               </div>
             </div>
-
-          </div>
-
-        </div>
-
-        {/* ── 5. TRANSPARENCY & ETHOS PILLARS ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono pt-4">
-          <div className="p-4 rounded-2xl bg-[#090b10]/80 border border-white/[0.07] flex items-center gap-3 text-zinc-300">
-            <Code2 size={18} className="text-emerald-400 shrink-0" />
-            <div>
-              <div className="font-bold text-white">100% MIT Open Source</div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">Inspect every line of code on GitHub</div>
+            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex gap-4">
+              <ShieldCheck size={24} className="text-emerald-400 shrink-0" />
+              <div>
+                <h4 className="font-bold text-white mb-1">Zero Ads / Tracking</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">No cookies, no data monetization, no third-party scripts. Your typing data is private.</p>
+              </div>
+            </div>
+            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] flex gap-4">
+              <GraduationCap size={24} style={{ color: `rgb(${gp})` }} className="shrink-0" />
+              <div>
+                <h4 className="font-bold text-white mb-1">Solo Student Maintained</h4>
+                <p className="text-xs text-zinc-400 leading-relaxed">Directly sustaining an indie developer's undergraduate studies and server costs.</p>
+              </div>
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-[#090b10]/80 border border-white/[0.07] flex items-center gap-3 text-zinc-300">
-            <ShieldCheck size={18} className="text-emerald-400 shrink-0" />
-            <div>
-              <div className="font-bold text-white">Zero Ads · Zero Tracking</div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">No cookies, no data sales, private forever</div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-zinc-500">
+            <div className="flex items-center gap-2">
+              <Heart size={14} className="text-rose-500 shrink-0" /> Every rupee fuels an undergraduate dream.
             </div>
-          </div>
-          <div className="p-4 rounded-2xl bg-[#090b10]/80 border border-white/[0.07] flex items-center gap-3 text-zinc-300">
-            <GraduationCap size={18} style={{ color: `rgb(${gp})` }} className="shrink-0" />
-            <div>
-              <div className="font-bold text-white">Solo Student Maintained</div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">Directly sustaining an indie developer's studies</div>
+            <div className="flex items-center gap-4">
+              <a href="https://github.com/amimitaghosh99-alt/typenova" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center gap-1">
+                GitHub <ExternalLink size={12} />
+              </a>
+              <span>v3.0.1</span>
             </div>
           </div>
         </div>
-
-        {/* ── 6. MINIMALIST FOOTER ── */}
-        <div className="pt-6 border-t border-white/[0.07] flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-400 font-mono gap-3">
-          <div className="flex items-center gap-2">
-            <Heart size={14} className="text-rose-400 shrink-0" />
-            <span>Thank you for empowering independent typing software.</span>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <a
-              href="https://github.com/amimitaghosh99-alt/typenova"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white transition-colors flex items-center gap-1"
-            >
-              <span>GitHub</span>
-              <ExternalLink size={12} />
-            </a>
-            <span>•</span>
-            <span>v3.0.0</span>
-          </div>
-        </div>
-
       </div>
+
+      <PaymentGatewayModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        theme={theme}
+        amount={activeAmount}
+        currency={selectedCurrency}
+        onPaymentSuccess={handlePaymentSuccess}
+        onOpenCertificate={(data) => {
+          setCertificateData({
+            callsign: data.name,
+            amount: data.amount,
+            currency: selectedCurrency,
+          });
+          setIsCertificateOpen(true);
+        }}
+      />
+
+      <SupporterCertificateModal
+        isOpen={isCertificateOpen}
+        onClose={() => setIsCertificateOpen(false)}
+        theme={theme}
+        callsign={certificateData.callsign}
+        amount={certificateData.amount}
+        currency={certificateData.currency}
+      />
+
+      <RecordContributionModal
+        isOpen={isRecordOpen}
+        onClose={() => setIsRecordOpen(false)}
+        theme={theme}
+        defaultAmount={activeAmount}
+        defaultCurrency={selectedCurrency}
+        onContributionRecorded={(name, amt) => {
+          setCertificateData({
+            callsign: name,
+            amount: amt,
+            currency: selectedCurrency,
+          });
+          setPatronRefreshCounter((prev) => prev + 1);
+        }}
+      />
     </div>
   );
 };

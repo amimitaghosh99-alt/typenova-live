@@ -7,7 +7,7 @@ import { TITLE_BADGES } from '@/data/titles';
 import { TITLE_MARK } from '@/lib/titleIcons';
 import { AvatarArt } from '@/components/profile/AvatarKeycap';
 import { ALL_BANNERS, AVATARS } from '@/data/customization';
-import { getDonationProgressPercent, PREMIUM_ACCENT } from '@/data/donation';
+import { getDonationProgressPercent, PREMIUM_ACCENT, isPatronTitle } from '@/data/donation';
 import type { Theme } from '@/data/constants';
 
 interface CosmicNavBarProps {
@@ -180,7 +180,14 @@ export const CosmicNavBar = memo(function CosmicNavBar({
               >
                 <span>{link.label}</span>
                 {link.badge && (
-                  <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                  <span
+                    className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded-full border"
+                    style={{
+                      backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                      color: `rgb(${theme.glowPrimary})`,
+                      borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                    }}
+                  >
                     {link.badge}
                   </span>
                 )}
@@ -248,10 +255,17 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 </span>
                 <span className="text-zinc-400 font-semibold text-xs">LVL {userLevel}</span>
                 {activeBadge && ActiveTitleIcon && (
-                  <div className="nav-pill px-2 py-0.5 text-[10px] text-zinc-300 flex items-center gap-1">
-                    <ActiveTitleIcon size={11} aria-hidden className="shrink-0" />
-                    <span>{activeBadge.name}</span>
-                  </div>
+                  (() => {
+                    const isPatron = isPatronTitle(activeBadge.id);
+                    return (
+                      <div className={`px-2 py-0.5 text-[10px] rounded-full flex items-center gap-1 transition-all ${
+                        isPatron ? 'holographic-title-badge' : 'nav-pill text-zinc-300'
+                      }`}>
+                        <ActiveTitleIcon size={11} aria-hidden className={`shrink-0 ${isPatron ? 'text-amber-300' : ''}`} />
+                        <span className={isPatron ? 'holographic-title-text' : ''}>{activeBadge.name}</span>
+                      </div>
+                    );
+                  })()
                 )}
               </div>
               <div className="w-32 h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden backdrop-blur-sm">
@@ -422,7 +436,14 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                 >
                   <span>{link.label}</span>
                   {link.badge && (
-                    <span className="text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                    <span
+                      className="text-[9px] font-black tracking-widest px-2 py-0.5 rounded-full border"
+                      style={{
+                        backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                        color: `rgb(${theme.glowPrimary})`,
+                        borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                      }}
+                    >
                       {link.badge}
                     </span>
                   )}

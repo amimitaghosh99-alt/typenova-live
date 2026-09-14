@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react';
-import { Award, Ghost, Lock, Swords, X } from 'lucide-react';
+import { Award, Ghost, Lock, Sparkles, Swords, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { AnimatedHeight } from '@/components/ui/AnimatedHeight';
@@ -7,6 +7,9 @@ import type { Theme } from '@/data/constants';
 import type { ModeScoreRow } from '@/hooks/useModeLeaderboard';
 import { useFitToViewport } from '@/hooks/useFitToViewport';
 import { formatModeLabel, formatModeLabelLong } from '@/lib/modeKey';
+import { isPatronTitle, DONATION_CONFIG } from '@/data/donation';
+import { TITLE_BADGES } from '@/data/titles';
+import { TITLE_MARK } from '@/lib/titleIcons';
 
 interface LeaderboardEntry {
   username: string;
@@ -19,6 +22,7 @@ interface LeaderboardEntry {
 export type BoardTab = 'alltime' | 'mode' | 'today' | 'friends';
 
 interface LeaderboardSidebarProps {
+  activeTitle?: string;
   leaderboardClass: string;
   theme: Theme;
   boardTab: BoardTab;
@@ -42,6 +46,7 @@ interface LeaderboardSidebarProps {
 }
 
 export const LeaderboardSidebar = memo(function LeaderboardSidebar({
+  activeTitle,
   leaderboardClass,
   theme,
   boardTab,
@@ -206,6 +211,13 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                 const isTop2 = idx === 1;
                 const isTop3 = idx === 2;
 
+                const mePatron = isMe && activeTitle ? isPatronTitle(activeTitle) : false;
+                const meBadge = isMe && activeTitle ? TITLE_BADGES.find(b => b.id === activeTitle) : undefined;
+                const MeIcon = isMe && activeTitle ? TITLE_MARK[activeTitle] : undefined;
+                const isKnownPatron = !isMe && DONATION_CONFIG.featuredPatrons.some(
+                  p => p.name.toLowerCase() === entry.username.toLowerCase()
+                );
+
                 const rankColor = isTop1
                   ? `rgb(${theme.glowPrimary})`
                   : isTop2
@@ -252,10 +264,10 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                       >
                         #{idx + 1}
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <button
                           onClick={() => onProfileClick(entry.username)}
-                          className={`font-black tracking-widest uppercase text-base whitespace-nowrap hover:underline transition-colors text-left cursor-pointer ${
+                          className={`font-black tracking-widest uppercase text-base truncate max-w-[110px] sm:max-w-[140px] hover:underline transition-colors text-left cursor-pointer ${
                             isMe || isTop1 ? 'text-white font-extrabold' : 'text-zinc-300 hover:text-white'
                           }`}
                           title={`View ${entry.username}'s Profile`}
@@ -264,7 +276,7 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                         </button>
                         {isMe && (
                           <span
-                            className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border"
+                            className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border shrink-0"
                             style={{
                               backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
                               borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
@@ -272,6 +284,28 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                             }}
                           >
                             YOU
+                          </span>
+                        )}
+                        {isMe && activeTitle && (
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 shrink-0 ${
+                              mePatron ? 'holographic-title-badge' : 'border border-white/10 bg-white/5 text-zinc-300'
+                            }`}
+                            title={`Title: ${meBadge?.name || activeTitle}`}
+                          >
+                            {MeIcon && <MeIcon size={10} className={mePatron ? 'text-amber-300' : 'text-zinc-400'} />}
+                            <span className={`truncate max-w-[90px] ${mePatron ? 'holographic-title-text' : ''}`}>
+                              {meBadge?.name || activeTitle}
+                            </span>
+                          </span>
+                        )}
+                        {isKnownPatron && (
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 holographic-title-badge"
+                            title="Verified TypeNova Supporter"
+                          >
+                            <Sparkles size={10} className="text-amber-300" />
+                            <span className="holographic-title-text">PATRON</span>
                           </span>
                         )}
                       </div>
@@ -300,7 +334,7 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                           e.stopPropagation();
                           onRaceGhost(entry as ModeScoreRow);
                         }}
-                        className="p-2 text-zinc-400 hover:text-cyan-300 transition-all rounded-full cursor-pointer"
+                        className="p-2 text-zinc-400 hover:text-white transition-all rounded-full cursor-pointer"
                         title={`Race ${entry.username}'s ghost`}
                       >
                         <Ghost size={14} />
@@ -314,7 +348,7 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                           e.stopPropagation();
                           onChallengeFriend(entry.username);
                         }}
-                        className="p-2 text-zinc-400 hover:text-amber-400 transition-all rounded-full cursor-pointer"
+                        className="p-2 text-zinc-400 hover:text-white transition-all rounded-full cursor-pointer"
                         title="Challenge to Race"
                       >
                         <Swords size={14} />

@@ -166,7 +166,7 @@ export const TITLE_BADGES: TitleBadge[] = [
   {
     id: 'grand_architect',
     name: 'Grand Architect',
-    description: 'Tier-3 benefactor funding semester university tuition and core engine architecture.',
+    description: 'Tier-3 benefactor sustaining high-tick cloud multiplayer servers & core engine architecture.',
     category: 'endurance',
     icon: 'crown',
     color: 'text-amber-300 border-amber-500/50 bg-amber-500/15 shadow-[0_0_20px_rgba(245,158,11,0.4)]',

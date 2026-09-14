@@ -6,96 +6,32 @@
  * supporter tiers, and patron wall persistence.
  */
 
-export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'CAD' | 'JPY' | 'AUD';
+import { supabase } from '@/lib/supabase';
+import { getActiveTitleId, setActiveTitleId } from '@/data/titles';
 
-export interface CurrencyInfo {
-  code: CurrencyCode;
-  symbol: string;
-  name: string;
-  rateToUsd: number; // Units of this currency per 1 USD
-  suggestedAmounts: number[];
-}
+import {
+  type CurrencyCode,
+  type CurrencyRegion,
+  type CurrencyInfo,
+  ZERO_DECIMAL_CURRENCIES,
+  POPULAR_CURRENCIES,
+  SUPPORTED_CURRENCIES,
+  generateSuggestedAmounts,
+  convertCurrency,
+  formatCurrency,
+} from '@/data/currencies';
 
-export const SUPPORTED_CURRENCIES: Record<CurrencyCode, CurrencyInfo> = {
-  INR: {
-    code: 'INR',
-    symbol: '₹',
-    name: 'Indian Rupee',
-    rateToUsd: 86.5,
-    suggestedAmounts: [50, 100, 250, 500, 1000, 2500],
-  },
-  USD: {
-    code: 'USD',
-    symbol: '$',
-    name: 'US Dollar',
-    rateToUsd: 1.0,
-    suggestedAmounts: [3, 5, 10, 25, 50, 100],
-  },
-  EUR: {
-    code: 'EUR',
-    symbol: '€',
-    name: 'Euro',
-    rateToUsd: 0.92,
-    suggestedAmounts: [3, 5, 10, 25, 50, 100],
-  },
-  GBP: {
-    code: 'GBP',
-    symbol: '£',
-    name: 'British Pound',
-    rateToUsd: 0.78,
-    suggestedAmounts: [3, 5, 10, 20, 50, 100],
-  },
-  CAD: {
-    code: 'CAD',
-    symbol: 'CA$',
-    name: 'Canadian Dollar',
-    rateToUsd: 1.38,
-    suggestedAmounts: [5, 10, 15, 35, 75, 150],
-  },
-  JPY: {
-    code: 'JPY',
-    symbol: '¥',
-    name: 'Japanese Yen',
-    rateToUsd: 155.0,
-    suggestedAmounts: [500, 1000, 2000, 5000, 10000],
-  },
-  AUD: {
-    code: 'AUD',
-    symbol: 'A$',
-    name: 'Australian Dollar',
-    rateToUsd: 1.54,
-    suggestedAmounts: [5, 10, 15, 35, 75, 150],
-  },
+export {
+  type CurrencyCode,
+  type CurrencyRegion,
+  type CurrencyInfo,
+  ZERO_DECIMAL_CURRENCIES,
+  POPULAR_CURRENCIES,
+  SUPPORTED_CURRENCIES,
+  generateSuggestedAmounts,
+  convertCurrency,
+  formatCurrency,
 };
-
-/** Convert any amount from one currency to another using reference rates */
-export function convertCurrency(
-  amount: number,
-  from: CurrencyCode,
-  to: CurrencyCode
-): number {
-  if (from === to || amount <= 0) return amount;
-  const inUsd = amount / SUPPORTED_CURRENCIES[from].rateToUsd;
-  const target = inUsd * SUPPORTED_CURRENCIES[to].rateToUsd;
-  // Round sensibly: JPY and INR to whole numbers, others to 2 decimals
-  if (to === 'JPY' || to === 'INR') {
-    return Math.round(target);
-  }
-  return Math.round(target * 100) / 100;
-}
-
-/** Formats an amount with its currency symbol */
-export function formatCurrency(amount: number, currency: CurrencyCode): string {
-  const info = SUPPORTED_CURRENCIES[currency];
-  if (currency === 'JPY' || currency === 'INR') {
-    return `${info.symbol}${Math.round(amount).toLocaleString()}`;
-  }
-  const isWhole = Number.isInteger(amount);
-  return `${info.symbol}${amount.toLocaleString('en-US', {
-    minimumFractionDigits: isWhole ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 export interface MilestoneBudgetItem {
   item: string;
@@ -181,7 +117,7 @@ export const SUPPORTER_TIERS: SupporterTier[] = [
     perks: [
       'All Server Sustainer perks included',
       '"Grand Architect" permanent holographic title',
-      'Direct contribution to undergraduate college tuition',
+      'Direct support for independent development & continuous updates',
       'Permanent highlight on the Community Patron Wall',
     ],
     color: '#d4af37',
@@ -209,10 +145,12 @@ export type PatronPlatform = 'upi' | 'kofi' | 'bmc' | 'paypal' | 'github' | 'cry
 export interface PatronEntry {
   name: string;
   amount: number;
+  currency?: CurrencyCode;
   platform: PatronPlatform;
   message?: string;
   date: string;
   txHash?: string;
+  tierId?: string;
 }
 
 export interface DonationConfig {
@@ -246,47 +184,47 @@ export const PATRON_WALL_MAX = 5;
 
 export const DONATION_CONFIG: DonationConfig = {
   goal: {
-    targetAmount: 2000,
+    targetAmount: 3000,
     currentAmount: 0,
     currency: '$',
-    label: 'College Tuition & Server Sustenance Fund',
+    label: 'Independent Developer & Cloud Infrastructure Fund',
     milestones: [
       {
-        amount: 250,
-        label: 'Domain & Hosting',
-        description: 'Annual domain renewal & cloud server hosting to keep TypeNova online',
+        amount: 500,
+        label: 'Domain & Cloud Infrastructure',
+        description: 'Annual domain renewal & global edge cloud hosting to keep TypeNova online',
         budgetBreakdown: [
           { item: 'typenova.dev Domain', cost: '$15 / yr', purpose: 'ICANN registrar renewal & DNS routing' },
           { item: 'Cloudflare Edge CDN', cost: '$60 / yr', purpose: 'Global low-latency caching & DDoS shield' },
-          { item: 'Supabase Cloud DB', cost: '$175 / yr', purpose: 'PostgreSQL database & real-time sync relays' },
+          { item: 'Supabase Cloud DB', cost: '$425 / yr', purpose: 'PostgreSQL database & real-time sync relays' },
         ],
       },
       {
-        amount: 750,
-        label: 'Study Gear & Tools',
-        description: 'Textbooks, development tooling, and semester study resources',
+        amount: 1200,
+        label: 'High-Tick Multiplayer Scale',
+        description: 'WebSocket relays and compute resources for concurrent multiplayer racing',
         budgetBreakdown: [
-          { item: 'Mechanical Audio Rig', cost: '$150', purpose: 'Studio mic & switches for audio calibration' },
-          { item: 'High-Hz Testing Monitor', cost: '$250', purpose: '240Hz frame benchmark testing rig' },
-          { item: 'Engineering Textbooks', cost: '$250', purpose: 'Computer science & distributed systems literature' },
-          { item: 'Dev Tooling Licenses', cost: '$100', purpose: 'Profile profilers & static analysis tooling' },
+          { item: 'Dedicated WebSocket Cluster', cost: '$400 / yr', purpose: '60Hz real-time netplay tickrate relays' },
+          { item: 'Edge Network Bandwidth', cost: '$300 / yr', purpose: 'Global packet optimization for cross-region matches' },
+          { item: 'Automated Snapshot Backups', cost: '$250 / yr', purpose: 'Nightly disaster recovery & database replicas' },
+          { item: 'Security & Telemetry', cost: '$250 / yr', purpose: 'Vulnerability scanners & performance monitors' },
         ],
       },
       {
-        amount: 1500,
-        label: 'College Tuition Fund',
-        description: 'Major milestone directly paying down semester college tuition fees',
+        amount: 2200,
+        label: 'Indie Dev Sustenance',
+        description: 'Major milestone directly supporting independent full-time development',
         budgetBreakdown: [
-          { item: 'Semester Tuition Fee', cost: '$1,500', purpose: 'Undergraduate engineering tuition installment' },
+          { item: 'Independent Creator Sustenance', cost: '$1,000', purpose: 'Direct living & development sustenance for solo builder' },
         ],
       },
       {
-        amount: 2000,
-        label: 'Full Tuition & Beyond',
-        description: 'Complete college fees (~₹2,00,000 INR) & sustaining TypeNova',
+        amount: 3000,
+        label: 'Full-Year Cloud Runway & Scale',
+        description: 'Full-year operational runway (~₹2,50,000 INR) & sustaining TypeNova',
         budgetBreakdown: [
-          { item: 'Tuition Balance Clearance', cost: '$500', purpose: '100% academic debt clearance' },
-          { item: 'High-Tick Multiplayer Reserve', cost: 'Surplus', purpose: '12-month multiplayer relay runway' },
+          { item: 'Creator Runway Clearance', cost: '$800', purpose: 'Full independent developer freedom & runway' },
+          { item: '12-Month Cloud Runway', cost: 'Surplus', purpose: 'Pre-funded multiplayer relay reserve' },
         ],
       },
     ],
@@ -298,7 +236,7 @@ export const DONATION_CONFIG: DonationConfig = {
   upi: {
     upiId: 'typenova@upi',
     payeeName: 'TypeNova Open Source',
-    defaultNote: 'Support TypeNova & College Tuition Fund',
+    defaultNote: 'Support TypeNova & Independent Development',
     suggestedAmountsInr: [50, 100, 250, 500, 1000],
   },
   crypto: [
@@ -375,7 +313,10 @@ export const DONATION_CONFIG: DonationConfig = {
 /** Storage key for contributions recorded locally by the operator */
 export const LOCAL_PATRONS_STORAGE_KEY = 'typenova_patron_contributions';
 
-/** Retrieve local patron contributions from localStorage */
+/** Storage key for permanent verified supporter entitlements (immune to public wall clearing) */
+export const SUPPORTER_ENTITLEMENT_STORAGE_KEY = 'typenova_supporter_entitlements';
+
+/** Retrieve local patron contributions from localStorage (used for public wall display) */
 export function getLocalPatrons(): PatronEntry[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -388,16 +329,108 @@ export function getLocalPatrons(): PatronEntry[] {
   }
 }
 
+/** Retrieve permanent verified supporter entitlements from localStorage */
+export function getSupporterEntitlements(): PatronEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SUPPORTER_ENTITLEMENT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Record a permanent verified supporter entitlement (persists even if cleared from public wall) */
+export function recordVerifiedEntitlement(entry: PatronEntry): PatronEntry[] {
+  if (typeof window === 'undefined') return [entry];
+  try {
+    const existing = getSupporterEntitlements();
+    const updated = [
+      entry,
+      ...existing.filter((p) => {
+        if (entry.txHash && p.txHash) {
+          return p.txHash !== entry.txHash;
+        }
+        return (
+          p.name.toLowerCase() !== entry.name.toLowerCase() ||
+          p.date !== entry.date ||
+          p.amount !== entry.amount
+        );
+      }),
+    ];
+    localStorage.setItem(SUPPORTER_ENTITLEMENT_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('patronContributionsUpdated'));
+    return updated;
+  } catch {
+    return [entry];
+  }
+}
+
 /** Record a new contribution locally and return the updated local array */
 export function recordPatronContribution(entry: PatronEntry): PatronEntry[] {
   if (typeof window === 'undefined') return [entry];
   try {
     const existing = getLocalPatrons();
-    const updated = [entry, ...existing.filter((p) => p.name !== entry.name || p.date !== entry.date)];
+    const updated = [
+      entry,
+      ...existing.filter((p) => {
+        if (entry.txHash && p.txHash) {
+          return p.txHash !== entry.txHash;
+        }
+        return (
+          p.name.toLowerCase() !== entry.name.toLowerCase() ||
+          p.date !== entry.date ||
+          p.amount !== entry.amount
+        );
+      }),
+    ];
     localStorage.setItem(LOCAL_PATRONS_STORAGE_KEY, JSON.stringify(updated));
+
+    // Also persist permanently to supporter entitlements (so public wall removal never revokes certificates/titles)
+    recordVerifiedEntitlement(entry);
+
+    window.dispatchEvent(new Event('patronContributionsUpdated'));
     return updated;
   } catch {
     return [entry];
+  }
+}
+
+/** Remove a specific local contribution entry from the public wall */
+export function removeLocalPatron(identifier: { txHash?: string; name?: string; date?: string }): PatronEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const existing = getLocalPatrons();
+    const updated = existing.filter((p) => {
+      if (identifier.txHash && p.txHash) {
+        return p.txHash !== identifier.txHash;
+      }
+      if (identifier.name && identifier.date) {
+        return !(p.name === identifier.name && p.date === identifier.date);
+      }
+      if (identifier.name && !identifier.date && !identifier.txHash) {
+        return p.name !== identifier.name;
+      }
+      return true;
+    });
+    localStorage.setItem(LOCAL_PATRONS_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('patronContributionsUpdated'));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+/** Purge locally recorded cards from the public wall without revoking supporter entitlements */
+export function clearAllLocalPatrons(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(LOCAL_PATRONS_STORAGE_KEY);
+    window.dispatchEvent(new Event('patronContributionsUpdated'));
+  } catch (e) {
+    console.warn('[donation] Error clearing local patrons:', e);
   }
 }
 
@@ -451,3 +484,363 @@ export function generatePatronCertificateSerial(callsign: string, amount: number
   const tierCode = amount >= 50 ? 'LEGEND' : amount >= 25 ? 'GOLD' : amount >= 10 ? 'SILVER' : 'PATRON';
   return `TN-VAULT-${hex}-${tierCode}`;
 }
+
+/**
+ * Fetches verified live patron contributions from the Supabase database.
+ */
+export async function fetchDatabasePatrons(): Promise<PatronEntry[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('patron_contributions')
+      .select('donor_name, amount, currency, gateway, created_at, razorpay_payment_id, message, tier_id')
+      .eq('status', 'captured')
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (error || !data) return [];
+    return data.map((row) => ({
+      name: row.donor_name || 'Anonymous Patron',
+      amount: Number(row.amount) || 0,
+      currency: (row.currency as CurrencyCode) || 'USD',
+      platform: (row.gateway as PatronPlatform) || 'gateway',
+      date: row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+      txHash: row.razorpay_payment_id || undefined,
+      message: row.message || undefined,
+      tierId: row.tier_id || undefined,
+    }));
+  } catch (e) {
+    console.warn('[donation] Error fetching database patrons:', e);
+    return [];
+  }
+}
+
+/**
+ * Calculates current tuition goal amount from verified database payments.
+ */
+export async function fetchTuitionGoalTotal(): Promise<number> {
+  if (!supabase) return DONATION_CONFIG.goal.currentAmount;
+  try {
+    const { data, error } = await supabase
+      .from('patron_contributions')
+      .select('amount, currency')
+      .eq('status', 'captured');
+
+    if (error || !data) return DONATION_CONFIG.goal.currentAmount;
+
+    const totalUsd = data.reduce((sum, row) => {
+      const amt = Number(row.amount) || 0;
+      const curr = (row.currency as CurrencyCode) || 'INR';
+      const usd = convertCurrency(amt, curr, 'USD');
+      return sum + usd;
+    }, 0);
+
+    return Math.round(totalUsd);
+  } catch {
+    return DONATION_CONFIG.goal.currentAmount;
+  }
+}
+
+/** Storage key for unlocked supporter titles verified via payment */
+export const UNLOCKED_PATRON_TITLES_KEY = 'typenova_unlocked_patron_titles';
+
+export const PATRON_TITLE_IDS = [
+  'cyber_patron',
+  'server_sustainer',
+  'grand_architect',
+  'eternal_benefactor',
+] as const;
+
+export function isPatronTitle(titleId: string): boolean {
+  return (PATRON_TITLE_IDS as readonly string[]).includes(titleId);
+}
+
+export interface ResolvedUserContributions {
+  primaryRecord: PatronEntry | null;
+  allRecords: PatronEntry[];
+  totalContributedUsd: number;
+  highestTierId?: string;
+  hasVerifiedContribution: boolean;
+}
+
+/**
+ * Resolves verified contributions for a specific callsign/username across all sources.
+ * Strips simulation records, normalizes foreign currencies to USD for accurate tier ranking,
+ * and preserves exact paid amounts and currency codes on each record.
+ */
+export function resolveUserContributions(
+  callsign: string,
+  records: (PatronEntry | null | undefined)[]
+): ResolvedUserContributions {
+  if (!callsign || !callsign.trim()) {
+    return {
+      primaryRecord: null,
+      allRecords: [],
+      totalContributedUsd: 0,
+      hasVerifiedContribution: false,
+    };
+  }
+
+  const normalizedName = callsign.trim().toLowerCase();
+
+  // Filter for real, non-simulation contributions belonging to this user
+  const userValidRecords = records.filter((p): p is PatronEntry => {
+    if (!p || typeof p.name !== 'string') return false;
+    if (p.name.trim().toLowerCase() !== normalizedName) return false;
+    if (typeof p.amount !== 'number' || p.amount <= 0) return false;
+    if (p.txHash?.startsWith('TN-SIM-')) return false;
+    if (p.message === 'Sandbox Simulated Contribution') return false;
+    return true;
+  });
+
+  // Deduplicate by txHash if present, or by date + amount + currency
+  const seenKeys = new Set<string>();
+  const deduplicated: PatronEntry[] = [];
+  for (const entry of userValidRecords) {
+    const key = entry.txHash
+      ? entry.txHash
+      : `${entry.name.toLowerCase()}_${entry.date}_${entry.amount}_${entry.currency || 'USD'}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    deduplicated.push(entry);
+  }
+
+  if (deduplicated.length === 0) {
+    return {
+      primaryRecord: null,
+      allRecords: [],
+      totalContributedUsd: 0,
+      hasVerifiedContribution: false,
+    };
+  }
+
+  // Calculate USD equivalent for each record to rank tiers accurately
+  const ranked = deduplicated.map((entry) => {
+    const usd = convertCurrency(entry.amount, entry.currency || 'USD', 'USD');
+    return { entry, usd };
+  });
+
+  // Sort by USD equivalent descending (highest tier first), then by date descending
+  ranked.sort((a, b) => {
+    if (Math.abs(b.usd - a.usd) > 0.01) {
+      return b.usd - a.usd;
+    }
+    return (b.entry.date || '').localeCompare(a.entry.date || '');
+  });
+
+  const totalContributedUsd = ranked.reduce((sum, item) => sum + item.usd, 0);
+  const primaryRecord = ranked[0].entry;
+
+  return {
+    primaryRecord,
+    allRecords: ranked.map((r) => r.entry),
+    totalContributedUsd: Math.round(totalContributedUsd * 100) / 100,
+    highestTierId: primaryRecord.tierId,
+    hasVerifiedContribution: true,
+  };
+}
+
+/**
+ * Maps a tier to all titles it unlocks (higher tiers inherit lower tier titles)
+ */
+export function getTitlesForTier(tierId: string): string[] {
+  switch (tierId) {
+    case 'tier_legend':
+      return ['cyber_patron', 'server_sustainer', 'grand_architect', 'eternal_benefactor'];
+    case 'tier_scholar':
+      return ['cyber_patron', 'server_sustainer', 'grand_architect'];
+    case 'tier_sustainer':
+      return ['cyber_patron', 'server_sustainer'];
+    case 'tier_supporter':
+    default:
+      return ['cyber_patron'];
+  }
+}
+
+/**
+ * Returns set of currently unlocked patron titles from verified payments and cloud records.
+ * Sandbox simulated transactions (TN-SIM-*) are strictly excluded.
+ */
+export function getUnlockedPatronTitles(targetCallsign?: string | null): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const set = new Set<string>();
+    const normalizedTarget = targetCallsign?.trim().toLowerCase();
+
+    // 1. Scan local patron contributions AND permanent supporter entitlements:
+    const allRecords = [...getLocalPatrons(), ...getSupporterEntitlements()];
+    const seen = new Set<string>();
+    const uniqueRecords = allRecords.filter((p) => {
+      const key = p.txHash || `${p.name}_${p.date}_${p.amount}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    for (const p of uniqueRecords) {
+      if (normalizedTarget && p.name && p.name.trim().toLowerCase() !== normalizedTarget) {
+        continue;
+      }
+      const isReal =
+        typeof p.amount === 'number' &&
+        p.amount > 0 &&
+        typeof p.txHash === 'string' &&
+        p.txHash.startsWith('pay_') &&
+        !p.message?.includes('Sandbox') &&
+        !p.message?.includes('Simulated') &&
+        !p.txHash.startsWith('TN-SIM-');
+
+      if (isReal) {
+        // Validate tierId against known valid tiers
+        if (p.tierId && ['tier_supporter', 'tier_sustainer', 'tier_scholar', 'tier_legend'].includes(p.tierId)) {
+          getTitlesForTier(p.tierId).forEach((t) => set.add(t));
+        } else {
+          // Fallback: convert amount to USD first before checking tier thresholds
+          const inferredCurrency: CurrencyCode = p.currency || (p.amount > 100 ? 'INR' : 'USD');
+          const amountUsd = convertCurrency(p.amount, inferredCurrency, 'USD');
+          if (amountUsd >= 50) getTitlesForTier('tier_legend').forEach((t) => set.add(t));
+          else if (amountUsd >= 25) getTitlesForTier('tier_scholar').forEach((t) => set.add(t));
+          else if (amountUsd >= 10) getTitlesForTier('tier_sustainer').forEach((t) => set.add(t));
+          else if (amountUsd >= 3) getTitlesForTier('tier_supporter').forEach((t) => set.add(t));
+        }
+      }
+    }
+
+    // Keep cached key strictly in sync with the legitimately unlocked titles
+    if (set.size > 0) {
+      localStorage.setItem(UNLOCKED_PATRON_TITLES_KEY, JSON.stringify(Array.from(set)));
+    } else {
+      localStorage.removeItem(UNLOCKED_PATRON_TITLES_KEY);
+    }
+
+    // Auto-revoke currently active title if it is an unbacked patron title
+    const curTitle = getActiveTitleId();
+    if (isPatronTitle(curTitle) && !set.has(curTitle)) {
+      setActiveTitleId('novice');
+      window.dispatchEvent(new Event('titleChanged'));
+    }
+
+    return set;
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Resets local patron contributions, purges unlocked patron titles,
+ * and resets active title to 'novice'. Useful for testing and development.
+ */
+export function resetPatronData(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(LOCAL_PATRONS_STORAGE_KEY);
+    localStorage.removeItem(SUPPORTER_ENTITLEMENT_STORAGE_KEY);
+    localStorage.removeItem(UNLOCKED_PATRON_TITLES_KEY);
+    setActiveTitleId('novice');
+    window.dispatchEvent(new CustomEvent('patronTitlesUpdated', { detail: { unlocked: [] } }));
+    window.dispatchEvent(new Event('titleChanged'));
+    window.dispatchEvent(new Event('patronContributionsUpdated'));
+  } catch (e) {
+    console.warn('[donation] Error resetting patron data:', e);
+  }
+}
+
+// Expose reset helpers on window for developer & user convenience in console
+if (typeof window !== 'undefined') {
+  const win = window as unknown as Record<string, unknown>;
+  win.resetPatronData = resetPatronData;
+  win.clearAllLocalPatrons = clearAllLocalPatrons;
+  win.clearMyPatronRecords = clearAllLocalPatrons;
+}
+
+/**
+ * Check if a specific patron title is verified & unlocked.
+ */
+export function isPatronTitleUnlocked(titleId: string): boolean {
+  return getUnlockedPatronTitles().has(titleId);
+}
+
+/**
+ * Unlocks patron titles for a tier and persists to localStorage. Dispatches update event.
+ */
+export function unlockPatronTitlesForTier(tierId: string): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const titles = getUnlockedPatronTitles();
+    const toUnlock = getTitlesForTier(tierId);
+    toUnlock.forEach((t) => titles.add(t));
+
+    localStorage.setItem(UNLOCKED_PATRON_TITLES_KEY, JSON.stringify(Array.from(titles)));
+    window.dispatchEvent(new CustomEvent('patronTitlesUpdated', { detail: { unlocked: Array.from(titles) } }));
+    return titles;
+  } catch {
+    return getUnlockedPatronTitles();
+  }
+}
+
+/**
+ * Syncs user's verified contributions from Supabase database and unlocks entitled titles.
+ */
+export async function syncUserPatronStatus(userId?: string | null, targetCallsign?: string | null): Promise<Set<string>> {
+  if (!supabase || !userId) return getUnlockedPatronTitles(targetCallsign);
+
+  try {
+    const { data, error } = await supabase
+      .from('patron_contributions')
+      .select('tier_id, amount, currency, razorpay_payment_id, donor_name, created_at, message')
+      .eq('user_id', userId)
+      .eq('status', 'captured');
+
+    const set = new Set<string>();
+
+    if (!error && data && data.length > 0) {
+      for (const row of data) {
+        if (row.razorpay_payment_id) {
+          recordVerifiedEntitlement({
+            name: row.donor_name || 'Anonymous Patron',
+            amount: Number(row.amount) || 0,
+            currency: (row.currency as CurrencyCode) || 'USD',
+            platform: 'gateway',
+            date: row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            txHash: row.razorpay_payment_id,
+            tierId: row.tier_id || undefined,
+            message: row.message || undefined,
+          });
+        }
+
+        if (row.tier_id) {
+          const toAdd = getTitlesForTier(row.tier_id);
+          toAdd.forEach((t) => set.add(t));
+        } else if (row.amount) {
+          const inUsd = convertCurrency(Number(row.amount), (row.currency as CurrencyCode) || 'INR', 'USD');
+          if (inUsd >= 50) getTitlesForTier('tier_legend').forEach((t) => set.add(t));
+          else if (inUsd >= 25) getTitlesForTier('tier_scholar').forEach((t) => set.add(t));
+          else if (inUsd >= 10) getTitlesForTier('tier_sustainer').forEach((t) => set.add(t));
+          else if (inUsd >= 3) getTitlesForTier('tier_supporter').forEach((t) => set.add(t));
+        }
+      }
+
+      // Also merge any live local payments
+      const local = getUnlockedPatronTitles(targetCallsign);
+      local.forEach((t) => set.add(t));
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(UNLOCKED_PATRON_TITLES_KEY, JSON.stringify(Array.from(set)));
+        window.dispatchEvent(new CustomEvent('patronTitlesUpdated', { detail: { unlocked: Array.from(set) } }));
+      }
+      return set;
+    } else {
+      // User has no captured contributions in the cloud
+      const local = getUnlockedPatronTitles(targetCallsign);
+      if (local.size === 0 && typeof window !== 'undefined') {
+        localStorage.removeItem(UNLOCKED_PATRON_TITLES_KEY);
+      }
+      return local;
+    }
+  } catch (e) {
+    console.warn('[donation] Error syncing patron status from cloud:', e);
+    return getUnlockedPatronTitles(targetCallsign);
+  }
+}
+
+

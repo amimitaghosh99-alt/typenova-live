@@ -247,7 +247,7 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
       <div
         className={
           zenMode
-            ? 'relative w-full max-w-4xl z-20 px-4'
+            ? 'relative w-full z-20 px-4'
             : `relative w-full rounded-[2.5rem] z-20 typing-canvas glass-refract theme-transition px-6 sm:px-10 py-7 sm:py-10 md:px-12 md:py-12 min-h-[220px] sm:min-h-[250px] lg:min-h-[280px] flex flex-col justify-center ${phase === 'TYPING' ? 'typing-active' : ''}`
         }
         style={{

@@ -14,7 +14,6 @@ import {
   type PatronPlatform,
   type CurrencyCode,
 } from '@/data/donation';
-import { setActiveTitleId } from '@/data/titles';
 
 export interface RecordContributionModalProps {
   isOpen: boolean;
@@ -72,14 +71,12 @@ export const RecordContributionModal: React.FC<RecordContributionModalProps> = (
     recordPatronContribution({
       name: trimmedName,
       amount: numAmount,
+      currency: defaultCurrency || 'USD',
       platform,
       message: message.trim() || undefined,
       date: today,
       txHash: txRef.trim() || undefined,
     });
-
-    // Auto-equip title
-    setActiveTitleId('cyber_patron');
 
     setIsDone(true);
     toast.success('Contribution recorded on the Patron Wall!', {
@@ -162,13 +159,32 @@ export const RecordContributionModal: React.FC<RecordContributionModalProps> = (
                     Amount Contributed ({defaultCurrency}) *
                   </label>
                   <input
-                    type="number"
-                    min="1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[1-9][0-9]*"
+                    data-keyboard-isolated="true"
                     required
                     placeholder="10"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-black/50 border border-white/15 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/50 transition-colors"
+                    onKeyDown={(e) => {
+                      if (['e', 'E', '+', '-', '.'].includes(e.key)) {
+                        e.preventDefault();
+                        return;
+                      }
+                      const selStart = e.currentTarget.selectionStart ?? 0;
+                      const selEnd = e.currentTarget.selectionEnd ?? 0;
+                      if (
+                        e.key === '0' &&
+                        (amount.length === 0 || (selStart === 0 && selEnd === amount.length))
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
+                      setAmount(clean);
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-black/50 border border-white/15 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-white/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
 

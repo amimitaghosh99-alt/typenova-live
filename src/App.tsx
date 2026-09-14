@@ -44,7 +44,8 @@ import type { HistoryEntry } from '@/lib/history';
 import { calculateCPI, calculateBurstWpm, calculateGhostDelta, type PerformanceGrade } from '@/lib/scoringEngine';
 import { loadPersonalBests } from '@/lib/personalBests';
 const ReplayModal = lazy(() => import('@/components/ReplayModal').then(m => ({ default: m.ReplayModal })));
-import { TITLE_BADGES, getActiveTitleId } from '@/data/titles';
+import { TITLE_BADGES, getActiveTitleId, setActiveTitleId } from '@/data/titles';
+import { isPatronTitle, isPatronTitleUnlocked } from '@/data/donation';
 import { useChallenges } from '@/hooks/useChallenges';
 import { useRace, makeRoomCode } from '@/hooks/useRace';
 import { useMatchmaking } from '@/hooks/useMatchmaking';
@@ -502,6 +503,34 @@ function MainApp() {
     supabase,
     auth.user?.user_metadata?.avatar_url ?? auth.user?.user_metadata?.picture ?? null
   );
+
+  const [activeTitle, setActiveTitle] = useState(() => {
+    const cur = getActiveTitleId();
+    if (isPatronTitle(cur) && !isPatronTitleUnlocked(cur)) {
+      setActiveTitleId('novice');
+      return 'novice';
+    }
+    return cur;
+  });
+
+  useEffect(() => {
+    const handleTitleChange = () => {
+      const cur = getActiveTitleId();
+      if (isPatronTitle(cur) && !isPatronTitleUnlocked(cur)) {
+        setActiveTitleId('novice');
+        setActiveTitle('novice');
+      } else {
+        setActiveTitle(cur);
+      }
+    };
+    window.addEventListener('titleChanged', handleTitleChange);
+    window.addEventListener('patronTitlesUpdated', handleTitleChange);
+    return () => {
+      window.removeEventListener('titleChanged', handleTitleChange);
+      window.removeEventListener('patronTitlesUpdated', handleTitleChange);
+    };
+  }, []);
+
   const isLoggedIn = !!auth.session;
   const levelOptions = useMemo(() => (["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM", "DICTATION"] as Level[]).map(l => ({
     label: l === 'DICTATION' ? 'AUDIO' : l,
@@ -630,7 +659,7 @@ function MainApp() {
   ) => {
     if (!cloud.username) return;
     const roomCode = makeRoomCode();
-    race.createRoom(cloud.username, 2, undefined, cloud.elo, roomCode, auth.user?.id, false);
+    race.createRoom(cloud.username, 2, undefined, cloud.elo, roomCode, auth.user?.id, false, activeTitle);
     setPublicRoom(false); // a private duel with one named friend
     if (config) {
       race.updateLobbyConfig(config);
@@ -641,7 +670,7 @@ function MainApp() {
     closeModal();
     setRaceActive(false);
     setCurrentStage('compete');
-  }, [cloud.username, cloud.elo, race.createRoom, race.updateLobbyConfig, auth.user?.id, challenges.sendChallenge, closeModal]);
+  }, [cloud.username, cloud.elo, race.createRoom, race.updateLobbyConfig, auth.user?.id, challenges.sendChallenge, closeModal, activeTitle]);
 
   // ─── Quick Match ─────────────────────────────────────────────────
   // Presence key + host election need a stable, unique id per client. Guests
@@ -703,13 +732,13 @@ function MainApp() {
       const roomCode = room.toUpperCase();
       setRaceActive(false);
       setCurrentStage('compete');
-      race.joinRoom(roomCode, cloud.username || 'Player', cloud.elo, auth.user?.id);
+      race.joinRoom(roomCode, cloud.username || 'Player', cloud.elo, auth.user?.id, false, activeTitle);
       // Clean up URL so it doesn't linger
       window.history.replaceState({}, '', window.location.pathname);
     }
     // Depends on `race.joinRoom` (stable), not on the whole `race` object —
     // that was rebuilt every render, so this re-ran on every keystroke.
-  }, [cloud.username, cloud.elo, auth.user?.id, race.joinRoom]);
+  }, [cloud.username, cloud.elo, auth.user?.id, race.joinRoom, activeTitle]);
 
   // Rematch State Sync: when the room status returns to 'lobby' while a race was active,
   // unmount the Results screen and pull all connected clients back into the VS Lobby together!
@@ -829,13 +858,6 @@ function MainApp() {
   useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);
   useEffect(() => { if (boardTab === 'friends') fetchFriendsBoard(); }, [boardTab, fetchFriendsBoard]);
 
-  const [activeTitle, setActiveTitle] = useState(getActiveTitleId());
-  useEffect(() => {
-    const handleTitleChange = () => setActiveTitle(getActiveTitleId());
-    window.addEventListener('titleChanged', handleTitleChange);
-    return () => window.removeEventListener('titleChanged', handleTitleChange);
-  }, []);
-
   // ─── Cloud Sync push ─────────────────────────────────────────────
   // Once synced, mirror progress back to the cloud whenever it changes
   // (debounced in the hook). A finished test always bumps testsCompleted, so
@@ -851,7 +873,12 @@ function MainApp() {
         totalWordsTyped: (() => { const h: HistoryEntry[] = loadHistory(); return h.reduce((a: number, e: HistoryEntry) => a + e.size, 0); })(),
       };
       const activeId = activeTitle;
-      const unlocked = TITLE_BADGES.filter((b) => b.isUnlocked(stats)).map((b) => b.id);
+      const unlocked = TITLE_BADGES.filter((b) => {
+        if (isPatronTitle(b.id)) {
+          return isPatronTitleUnlocked(b.id);
+        }
+        return b.isUnlocked(stats);
+      }).map((b) => b.id);
 
       cloud.pushProgress({
         level: rpg.userLevel,
@@ -1463,12 +1490,27 @@ function MainApp() {
     // Defaults to unlisted: paths that don't ask for a public room (quick match,
     // challenges) must never leak one into the directory.
     setPublicRoom(!!isPublic);
-    race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked);
-  }, [race.createRoom, cloud.elo, auth.user?.id]);
+    race.createRoom(name, size, undefined, cloud.elo, roomCode, auth.user?.id, !!isRanked, activeTitle);
+  }, [race.createRoom, cloud.elo, auth.user?.id, activeTitle]);
   const handleRaceJoin = useCallback((code: string, name: string, isRanked?: boolean) => {
     setIsRankedMatch(!!isRanked);
-    race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked);
-  }, [race.joinRoom, cloud.elo, auth.user?.id]);
+    race.joinRoom(code, name, cloud.elo, auth.user?.id, !!isRanked, activeTitle);
+  }, [race.joinRoom, cloud.elo, auth.user?.id, activeTitle]);
+
+  const handleAcceptChallenge = useCallback(async () => {
+    const roomCode = await challenges.acceptChallenge();
+    if (roomCode) {
+      handleRaceJoin(roomCode, cloud.username || 'Player', false);
+      closeModal();
+      setRaceActive(false);
+      setCurrentStage('compete');
+      toast.success('Entering duel room...');
+    }
+  }, [challenges, handleRaceJoin, cloud.username, closeModal, setCurrentStage]);
+
+  const handleDeclineChallenge = useCallback(async () => {
+    await challenges.rejectChallenge();
+  }, [challenges]);
 
   // The queue only hands back a room code and a role; somebody still has to
   // open the room. Nothing did that after RaceModal stopped being rendered,
@@ -2193,7 +2235,7 @@ function MainApp() {
         // The dossier is a page, not a dialog, so it isn't in `activeModal` —
         // without this every keystroke on it drove the test underneath.
         // Also block keyboard when not in practice stage (e.g. typing in compete lobby chat)
-        keyboardBlocked={dossierOpen || analyticsOpen || donateOpen || currentStage !== 'practice'}
+        keyboardBlocked={dossierOpen || analyticsOpen || donateOpen || (currentStage !== 'practice' && !raceActive)}
         raceActive={raceActive}
         theme={theme}
         tetrisEffect={tetrisEffect}
@@ -2369,6 +2411,7 @@ function MainApp() {
               onBack={() => navigate('/')}
               theme={theme}
               onTitleEquipped={(titleId) => setActiveTitle(titleId)}
+              username={cloud.username || auth.user?.user_metadata?.full_name || auth.user?.user_metadata?.name || (auth.user?.email ? auth.user.email.split('@')[0] : null)}
             />
           </Suspense>
         ) : analyticsOpen ? (
@@ -2386,7 +2429,7 @@ function MainApp() {
                 navigate(backPath);
               }}
               supabase={supabase}
-              localUsername={cloud.username}
+              localUsername={cloud.username || auth.user?.user_metadata?.full_name || auth.user?.user_metadata?.name || (auth.user?.email ? auth.user.email.split('@')[0] : null)}
               viewerId={auth.user?.id ?? null}
               theme={theme}
               localRPGStats={localRPGStatsMemo}
@@ -2403,7 +2446,7 @@ function MainApp() {
               routeUsername={selectedProfileUsername}
               onBack={handleLeaveDossier}
               supabase={supabase}
-              localUsername={cloud.username}
+              localUsername={cloud.username || auth.user?.user_metadata?.full_name || auth.user?.user_metadata?.name || (auth.user?.email ? auth.user.email.split('@')[0] : null)}
               viewerId={auth.user?.id ?? null}
               theme={theme}
               localRPGStats={localRPGStatsMemo}
@@ -2456,7 +2499,7 @@ function MainApp() {
                         countdown={typing.countdownTimer}
                       />
                     )}
-                    <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-center gap-6 lg:gap-8 xl:gap-10 2xl:gap-12 transition-[margin,padding] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] 3xl:grid-cols-[minmax(0,1fr)_460px] mt-2 sm:mt-4 pb-16'}`}>
+                    <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-start gap-6 lg:gap-8 xl:gap-10 2xl:gap-12 transition-[margin,padding] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] 3xl:grid-cols-[minmax(0,1fr)_460px] mt-2 sm:mt-4 pb-16'}`}>
                       <PracticeArena
                         game={game}
                         typing={typing}
@@ -2487,6 +2530,7 @@ function MainApp() {
                       />
 
                       <LeaderboardSidebar
+                        activeTitle={activeTitle}
                         leaderboardClass={leaderboardClass}
                         theme={theme}
                         boardTab={boardTab}
@@ -2610,6 +2654,7 @@ function MainApp() {
                       />
                     ) : (
                       <LobbyScreen
+                        activeTitle={activeTitle}
                         code={race.code}
                         players={race.players}
                         roomSize={race.roomSize}
@@ -2725,6 +2770,8 @@ function MainApp() {
           onSetNameErr={setNameErr}
           onSubmitUsername={submitUsername}
           onPlayPreviewSound={handlePlayPreviewSound}
+          onAcceptChallenge={handleAcceptChallenge}
+          onDeclineChallenge={handleDeclineChallenge}
           raceActive={raceActive}
         />
       </div>

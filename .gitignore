@@ -33,3 +33,7 @@ dist-ssr
 *.sln
 *.sw?
 .freebuff
+
+# Scratch and CLI cache
+scratch/
+supabase/.temp/

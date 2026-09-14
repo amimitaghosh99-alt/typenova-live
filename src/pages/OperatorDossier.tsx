@@ -64,6 +64,16 @@ import { ACHIEVEMENTS } from '@/data/constants';
 import { achievementIcon } from '@/lib/achievementIcons';
 import { TITLE_MARK } from '@/lib/titleIcons';
 import { TITLE_BADGES, getActiveTitleId, setActiveTitleId, type UserSkillStats } from '@/data/titles';
+import {
+    isPatronTitle,
+    isPatronTitleUnlocked,
+    getLocalPatrons,
+    getSupporterEntitlements,
+    getUnlockedPatronTitles,
+    resolveUserContributions,
+    type CurrencyCode,
+} from '@/data/donation';
+import { SupporterCertificateModal } from '@/components/donation/SupporterCertificateModal';
 import { ProfileCustomizationMenu } from '@/components/ProfileCustomizationMenu';
 import { ALL_BANNERS, AVATARS } from '@/data/customization';
 import { DrawCheck } from '@/components/profile/ProfileFx';
@@ -72,6 +82,7 @@ import {
 } from '@/components/profile/DossierPieces';
 import { DossierHeader, type HeaderFigure } from '@/components/profile/DossierHeader';
 import { CollectionGrid, type CollectionItem } from '@/components/profile/CollectionGrid';
+import { toast } from 'sonner';
 import { HallOfLegendsPanel } from '@/components/profile/HallOfLegendsPanel';
 import { ActivityCalendar } from '@/components/profile/ActivityCalendar';
 import { useActivity } from '@/hooks/useActivity';
@@ -234,6 +245,7 @@ export const OperatorDossier = React.memo(function OperatorDossier({
     supabase,
     localUsername,
     viewerId,
+    theme,
     localRPGStats,
     onStartDrill,
     onStartWordDrill,
@@ -269,6 +281,9 @@ export const OperatorDossier = React.memo(function OperatorDossier({
     const [showCustomization, setShowCustomization] = useState(false);
     /** Feedback for the "copy link" affordance in the page header. */
     const [linkCopied, setLinkCopied] = useState(false);
+    /** Official verified supporter certificate view modal */
+    const [isCertificateOpen, setIsCertificateOpen] = useState(false);
+    const [patronTick, setPatronTick] = useState(0);
 
     // Pulse key = title id + a monotonic tick, so re-equipping the same title
     // still re-mounts the burst. A counter keeps the handler pure — no Date.now().
@@ -287,12 +302,73 @@ export const OperatorDossier = React.memo(function OperatorDossier({
     );
 
     useEffect(() => {
+        const handlePatronUpdate = () => setPatronTick((c) => c + 1);
+        window.addEventListener('patronContributionsUpdated', handlePatronUpdate);
+        window.addEventListener('patronTitlesUpdated', handlePatronUpdate);
+
         return () => {
+            window.removeEventListener('patronContributionsUpdated', handlePatronUpdate);
+            window.removeEventListener('patronTitlesUpdated', handlePatronUpdate);
             if (toastTimer.current) clearTimeout(toastTimer.current);
             if (pulseTimer.current) clearTimeout(pulseTimer.current);
             if (copyTimer.current) clearTimeout(copyTimer.current);
         };
     }, []);
+
+    /**
+     * Verified contribution belonging to this operator (only unlocked for verified real patrons).
+     * Option B strict lockout: non-paying users or simulated test accounts resolve to null.
+     */
+    const verifiedSupporterData = useMemo(() => {
+        const effectiveName = (targetUsername || localUsername || '').trim();
+        if (!effectiveName) return null;
+
+        const records = [...getLocalPatrons(), ...getSupporterEntitlements()];
+        const resolved = resolveUserContributions(effectiveName, records);
+
+        if (resolved.primaryRecord) {
+            return {
+                callsign: resolved.primaryRecord.name,
+                amount: resolved.primaryRecord.amount,
+                currency: resolved.primaryRecord.currency || ('USD' as CurrencyCode),
+                tierId: resolved.primaryRecord.tierId,
+                txHash: resolved.primaryRecord.txHash,
+                isOwner: isOwnProfile,
+                userRecords: resolved.allRecords,
+            };
+        }
+
+        // 2. Check if unlocked patron titles exist (only for own profile)
+        if (isOwnProfile) {
+            const unlockedTitles = getUnlockedPatronTitles();
+            if (unlockedTitles.size > 0) {
+                let inferredTier = 'tier_supporter';
+                let inferredAmount = 3;
+                if (unlockedTitles.has('eternal_benefactor')) {
+                    inferredTier = 'tier_legend';
+                    inferredAmount = 50;
+                } else if (unlockedTitles.has('grand_architect')) {
+                    inferredTier = 'tier_scholar';
+                    inferredAmount = 25;
+                } else if (unlockedTitles.has('server_sustainer')) {
+                    inferredTier = 'tier_sustainer';
+                    inferredAmount = 10;
+                }
+
+                return {
+                    callsign: effectiveName,
+                    amount: inferredAmount,
+                    currency: 'USD' as CurrencyCode,
+                    tierId: inferredTier,
+                    txHash: undefined,
+                    isOwner: true,
+                    userRecords: [],
+                };
+            }
+        }
+
+        return null;
+    }, [isOwnProfile, targetUsername, localUsername, patronTick]);
 
     /**
      * Our own dossier is drawn from fresh local RPG state, so the cloud is only
@@ -496,13 +572,17 @@ export const OperatorDossier = React.memo(function OperatorDossier({
     const selectedAvatar = AVATARS.find((a) => a.id === avatarId) || AVATARS[0];
 
     /** The dossier's whole colour identity comes from the equipped banner. */
-    const accent = selectedBanner.glowColor || '6, 182, 212';
+    const accent = selectedBanner.glowColor || theme?.glowPrimary || '6, 182, 212';
     const avatarAccent = selectedAvatar.glowColor || accent;
 
     /** Own dossier judges unlocks from live stats; others from their stored list. */
     const isBadgeUnlocked = useCallback(
-        (badge: (typeof TITLE_BADGES)[number]) =>
-            isOwnProfile ? badge.isUnlocked(skillStats) : unlockedBadgeIds.has(badge.id),
+        (badge: (typeof TITLE_BADGES)[number]) => {
+            if (isPatronTitle(badge.id)) {
+                return isPatronTitleUnlocked(badge.id);
+            }
+            return isOwnProfile ? badge.isUnlocked(skillStats) : unlockedBadgeIds.has(badge.id);
+        },
         [isOwnProfile, skillStats, unlockedBadgeIds]
     );
 
@@ -665,12 +745,14 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                 id: badge.id,
                 kind: 'title',
                 name: badge.name,
-                description: badge.description,
+                description: isPatronTitle(badge.id) && !unlocked
+                    ? `${badge.description} (Exclusive: Back via Patron Vault)`
+                    : badge.description,
                 icon: TITLE_MARK[badge.id],
                 unlocked,
                 equipped: badge.id === equippedTitleId,
                 equippable: unlocked && isOwnProfile,
-                progress: !unlocked && isOwnProfile ? badge.progress?.(skillStats) : undefined,
+                progress: !unlocked && isOwnProfile && !isPatronTitle(badge.id) ? badge.progress?.(skillStats) : undefined,
             };
         });
 
@@ -692,8 +774,27 @@ export const OperatorDossier = React.memo(function OperatorDossier({
 
     const collectionEarned = collection.filter((i) => i.unlocked).length;
 
+    // Automatically revoke and reset unverified supporter titles equipped previously
+    useEffect(() => {
+        if (isOwnProfile && isPatronTitle(equippedTitleId) && !isPatronTitleUnlocked(equippedTitleId)) {
+            setActiveTitleId('novice');
+            setOwnTitleId('novice');
+            window.dispatchEvent(new Event('titleChanged'));
+        }
+    }, [equippedTitleId, isOwnProfile]);
+
     const handleSelectTitle = useCallback(async (titleId: string) => {
         if (!isOwnProfile) return;
+
+        const badge = TITLE_BADGES.find((b) => b.id === titleId);
+        if (badge && !isBadgeUnlocked(badge)) {
+            toast.error('Title is locked', {
+                description: isPatronTitle(titleId)
+                    ? 'This supporter title requires backing in the Patron Vault.'
+                    : 'You have not unlocked this title yet.',
+            });
+            return;
+        }
 
         if (titleId === equippedTitleId) {
             // Re-tapping the equipped title replays the burst — a tap should
@@ -706,7 +807,6 @@ export const OperatorDossier = React.memo(function OperatorDossier({
         setActiveTitleId(titleId);
         setOwnTitleId(titleId);
 
-        const badge = TITLE_BADGES.find((b) => b.id === titleId);
         setPulseTick((p) => ({ id: titleId, n: (p?.n ?? 0) + 1 }));
         setEquipToast(badge ? badge.name : titleId);
         pulseHaptic([10, 26, 14]);
@@ -1197,8 +1297,10 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                                     levelProgressPct={levelProgressPct}
                                     xpToNext={xpToNext}
                                     titleName={activeBadge.name}
+                                    titleId={equippedTitleId}
                                     titleIcon={TITLE_MARK[activeBadge.id]}
                                     onOpenTitles={isOwnProfile ? () => jumpTo('collection') : undefined}
+                                    onViewCertificate={verifiedSupporterData ? () => setIsCertificateOpen(true) : undefined}
                                     figures={headerFigures}
                                     action={primaryAction}
                                     reduce={reduce}
@@ -1688,6 +1790,21 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                     }}
                     onClose={() => setShowCustomization(false)}
                     onUpdate={handleCustomizationUpdate}
+                />
+            )}
+
+            {verifiedSupporterData && theme && (
+                <SupporterCertificateModal
+                    isOpen={isCertificateOpen}
+                    onClose={() => setIsCertificateOpen(false)}
+                    theme={theme}
+                    callsign={verifiedSupporterData.callsign}
+                    amount={verifiedSupporterData.amount}
+                    currency={verifiedSupporterData.currency}
+                    tierId={verifiedSupporterData.tierId}
+                    txHash={verifiedSupporterData.txHash}
+                    isOwner={verifiedSupporterData.isOwner}
+                    userRecords={verifiedSupporterData.userRecords}
                 />
             )}
         </>

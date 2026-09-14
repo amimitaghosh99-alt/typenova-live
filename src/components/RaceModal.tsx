@@ -19,6 +19,7 @@ interface RaceModalProps {
   players: RacerState[];
   error: string;
   selfId: string;
+  activeTitle?: string;
   theme: Theme;
   roomSize: number;
   countdown?: number | null;
@@ -39,7 +40,7 @@ interface RaceModalProps {
 }
 
 export const RaceModal = React.memo(({
-  status, code, isHost, isRankedRoom, players, error, selfId, theme, roomSize,
+  status, code, isHost, isRankedRoom, players, error, selfId, activeTitle, theme, roomSize,
   lobbyConfig, updateLobbyConfig, updateRoomSize, chatMessages, sendChatMessage,
   onCreate, onJoin, onStart, onLeave, onClose, initialCode: _initialCode,
   elo, username, supabase = null
@@ -193,6 +194,7 @@ export const RaceModal = React.memo(({
         {/* ── LOBBY ──────────────────────────────────────────────── */}
         {isLobby && (
           <LobbyScreen 
+            activeTitle={activeTitle}
             code={code} 
             players={players} 
             roomSize={roomSize} 

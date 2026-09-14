@@ -1,6 +1,6 @@
 import { memo, lazy, Suspense } from 'react';
 import {
-  X, Trophy, Lock, Terminal, Zap, Star, RotateCcw
+  X, Trophy, Lock, Terminal, Zap, Star, RotateCcw, Swords, Check
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AruStats } from '@/components/AIChatBot';
@@ -108,6 +108,8 @@ interface AppModalManagerProps {
   onSetNameErr: (v: string) => void;
   onSubmitUsername: () => void;
   onPlayPreviewSound?: (profileKey?: string) => void;
+  onAcceptChallenge?: () => void;
+  onDeclineChallenge?: () => void;
   /** When true, the giant full-screen countdown overlay is suppressed because
       the lobby already ran its own visual countdown. */
   raceActive?: boolean;
@@ -174,11 +176,82 @@ export const AppModalManager = memo(function AppModalManager({
   onSetNameErr,
   onSubmitUsername,
   onPlayPreviewSound,
+  onAcceptChallenge,
+  onDeclineChallenge,
   raceActive,
 }: AppModalManagerProps) {
   return (
     <>
       {/* ═══ OVERLAY MODALS ═══ */}
+      {/* Incoming Duel Challenge Toast / Overlay */}
+      {challenges.pendingChallenge && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[800] w-full max-w-md px-4 animate-in slide-in-from-top-4 fade-in duration-300 pointer-events-auto">
+          <div
+            className="p-5 rounded-3xl border-2 shadow-2xl backdrop-blur-2xl flex flex-col gap-3.5 bg-black/90"
+            style={{
+              borderColor: `rgba(${theme.glowPrimary}, 0.55)`,
+              boxShadow: `0 0 45px rgba(${theme.glowPrimary}, 0.3)`,
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-2xl flex items-center justify-center font-bold"
+                  style={{
+                    backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                    color: `rgb(${theme.glowPrimary})`,
+                    border: `1px solid rgba(${theme.glowPrimary}, 0.3)`,
+                  }}
+                >
+                  <Swords size={18} />
+                </div>
+                <div>
+                  <div
+                    className="text-[10px] font-mono font-black uppercase tracking-widest"
+                    style={{ color: `rgb(${theme.glowPrimary})` }}
+                  >
+                    INCOMING DUEL CHALLENGE
+                  </div>
+                  <div className="text-white font-mono font-black text-sm flex items-center gap-1.5">
+                    <span>{challenges.pendingChallenge.from}</span>
+                    {challenges.pendingChallenge.fromElo ? (
+                      <span className="text-[10px] text-zinc-400 font-normal">
+                        ({challenges.pendingChallenge.fromElo} ELO)
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono font-bold text-zinc-300">
+                <span>{challenges.pendingChallenge.mode || 'NOVICE'}</span>
+                <span>·</span>
+                <span>{challenges.pendingChallenge.words || 25}W</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={onAcceptChallenge}
+                className="flex-1 py-2.5 px-4 rounded-xl font-mono text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  backgroundColor: `rgb(${theme.glowPrimary})`,
+                  color: '#080809',
+                  boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.4)`,
+                }}
+              >
+                <Check size={14} strokeWidth={3} /> ACCEPT DUEL
+              </button>
+              <button
+                onClick={onDeclineChallenge}
+                className="py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white font-mono text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-[0.98]"
+              >
+                DECLINE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Countdown — suppressed during multiplayer races (lobby already ran
           its own visible countdown; the RaceTrack bar still shows "STARTING IN…"). */}
       {typing.phase === 'COUNTDOWN' && !raceActive && (

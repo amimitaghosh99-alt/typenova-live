@@ -129,6 +129,22 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
           }), 'consent audit insert');
         }
 
+        // Hydrate equipped title from public_profiles so new devices don't overwrite it
+        try {
+          const { data: pubData } = await sb
+            .from('public_profiles')
+            .select('equipped_title')
+            .eq('id', uid)
+            .maybeSingle();
+
+          if (pubData?.equipped_title && pubData.equipped_title !== 'novice') {
+            localStorage.setItem('typenova_active_title', pubData.equipped_title);
+            window.dispatchEvent(new Event('titleChanged'));
+          }
+        } catch (titleErr) {
+          console.warn('[cloudSync] title hydration warning:', titleErr);
+        }
+
         if (!active) return;
 
         syncedForUser.current = uid;

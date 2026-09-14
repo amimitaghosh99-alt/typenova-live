@@ -23,13 +23,14 @@
 
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Award } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BannerArt } from '@/components/profile/CosmeticArt';
 import { AvatarArt } from '@/components/profile/AvatarKeycap';
 import { RadialMeter } from '@/components/profile/ProfileFx';
 import { Figure, FigureRow, type FigureSize } from '@/components/profile/DossierPieces';
 import { rgba, springSnappy } from '@/components/profile/profileMotion';
+import { isPatronTitle } from '@/data/donation';
 
 export interface HeaderFigure {
     label: string;
@@ -51,10 +52,12 @@ export function DossierHeader({
     levelProgressPct,
     xpToNext,
     titleName,
+    titleId,
     // Aliased on the way in because JSX resolves a lowercase tag to an HTML
     // element, so a component prop has to arrive under a capitalised name.
     titleIcon: TitleIcon,
     onOpenTitles,
+    onViewCertificate,
     figures,
     action,
     reduce,
@@ -70,9 +73,12 @@ export function DossierHeader({
     levelProgressPct: number;
     xpToNext: number;
     titleName: string;
+    titleId?: string;
     titleIcon: LucideIcon;
     /** Own dossier only: jumps to the registry. */
     onOpenTitles?: () => void;
+    /** Verified supporter only: opens the official digital certificate modal. */
+    onViewCertificate?: () => void;
     figures: HeaderFigure[];
     /** The page's one primary action for this operator. */
     action?: ReactNode;
@@ -187,23 +193,30 @@ export function DossierHeader({
                         {/* One metadata line. The title is the only part of it
                             that is a control, and only on your own dossier. */}
                         <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                            {onOpenTitles ? (
-                                <button
-                                    type="button"
-                                    onClick={onOpenTitles}
-                                    className="dsr-interactive flex items-center gap-1.5 rounded-full px-2.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                                    title="Open the title registry"
-                                >
-                                    <TitleIcon size={13} aria-hidden style={{ color: rgba(accent, 0.85) }} />
-                                    <span className="dsr-body text-[13px] text-[var(--dsr-ink)]">{titleName}</span>
-                                    <ChevronRight size={12} className="text-[var(--dsr-ink-3)]" aria-hidden />
-                                </button>
-                            ) : (
-                                <span className="flex items-center gap-1.5 rounded-full border border-[var(--dsr-line)] px-2.5 py-1">
-                                    <TitleIcon size={13} aria-hidden style={{ color: rgba(accent, 0.85) }} />
-                                    <span className="dsr-body text-[13px] text-[var(--dsr-ink)]">{titleName}</span>
-                                </span>
-                            )}
+                            {(() => {
+                                const isPatron = titleId ? isPatronTitle(titleId) : false;
+                                return onOpenTitles ? (
+                                    <button
+                                        type="button"
+                                        onClick={onOpenTitles}
+                                        className={`dsr-interactive flex items-center gap-1.5 rounded-full px-2.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
+                                            isPatron ? 'holographic-title-badge' : ''
+                                        }`}
+                                        title="Open the title registry"
+                                    >
+                                        <TitleIcon size={13} aria-hidden style={{ color: isPatron ? '#fbbf24' : rgba(accent, 0.85) }} />
+                                        <span className={`dsr-body text-[13px] ${isPatron ? 'holographic-title-text' : 'text-[var(--dsr-ink)]'}`}>{titleName}</span>
+                                        <ChevronRight size={12} className={isPatron ? 'text-amber-300' : 'text-[var(--dsr-ink-3)]'} aria-hidden />
+                                    </button>
+                                ) : (
+                                    <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${
+                                        isPatron ? 'holographic-title-badge' : 'border border-[var(--dsr-line)]'
+                                    }`}>
+                                        <TitleIcon size={13} aria-hidden style={{ color: isPatron ? '#fbbf24' : rgba(accent, 0.85) }} />
+                                        <span className={`dsr-body text-[13px] ${isPatron ? 'holographic-title-text' : 'text-[var(--dsr-ink)]'}`}>{titleName}</span>
+                                    </span>
+                                );
+                            })()}
                             <span className="dsr-body text-[13px]">
                                 Level {level}
                                 <span className="text-[var(--dsr-ink-3)]">
@@ -211,6 +224,18 @@ export function DossierHeader({
                                     {xpToNext.toLocaleString()} XP to {level + 1}
                                 </span>
                             </span>
+
+                            {onViewCertificate && (
+                                <button
+                                    type="button"
+                                    onClick={onViewCertificate}
+                                    className="dsr-interactive group flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-500/10 px-2.5 py-1 text-amber-300 outline-none transition-all hover:border-amber-400/60 hover:bg-amber-500/20 hover:text-amber-200 focus-visible:ring-2 focus-visible:ring-amber-400/40"
+                                    title="View verified digital patron certificate"
+                                >
+                                    <Award size={13} className="text-amber-400 transition-transform group-hover:scale-110" aria-hidden />
+                                    <span className="dsr-body text-[13px] font-medium">Certificate</span>
+                                </button>
+                            )}
                         </div>
 
                         {action && <div className="mt-4">{action}</div>}

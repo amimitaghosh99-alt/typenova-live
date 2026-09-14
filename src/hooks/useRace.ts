@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { generateText } from '@/data/constants';
 import type { Level, CodeLanguage } from '@/data/constants';
+import { getActiveTitleId } from '@/data/titles';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import {
@@ -54,6 +55,7 @@ export interface RacerState {
   id: string;
   userId?: string;
   name: string;
+  title?: string;
   isHost: boolean;
   progress: number; // 0-100
   wpm: number;
@@ -705,22 +707,22 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   }, [teardown, openChannel, clearDetails]);
 
 
-  const createRoom = useCallback((name: string, size?: number, _config?: unknown, elo?: number, roomCode?: string, userId?: string, _isRanked?: boolean) => {
+  const createRoom = useCallback((name: string, size?: number, _config?: unknown, elo?: number, roomCode?: string, userId?: string, _isRanked?: boolean, title?: string) => {
     const nextCode = roomCode || makeRoomCode();
     setRoomSize(size || 4);
     roomSizeRef.current = size || 4;
-    setupChannel(nextCode, true, { name: name || 'Racer', userId, elo });
+    setupChannel(nextCode, true, { name: name || 'Racer', userId, elo, title });
     selfStateRef.current.roomSize = size || 4;
     selfStateRef.current.config = lobbyConfigRef.current;
   }, [setupChannel]);
 
-  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string, _isRanked?: boolean) => {
+  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string, _isRanked?: boolean, title?: string) => {
     const formattedCode = roomCode.trim().toUpperCase();
     if (!formattedCode) {
       setError('Please enter a room code.');
       return;
     }
-    setupChannel(formattedCode, false, { name: name || 'Racer', userId, elo });
+    setupChannel(formattedCode, false, { name: name || 'Racer', userId, elo, title });
   }, [setupChannel]);
 
   // Reads host/config/code through refs so the callback identity never
@@ -987,6 +989,30 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     return true;
   }, [hexEnergy, presencePlayers]);
 
+  const updateTitle = useCallback((newTitle: string) => {
+    selfStateRef.current.title = newTitle;
+    if (channelRef.current) {
+      queueTrack(true);
+    }
+  }, [queueTrack]);
+
+  // Keep presence title in sync when active title changes in-game or from dossier
+  useEffect(() => {
+    const handleTitleUpdate = () => {
+      const cur = getActiveTitleId();
+      selfStateRef.current.title = cur;
+      if (channelRef.current) {
+        queueTrack(true);
+      }
+    };
+    window.addEventListener('titleChanged', handleTitleUpdate);
+    window.addEventListener('patronTitlesUpdated', handleTitleUpdate);
+    return () => {
+      window.removeEventListener('titleChanged', handleTitleUpdate);
+      window.removeEventListener('patronTitlesUpdated', handleTitleUpdate);
+    };
+  }, [queueTrack]);
+
   useEffect(() => {
     return () => teardown();
   }, [teardown]);
@@ -1031,10 +1057,11 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     updateRoomSize,
     chargeHexEnergy,
     castHex,
+    updateTitle,
   }), [
     setRoomSize, createRoom, joinRoom, startRace, sendProgress, sendFinish,
     requestDetails, setReady, returnToLobby, sendChatMessage, leave, updateLobbyConfig,
-    updateRoomSize, chargeHexEnergy, castHex,
+    updateRoomSize, chargeHexEnergy, castHex, updateTitle,
   ]);
 
   return useMemo(() => ({

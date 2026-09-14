@@ -9,9 +9,13 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { InviteFriendsPanel } from '@/components/InviteFriendsPanel';
 import type { FriendData } from '@/hooks/useFriends';
 import type { Level, CodeLanguage, Theme } from '@/data/constants';
+import { isPatronTitle } from '@/data/donation';
+import { TITLE_BADGES } from '@/data/titles';
+import { TITLE_MARK } from '@/lib/titleIcons';
 import { toast } from 'sonner';
 
 interface LobbyScreenProps {
+  activeTitle?: string;
   code: string;
   players: RacerState[];
   roomSize: number;
@@ -275,6 +279,7 @@ const ReactionAnimatedIcon: React.FC<{
 };
 
 const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
+  activeTitle,
   code,
   players,
   roomSize,
@@ -416,9 +421,20 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
 
       {isJoining && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md rounded-3xl">
-
-          <div className="w-14 h-14 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mb-4 shadow-[0_0_25px_rgba(6,182,212,0.5)]" />
-          <p className="text-cyan-400 font-mono font-bold tracking-widest text-xs uppercase animate-pulse">Establishing quantum telemetry link...</p>
+          <div
+            className="w-14 h-14 border-4 rounded-full animate-spin mb-4"
+            style={{
+              borderColor: rgba(glow, 0.2),
+              borderTopColor: `rgb(${glow})`,
+              boxShadow: `0 0 25px ${rgba(glow, 0.5)}`,
+            }}
+          />
+          <p
+            className="font-mono font-bold tracking-widest text-xs uppercase animate-pulse"
+            style={{ color: `rgb(${glow})` }}
+          >
+            Establishing quantum telemetry link...
+          </p>
         </div>
       )}
 
@@ -475,7 +491,12 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
             </button>
             <button
               onClick={copyLink}
-              className="px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 hover:text-cyan-100 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-mono font-bold"
+              className="px-3 py-1.5 rounded-xl border transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-mono font-bold"
+              style={{
+                backgroundColor: rgba(glow, 0.15),
+                borderColor: rgba(glow, 0.35),
+                color: `rgb(${glow})`,
+              }}
               title="Copy Direct Invite Link"
             >
               {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Link size={14} />}
@@ -486,7 +507,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
 
         {/* Match Preset Chip */}
         <div className="flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-white/15 text-xs font-mono font-bold text-zinc-300 bg-black/40">
-          <Sparkles size={13} className={theme ? theme.text : 'text-cyan-400'} />
+          <Sparkles size={13} style={{ color: `rgb(${glow})` }} />
           <span className="text-zinc-400">MODE:</span>
           <span className="text-white font-black">{lobbyConfig?.mode || 'ADEPT'} ({lobbyConfig?.words || 25}W)</span>
         </div>
@@ -885,6 +906,10 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                   // Trust the elected host flag rather than slot order, which
                   // disagrees with it the moment the original host leaves.
                   const isPlayerHost = p.isHost;
+                  const playerTitle = (isMe && activeTitle) ? activeTitle : p.title;
+                  const isSupporter = playerTitle ? isPatronTitle(playerTitle) : false;
+                  const badge = playerTitle ? TITLE_BADGES.find(b => b.id === playerTitle) : undefined;
+                  const SupporterIcon = playerTitle ? TITLE_MARK[playerTitle] : undefined;
 
                   return (
                     <motion.div
@@ -900,18 +925,20 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                         damping: 24,
                         delay: idx * 0.04
                       }}
-                      className={`glass-panel rounded-3xl p-3.5 flex flex-col items-center justify-between min-h-[160px] border transition-all duration-300 relative overflow-hidden text-center group bg-black/40 ${isMe
-                        ? 'border-white/40 shadow-[0_12px_36px_rgba(0,0,0,0.6),inset_0_0_25px_rgba(255,255,255,0.08)]'
-                        : 'border-white/15 hover:border-white/25'
+                      className={`glass-panel rounded-3xl p-3.5 flex flex-col items-center justify-between min-h-[160px] border transition-all duration-300 relative overflow-hidden text-center group bg-black/40 ${isSupporter
+                        ? 'border-amber-400/40 shadow-[0_12px_36px_rgba(245,158,11,0.22),inset_0_0_20px_rgba(245,158,11,0.06)]'
+                        : isMe
+                          ? 'border-white/40 shadow-[0_12px_36px_rgba(0,0,0,0.6),inset_0_0_25px_rgba(255,255,255,0.08)]'
+                          : 'border-white/15 hover:border-white/25'
                         }`}
                     >
                       {/* Glowing Top Ambient Bar */}
-                      {isMe && (
+                      {(isMe || isSupporter) && (
                         <div
                           className="absolute top-0 left-0 right-0 h-1"
                           style={{
-                            backgroundColor: theme ? `rgb(${theme.glowPrimary})` : 'rgb(6,182,212)',
-                            boxShadow: theme ? `0 0 15px rgba(${theme.glowPrimary}, 0.9)` : '0 0 15px rgba(6,182,212,0.9)',
+                            backgroundColor: isSupporter ? '#f59e0b' : (theme ? `rgb(${theme.glowPrimary})` : 'rgb(6,182,212)'),
+                            boxShadow: isSupporter ? '0 0 15px rgba(245,158,11,0.9)' : (theme ? `0 0 15px rgba(${theme.glowPrimary}, 0.9)` : '0 0 15px rgba(6,182,212,0.9)'),
                           }}
                         />
                       )}
@@ -926,12 +953,27 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                         </span>
                       </div>
 
-                      {/* Avatar & Host Crown */}
+                      {/* Avatar & Golden Supporter Aura / Host Crown */}
                       <div className="relative my-1">
+                        {/* Supporter Ambient Radial Flare */}
+                        {isSupporter && (
+                          <div 
+                            className="absolute -inset-2 rounded-2xl opacity-75 blur-md pointer-events-none animate-pulse"
+                            style={{
+                              background: 'radial-gradient(circle, rgba(245, 158, 11, 0.8) 0%, rgba(217, 119, 6, 0.35) 65%, transparent 100%)',
+                            }}
+                          />
+                        )}
                         <div
-                          className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-inner border border-white/20 bg-slate-900/90"
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg text-white shadow-inner border transition-all ${
+                            isSupporter
+                              ? 'lobby-golden-aura border-amber-400/80 bg-gradient-to-br from-amber-950/80 via-slate-900 to-amber-950/60 shadow-[0_0_25px_rgba(245,158,11,0.5)]'
+                              : 'border-white/20 bg-slate-900/90'
+                          }`}
                           style={{
-                            boxShadow: isMe && theme ? `0 0 24px rgba(${theme.glowPrimary}, 0.4)` : undefined
+                            boxShadow: isSupporter
+                              ? undefined
+                              : (isMe && theme ? `0 0 24px rgba(${theme.glowPrimary}, 0.4)` : undefined)
                           }}
                         >
                           {p.name.charAt(0).toUpperCase()}
@@ -941,9 +983,17 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                             <Crown size={10} strokeWidth={3} />
                           </span>
                         )}
+                        {isSupporter && (
+                          <span 
+                            className="absolute -bottom-1 -right-1.5 px-1 py-0.2 rounded-full bg-amber-400 text-slate-950 text-[8px] font-mono font-black shadow-md flex items-center gap-0.5 border border-amber-200" 
+                            title={`Verified Supporter: ${badge?.name || 'Patron'}`}
+                          >
+                            <Sparkles size={8} strokeWidth={3} />
+                          </span>
+                        )}
                       </div>
 
-                      {/* Player Name & ELO */}
+                      {/* Player Name & ELO & Supporter Badge */}
                       <div className="flex flex-col items-center gap-0.5">
                         <div className="font-mono text-sm text-white font-black flex items-center gap-1.5">
                           <span className="truncate max-w-[110px]">{p.name}</span>
@@ -951,16 +1001,26 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                             <span
                               className="text-[8px] font-mono font-black border rounded px-1 py-0.2"
                               style={{
-                                backgroundColor: theme ? `rgba(${theme.glowPrimary}, 0.25)` : 'rgba(6,182,212,0.25)',
-                                borderColor: theme ? `rgba(${theme.glowPrimary}, 0.5)` : 'rgba(6,182,212,0.5)',
-                                color: theme ? `rgb(${theme.glowPrimary})` : 'rgb(6,182,212)',
+                                backgroundColor: isSupporter ? 'rgba(245,158,11,0.25)' : (theme ? `rgba(${theme.glowPrimary}, 0.25)` : 'rgba(6,182,212,0.25)'),
+                                borderColor: isSupporter ? 'rgba(245,158,11,0.5)' : (theme ? `rgba(${theme.glowPrimary}, 0.5)` : 'rgba(6,182,212,0.5)'),
+                                color: isSupporter ? '#fbbf24' : (theme ? `rgb(${theme.glowPrimary})` : 'rgb(6,182,212)'),
                               }}
                             >
                               YOU
                             </span>
                           )}
                         </div>
-                        <span className="font-mono text-[10px] text-zinc-400 font-bold tracking-wider">
+                        {playerTitle && (
+                          <div className={`mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 ${
+                            isSupporter ? 'holographic-title-badge' : 'bg-white/5 border border-white/10 text-zinc-300'
+                          }`}>
+                            {SupporterIcon && <SupporterIcon size={10} className={isSupporter ? 'text-amber-300 shrink-0' : 'text-zinc-400 shrink-0'} />}
+                            <span className={`truncate max-w-[95px] ${isSupporter ? 'holographic-title-text' : ''}`}>
+                              {badge?.name || playerTitle}
+                            </span>
+                          </div>
+                        )}
+                        <span className="font-mono text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">
                           RATING: <span className="text-white font-black">{p.elo || 1000} ELO</span>
                         </span>
                       </div>
@@ -1018,16 +1078,25 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                       delay: (players.length + i) * 0.04
                     }}
                     onClick={copyLink}
-                    className="glass-panel rounded-3xl p-3.5 flex flex-col items-center justify-center min-h-[160px] border-2 border-dashed border-white/15 hover:border-cyan-400/60 hover:bg-white/[0.05] transition-all cursor-pointer group text-center bg-black/25 shadow-sm"
+                    className="glass-panel rounded-3xl p-3.5 flex flex-col items-center justify-center min-h-[160px] border-2 border-dashed border-white/15 hover:bg-white/[0.05] transition-all cursor-pointer group text-center bg-black/25 shadow-sm"
                     title="Click to copy room invite link"
                   >
-                    <div className="w-10 h-10 rounded-2xl border border-dashed border-white/25 flex items-center justify-center text-zinc-400 group-hover:text-cyan-300 group-hover:border-cyan-400/60 transition-all mb-2 group-hover:scale-110">
+                    <div
+                      className="w-10 h-10 rounded-2xl border border-dashed flex items-center justify-center text-zinc-400 transition-all mb-2 group-hover:scale-110"
+                      style={{
+                        borderColor: rgba(glow, 0.4),
+                        color: `rgb(${glow})`,
+                      }}
+                    >
                       <UserPlus size={18} />
                     </div>
                     <span className="font-mono text-xs uppercase tracking-widest font-black text-zinc-300 group-hover:text-white transition-colors">
                       SLOT #{players.length + i + 1} EMPTY
                     </span>
-                    <span className="text-[10px] font-mono text-cyan-400 group-hover:underline mt-1 font-bold">
+                    <span
+                      className="text-[10px] font-mono group-hover:underline mt-1 font-bold"
+                      style={{ color: `rgb(${glow})` }}
+                    >
                       COPY INVITE LINK
                     </span>
                   </motion.button>
@@ -1110,7 +1179,16 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                 <div className="md:col-span-5 flex flex-col gap-2">
                   <div className="flex items-center gap-2 h-4">
                     <span className="font-mono text-[10px] text-zinc-300 uppercase tracking-widest font-bold">// DIFFICULTY PRESET</span>
-                    <span className="text-[9px] font-mono text-cyan-300 font-bold bg-cyan-950/50 border border-cyan-500/20 px-1.5 py-0.5 rounded shadow-inner">{lobbyConfig.mode}</span>
+                    <span
+                      className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow-inner"
+                      style={{
+                        color: `rgb(${glow})`,
+                        backgroundColor: rgba(glow, 0.12),
+                        border: `1px solid ${rgba(glow, 0.3)}`,
+                      }}
+                    >
+                      {lobbyConfig.mode}
+                    </span>
                   </div>
                   <SegmentedControl
                     options={(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => ({ label: l, value: l }))}
@@ -1236,7 +1314,10 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
               ) : (
                 iAmReady ? (
                   <div className="w-full glass-panel py-3 px-5 rounded-2xl border-2 border-white/20 text-zinc-200 font-mono tracking-widest font-bold text-xs flex items-center justify-center gap-3 animate-pulse shadow-xl bg-black/60">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                    <span
+                      className="w-2 h-2 rounded-full animate-ping"
+                      style={{ backgroundColor: `rgb(${glow})` }}
+                    />
                     WAITING FOR HOST TO LAUNCH RACE...
                   </div>
                 ) : (

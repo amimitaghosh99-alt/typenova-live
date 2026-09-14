@@ -77,7 +77,9 @@ export const PracticeArena = memo(function PracticeArena({
   // and made both panels shrink unevenly. `min-w-0` lets the typing text wrap
   // inside the column instead of widening it.
   return (
-    <div className={`w-full min-w-0 ${shouldHideClutter ? 'max-w-4xl mx-auto' : ''} flex flex-col gap-4 sm:gap-6`}>
+    <div className={`w-full min-w-0 ${shouldHideClutter ? 'mx-auto' : ''} flex flex-col gap-4 sm:gap-6`}
+      style={shouldHideClutter ? { maxWidth: 'clamp(56rem, 75vw, 88rem)' } : undefined}
+    >
       {/* Difficulty & Length/Time & Daily Config Bar */}
       <motion.div
         initial={{ opacity: 0, y: -20, scale: 0.985 }}

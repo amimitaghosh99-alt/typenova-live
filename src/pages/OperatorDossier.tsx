@@ -553,6 +553,8 @@ export const OperatorDossier = React.memo(function OperatorDossier({
             dailyStreak: localRPGStats?.skillStats.dailyStreak ?? 0,
             racesWon: localRPGStats?.skillStats.racesWon ?? 0,
             totalWordsTyped: localRPGStats?.skillStats.totalWordsTyped ?? 0,
+            bestCombo: localRPGStats?.skillStats.bestCombo ?? 0,
+            avgConsistency: localRPGStats?.skillStats.avgConsistency ?? 0,
         }),
         [isOwnProfile, remote, localRPGStats]
     );

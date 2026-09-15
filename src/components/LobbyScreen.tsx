@@ -1,7 +1,7 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
 import {
   Copy, Link, Check, UserPlus, Play, LogOut, Settings, Crown,
-  Radio, MessageSquare, Send, Sparkles, WifiOff, Rocket, Zap, Flame, Trophy, Skull, Crosshair, AlertTriangle
+  Radio, MessageSquare, Send, Sparkles, WifiOff, Rocket, Zap, Flame, Trophy, Skull, Crosshair, AlertTriangle, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RacerState, RaceConfig, ChatMessage, RaceConnection } from '@/hooks/useRace';
@@ -1127,69 +1127,37 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
             </motion.div>
           )}
 
-          {/* Match Configuration Card (Sleek 3-Column Layout) */}
+          {/* Match Configuration Bar (Monkeytype Minimalist Single-Row Control Bar) */}
           {lobbyConfig && updateLobbyConfig && (
             <motion.div
               initial={{ opacity: 0, y: 16, scale: 0.985 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="glass-panel rounded-3xl p-6 border border-white/15 flex flex-col justify-between gap-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] bg-black/40"
+              className="glass-panel rounded-2xl px-5 py-3.5 border border-white/10 flex flex-col gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] bg-black/40"
             >
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex items-center gap-2 text-white font-mono text-xs font-black tracking-widest uppercase">
-                  <Settings size={14} className={theme ? theme.text : 'text-cyan-400'} />
-                  <span>MATCH CONFIGURATION</span>
-                </div>
-                {isHost ? (
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 font-mono text-[9px] font-black tracking-widest uppercase flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    HOST ACCESS
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-400 font-mono text-[9px] font-black tracking-widest uppercase">
-                    HOST CONTROLLED
-                  </span>
-                )}
-              </div>
-
-              <div className={`grid grid-cols-1 md:grid-cols-12 gap-5 w-full items-start ${!isHost ? 'opacity-70 pointer-events-none' : ''}`}>
-                {/* Max Racers (3 cols) */}
-                <div className="md:col-span-3 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 h-4">
-                    <span className="font-mono text-[10px] text-zinc-300 uppercase tracking-widest font-bold">// ROOM CAPACITY</span>
-                    <span className="text-[9px] font-mono text-zinc-200 font-bold bg-zinc-800/80 border border-zinc-600/30 px-1.5 py-0.5 rounded shadow-inner">{roomSize} MAX</span>
-                  </div>
+              <div className={`flex flex-wrap items-center justify-center gap-3 w-full ${!isHost ? 'opacity-70 pointer-events-none' : ''}`}>
+                {/* Max Racers */}
+                <div className="flex items-center gap-2">
+                  <Users size={13} className="text-zinc-400 shrink-0" />
                   <SegmentedControl
                     options={[
-                      { label: '2 P', value: 2 },
-                      { label: '3 P', value: 3 },
-                      { label: '4 P', value: 4 },
+                      { label: '2P', value: 2 },
+                      { label: '3P', value: 3 },
+                      { label: '4P', value: 4 },
                     ]}
                     value={roomSize}
                     onChange={(v) => updateRoomSize?.(Number(v))}
                     theme={theme}
                     themeTextClass={themeTextClass}
                     size="sm"
-                    fullWidth={true}
                     className="flex-nowrap whitespace-nowrap"
                   />
                 </div>
 
-                {/* Difficulty (5 cols) */}
-                <div className="md:col-span-5 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 h-4">
-                    <span className="font-mono text-[10px] text-zinc-300 uppercase tracking-widest font-bold">// DIFFICULTY PRESET</span>
-                    <span
-                      className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow-inner"
-                      style={{
-                        color: `rgb(${glow})`,
-                        backgroundColor: rgba(glow, 0.12),
-                        border: `1px solid ${rgba(glow, 0.3)}`,
-                      }}
-                    >
-                      {lobbyConfig.mode}
-                    </span>
-                  </div>
+                <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
+
+                {/* Difficulty */}
+                <div className="flex items-center gap-2">
                   <SegmentedControl
                     options={(['NOVICE', 'ADEPT', 'MASTER', 'QUOTES', 'CODE'] as Level[]).map(l => ({ label: l, value: l }))}
                     value={lobbyConfig.mode}
@@ -1197,50 +1165,40 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                     theme={theme}
                     themeTextClass={themeTextClass}
                     size="sm"
-                    fullWidth={true}
                     className="flex-nowrap whitespace-nowrap"
                   />
                 </div>
 
-                {/* Word Count / Language (4 cols) */}
-                <div className="md:col-span-4 flex flex-col gap-2">
-                  <div className={`flex flex-col gap-2 ${lobbyConfig.mode === 'QUOTES' || lobbyConfig.mode === 'CODE' ? 'opacity-30 pointer-events-none' : 'opacity-100 transition-opacity duration-300'}`}>
-                    <div className="flex items-center gap-2 h-4">
-                      <span className="font-mono text-[10px] text-zinc-300 uppercase tracking-widest font-bold">// TEST LENGTH</span>
-                      <span className="text-[9px] font-mono text-zinc-200 font-bold bg-zinc-800/80 border border-zinc-600/30 px-1.5 py-0.5 rounded shadow-inner">{lobbyConfig.words} WORDS</span>
-                    </div>
-                    <SegmentedControl
-                      options={[
-                        { label: '10W', value: 10 },
-                        { label: '25W', value: 25 },
-                        { label: '50W', value: 50 },
-                        { label: '100W', value: 100 },
-                      ]}
-                      value={lobbyConfig.words}
-                      onChange={(v) => updateLobbyConfig({ words: v })}
-                      theme={theme}
-                      themeTextClass={themeTextClass}
-                      size="sm"
-                      fullWidth={true}
-                      className="flex-nowrap whitespace-nowrap"
-                    />
-                  </div>
-                </div>
+                {lobbyConfig.mode !== 'QUOTES' && lobbyConfig.mode !== 'CODE' && (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
 
-                {/* Animated Expanding Sub-Options for CODE Mode */}
-                <AnimatePresence>
-                  {lobbyConfig.mode === 'CODE' && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0, scale: 0.98 }}
-                      animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                      exit={{ opacity: 0, height: 0, scale: 0.98 }}
-                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                      className="md:col-span-12 overflow-hidden flex flex-col gap-2 pt-1 border-t border-white/5 mt-1"
-                    >
-                      <div className="flex items-center gap-2 h-4">
-                        <span className="font-mono text-[10px] text-zinc-300 uppercase tracking-widest font-bold">// CODE LANGUAGE</span>
-                        <span className="text-[9px] font-mono text-emerald-300 font-bold bg-emerald-950/50 border border-emerald-500/20 px-1.5 py-0.5 rounded shadow-inner">{(lobbyConfig.language || 'JS').split('/')[0]}</span>
-                      </div>
+                    {/* Word Count */}
+                    <div className="flex items-center gap-2">
+                      <SegmentedControl
+                        options={[
+                          { label: '10', value: 10 },
+                          { label: '25', value: 25 },
+                          { label: '50', value: 50 },
+                          { label: '100', value: 100 },
+                        ]}
+                        value={lobbyConfig.words}
+                        onChange={(v) => updateLobbyConfig({ words: v })}
+                        theme={theme}
+                        themeTextClass={themeTextClass}
+                        size="sm"
+                        className="flex-nowrap whitespace-nowrap"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {lobbyConfig.mode === 'CODE' && (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
+
+                    {/* Code Language */}
+                    <div className="flex items-center gap-2">
                       <SegmentedControl
                         options={(['JavaScript/TypeScript', 'Python', 'Rust', 'C++', 'CSS', 'HTML', 'SQL', 'Go'] as CodeLanguage[]).map(lang => ({
                           label: lang.split('/')[0].toUpperCase(),
@@ -1251,12 +1209,25 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                         theme={theme}
                         themeTextClass={themeTextClass}
                         size="sm"
-                        fullWidth={true}
                         className="flex-nowrap whitespace-nowrap"
                       />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </div>
+                  </>
+                )}
+
+                <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
+
+                {/* Host indicator */}
+                {isHost ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-mono text-[9px] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    HOST
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 font-mono text-[9px] font-bold tracking-wider uppercase">
+                    GUEST
+                  </span>
+                )}
               </div>
             </motion.div>
           )}

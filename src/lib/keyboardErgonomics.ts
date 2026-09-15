@@ -31,14 +31,12 @@ const F: Record<FingerName, FingerInfo> = {
   'L-Ring':   { hand: 'L', finger: 'L-Ring',    hue: '210, 85%, 60%' },
   'L-Middle': { hand: 'L', finger: 'L-Middle',  hue: '165, 75%, 55%' },
   'L-Index':  { hand: 'L', finger: 'L-Index',   hue: '45, 90%, 55%'  },
-  'R-Index':  { hand: 'L', finger: 'R-Index',   hue: '30, 90%, 58%'  },
+  'R-Index':  { hand: 'R', finger: 'R-Index',   hue: '30, 90%, 58%'  },
   'R-Middle': { hand: 'R', finger: 'R-Middle',  hue: '0, 80%, 60%'   },
   'R-Ring':   { hand: 'R', finger: 'R-Ring',    hue: '320, 75%, 60%' },
   'R-Pinky':  { hand: 'R', finger: 'R-Pinky',   hue: '270, 70%, 62%' },
   'Thumb':    { hand: 'L', finger: 'Thumb',      hue: '90, 50%, 50%'  },
 };
-// fix R-Index hand
-F['R-Index'].hand = 'R';
 
 /* ── Key definition ──────────────────────────────────────────────────── */
 
@@ -212,6 +210,13 @@ export function computeHandBalance(
   let rightTotal = 0;
   for (const [key, stat] of Object.entries(data)) {
     if (!stat || stat.total <= 0) continue;
+    if (key === ' ' || key === 'SPACE') {
+      // Space is struck with thumbs of either hand (or alternating thumbs in touch typing).
+      // Splitting 50/50 prevents an artificial 65% L / 35% R skew across typing telemetry.
+      leftTotal += stat.total * 0.5;
+      rightTotal += stat.total * 0.5;
+      continue;
+    }
     const fi = fingerOf(key);
     if (fi.hand === 'L') leftTotal += stat.total;
     else rightTotal += stat.total;
@@ -220,8 +225,8 @@ export function computeHandBalance(
   return {
     left: sum > 0 ? leftTotal / sum : 0.5,
     right: sum > 0 ? rightTotal / sum : 0.5,
-    leftTotal,
-    rightTotal,
+    leftTotal: Math.round(leftTotal),
+    rightTotal: Math.round(rightTotal),
   };
 }
 

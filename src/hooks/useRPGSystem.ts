@@ -167,12 +167,12 @@ export const useRPGSystem = () => {
     if (check('unbreakable') && currentMaxCombo >= 200) unlock('unbreakable');
     if (check('centurion_streak') && currentMaxCombo >= 100) unlock('centurion_streak');
     if (check('flow_state') && consistency >= 85 && finalAcc >= 95) unlock('flow_state');
-    if (check('surgical_precision') && wordCount >= 50 && finalAcc === 100) unlock('surgical_precision');
+    if (check('surgical_precision') && wordCount >= 50 && finalAcc === 100 && finalWpm >= 80) unlock('surgical_precision');
     if (check('time_lord') && isTimed && finalWpm >= 100) unlock('time_lord');
-    if (check('daredevil') && suddenDeath) unlock('daredevil');
-    if (check('jedi_senses') && blindMode && fogMode) unlock('jedi_senses');
-    if (check('under_pressure') && overclockedMode && finalAcc > 95) unlock('under_pressure');
-    if (check('masochist') && suddenDeath && overclockedMode && blindMode && fogMode) unlock('masochist');
+    if (check('daredevil') && suddenDeath && finalAcc === 100 && wordCount >= 15) unlock('daredevil');
+    if (check('jedi_senses') && blindMode && fogMode && wordCount >= 15) unlock('jedi_senses');
+    if (check('under_pressure') && overclockedMode && finalAcc > 95 && wordCount >= 15) unlock('under_pressure');
+    if (check('masochist') && suddenDeath && overclockedMode && blindMode && fogMode && finalAcc === 100 && wordCount >= 15) unlock('masochist');
 
     const newLevel = Math.floor(Math.sqrt(currentXp / 100)) + 1;
     if (check('apprentice') && newLevel >= 5) unlock('apprentice');

@@ -31,10 +31,37 @@ export function computeDisplayRefreshRate(deltas: number[]): DisplayHzResult | n
   const valid = deltas.filter(d => typeof d === 'number' && d >= 1.5 && d <= 45).sort((a, b) => a - b);
   if (valid.length < 10) return null;
 
-  // Isolate the fastest non-stutter frames (lowest 50% percentile, at least 6 samples)
-  const baselineCount = Math.max(6, Math.floor(valid.length * 0.5));
-  const baselineSamples = valid.slice(0, baselineCount);
-  const medianDelta = baselineSamples[Math.floor(baselineSamples.length / 2)];
+  // Histogram mode clustering with 0.4ms bins to eliminate jitter & 25th-percentile bias
+  const BIN_SIZE = 0.4;
+  const bins = new Map<number, number[]>();
+  for (const d of valid) {
+    const binKey = Math.round(d / BIN_SIZE);
+    const list = bins.get(binKey);
+    if (list) list.push(d);
+    else bins.set(binKey, [d]);
+  }
+
+  // Find the modal bin (bin with highest frequency; prefer lower delta on tie)
+  let bestBinKey: number | null = null;
+  let maxCount = -1;
+  for (const [key, list] of bins.entries()) {
+    if (list.length > maxCount || (list.length === maxCount && bestBinKey !== null && key < bestBinKey)) {
+      maxCount = list.length;
+      bestBinKey = key;
+    }
+  }
+
+  if (bestBinKey === null) return null;
+
+  // Pool modal bin and immediate adjacent neighbors to capture distribution spread
+  const clusterSamples: number[] = [];
+  for (let k = bestBinKey - 1; k <= bestBinKey + 1; k++) {
+    const list = bins.get(k);
+    if (list) clusterSamples.push(...list);
+  }
+
+  clusterSamples.sort((a, b) => a - b);
+  const medianDelta = clusterSamples[Math.floor(clusterSamples.length / 2)];
 
   if (medianDelta <= 0) return null;
 

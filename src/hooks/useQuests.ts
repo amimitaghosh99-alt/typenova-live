@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { readLocalProgress, writeLocalProgress, type Quest, type QuestsState } from '@/lib/progress';
-import { todayKey } from '@/utils/seededRandom';
+import { todayKey, daySeed, mulberry32 } from '@/utils/seededRandom';
 
 const QUEST_TEMPLATES = [
   { type: 'races_won', target: 3, xpReward: 1500 },
@@ -15,15 +15,17 @@ const QUEST_TEMPLATES = [
 ] as const;
 
 function generateDailyQuests(): QuestsState {
-  // Shuffle templates
-  const shuffled = [...QUEST_TEMPLATES].sort(() => 0.5 - Math.random());
+  const rng = mulberry32(daySeed() + 777);
+  // Deterministic shuffle
+  const shuffled = [...QUEST_TEMPLATES].sort(() => 0.5 - rng());
   // Pick 3 unique quests
   const selected = shuffled.slice(0, 3);
+  const today = todayKey();
   
   return {
-    lastReset: todayKey(),
-    active: selected.map((t, i) => ({
-      id: `quest_${todayKey()}_${i}`,
+    lastReset: today,
+    active: selected.map((t) => ({
+      id: `quest_${today}_${t.type}_${t.target}`,
       type: t.type,
       target: t.target,
       progress: 0,

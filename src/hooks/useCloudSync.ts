@@ -233,14 +233,24 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     if (!sb || !session) return;
     const uid = session.user.id;
     if (pushTimer.current) clearTimeout(pushTimer.current);
-    pushTimer.current = setTimeout(() => {
-      // Offline / transient failures are expected here; the next push retries.
-      fireAndForget(
-        sb.from('profiles')
-          .update({ data: readLocalProgress(), updated_at: new Date().toISOString() })
-          .eq('id', uid),
-        'progress push',
-      );
+    pushTimer.current = setTimeout(async () => {
+      try {
+        const local = readLocalProgress();
+        const { data: remoteRow } = await sb
+          .from('profiles')
+          .select('data')
+          .eq('id', uid)
+          .maybeSingle();
+
+        const merged = remoteRow?.data ? mergeProgress(local, remoteRow.data as ProgressSnapshot) : local;
+        writeLocalProgress(merged);
+
+        await sb.from('profiles')
+          .update({ data: merged, updated_at: new Date().toISOString() })
+          .eq('id', uid);
+      } catch (err) {
+        console.warn('[cloudSync] pushProgress failed:', err);
+      }
 
       if (extraData && username) {
         fireAndForget(

@@ -35,8 +35,9 @@ interface CosmicNavBarProps {
   onOpenSettings?: () => void;
   onOpenDailyQuests: () => void;
   onOpenDonate?: () => void;
+  onOpenStudio?: () => void;
   // Active page for nav link highlighting
-  activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier' | 'donate';
+  activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier' | 'donate' | 'studio';
   // Clutter hiding state during typing
   shouldHide?: boolean;
 }
@@ -65,6 +66,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   onOpenSettings: _onOpenSettings,
   onOpenDailyQuests,
   onOpenDonate,
+  onOpenStudio,
   activePage = 'practice',
   shouldHide = false,
 }: CosmicNavBarProps) {
@@ -84,7 +86,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   const selectedBanner = ALL_BANNERS.find(b => b.id === bannerId) || ALL_BANNERS[0];
   const selectedAvatar = AVATARS.find(a => a.id === avatarId) || AVATARS[0];
 
-  const getNavLinkStyle = (page: 'academy' | 'practice' | 'compete' | 'store') => {
+  const getNavLinkStyle = (page: 'academy' | 'practice' | 'compete' | 'store' | 'studio') => {
     if (activePage === page) {
       return {
         color: `rgb(${theme.glowPrimary})`,
@@ -94,10 +96,11 @@ export const CosmicNavBar = memo(function CosmicNavBar({
     return {};
   };
 
-  const navLinks: Array<{ id: 'academy' | 'practice' | 'compete' | 'store'; label: string; onClick: () => void; badge?: string }> = [
+  const navLinks: Array<{ id: 'academy' | 'practice' | 'compete' | 'store' | 'studio'; label: string; onClick: () => void; badge?: string }> = [
     { id: 'academy', label: 'Academy', onClick: onOpenAcademy },
     { id: 'practice', label: 'Practice', onClick: onOpenPractice },
     { id: 'compete', label: 'Compete', onClick: onOpenRace },
+    ...(onOpenStudio ? [{ id: 'studio' as const, label: 'Studio', badge: '✦', onClick: onOpenStudio }] : []),
     {
       id: 'store',
       label: 'Store',

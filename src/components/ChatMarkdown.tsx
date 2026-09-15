@@ -16,8 +16,13 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     
     const linkMatch = token.match(/^\[(.*?)\]\((.*?)\)$/);
     if (linkMatch) {
+      const url = linkMatch[2].trim();
+      const isSafe = /^https?:\/\//i.test(url) || /^mailto:/i.test(url);
+      if (!isSafe) {
+        return <span key={key}>{linkMatch[1]}</span>;
+      }
       return (
-        <a key={key} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--aru-glow))] font-bold hover:underline underline-offset-2 transition-all">
+        <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--aru-glow))] font-bold hover:underline underline-offset-2 transition-all">
           {linkMatch[1]}
         </a>
       );

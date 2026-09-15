@@ -1052,11 +1052,25 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
     ctx.fillText('● AUDIT SECURE & IMMUTABLE', W - 300, 1320);
 
     // ── DOWNLOAD TRIGGER ──
-    const link = document.createElement('a');
-    link.download = `TypeNova_Accreditation_Certificate_${serial}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    toast.success('Ultra-HD 2400×1500 Certificate PNG downloaded!');
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        const link = document.createElement('a');
+        link.download = `TypeNova_Accreditation_Certificate_${serial}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        toast.success('Ultra-HD 2400×1500 Certificate PNG downloaded!');
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `TypeNova_Accreditation_Certificate_${serial}.png`;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('Ultra-HD 2400×1500 Certificate PNG downloaded!');
+    }, 'image/png');
   }, [activeCallsign, activeAmount, activeCurrency, serial, issueDate, tierMeta]);
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1078,12 +1092,12 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.94, y: 16 }}
         transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-4xl rounded-[2rem] p-1 bg-gradient-to-b from-white/[0.12] via-white/[0.04] to-white/[0.08] border border-white/20 shadow-[0_30px_90px_rgba(0,0,0,0.9)] relative my-auto"
+        className="w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl rounded-[2rem] p-1 bg-gradient-to-b from-white/[0.12] via-white/[0.04] to-white/[0.08] border border-white/20 shadow-[0_30px_90px_rgba(0,0,0,0.9)] relative my-auto"
       >
-        <div className="p-5 sm:p-8 rounded-[calc(2rem-0.25rem)] bg-[#07090e] border border-white/[0.08] space-y-6">
+        <div className="p-4 sm:p-6 lg:p-7 rounded-[calc(2rem-0.25rem)] bg-[#07090e] border border-white/[0.08] space-y-4 sm:space-y-5">
 
           {/* ── MODAL HEADER BAR ── */}
-          <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-3.5">
             <div className="flex items-center gap-3">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center border"
@@ -1098,7 +1112,7 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
               </div>
               <div>
                 <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
-                  {isOwner ? 'Official Digital Certificate' : 'Public Verification Record'}
+                  {isOwner ? 'Official Digital Certificate' : 'Public Verified Accreditation'}
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold tracking-wider ${
                     isOwner
                       ? 'bg-amber-400/10 border border-amber-400/30 text-amber-300'
@@ -1128,7 +1142,7 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
           {userRecords && userRecords.length > 1 && (
             <div className="flex flex-wrap items-center justify-center gap-2 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08]">
               <span className="text-[10px] sm:text-xs font-mono text-zinc-400 uppercase tracking-wider font-semibold mr-1 flex items-center gap-1.5">
-                <Sparkles size={12} className="text-amber-400" />
+                <Sparkles size={12} style={{ color: `rgb(${gp})` }} />
                 Verified Contributions ({userRecords.length}):
               </span>
               {userRecords.map((rec, idx) => {
@@ -1142,13 +1156,19 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                     onClick={() => setSelectedRecordIndex(idx)}
                     className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                       isSelected
-                        ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-[0_0_12px_rgba(212,175,55,0.25)]'
+                        ? 'border'
                         : 'bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08] border border-white/10'
                     }`}
+                    style={isSelected ? {
+                      backgroundColor: `rgba(${gp}, 0.15)`,
+                      color: `rgb(${gp})`,
+                      borderColor: `rgba(${gp}, 0.4)`,
+                      boxShadow: `0 0 12px rgba(${gp}, 0.25)`,
+                    } : undefined}
                   >
                     <span>Record #{idx + 1}:</span>
                     <span className="text-white">{recAmt}</span>
-                    <span className="text-[10px] text-amber-400/80">({recTier})</span>
+                    <span className="text-[10px]" style={{ color: `rgba(${gp}, 0.8)` }}>({recTier})</span>
                   </button>
                 );
               })}
@@ -1156,11 +1176,11 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
           )}
 
           {/* ═══════════════════════════════════════════════════════════════════
-             MUSEUM-GRADE LUXURY CERTIFICATE CANVAS PREVIEW — REDESIGNED
+             MUSEUM-GRADE LUXURY CERTIFICATE CANVAS PREVIEW — HORIZONTAL LANDSCAPE
              ═══════════════════════════════════════════════════════════════════ */}
           <div
             ref={certRef}
-            className="rounded-2xl border-2 border-[#c5a059]/75 bg-[#080a0f] relative overflow-hidden text-center select-none"
+            className="w-full rounded-2xl border-2 border-[#c5a059]/75 bg-[#080a0f] relative overflow-hidden text-center select-none"
             style={{
               boxShadow:
                 '0 0 60px rgba(197, 160, 89, 0.2), inset 0 0 50px rgba(197, 160, 89, 0.06)',
@@ -1215,11 +1235,11 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
               <CornerFiligree />
             </div>
 
-            {/* Inner Certificate Content Container */}
-            <div className="relative z-10 px-6 py-8 sm:px-14 sm:py-12 space-y-5">
+            {/* Inner Certificate Content Container — Balanced Horizontal Rhythm */}
+            <div className="relative z-10 px-6 py-6 sm:px-12 sm:py-7 lg:px-16 lg:py-8 space-y-3 sm:space-y-3.5 flex flex-col justify-between">
 
               {/* ── TOP ARCHIVAL HEADER & CREST ── */}
-              <div className="space-y-2.5">
+              <div className="space-y-1 sm:space-y-1.5">
                 {/* Decorative dot cluster */}
                 <div className="flex items-center justify-center gap-1.5">
                   {[1, 1.5, 2, 2.5, 3, 2.5, 2, 1.5, 1].map((s, i) => (
@@ -1237,14 +1257,14 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                   <span>★</span>
                 </div>
 
-                <div className="text-[9px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">
+                <div className="text-[8px] sm:text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em]">
                   ESTABLISHED MMXXV • PROTOCOL NON-FUNGIBLE ACCREDITATION • SOVEREIGN OPEN CORE
                 </div>
 
-                <DecorativeRule />
+                <DecorativeRule className="my-0.5" />
 
                 <h2
-                  className="text-2xl sm:text-4xl font-black font-display tracking-wide uppercase pt-1"
+                  className="text-2xl sm:text-3xl lg:text-4xl font-black font-display tracking-wide uppercase pt-0.5"
                   style={{
                     background:
                       'linear-gradient(180deg, #FFFFFF 15%, #FFF5D6 45%, #E2BA55 75%, #AC7C19 100%)',
@@ -1256,29 +1276,17 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                   CERTIFICATE OF SUSTENANCE
                 </h2>
 
-                {/* Flanking ornamental rules */}
-                <div className="flex items-center justify-center gap-4">
-                  <div className="h-[1px] w-16 sm:w-28 bg-gradient-to-r from-transparent via-[#d4af37]/40 to-[#d4af37]/60" />
-                  <div className="flex gap-1">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="w-1 h-1 rounded-full bg-[#d4af37]/50" />
-                    ))}
-                  </div>
-                  <div className="h-[1px] w-16 sm:w-28 bg-gradient-to-l from-transparent via-[#d4af37]/40 to-[#d4af37]/60" />
-                </div>
-
                 {/* Tier Medallion Banner */}
-                <div className="relative inline-block">
-                  {/* Banner shape background */}
+                <div className="relative inline-block pt-0.5">
                   <div
-                    className="px-5 py-1.5 border border-[#d4af37]/50 text-[#ffd700] text-[11px] sm:text-xs font-mono font-extrabold shadow-[0_0_20px_rgba(212,175,55,0.25)]"
+                    className="px-6 py-1 border border-[#d4af37]/50 text-[#ffd700] text-[10px] sm:text-[11px] font-mono font-extrabold shadow-[0_0_20px_rgba(212,175,55,0.25)]"
                     style={{
                       background: 'linear-gradient(135deg, rgba(212,175,55,0.12) 0%, rgba(212,175,55,0.06) 100%)',
                       clipPath: 'polygon(4% 0%, 96% 0%, 100% 50%, 96% 100%, 4% 100%, 0% 50%)',
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <Sparkles size={13} className="text-amber-300 animate-pulse" />
+                      <Sparkles size={12} className="text-amber-300 animate-pulse" />
                       <span>
                         ✦ {tierMeta.rank} · {tierMeta.title.toUpperCase()} ✦
                       </span>
@@ -1288,13 +1296,13 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
               </div>
 
               {/* ── RECIPIENT CALLSIGN HERO ── */}
-              <div className="py-1 space-y-2 max-w-xl mx-auto">
-                <p className="text-[10px] sm:text-xs font-mono text-zinc-400 uppercase tracking-[0.2em] font-medium">
+              <div className="py-0.5 space-y-1 max-w-3xl mx-auto">
+                <p className="text-[9px] sm:text-[10px] font-mono text-zinc-400 uppercase tracking-[0.2em] font-medium">
                   THIS PERMANENT ACCREDITATION IS DULY CONFERRED UPON OPERATOR
                 </p>
 
                 <div
-                  className="text-3xl sm:text-5xl font-black tracking-tight font-sans py-1"
+                  className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight font-sans py-0.5"
                   style={{
                     background:
                       'linear-gradient(180deg, #FFFFFF 10%, #FDF3D0 40%, #D4AF37 80%, #AA7C11 100%)',
@@ -1307,8 +1315,8 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                 </div>
 
                 {/* Decorative Filigree Divider — Triple Diamond */}
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <div className="h-[1px] w-20 sm:w-32 bg-gradient-to-r from-transparent via-[#d4af37]/60 to-[#d4af37]" />
+                <div className="flex items-center justify-center gap-2 pt-0.5">
+                  <div className="h-[1px] w-20 sm:w-36 bg-gradient-to-r from-transparent via-[#d4af37]/60 to-[#d4af37]" />
                   <div className="flex items-center gap-1">
                     <div className="w-1.5 h-1.5 rotate-45 bg-[#d4af37]/30 border border-[#d4af37]/40" />
                     <div className="w-2.5 h-2.5 rotate-45 border border-[#d4af37] bg-[#d4af37]/30 flex items-center justify-center">
@@ -1316,22 +1324,22 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                     </div>
                     <div className="w-1.5 h-1.5 rotate-45 bg-[#d4af37]/30 border border-[#d4af37]/40" />
                   </div>
-                  <div className="h-[1px] w-20 sm:w-32 bg-gradient-to-l from-transparent via-[#d4af37]/60 to-[#d4af37]" />
+                  <div className="h-[1px] w-20 sm:w-36 bg-gradient-to-l from-transparent via-[#d4af37]/60 to-[#d4af37]" />
                 </div>
               </div>
 
-              {/* ── CITATION NARRATIVE — in subtle inset panel ── */}
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 max-w-xl mx-auto">
-                <p className="text-[11px] sm:text-[13px] text-zinc-300 font-sans leading-relaxed italic">
+              {/* ── CITATION NARRATIVE ── */}
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2 sm:py-2.5 max-w-3xl mx-auto">
+                <p className="text-[11px] sm:text-xs text-zinc-300 font-sans leading-relaxed italic">
                   In profound recognition of meritorious patronage and voluntary stewardship directly sustaining TypeNova&apos;s sovereign cloud infrastructure, real-time multiplayer relays, and ad-free computational research.
                 </p>
               </div>
 
               {/* ── STRUCTURED METADATA GRID — 3 columns ── */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 max-w-3xl mx-auto w-full">
                 {/* Amount */}
-                <div className="bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2.5 text-center">
-                  <div className="flex items-center justify-center gap-1 text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1">
+                <div className="bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5">
                     <Banknote size={10} className="text-zinc-500" />
                     <span>TENDER RECORD</span>
                   </div>
@@ -1341,8 +1349,8 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                 </div>
 
                 {/* Serial */}
-                <div className="bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2.5 text-center">
-                  <div className="flex items-center justify-center gap-1 text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1">
+                <div className="bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5">
                     <Hash size={10} className="text-zinc-500" />
                     <span>ARCHIVAL SERIAL</span>
                   </div>
@@ -1357,8 +1365,8 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                 </div>
 
                 {/* Status */}
-                <div className="bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2.5 text-center">
-                  <div className="flex items-center justify-center gap-1 text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-1">
+                <div className="bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2 text-center">
+                  <div className="flex items-center justify-center gap-1 text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5">
                     <Calendar size={10} className="text-zinc-500" />
                     <span>VERIFICATION</span>
                   </div>
@@ -1370,26 +1378,26 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
 
               {/* ── HOLOGRAPHIC ACCENT STRIP ── */}
               <div
-                className="h-[2px] mx-8 rounded-full"
+                className="h-[1.5px] mx-8 sm:mx-16 rounded-full"
                 style={{
                   background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.15), rgba(139,92,246,0.1), rgba(212,175,55,0.25), rgba(59,130,246,0.1), rgba(212,175,55,0.15), transparent)',
                 }}
               />
 
               {/* ── BOTTOM TRI-SECTION: Signature | Seal | Ledger ── */}
-              <div className="pt-4 sm:pt-6 border-t border-[#c5a059]/20 flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-2">
+              <div className="pt-3 sm:pt-4 border-t border-[#c5a059]/20 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-2">
 
                 {/* Left: Authentic Handwritten Signature */}
-                <div className="text-center sm:text-left space-y-1 w-full sm:w-1/3">
-                  <div className="h-14 sm:h-16 flex items-center justify-center sm:justify-start -mb-2">
+                <div className="text-center sm:text-left space-y-0.5 w-full sm:w-1/3">
+                  <div className="h-12 sm:h-14 flex items-center justify-center sm:justify-start -mb-1">
                     <img
                       src={FOUNDER_SIGNATURE_SRC}
                       alt="Arunabha Ghosh Authentic Signature"
-                      className="h-full max-w-[190px] object-contain filter drop-shadow-[0_0_8px_rgba(212,175,55,0.45)] select-none pointer-events-none"
+                      className="h-full max-w-[170px] object-contain filter drop-shadow-[0_0_8px_rgba(212,175,55,0.45)] select-none pointer-events-none"
                       loading="eager"
                     />
                   </div>
-                  <div className="w-36 sm:w-44 h-[1px] bg-[#c5a059]/40 mx-auto sm:mx-0" />
+                  <div className="w-32 sm:w-40 h-[1px] bg-[#c5a059]/40 mx-auto sm:mx-0" />
                   <div className="text-xs font-bold text-white tracking-wider font-sans">
                     ARUNABHA GHOSH
                   </div>
@@ -1403,14 +1411,14 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                 </div>
 
                 {/* Center: 32-point Scalloped Gold Medallion Foil Seal */}
-                <div className="w-full sm:w-1/3 flex justify-center py-2 sm:py-0">
+                <div className="w-full sm:w-1/3 flex justify-center py-1 sm:py-0">
                   <OfficialFoilSeal />
                 </div>
 
                 {/* Right: Security Ledger Stamp & Issue Date */}
-                <div className="text-center sm:text-right space-y-1.5 w-full sm:w-1/3">
+                <div className="text-center sm:text-right space-y-1 w-full sm:w-1/3">
                   {/* Hash visualization micro-grid */}
-                  <div className="flex justify-center sm:justify-end gap-[2px] mb-1">
+                  <div className="flex justify-center sm:justify-end gap-[2px] mb-0.5">
                     {Array.from({ length: 16 }).map((_, i) => {
                       const charCode = serial.charCodeAt(i % serial.length) || 65;
                       const opacity = 0.1 + (charCode % 15) * 0.04;
@@ -1431,7 +1439,7 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
                     <span>{serial}</span>
                     <Copy size={11} className="text-zinc-400" />
                   </button>
-                  <div className="w-36 sm:w-44 h-[1px] bg-[#c5a059]/40 mx-auto sm:ml-auto" />
+                  <div className="w-32 sm:w-40 h-[1px] bg-[#c5a059]/40 mx-auto sm:ml-auto" />
                   <div className="text-xs font-bold text-white tracking-wider font-mono">
                     {issueDate}
                   </div>

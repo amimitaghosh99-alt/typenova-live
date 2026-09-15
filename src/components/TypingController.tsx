@@ -7,6 +7,7 @@ import type { useRPGSystem } from '@/hooks/useRPGSystem';
 import type { useParticles } from '@/hooks/useParticles';
 import type { GameConfigState } from '@/hooks/useGameConfig';
 import type { useGameConfig } from '@/hooks/useGameConfig';
+import { applyCapitalsCurse, type ActiveHex } from '@/lib/sabotageEngine';
 
 interface TypingControllerProps {
   typing: ReturnType<typeof useTypingEngine>;
@@ -15,6 +16,7 @@ interface TypingControllerProps {
   particles: ReturnType<typeof useParticles>;
   gameConfig: GameConfigState;
   gameActions: ReturnType<typeof useGameConfig>;
+  activeHexes?: ActiveHex[];
 
   /**
    * Any open dialog swallows keystrokes. Typed against the shared union so a
@@ -56,6 +58,7 @@ export function TypingController({
   onReset,
   onExitMicroDrill,
   onChargeHexEnergy,
+  activeHexes,
 }: TypingControllerProps) {
 
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -66,14 +69,14 @@ export function TypingController({
   const stateRef = useRef({
     typing, audio, rpg, particles, gameConfig, gameActions,
     activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
-    onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy
+    onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy, activeHexes
   });
 
   useEffect(() => {
     Object.assign(stateRef.current, {
       typing, audio, rpg, particles, gameConfig, gameActions,
       activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
-      onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy
+      onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy, activeHexes
     });
   });
 
@@ -120,6 +123,14 @@ export function TypingController({
         return;
       }
 
+      let currentPhase = typing.phase;
+
+      // Guard against post-mortem keystrokes executing after test finish
+      if (typing.isFinishingRef.current && (currentPhase === 'TYPING' || currentPhase === 'FINISHED')) return;
+      if (currentPhase === 'CONFIGURING' || currentPhase === 'READY') {
+        typing.isFinishingRef.current = false;
+      }
+
       // During an active multiplayer race, swallow ESC so a mid-race abort
       // can't desync the room; typing still flows through below.
       if (raceActive && e.key === 'Escape') { e.preventDefault(); return; }
@@ -129,7 +140,7 @@ export function TypingController({
       else typing.setCapsLock(false);
 
       // ─── CONFIGURING ───
-      if (typing.phase === 'CONFIGURING') {
+      if (currentPhase === 'CONFIGURING') {
         if (e.key === 'Enter') {
           e.preventDefault();
           if (e.shiftKey) {
@@ -157,14 +168,7 @@ export function TypingController({
           const currentInput = typing.inputRef.current;
           const nextInput = (currentInput + e.key).toLowerCase();
 
-          if ('iamnova'.startsWith(nextInput)) {
-            typing.setInputSync(nextInput);
-            if (nextInput === 'iamnova') {
-              rpg.unlockAllAchievements();
-              typing.setInputSync('');
-            }
-            return;
-          } else if ('godmode'.startsWith(nextInput)) {
+          if (import.meta.env.DEV && 'godmode'.startsWith(nextInput)) {
             typing.setInputSync(nextInput);
             if (nextInput === 'godmode') {
               onUnlockGodMode();
@@ -179,13 +183,14 @@ export function TypingController({
           typing.setPhase('TYPING');
           typing.setStartTime(Date.now());
           lastMilestoneRef.current = 0;
+          currentPhase = 'TYPING';
         } else {
           return;
         }
       }
 
       // ─── READY ───
-      if (typing.phase === 'READY') {
+      if (currentPhase === 'READY') {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           if (e.shiftKey) {
@@ -204,13 +209,14 @@ export function TypingController({
           typing.setPhase('TYPING');
           typing.setStartTime(Date.now());
           lastMilestoneRef.current = 0;
+          currentPhase = 'TYPING';
         } else {
           return;
         }
       }
 
       // ─── COUNTDOWN / TYPING / FINISHED ───
-      if (typing.phase === 'COUNTDOWN' || typing.phase === 'TYPING' || typing.phase === 'FINISHED') {
+      if (currentPhase === 'COUNTDOWN' || currentPhase === 'TYPING' || currentPhase === 'FINISHED') {
         if (e.key === 'Escape') {
           lastMilestoneRef.current = 0;
           if (cfg.microDrillActive) { onExitMicroDrill(); }
@@ -220,7 +226,7 @@ export function TypingController({
       }
 
       // ─── TYPING ONLY ───
-      if (typing.phase !== 'TYPING') return;
+      if (currentPhase !== 'TYPING') return;
       if (e.ctrlKey || e.metaKey || e.altKey || (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace')) return;
       if (e.key === 'Shift') return;
 
@@ -262,7 +268,11 @@ export function TypingController({
         let typedChar = e.key;
         if (typedChar === 'Enter') typedChar = '\n';
 
-        const expectedChar = typing.targetText[currentInput.length];
+        const hasCapitalsCurse = Boolean(stateRef.current.activeHexes?.some(h => h.hexType === 'capitals_curse'));
+        const effectiveTarget = hasCapitalsCurse
+          ? applyCapitalsCurse(typing.targetText, currentInput.length, 4)
+          : typing.targetText;
+        const expectedChar = effectiveTarget[currentInput.length];
         const isError = typedChar !== expectedChar;
         const nextInput = currentInput + typedChar;
 

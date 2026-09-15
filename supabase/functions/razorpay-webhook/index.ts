@@ -20,6 +20,23 @@ async function computeHmacSha256Hex(secret: string, message: string): Promise<st
     .join('');
 }
 
+/** Timing-safe comparison of two strings to prevent side-channel timing attacks */
+function constantTimeCompare(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const aNorm = a.toLowerCase();
+  const bNorm = b.toLowerCase();
+  const aLen = aNorm.length;
+  const bLen = bNorm.length;
+  let mismatch = aLen === bLen ? 0 : 1;
+  const maxLen = Math.max(aLen, bLen);
+  for (let i = 0; i < maxLen; i++) {
+    const charA = aNorm.charCodeAt(i % aLen);
+    const charB = bNorm.charCodeAt(i % bLen);
+    mismatch |= charA ^ charB;
+  }
+  return mismatch === 0;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok');
@@ -40,7 +57,7 @@ serve(async (req) => {
     }
 
     const expected = await computeHmacSha256Hex(webhookSecret, rawBody);
-    if (expected.toLowerCase() !== signature.toLowerCase()) {
+    if (!constantTimeCompare(expected, signature)) {
       console.error('[razorpay-webhook] Invalid webhook signature');
       return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400 });
     }
@@ -58,7 +75,11 @@ serve(async (req) => {
         'BIF', 'CLP', 'DJF', 'GNF', 'ISK', 'JPY', 'KMF', 'KRW',
         'MGA', 'PYG', 'RWF', 'UGX', 'UYI', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
       ]);
-      const factor = ZERO_DECIMAL_CURRENCIES.has(String(currency).toUpperCase()) ? 1 : 100;
+      const THREE_DECIMAL_CURRENCIES = new Set([
+        'BHD', 'JOD', 'KWD', 'OMR', 'TND', 'LYD'
+      ]);
+      const curCode = String(currency).toUpperCase();
+      const factor = ZERO_DECIMAL_CURRENCIES.has(curCode) ? 1 : THREE_DECIMAL_CURRENCIES.has(curCode) ? 1000 : 100;
       const amount = (payment?.amount || 0) / factor;
       const notes = payment?.notes || {};
 

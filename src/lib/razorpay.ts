@@ -113,13 +113,24 @@ export const ZERO_DECIMAL_CURRENCIES = new Set([
   'MGA', 'PYG', 'RWF', 'UGX', 'UYI', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
 ]);
 
+export const THREE_DECIMAL_CURRENCIES = new Set([
+  'BHD', 'JOD', 'KWD', 'OMR', 'TND', 'LYD'
+]);
+
+export function getCurrencySubunitFactor(currency: string): number {
+  const c = String(currency).toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(c)) return 1;
+  if (THREE_DECIMAL_CURRENCIES.has(c)) return 1000;
+  return 100;
+}
+
 /**
  * Creates a verified Razorpay order via Supabase Edge Functions.
  * Falls back to client key if edge function is unreachable or not yet deployed.
  */
 export async function createRazorpayOrder(params: CreateOrderParams): Promise<CreateOrderResult> {
   const currency = params.currency || 'INR';
-  const factor = ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 1 : 100;
+  const factor = getCurrencySubunitFactor(currency);
   const amountInPaise = Math.round(params.amount * factor);
 
   if (supabase) {

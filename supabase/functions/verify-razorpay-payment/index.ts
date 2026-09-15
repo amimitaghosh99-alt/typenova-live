@@ -39,6 +39,8 @@ const RATES_TO_USD: Record<string, number> = {
   MZN: 64.0, RWF: 1380.0, XOF: 605.0, XAF: 605.0, DZD: 134.0, TND: 3.1, AOA: 915.0,
   CDF: 2850.0, MGA: 4650.0, MWK: 1740.0, SZL: 18.2, LSL: 18.2, SCR: 14.2, CVE: 101.5,
   GMD: 71.0, DJF: 178.0, BIF: 2950.0, GNF: 8650.0, KMF: 452.0, STN: 22.5, XPF: 110.0,
+  BMD: 1.0, KYD: 0.83, ANG: 1.8, AWG: 1.8, HTG: 132.0, FKP: 0.78, GIP: 0.78,
+  MOP: 8.0, SHP: 0.78, LYD: 4.85, SOS: 571.0, SDG: 600.0, SSP: 130.0, ERN: 15.0, MRU: 39.5,
 };
 
 const TIER_HIERARCHY = ['tier_supporter', 'tier_sustainer', 'tier_scholar', 'tier_legend'];
@@ -61,6 +63,23 @@ async function computeHmacSha256Hex(secret: string, message: string): Promise<st
   return Array.from(new Uint8Array(signatureBuffer))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+/** Timing-safe comparison of two strings to prevent side-channel timing attacks */
+function constantTimeCompare(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const aNorm = a.toLowerCase();
+  const bNorm = b.toLowerCase();
+  const aLen = aNorm.length;
+  const bLen = bNorm.length;
+  let mismatch = aLen === bLen ? 0 : 1;
+  const maxLen = Math.max(aLen, bLen);
+  for (let i = 0; i < maxLen; i++) {
+    const charA = aNorm.charCodeAt(i % aLen);
+    const charB = bNorm.charCodeAt(i % bLen);
+    mismatch |= charA ^ charB;
+  }
+  return mismatch === 0;
 }
 
 /** Tier→Title mapping (must stay in sync with client-side mapping) */
@@ -113,7 +132,7 @@ serve(async (req) => {
       `${razorpay_order_id}|${razorpay_payment_id}`
     );
 
-    if (expectedSignature.toLowerCase() !== razorpay_signature.toLowerCase()) {
+    if (!constantTimeCompare(expectedSignature, razorpay_signature)) {
       console.error('[verify-razorpay-payment] Signature mismatch!', {
         expected: expectedSignature,
         received: razorpay_signature,
@@ -123,7 +142,11 @@ serve(async (req) => {
 
     // 2. Server-side tier authorization based on normalized USD value
     const normalizedCurr = String(currency || 'INR').toUpperCase();
-    const rate = RATES_TO_USD[normalizedCurr] || 1.0;
+    const rate = RATES_TO_USD[normalizedCurr];
+    if (!rate || rate <= 0) {
+      console.error(`[verify-razorpay-payment] Unsupported currency: ${normalizedCurr}`);
+      throw new Error(`Unsupported or unrecognized currency: ${normalizedCurr}`);
+    }
     const amountUsd = (Number(amount) || 0) / rate;
 
     let authorizedTier = 'tier_supporter';

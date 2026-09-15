@@ -35,7 +35,7 @@ function getSynthAudioCtx(): { ctx: AudioContext; analyser: AnalyserNode; gain: 
     synthGain = synthAudioCtx.createGain();
     synthGain.gain.setValueAtTime(0.001, synthAudioCtx.currentTime); // silent oscillator for visualizer feedback
     synthGain.connect(synthAnalyser);
-    synthAnalyser.connect(synthAudioCtx.destination);
+    // Visualizer-only routing: do not connect to audio destination to prevent leaking 140Hz hum to speakers
   }
 
   if (synthAudioCtx.state === 'suspended') {

@@ -1,7 +1,7 @@
 import { useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import type { Theme } from '@/data/constants';
-import { FINGER_MAP, FINGER_STYLE } from './keyboardMap';
+import { FINGER_MAP, FINGER_STYLE, SHIFT_TO_BASE_KEY } from './keyboardMap';
 import { springSnappy } from './academyMotion';
 
 interface VirtualKeyboardProps {
@@ -18,8 +18,8 @@ interface VirtualKeyboardProps {
 }
 
 const ROWS = [
-  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='],
-  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']'],
+  ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='],
+  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\'],
   ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'"],
   ['LSHIFT', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', 'RSHIFT'],
   ['SPACE'],
@@ -36,6 +36,7 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
   theme,
 }: VirtualKeyboardProps) {
   const normalizedActive = useMemo(() => activeKey.toUpperCase(), [activeKey]);
+  const baseTargetKey = useMemo(() => SHIFT_TO_BASE_KEY[activeKey] || normalizedActive, [activeKey, normalizedActive]);
   const themeGlow = theme?.glowPrimary || '0, 240, 255';
   const shiftSide = shiftFinger?.startsWith('left') ? 'LSHIFT' : shiftFinger?.startsWith('right') ? 'RSHIFT' : '';
 
@@ -68,7 +69,7 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
             /** The Shift the current step expects — always the opposite hand. */
             const isShiftTarget = isShiftKey && !!requiresShift && key === shiftSide;
             const isActive = isShiftTarget
-              || (!isShiftKey && (key === normalizedActive || (isSpace && normalizedActive === ' ')));
+              || (!isShiftKey && (key === baseTargetKey || (isSpace && normalizedActive === ' ')));
             const finger = FINGER_MAP[key] || '';
             const isHinted = !isActive && !isShiftKey && !!activeFinger && finger === activeFinger;
             const isAnchor = key === 'F' || key === 'J';
@@ -82,7 +83,7 @@ export const VirtualKeyboard = memo(function VirtualKeyboard({
             // Live Strike feedback
             const isLastPressed = Boolean(
               !isShiftKey && lastKeystroke &&
-              (isSpace ? lastKeystroke.key === ' ' : lastKeystroke.key.toUpperCase() === key)
+              (isSpace ? lastKeystroke.key === ' ' : (lastKeystroke.key.toUpperCase() === key || SHIFT_TO_BASE_KEY[lastKeystroke.key] === key))
             );
 
             return (

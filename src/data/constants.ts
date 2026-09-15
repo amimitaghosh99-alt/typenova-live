@@ -286,7 +286,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'unbreakable', title: 'Unbreakable', desc: 'Reach a flawless streak (Combo) of 200+.', icon: 'shield', category: 'SKILL' },
   { id: 'centurion_streak', title: 'Centurion', desc: 'Reach a flawless streak (Combo) of 100+.', icon: 'shield', category: 'SKILL' },
   { id: 'flow_state', title: 'Flow State', desc: 'Complete a test with >= 85% consistency and >= 95% accuracy.', icon: 'waves', category: 'SKILL' },
-  { id: 'surgical_precision', title: 'Surgical Precision', desc: 'Finish a test of 50+ words with 100% accuracy.', icon: 'crosshair', category: 'HARDCORE' },
+  { id: 'surgical_precision', title: 'Surgical Precision', desc: 'Finish a test of 50+ words with 100% accuracy at 80+ WPM.', icon: 'crosshair', category: 'HARDCORE' },
   { id: 'daredevil', title: 'Daredevil', desc: 'Complete a test with Sudden Death activated.', icon: 'skull', category: 'HARDCORE' },
   { id: 'jedi_senses', title: 'Jedi Senses', desc: 'Complete a test with Blind Mode and Fog of War.', icon: 'eye-off', category: 'HARDCORE' },
   { id: 'under_pressure', title: 'Under Pressure', desc: 'Complete a test with Overclocked (Accuracy > 95%).', icon: 'gauge', category: 'HARDCORE' },

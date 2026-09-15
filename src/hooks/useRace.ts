@@ -184,6 +184,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   const selfStateRef = useRef<Partial<RacerState> & { roomState?: 'lobby' | 'racing'; config?: RaceConfig; roomSize?: number }>({});
   const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHostRef = useRef(false);
   const myIdRef = useRef<string | null>(null);
   const myNameRef = useRef<string>('Racer');
@@ -239,12 +240,14 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     }
     if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (countdownWatchdogRef.current) clearTimeout(countdownWatchdogRef.current);
     if (trackTimerRef.current) clearTimeout(trackTimerRef.current);
     if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     if (emptyRoomTimerRef.current) clearTimeout(emptyRoomTimerRef.current);
     if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
     joinTimeoutRef.current = null;
     countdownIntervalRef.current = null;
+    countdownWatchdogRef.current = null;
     trackTimerRef.current = null;
     reconnectTimerRef.current = null;
     emptyRoomTimerRef.current = null;
@@ -485,6 +488,10 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         setPresencePlayers(mapped);
       })
       .on('broadcast', { event: 'start_race' }, ({ payload }) => {
+        if (countdownWatchdogRef.current) {
+          clearTimeout(countdownWatchdogRef.current);
+          countdownWatchdogRef.current = null;
+        }
         const { text, startTime, matchKey } = payload;
         setStatus('racing');
         setCountdown(null);
@@ -513,8 +520,17 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       })
       .on('broadcast', { event: 'countdown' }, ({ payload }) => {
         setCountdown(payload.seconds);
+        if (countdownWatchdogRef.current) clearTimeout(countdownWatchdogRef.current);
+        countdownWatchdogRef.current = setTimeout(() => {
+          setCountdown(null);
+          setStatus(prev => (prev === 'racing' ? prev : 'lobby'));
+        }, 7000);
       })
       .on('broadcast', { event: 'rematch' }, () => {
+        if (countdownWatchdogRef.current) {
+          clearTimeout(countdownWatchdogRef.current);
+          countdownWatchdogRef.current = null;
+        }
         setStatus('lobby');
         setCountdown(null);
         clearDetails();

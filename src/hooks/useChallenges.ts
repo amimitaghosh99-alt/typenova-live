@@ -80,10 +80,36 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
       .subscribe();
 
     return () => {
-      channel.unsubscribe();
+      if (supabase && channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
       channelRef.current = null;
     };
   }, [supabase, username]);
+
+  const subscribeChannel = (targetChannel: any): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, 3000);
+      targetChannel.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    });
+  };
+
+  const scheduleUnsubscribe = useCallback((ch: any) => {
+    const t = setTimeout(() => {
+      if (supabase) {
+        supabase.removeChannel(ch);
+      } else {
+        ch.unsubscribe();
+      }
+      tempTimersRef.current.delete(t);
+    }, 1500);
+    tempTimersRef.current.add(t);
+  }, [supabase]);
 
   // Send a challenge to a friend
   const sendChallenge = useCallback(async (
@@ -94,7 +120,7 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
   ) => {
     if (!supabase || !username) return;
     const targetChannel = supabase.channel(`challenge:${friendUsername}`);
-    await targetChannel.subscribe();
+    await subscribeChannel(targetChannel);
     await targetChannel.send({
       type: 'broadcast',
       event: 'challenge_invite',
@@ -108,57 +134,42 @@ export function useChallenges({ supabase, username, onAccepted }: UseChallengesO
         language: config?.language,
       },
     });
-    const scheduleUnsubscribe = (ch: any) => {
-      const t = setTimeout(() => {
-        ch.unsubscribe();
-        tempTimersRef.current.delete(t);
-      }, 1000);
-      tempTimersRef.current.add(t);
-    };
 
     // Unsubscribe sender's temp channel after a delay
     scheduleUnsubscribe(targetChannel);
     setSentChallengeTo(friendUsername);
-  }, [supabase, username]);
+  }, [supabase, username, scheduleUnsubscribe]);
 
   // Respond to a challenge
   const acceptChallenge = useCallback(async () => {
     if (!supabase || !pendingChallenge || !username) return;
     const targetChannel = supabase.channel(`challenge:${pendingChallenge.from}`);
-    await targetChannel.subscribe();
+    await subscribeChannel(targetChannel);
     await targetChannel.send({
       type: 'broadcast',
       event: 'challenge_accepted',
       payload: { roomCode: pendingChallenge.roomCode, by: username },
     });
-    const t = setTimeout(() => {
-      targetChannel.unsubscribe();
-      tempTimersRef.current.delete(t);
-    }, 1000);
-    tempTimersRef.current.add(t);
+    scheduleUnsubscribe(targetChannel);
     if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
     const roomCode = pendingChallenge.roomCode;
     setPendingChallenge(null);
     return roomCode;
-  }, [supabase, pendingChallenge, username]);
+  }, [supabase, pendingChallenge, username, scheduleUnsubscribe]);
 
   const rejectChallenge = useCallback(async () => {
     if (!supabase || !pendingChallenge || !username) return;
     const targetChannel = supabase.channel(`challenge:${pendingChallenge.from}`);
-    await targetChannel.subscribe();
+    await subscribeChannel(targetChannel);
     await targetChannel.send({
       type: 'broadcast',
       event: 'challenge_rejected',
       payload: { by: username },
     });
-    const t = setTimeout(() => {
-      targetChannel.unsubscribe();
-      tempTimersRef.current.delete(t);
-    }, 1000);
-    tempTimersRef.current.add(t);
+    scheduleUnsubscribe(targetChannel);
     if (expireTimerRef.current) clearTimeout(expireTimerRef.current);
     setPendingChallenge(null);
-  }, [supabase, pendingChallenge, username]);
+  }, [supabase, pendingChallenge, username, scheduleUnsubscribe]);
 
   const clearSentChallenge = useCallback(() => setSentChallengeTo(null), []);
 

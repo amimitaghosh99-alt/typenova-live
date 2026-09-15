@@ -1,16 +1,29 @@
 import { useCallback, useRef, useMemo } from 'react';
 
 let globalAudioCtx: AudioContext | null = null;
+let globalMasterCompressor: DynamicsCompressorNode | null = null;
+let activeVoices = 0;
+const MAX_POLYPHONY = 6;
 
-const getAudioContext = (): AudioContext | null => {
+const getAudioContext = (): { ctx: AudioContext; compressor: DynamicsCompressorNode } | null => {
   if (typeof window === 'undefined') return null;
   const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
-  if (!globalAudioCtx) globalAudioCtx = new AC();
+  if (!globalAudioCtx) {
+    globalAudioCtx = new AC();
+    globalMasterCompressor = globalAudioCtx.createDynamicsCompressor();
+    // Studio limiter profile: prevents clipping & audio crackles during high-speed typing
+    globalMasterCompressor.threshold.setValueAtTime(-12, globalAudioCtx.currentTime);
+    globalMasterCompressor.knee.setValueAtTime(6, globalAudioCtx.currentTime);
+    globalMasterCompressor.ratio.setValueAtTime(12, globalAudioCtx.currentTime);
+    globalMasterCompressor.attack.setValueAtTime(0.003, globalAudioCtx.currentTime);
+    globalMasterCompressor.release.setValueAtTime(0.08, globalAudioCtx.currentTime);
+    globalMasterCompressor.connect(globalAudioCtx.destination);
+  }
   if (globalAudioCtx.state === 'suspended') {
     globalAudioCtx.resume().catch(() => {});
   }
-  return globalAudioCtx;
+  return { ctx: globalAudioCtx, compressor: globalMasterCompressor! };
 };
 
 export type SoundType =
@@ -36,8 +49,10 @@ export const useAudioEngine = () => {
 
   const playSound = useCallback((type: SoundType, milestoneTier?: number) => {
     if (mutedRef.current) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
+    const audioGraph = getAudioContext();
+    if (!audioGraph) return;
+    const { ctx, compressor } = audioGraph;
+    if (activeVoices >= MAX_POLYPHONY && type === 'key') return;
     const now = ctx.currentTime;
     const comboFactor = Math.min(1, comboRef.current / 60);
 
@@ -58,6 +73,7 @@ export const useAudioEngine = () => {
       startTime?: number;
       ignoreComboFactor?: boolean;
     }) => {
+      activeVoices++;
       const startT = now + startTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -69,10 +85,11 @@ export const useAudioEngine = () => {
       gain.gain.setValueAtTime(effectiveGain, startT);
       gain.gain.exponentialRampToValueAtTime(0.001, startT + duration);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(compressor);
       osc.onended = () => {
         osc.disconnect();
         gain.disconnect();
+        activeVoices = Math.max(0, activeVoices - 1);
       };
       osc.start(startT);
       osc.stop(startT + duration);

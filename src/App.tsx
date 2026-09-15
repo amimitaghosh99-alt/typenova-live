@@ -70,6 +70,7 @@ const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login }
 const OperatorDossier = lazy(() => import('@/pages/OperatorDossier').then(m => ({ default: m.OperatorDossier })));
 const OperatorAnalytics = lazy(() => import('@/pages/OperatorAnalytics').then(m => ({ default: m.OperatorAnalytics })));
 const PatronVault = lazy(() => import('@/pages/PatronVault').then(m => ({ default: m.PatronVault })));
+const TypeNovaStudio = lazy(() => import('@/pages/TypeNovaStudio').then(m => ({ default: m.TypeNovaStudio })));
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -424,6 +425,7 @@ function MainApp() {
   const location = useLocation();
   const isAnalytics = location.pathname.endsWith('/analytics');
   const donateOpen = location.pathname === '/donate';
+  const studioOpen = location.pathname === '/studio' || location.pathname === '/showcase';
   const dossierOpen = location.pathname.startsWith('/operator') && !isAnalytics;
   const analyticsOpen = isAnalytics;
   /** Null when the URL carries no name, i.e. "my own dossier". */
@@ -600,6 +602,8 @@ function MainApp() {
         testsCompleted: rpg.testsCompleted,
         racesWon,
         totalWordsTyped: h.reduce((a, e) => a + e.size, 0),
+        bestCombo: rpg.bestCombo,
+        avgConsistency: recent.length ? Math.round(recent.reduce((a, e) => a + (e.cons ?? 100), 0) / recent.length) : 0,
       }
     };
   }, [dossierOpen, analyticsOpen, cloud.username, selectedProfileUsername, rpg.userLevel, rpg.xp, rpg.currentLevelProgress, rpg.xpNeeded, rpg.testsCompleted, rpg.bestCombo, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, racesWon, wordWeakness.map, wordWeakness.due]);
@@ -871,6 +875,8 @@ function MainApp() {
         dailyStreak,
         racesWon,
         totalWordsTyped: (() => { const h: HistoryEntry[] = loadHistory(); return h.reduce((a: number, e: HistoryEntry) => a + e.size, 0); })(),
+        bestCombo: rpg.bestCombo,
+        avgConsistency: (() => { const h: HistoryEntry[] = loadHistory().slice(-20); return h.length ? Math.round(h.reduce((a: number, e: HistoryEntry) => a + (e.cons ?? 100), 0) / h.length) : 0; })(),
       };
       const activeId = activeTitle;
       const unlocked = TITLE_BADGES.filter((b) => {
@@ -890,7 +896,7 @@ function MainApp() {
         testsCompleted: stats.testsCompleted,
       });
     }
-  }, [rpg.xp, rpg.userLevel, rpg.testsCompleted, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, racesWon, cloud.status, cloud.pushProgress, cloud.username, activeTitle]);
+  }, [rpg.xp, rpg.userLevel, rpg.testsCompleted, rpg.bestCombo, rpg.unlockedAchievements, rpg.heatmapData, dailyStreak, racesWon, cloud.status, cloud.pushProgress, cloud.username, activeTitle]);
 
   // The Academy owns its own storage keys and is mounted well below this
   // component, so none of its progress appears in the dependency list above.
@@ -1297,7 +1303,7 @@ function MainApp() {
     if (typing.phase !== 'FINISHED' || !typing.endTime || !typing.startTime) return;
     const statsInput = typing.input;
     const timeMs = typing.endTime - typing.startTime;
-    const stats = typing.calculateStats(statsInput, timeMs, typing.timePenalty, typing.startTime);
+    const stats = typing.calculateStats(statsInput, timeMs, typing.timePenalty, typing.startTime, true);
     const isCustom = game.level === 'CUSTOM';
 
     // Timed tests are rewarded/judged by what was actually typed, not the
@@ -1309,7 +1315,7 @@ function MainApp() {
 
     // Quest Progression (custom mode excluded)
     if (stats.currentWpm > 0 && !isCustom) {
-      quests.progressQuest('words_typed', stats.currentWpm * (timeMs / 60000));
+      quests.progressQuest('words_typed', Math.round(stats.currentWpm * (timeMs / 60000)));
       quests.progressQuest('wpm_achieved', stats.currentWpm);
       quests.progressQuest('acc_achieved', stats.currentAcc);
     }
@@ -1500,7 +1506,7 @@ function MainApp() {
   const handleAcceptChallenge = useCallback(async () => {
     const roomCode = await challenges.acceptChallenge();
     if (roomCode) {
-      handleRaceJoin(roomCode, cloud.username || 'Player', false);
+      handleRaceJoin(roomCode, cloud.username || 'Player', true);
       closeModal();
       setRaceActive(false);
       setCurrentStage('compete');
@@ -2235,7 +2241,7 @@ function MainApp() {
         // The dossier is a page, not a dialog, so it isn't in `activeModal` —
         // without this every keystroke on it drove the test underneath.
         // Also block keyboard when not in practice stage (e.g. typing in compete lobby chat)
-        keyboardBlocked={dossierOpen || analyticsOpen || donateOpen || (currentStage !== 'practice' && !raceActive)}
+        keyboardBlocked={dossierOpen || analyticsOpen || donateOpen || studioOpen || (currentStage !== 'practice' && !raceActive)}
         raceActive={raceActive}
         theme={theme}
         tetrisEffect={tetrisEffect}
@@ -2243,6 +2249,7 @@ function MainApp() {
         onReset={handleReset}
         onExitMicroDrill={exitMicroDrill}
         onChargeHexEnergy={race.chargeHexEnergy}
+        activeHexes={isSabotagePreview ? testHexes : race.activeHexes}
       />
       <div
         className={`h-screen overflow-hidden theme-transition transition-colors duration-700 ${theme.bg} font-mono selection:bg-transparent outline-none flex flex-col items-center relative`}
@@ -2278,7 +2285,7 @@ function MainApp() {
               full-viewport filtered element, which keeps a promoted, filtered layer
               alive and composited on every frame no matter what is on top of it.
               Unmounting is the only way to stop paying for it. */}
-          {dossierOpen || analyticsOpen || donateOpen ? null : themeIndex === -1 && wallpaperUrl ? (
+          {dossierOpen || analyticsOpen || donateOpen || studioOpen ? null : themeIndex === -1 && wallpaperUrl ? (
             <motion.div
               key="custom-bg"
               initial={{ opacity: 0 }}
@@ -2316,7 +2323,7 @@ function MainApp() {
                   doesn't cover this case: the dossier is a page, not a dialog. */}
               <CosmicLiquidShader
                 theme={theme}
-                isPaused={Boolean(activeModal) || dossierOpen || analyticsOpen || donateOpen || isAcademyMode || stageOverlaySettled || isStageTransitioning || (shaderConfig.activeTypingThrottle && typing.phase === 'TYPING')}
+                isPaused={Boolean(activeModal) || dossierOpen || analyticsOpen || donateOpen || studioOpen || isAcademyMode || stageOverlaySettled || isStageTransitioning || (shaderConfig.activeTypingThrottle && typing.phase === 'TYPING')}
               />
             </motion.div>
           )}
@@ -2349,8 +2356,11 @@ function MainApp() {
             // Donations are a page, not a dialog — no modal cleanup needed.
             navigate('/donate');
           }}
-          activePage={analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
-          shouldHide={shouldHideClutter}
+          onOpenStudio={() => {
+            navigate('/studio');
+          }}
+          activePage={studioOpen ? 'studio' : analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
+          shouldHide={shouldHideClutter || studioOpen}
         />
 
         {/* Noise texture overlay removed to fix GPU rendering white screen bug */}
@@ -2401,7 +2411,19 @@ function MainApp() {
             It sits outside the stage `AnimatePresence` because it is not one of
             the three stages — the presence group there only exists to give the
             stage swap a direction. */}
-        {donateOpen ? (
+        {studioOpen ? (
+          <Suspense fallback={
+            <div className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest bg-[#060608]">
+              CALIBRATING STUDIO ENVIRONMENT...
+            </div>
+          }>
+            <TypeNovaStudio
+              onBack={() => navigate('/')}
+              theme={theme}
+              onNavigate={(path) => navigate(path)}
+            />
+          </Suspense>
+        ) : donateOpen ? (
           <Suspense fallback={
             <div className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest bg-[#080809]">
               INITIALIZING PATRON VAULT...
@@ -2822,6 +2844,8 @@ export default function App() {
         <Route path="/operator/:username" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route path="/operator/:username/analytics" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route path="/donate" element={<AuthGuard><MainApp /></AuthGuard>} />
+        <Route path="/studio" element={<AuthGuard><MainApp /></AuthGuard>} />
+        <Route path="/showcase" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route
           path="/login"
           element={

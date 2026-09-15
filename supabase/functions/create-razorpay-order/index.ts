@@ -14,6 +14,17 @@ const ZERO_DECIMAL_CURRENCIES = new Set([
   'MGA', 'PYG', 'RWF', 'UGX', 'UYI', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
 ]);
 
+const THREE_DECIMAL_CURRENCIES = new Set([
+  'BHD', 'JOD', 'KWD', 'OMR', 'TND', 'LYD'
+]);
+
+function getCurrencySubunitFactor(currency: string): number {
+  const c = String(currency).toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(c)) return 1;
+  if (THREE_DECIMAL_CURRENCIES.has(c)) return 1000;
+  return 100;
+}
+
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') || '';
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -46,7 +57,7 @@ serve(async (req) => {
     }
 
     // Razorpay amounts are in smallest currency unit (e.g. Paise for INR: ₹10 = 1000 paise; JPY has 0 decimal places)
-    const factor = ZERO_DECIMAL_CURRENCIES.has(String(currency).toUpperCase()) ? 1 : 100;
+    const factor = getCurrencySubunitFactor(currency);
     const amountInSmallestUnit = Math.round(amount * factor);
     const receipt = `tn_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
 

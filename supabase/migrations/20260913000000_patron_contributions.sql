@@ -47,12 +47,15 @@ create policy "patron_contributions: users insert" on public.patron_contribution
   for insert
   with check (true);
 
--- Allow updates (e.g. updating status on payment capture)
-create policy "patron_contributions: users update own or service role" on public.patron_contributions
+-- Allow updates only by service_role (payment edge functions) or user updating message on their own pending contribution
+create policy "patron_contributions: users update own message pending" on public.patron_contributions
   for update
-  using (true);
+  using (auth.uid() = user_id and status = 'created')
+  with check (status = 'created' and perk_granted = false);
 
-grant select, insert, update on public.patron_contributions to anon, authenticated;
+grant select, insert on public.patron_contributions to anon, authenticated;
+grant update on public.patron_contributions to authenticated;
+grant all on public.patron_contributions to service_role;
 
 -- 4. RPC Function to record and fulfill patron contribution
 create or replace function public.record_patron_success(
@@ -130,4 +133,5 @@ begin
 end;
 $$;
 
-grant execute on function public.record_patron_success to anon, authenticated;
+revoke execute on function public.record_patron_success from public, anon, authenticated;
+grant execute on function public.record_patron_success to service_role;

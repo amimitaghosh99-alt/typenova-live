@@ -23,6 +23,8 @@ import {
   Trash2,
   ThumbsUp,
   ChevronDown,
+  Quote,
+  ArrowUpRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -97,17 +99,58 @@ import { SupporterCertificateModal } from '@/components/donation/SupporterCertif
 import { CurrencyPickerModal } from '@/components/donation/CurrencyPickerModal';
 import { useAuth } from '@/hooks/useAuth';
 
-// Generative avatar color from patron name
-const AVATAR_PALETTE = [
-  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
-  '#f43f5e', '#f97316', '#f59e0b', '#eab308', '#84cc16',
-  '#22c55e', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6',
-];
-function getAvatarBg(name?: string): string {
+// Luxury frosted avatar styling with concentric depth & generative tonal tint
+function getAvatarStyle(name: string, isCelestial: boolean, isArchitect: boolean, gp: string) {
   const safe = (name || 'Anonymous').trim();
   let hash = 0;
   for (let i = 0; i < safe.length; i++) hash = safe.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+  const hue = Math.abs(hash) % 360;
+
+  if (isCelestial) {
+    return {
+      background: `radial-gradient(circle at 35% 35%, rgba(${gp}, 0.28), rgba(255, 255, 255, 0.03) 70%, rgba(12, 14, 20, 0.95))`,
+      borderColor: `rgba(${gp}, 0.45)`,
+      boxShadow: `0 0 20px rgba(${gp}, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.25)`,
+      color: '#ffffff',
+    };
+  }
+
+  if (isArchitect) {
+    return {
+      background: `radial-gradient(circle at 35% 35%, rgba(${gp}, 0.16), rgba(255, 255, 255, 0.02) 70%, rgba(12, 14, 20, 0.95))`,
+      borderColor: `rgba(${gp}, 0.25)`,
+      boxShadow: `0 0 12px rgba(${gp}, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.18)`,
+      color: '#f4f4f5',
+    };
+  }
+
+  return {
+    background: `radial-gradient(circle at 35% 35%, hsla(${hue}, 45%, 55%, 0.18), rgba(15, 18, 26, 0.95))`,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.1)',
+    color: '#e4e4e7',
+  };
+}
+
+function getPlatformMeta(platform?: string) {
+  switch (platform?.toLowerCase()) {
+    case 'github':
+      return { label: 'GitHub Sponsor', icon: Code2 };
+    case 'upi':
+      return { label: 'UPI Transit', icon: Sparkles };
+    case 'kofi':
+      return { label: 'Ko-fi Patron', icon: Heart };
+    case 'bmc':
+      return { label: 'Buy Me a Coffee', icon: Heart };
+    case 'paypal':
+      return { label: 'PayPal Verified', icon: Globe };
+    case 'crypto':
+      return { label: 'Web3 / Crypto', icon: Lock };
+    case 'gateway':
+      return { label: 'Vault Gateway', icon: CreditCard };
+    default:
+      return { label: (platform || 'DIRECT').toUpperCase(), icon: ShieldCheck };
+  }
 }
 
 // SVG Progress Ring for tuition goal
@@ -281,8 +324,12 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
       : DONATION_CONFIG.featuredPatrons.map((p) => ({ ...p, isLocal: false }));
 
     if (wallFilter === 'top') {
-      // Sort by converted USD equivalence so different currencies (e.g. INR vs USD) are ranked fairly
-      return [...baseList].sort((a, b) => {
+      // Filter to top tiers and sort by converted USD equivalence
+      const filtered = baseList.filter((p) => {
+        const usd = convertCurrency(p.amount, (p.currency as CurrencyCode) || 'USD', 'USD');
+        return usd >= 25 || p.tierId === 'tier_scholar' || p.tierId === 'tier_legend';
+      });
+      return filtered.sort((a, b) => {
         const usdB = convertCurrency(b.amount, (b.currency as CurrencyCode) || 'USD', 'USD');
         const usdA = convertCurrency(a.amount, (a.currency as CurrencyCode) || 'USD', 'USD');
         return usdB - usdA;
@@ -295,8 +342,28 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
         return timeB - timeA;
       });
     }
-    return baseList;
+    // Default 'all': Sort by impact descending so Apex sovereign benefactors lead the wall
+    return [...baseList].sort((a, b) => {
+      const usdB = convertCurrency(b.amount, (b.currency as CurrencyCode) || 'USD', 'USD');
+      const usdA = convertCurrency(a.amount, (a.currency as CurrencyCode) || 'USD', 'USD');
+      return usdB - usdA;
+    });
   }, [dbPatrons, wallFilter, patronRefreshCounter]);
+
+  const wallMetrics = useMemo(() => {
+    const totalUsd = combinedPatrons.reduce((sum, p) => {
+      return sum + convertCurrency(p.amount, (p.currency as CurrencyCode) || 'USD', 'USD');
+    }, 0);
+    const apexUsd = combinedPatrons.reduce((max, p) => {
+      const amt = convertCurrency(p.amount, (p.currency as CurrencyCode) || 'USD', 'USD');
+      return amt > max ? amt : max;
+    }, 0);
+    return {
+      totalUsd,
+      apexUsd,
+      count: combinedPatrons.length,
+    };
+  }, [combinedPatrons]);
 
   // Backer feature voting state
   const [votedFeatureIds, setVotedFeatureIds] = useState<Set<string>>(() => {
@@ -719,12 +786,46 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
                 </div>
               </div>
 
-              {/* Currency & Amount Selection */}
+              {/* Currency & Amount Minimalist Control Bar */}
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-400 block">
-                    SELECT AMOUNT ({selectedCurrency})
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-3 p-2 bg-white/[0.02] border border-white/5 rounded-2xl">
+                  {/* Amount presets */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {SUPPORTED_CURRENCIES[selectedCurrency].suggestedAmounts.map((amt) => (
+                      <button
+                        key={amt}
+                        onClick={() => {
+                          setIsCustomMode(false);
+                          setSelectedAmount(amt);
+                        }}
+                        className={`px-4 py-2 rounded-xl font-mono text-xs font-bold transition-all border ${
+                          !isCustomMode && selectedAmount === amt
+                            ? 'bg-white/[0.08] text-white border-white/20'
+                            : 'bg-white/[0.02] text-zinc-400 border-white/5 hover:border-white/10 hover:text-zinc-200'
+                        }`}
+                        style={!isCustomMode && selectedAmount === amt ? { borderColor: `rgba(${gp}, 0.5)`, backgroundColor: `rgba(${gp}, 0.1)`, color: `rgb(${gp})` } : {}}
+                      >
+                        {SUPPORTED_CURRENCIES[selectedCurrency].symbol}{amt}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        setIsCustomMode(true);
+                        setCustomAmount('');
+                      }}
+                      className={`px-4 py-2 rounded-xl font-mono text-xs font-bold transition-all border ${
+                        isCustomMode
+                          ? 'bg-white/[0.08] text-white border-white/20'
+                          : 'bg-white/[0.02] text-zinc-400 border-white/5 hover:border-white/10 hover:text-zinc-200'
+                      }`}
+                      style={isCustomMode ? { borderColor: `rgba(${gp}, 0.5)`, backgroundColor: `rgba(${gp}, 0.1)`, color: `rgb(${gp})` } : {}}
+                    >
+                      CUSTOM
+                    </button>
+                  </div>
+
+                  <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0 hidden sm:block" />
+
                   {/* Currency Picker */}
                   <div className="flex flex-wrap items-center gap-1 bg-white/[0.04] p-1 rounded-xl border border-white/5 text-xs font-mono">
                     {popularCurrencyList.map((curr) => (
@@ -748,40 +849,6 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
                       <ChevronDown size={13} />
                     </button>
                   </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  {SUPPORTED_CURRENCIES[selectedCurrency].suggestedAmounts.map((amt) => (
-                    <button
-                      key={amt}
-                      onClick={() => {
-                        setIsCustomMode(false);
-                        setSelectedAmount(amt);
-                      }}
-                      className={`px-6 py-3 rounded-xl font-mono text-sm font-bold transition-all border ${
-                        !isCustomMode && selectedAmount === amt
-                          ? 'bg-white/[0.08] text-white border-white/20'
-                          : 'bg-white/[0.02] text-zinc-400 border-white/5 hover:border-white/10 hover:text-zinc-200'
-                      }`}
-                      style={!isCustomMode && selectedAmount === amt ? { borderColor: `rgba(${gp}, 0.5)`, backgroundColor: `rgba(${gp}, 0.1)`, color: `rgb(${gp})` } : {}}
-                    >
-                      {SUPPORTED_CURRENCIES[selectedCurrency].symbol}{amt}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => {
-                      setIsCustomMode(true);
-                      setCustomAmount('');
-                    }}
-                    className={`px-6 py-3 rounded-xl font-mono text-sm font-bold transition-all border ${
-                      isCustomMode
-                        ? 'bg-white/[0.08] text-white border-white/20'
-                        : 'bg-white/[0.02] text-zinc-400 border-white/5 hover:border-white/10 hover:text-zinc-200'
-                    }`}
-                    style={isCustomMode ? { borderColor: `rgba(${gp}, 0.5)`, backgroundColor: `rgba(${gp}, 0.1)`, color: `rgb(${gp})` } : {}}
-                  >
-                    CUSTOM
-                  </button>
                 </div>
                 
                 {isCustomMode && (
@@ -1124,35 +1191,69 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
           className="py-14 sm:py-20 border-t border-white/[0.06]"
         >
-          <div className="flex flex-col sm:flex-row items-center justify-between mb-10 gap-6">
-            <div className="flex items-center gap-3">
-              <MessageSquareHeart size={24} style={{ color: `rgb(${gp})` }} />
-              <h2 className="text-2xl sm:text-3xl font-black text-white">Community Supporters.</h2>
+          {/* Section Header with Eyebrow, Title & Minimalist Control Bar */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-10 gap-6">
+            <div>
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono tracking-[0.2em] uppercase font-bold border mb-3 backdrop-blur-md"
+                style={{ borderColor: `rgba(${gp}, 0.25)`, backgroundColor: `rgba(${gp}, 0.08)`, color: `rgb(${gp})` }}
+              >
+                <Sparkles size={11} /> IMMUTABLE ARCHIVAL LEDGER
+              </div>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+                Community Supporters
+                <span className="text-xs font-mono font-normal px-2.5 py-0.5 rounded-full border border-white/10 bg-white/[0.04] text-zinc-400">
+                  {combinedPatrons.length} Backers
+                </span>
+              </h2>
+              <p className="text-xs sm:text-sm text-zinc-400 font-mono mt-1.5 max-w-xl leading-relaxed">
+                Verified operators and patrons directly underwriting TypeNova&apos;s independent, ad-free engineering.
+              </p>
             </div>
-            
+
+            {/* Minimalist Control Bar (Adheres to GEMINI.md: single-row flex, dot dividers, tight gaps) */}
             <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Micro Metrics Strip */}
+              <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.07] backdrop-blur-md text-xs font-mono text-zinc-400">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] uppercase text-zinc-500 tracking-wider">TOTAL</span>
+                  <span className="font-bold text-white font-mono">${wallMetrics.totalUsd}</span>
+                </div>
+                <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] uppercase text-zinc-500 tracking-wider">APEX</span>
+                  <span className="font-bold font-mono" style={{ color: `rgb(${gp})` }}>${wallMetrics.apexUsd}</span>
+                </div>
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center bg-white/[0.03] p-1 rounded-xl border border-white/10 backdrop-blur-md">
+                {(['all', 'top', 'recent'] as WallFilter[]).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setWallFilter(f)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold capitalize transition-all cursor-pointer ${
+                      wallFilter === f
+                        ? 'bg-white/10 text-white shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                    style={wallFilter === f ? { color: `rgb(${gp})` } : {}}
+                  >
+                    {f === 'all' ? 'All Backers' : f === 'top' ? 'Apex First' : 'Recent'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Clear records button if user has local entries */}
               {hasLocalPatrons && (
                 <button
                   onClick={handleClearAllMyRecords}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold text-zinc-400 hover:text-rose-400 bg-white/[0.03] hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold text-zinc-400 hover:text-rose-400 bg-white/[0.03] hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
                   title="Remove all my records from this wall"
                 >
                   <Trash2 size={12} /> CLEAR MY RECORDS
                 </button>
               )}
-              <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/5">
-                {(['all', 'top', 'recent'] as WallFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setWallFilter(f)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-mono font-bold capitalize transition-colors ${
-                      wallFilter === f ? 'bg-white/[0.08] text-white' : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -1178,72 +1279,299 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {combinedPatrons.map((patron, i) => {
-                  const isMyRecord = Boolean(
-                    effectiveUserName &&
-                    patron.name.toLowerCase() === effectiveUserName.toLowerCase()
-                  );
-                  const usdAmount = convertCurrency(patron.amount, patron.currency || 'USD', 'USD');
-                  const isCelestial = usdAmount >= 50 || patron.tierId === 'tier_legend';
-                  const isArchitect = !isCelestial && (usdAmount >= 25 || patron.tierId === 'tier_scholar');
+              {/* Asymmetric Bento Architectural Ledger */}
+              {(() => {
+                const leadPatron = combinedPatrons[0];
+                const secondaryPatrons = combinedPatrons.slice(1, 3);
+                const remainingPatrons = combinedPatrons.slice(3);
 
-                  return (
-                    <div
-                      key={i}
-                      className={`rounded-2xl p-px relative transition-all duration-300 ${
-                        isCelestial
-                          ? 'bg-gradient-to-b from-amber-400 via-purple-500 to-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.22),0_0_15px_rgba(168,85,247,0.28)]'
-                          : isArchitect
-                          ? 'bg-gradient-to-b from-amber-400/80 via-amber-200/50 to-amber-600/30 shadow-[0_0_20px_rgba(245,158,11,0.18)]'
-                          : 'bg-gradient-to-b from-white/[0.08] to-white/[0.02]'
-                      }`}
-                    >
-                      {/* Highlight Badges for Scholar / Celestial Tiers */}
-                      {isCelestial && (
-                        <div className="absolute -top-3 left-4 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-purple-500 to-amber-400 text-slate-950 font-mono text-[9px] font-black tracking-widest shadow-lg flex items-center gap-1 z-10 border border-amber-200">
-                          <Crown size={10} strokeWidth={3} />
-                          <span>✦ CELESTIAL APEX</span>
-                        </div>
-                      )}
-                      {isArchitect && (
-                        <div className="absolute -top-3 left-4 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-mono text-[9px] font-black tracking-widest shadow-md flex items-center gap-1 z-10 border border-amber-200">
-                          <Sparkles size={9} strokeWidth={3} />
-                          <span>✦ HIGH ARCHITECT</span>
-                        </div>
-                      )}
-                      {(() => {
-                        const displayName = (patron.name || 'Anonymous Patron').trim() || 'Anonymous Patron';
-                        return (
-                          <div className="rounded-[calc(1rem-1px)] bg-[#0a0d14]/90 p-5 backdrop-blur-xl h-full flex flex-col">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex items-center gap-3">
+                const leadUsd = convertCurrency(leadPatron.amount, leadPatron.currency || 'USD', 'USD');
+                const isLeadCelestial = leadUsd >= 50 || leadPatron.tierId === 'tier_legend';
+                const isLeadArchitect = !isLeadCelestial && (leadUsd >= 25 || leadPatron.tierId === 'tier_scholar');
+                const leadDisplayName = (leadPatron.name || 'Anonymous Patron').trim() || 'Anonymous Patron';
+                const leadAvatarStyle = getAvatarStyle(leadDisplayName, isLeadCelestial, isLeadArchitect, gp);
+                const isLeadMyRecord = Boolean(
+                  effectiveUserName &&
+                  leadPatron.name.toLowerCase() === effectiveUserName.toLowerCase()
+                );
+                const leadPlatform = getPlatformMeta(leadPatron.platform);
+                const LeadPlatformIcon = leadPlatform.icon;
+
+                return (
+                  <div className="space-y-4 sm:space-y-5">
+                    {/* Top Bento Level: Flagship Lead + Companion Spotlights */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
+                      {/* Flagship Hero Card */}
+                      <div
+                        className={`relative rounded-3xl p-px overflow-hidden group transition-all duration-500 flex flex-col ${
+                          secondaryPatrons.length > 0 ? 'lg:col-span-7' : 'lg:col-span-12'
+                        }`}
+                      >
+                        {/* Dynamic theme hairline border */}
+                        <div
+                          className="absolute inset-0 rounded-3xl opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none"
+                          style={{
+                            background: `linear-gradient(135deg, rgba(${gp}, 0.45) 0%, rgba(255, 255, 255, 0.08) 50%, rgba(${gp}, 0.2) 100%)`,
+                          }}
+                        />
+
+                        {/* Ambient background bloom */}
+                        <div
+                          className="absolute -top-20 -right-20 w-80 h-80 rounded-full blur-[100px] pointer-events-none opacity-20 group-hover:opacity-30 transition-opacity duration-700"
+                          style={{ backgroundColor: `rgb(${gp})` }}
+                        />
+
+                        <div className="relative rounded-[calc(1.5rem-1px)] bg-[#090b10]/95 backdrop-blur-3xl p-6 sm:p-8 lg:p-9 flex flex-col justify-between h-full border border-white/[0.04] shadow-[0_20px_50px_rgba(0,0,0,0.7),inset_0_1px_1px_rgba(255,255,255,0.06)]">
+                          <div>
+                            {/* Top Tier & Verification Header */}
+                            <div className="flex items-center justify-between gap-3 pb-4 mb-5 border-b border-white/[0.06]">
+                              <div className="flex items-center gap-2">
                                 <div
-                                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-lg shadow-inner ${
-                                    isCelestial ? 'ring-2 ring-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)]' : isArchitect ? 'ring-1.5 ring-amber-400/60' : ''
-                                  }`}
-                                  style={{ backgroundColor: getAvatarBg(displayName) }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-black tracking-[0.16em] uppercase border shadow-sm backdrop-blur-md"
+                                  style={{
+                                    borderColor: `rgba(${gp}, 0.35)`,
+                                    backgroundColor: `rgba(${gp}, 0.1)`,
+                                    color: `rgb(${gp})`,
+                                    boxShadow: `0 0 16px rgba(${gp}, 0.15)`,
+                                  }}
                                 >
-                                  {displayName.charAt(0).toUpperCase()}
+                                  {isLeadCelestial ? <Crown size={12} /> : <Sparkles size={11} />}
+                                  <span>{isLeadCelestial ? 'SOVEREIGN APEX PATRON' : 'CHIEF ARCHITECT'}</span>
                                 </div>
-                                <div>
-                                  <div className="font-bold text-white text-sm flex items-center gap-2">
-                                    {displayName}
-                                    {isMyRecord && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">YOU</span>}
-                                  </div>
-                                  <div className="text-xs text-zinc-500 font-mono mt-0.5 flex items-center gap-1.5">
-                                    <span>{new Date(patron.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                    {isCelestial && <span className="text-purple-400 font-bold">• Celestial</span>}
-                                    {isArchitect && <span className="text-amber-400 font-bold">• Architect</span>}
+                                <span className="text-[10px] font-mono text-zinc-500 tracking-wider hidden sm:inline">
+                                  INDEX // #0001
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono tracking-wider uppercase bg-white/[0.04] border border-white/[0.08] text-zinc-300 flex items-center gap-1.5">
+                                  <LeadPlatformIcon size={11} style={{ color: `rgb(${gp})` }} />
+                                  <span>{leadPlatform.label}</span>
+                                </span>
+                                {isLeadMyRecord && (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-wider text-emerald-400 bg-emerald-500/15 border border-emerald-500/30">
+                                    YOU
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Patron Identity & Accredited Amount */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div
+                                  className="w-14 h-14 rounded-2xl flex items-center justify-center font-mono font-black text-xl shrink-0 border shadow-lg transition-transform duration-300 group-hover:scale-105"
+                                  style={leadAvatarStyle}
+                                >
+                                  {leadDisplayName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate flex items-center gap-2">
+                                    {leadDisplayName}
+                                  </h3>
+                                  <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 mt-1">
+                                    <ShieldCheck size={13} className="text-emerald-400" />
+                                    <span className="text-zinc-300">Cryptographically Verified</span>
+                                    <span className="text-zinc-600">•</span>
+                                    <span>{new Date(leadPatron.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right flex flex-col items-end">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono font-black text-white">
-                                    {patron.currency ? formatCurrency(patron.amount, patron.currency) : `$${patron.amount}`}
+
+                              <div className="sm:text-right shrink-0">
+                                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 block">
+                                  ACCREDITED SUSTENANCE
+                                </span>
+                                <div
+                                  className="text-3xl sm:text-4xl lg:text-5xl font-mono font-black tracking-tight mt-0.5"
+                                  style={{ color: `rgb(${gp})`, textShadow: `0 0 35px rgba(${gp}, 0.35)` }}
+                                >
+                                  {leadPatron.currency ? formatCurrency(leadPatron.amount, leadPatron.currency) : `$${leadPatron.amount}`}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Inscription or Verified Proof Block */}
+                            <div className="my-6">
+                              {leadPatron.message ? (
+                                <div
+                                  className="relative pl-5 py-2.5 rounded-r-xl bg-white/[0.015] border"
+                                  style={{
+                                    borderLeftWidth: '3px',
+                                    borderLeftColor: `rgb(${gp})`,
+                                    borderTopColor: 'rgba(255,255,255,0.03)',
+                                    borderRightColor: 'rgba(255,255,255,0.03)',
+                                    borderBottomColor: 'rgba(255,255,255,0.03)',
+                                  }}
+                                >
+                                  <Quote
+                                    size={16}
+                                    className="shrink-0 mb-1 opacity-80"
+                                    style={{ color: `rgb(${gp})` }}
+                                  />
+                                  <p className="text-sm sm:text-base font-serif italic text-zinc-200 leading-relaxed break-words">
+                                    &ldquo;{leadPatron.message}&rdquo;
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="p-4 rounded-xl bg-white/[0.015] border border-white/[0.04] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono text-zinc-400">
+                                  <div className="flex items-center gap-2">
+                                    <Sparkles size={13} style={{ color: `rgb(${gp})` }} />
+                                    <span>Founding sovereign underwriter of TypeNova netplay core.</span>
+                                  </div>
+                                  <span className="text-[10px] text-zinc-500 tracking-wider">
+                                    TX HASH // #{leadPatron.txHash ? leadPatron.txHash.slice(0, 10).toUpperCase() : `REC-0001`}
                                   </span>
-                                  <div className="flex items-center gap-1">
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Footer Action Strip */}
+                          <div className="flex items-center justify-between gap-3 pt-5 border-t border-white/[0.06]">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCertificateData({
+                                  callsign: leadDisplayName,
+                                  amount: leadPatron.amount,
+                                  currency: leadPatron.currency || 'USD',
+                                  tierId: leadPatron.tierId,
+                                  txHash: leadPatron.txHash,
+                                  isOwner: isLeadMyRecord,
+                                });
+                                setIsCertificateOpen(true);
+                              }}
+                              className="group/btn inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-mono font-bold text-white bg-white/[0.04] hover:bg-white/[0.09] border border-white/10 hover:border-white/20 transition-all cursor-pointer shadow-sm"
+                            >
+                              <Award size={14} style={{ color: `rgb(${gp})` }} className="group-hover/btn:rotate-12 transition-transform" />
+                              <span>INSPECT OFFICIAL ACCREDITATION</span>
+                              <ArrowUpRight size={13} className="text-zinc-400 group-hover/btn:text-white group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                            </button>
+
+                            {isLeadMyRecord && leadPatron.isLocal && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveSingleRecord(leadPatron);
+                                }}
+                                className="p-2 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
+                                title="Remove this local record"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Companion Spotlights (Slots 1 & 2) */}
+                      {secondaryPatrons.length > 0 && (
+                        <div className="lg:col-span-5 flex flex-col gap-4 sm:gap-5 justify-between">
+                          {secondaryPatrons.map((patron, sIdx) => {
+                            const isMyRecord = Boolean(
+                              effectiveUserName &&
+                              patron.name.toLowerCase() === effectiveUserName.toLowerCase()
+                            );
+                            const usdAmount = convertCurrency(patron.amount, patron.currency || 'USD', 'USD');
+                            const isCelestial = usdAmount >= 50 || patron.tierId === 'tier_legend';
+                            const isArchitect = !isCelestial && (usdAmount >= 25 || patron.tierId === 'tier_scholar');
+                            const displayName = (patron.name || 'Anonymous Patron').trim() || 'Anonymous Patron';
+                            const avatarStyle = getAvatarStyle(displayName, isCelestial, isArchitect, gp);
+                            const platformMeta = getPlatformMeta(patron.platform);
+                            const PlatformIcon = platformMeta.icon;
+
+                            return (
+                              <div
+                                key={`sec-${sIdx}`}
+                                className="relative rounded-2xl p-px overflow-hidden group transition-all duration-300 flex-1 flex flex-col"
+                              >
+                                <div
+                                  className="absolute inset-0 rounded-2xl opacity-30 group-hover:opacity-60 transition-opacity duration-500 pointer-events-none"
+                                  style={{
+                                    background: `linear-gradient(135deg, rgba(${gp}, 0.3) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%)`,
+                                  }}
+                                />
+                                <div className="relative rounded-[calc(1rem-1px)] bg-[#090b10]/95 backdrop-blur-2xl p-5 sm:p-6 flex flex-col justify-between h-full border border-white/[0.04] shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                                  <div>
+                                    <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-white/[0.06]">
+                                      <div
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase border"
+                                        style={{
+                                          borderColor: `rgba(${gp}, 0.25)`,
+                                          backgroundColor: `rgba(${gp}, 0.07)`,
+                                          color: `rgb(${gp})`,
+                                        }}
+                                      >
+                                        <Sparkles size={10} />
+                                        <span>{isCelestial ? 'CELESTIAL APEX' : 'HIGH ARCHITECT'}</span>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/5 text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                                          <PlatformIcon size={10} style={{ color: `rgb(${gp})` }} />
+                                          <span>{platformMeta.label}</span>
+                                        </span>
+                                        {isMyRecord && (
+                                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/15 text-emerald-400">
+                                            YOU
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div
+                                          className="w-11 h-11 rounded-xl flex items-center justify-center font-mono font-bold text-base shrink-0 border transition-transform group-hover:scale-105"
+                                          style={avatarStyle}
+                                        >
+                                          {displayName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="font-bold text-white text-base truncate flex items-center gap-1.5">
+                                            {displayName}
+                                          </div>
+                                          <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                                            {new Date(patron.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="text-right shrink-0">
+                                        <div
+                                          className="font-mono font-black text-white text-xl tracking-tight"
+                                          style={isCelestial ? { color: `rgb(${gp})` } : {}}
+                                        >
+                                          {patron.currency ? formatCurrency(patron.amount, patron.currency) : `$${patron.amount}`}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Quote / Inscription */}
+                                    {patron.message ? (
+                                      <div className="mt-3.5 pt-3 border-t border-white/[0.04]">
+                                        <div className="relative rounded-xl p-2.5 bg-white/[0.02] border border-white/[0.03] flex items-start gap-2">
+                                          <Quote size={11} className="shrink-0 mt-0.5" style={{ color: `rgba(${gp}, 0.7)` }} />
+                                          <p className="text-xs text-zinc-300 font-mono italic leading-relaxed line-clamp-2">
+                                            &ldquo;{patron.message}&rdquo;
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="mt-3.5 pt-3 border-t border-white/[0.04] flex items-center justify-between text-[11px] font-mono text-zinc-500">
+                                        <span className="flex items-center gap-1.5 text-zinc-400">
+                                          <ShieldCheck size={11} className="text-emerald-400/80" />
+                                          <span>Verified Ledger Record</span>
+                                        </span>
+                                        <span className="text-[10px] text-zinc-600">
+                                          #{patron.txHash ? patron.txHash.slice(0, 8).toUpperCase() : `REC-000${sIdx + 2}`}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between pt-3.5 mt-3 border-t border-white/[0.05]">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1257,61 +1585,199 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
                                         });
                                         setIsCertificateOpen(true);
                                       }}
-                                  className={`p-1 rounded-md transition-colors cursor-pointer ${
-                                    isMyRecord
-                                      ? 'text-amber-300 bg-amber-500/10 hover:bg-amber-500/20'
-                                      : 'text-zinc-500 hover:text-amber-300 hover:bg-white/[0.06]'
-                                  }`}
-                                  title={isMyRecord ? 'View Your Official Certificate' : `Verify ${displayName}'s Accreditation`}
-                                  aria-label={isMyRecord ? 'View Official Digital Certificate' : `Verify ${displayName}'s Accreditation`}
-                                >
-                                  <Award size={13} />
-                                </button>
-                                {isMyRecord && patron.isLocal && (
+                                      className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-zinc-300 hover:text-white transition-colors cursor-pointer group/sub"
+                                    >
+                                      <Award size={12} style={{ color: `rgb(${gp})` }} className="group-hover/sub:scale-110 transition-transform" />
+                                      <span>Accreditation Certificate</span>
+                                      <ArrowUpRight size={11} className="text-zinc-500 group-hover/sub:text-white" />
+                                    </button>
+
+                                    {isMyRecord && patron.isLocal && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveSingleRecord(patron);
+                                        }}
+                                        className="p-1 rounded text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                        title="Remove this record"
+                                      >
+                                        <Trash2 size={11} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Bento Matrix: Remaining Supporters */}
+                    {remainingPatrons.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                        {remainingPatrons.map((patron, rIdx) => {
+                          const isMyRecord = Boolean(
+                            effectiveUserName &&
+                            patron.name.toLowerCase() === effectiveUserName.toLowerCase()
+                          );
+                          const usdAmount = convertCurrency(patron.amount, patron.currency || 'USD', 'USD');
+                          const isCelestial = usdAmount >= 50 || patron.tierId === 'tier_legend';
+                          const isArchitect = !isCelestial && (usdAmount >= 25 || patron.tierId === 'tier_scholar');
+                          const displayName = (patron.name || 'Anonymous Patron').trim() || 'Anonymous Patron';
+                          const avatarStyle = getAvatarStyle(displayName, isCelestial, isArchitect, gp);
+                          const platformMeta = getPlatformMeta(patron.platform);
+                          const PlatformIcon = platformMeta.icon;
+
+                          return (
+                            <div
+                              key={`rem-${rIdx}`}
+                              className="rounded-2xl p-px bg-white/[0.06] hover:bg-white/[0.12] transition-all duration-300 flex flex-col group"
+                            >
+                              <div className="rounded-[calc(1rem-1px)] bg-[#090b10]/95 backdrop-blur-xl p-5 flex flex-col justify-between h-full border border-white/[0.03]">
+                                <div>
+                                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.05]">
+                                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 border border-white/5 bg-white/[0.02]">
+                                      <span>{isCelestial ? 'CELESTIAL' : isArchitect ? 'ARCHITECT' : 'PATRON'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.04] border border-white/5 text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                                        <PlatformIcon size={10} style={{ color: `rgb(${gp})` }} />
+                                        <span>{platformMeta.label}</span>
+                                      </span>
+                                      {isMyRecord && (
+                                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/15 text-emerald-400">
+                                          YOU
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div
+                                        className="w-9 h-9 rounded-lg flex items-center justify-center font-mono font-bold text-sm shrink-0 border transition-transform group-hover:scale-105"
+                                        style={avatarStyle}
+                                      >
+                                        {displayName.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <div className="font-bold text-white text-sm truncate">
+                                          {displayName}
+                                        </div>
+                                        <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                                          {new Date(patron.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right shrink-0">
+                                      <div className="font-mono font-bold text-white text-base tracking-tight">
+                                        {patron.currency ? formatCurrency(patron.amount, patron.currency) : `$${patron.amount}`}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {patron.message ? (
+                                    <div className="mt-3 pt-2.5 border-t border-white/[0.04]">
+                                      <p className="text-xs text-zinc-400 font-mono italic leading-relaxed line-clamp-2">
+                                        &ldquo;{patron.message}&rdquo;
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-3 pt-2.5 border-t border-white/[0.04] flex items-center justify-between text-[10px] font-mono text-zinc-500">
+                                      <span className="text-zinc-400">Verified Archival Entry</span>
+                                      <span>#{patron.txHash ? patron.txHash.slice(0, 8).toUpperCase() : `REC-${(rIdx + 4).toString().padStart(4, '0')}`}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-3 mt-3 border-t border-white/[0.04]">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleRemoveSingleRecord(patron);
+                                      setCertificateData({
+                                        callsign: displayName,
+                                        amount: patron.amount,
+                                        currency: patron.currency || 'USD',
+                                        tierId: patron.tierId,
+                                        txHash: patron.txHash,
+                                        isOwner: isMyRecord,
+                                      });
+                                      setIsCertificateOpen(true);
                                     }}
-                                    className="p-1 rounded-md text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                    title="Remove this local record from wall"
-                                    aria-label="Remove contribution record"
+                                    className="inline-flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-white transition-colors cursor-pointer"
                                   >
-                                    <Trash2 size={13} />
+                                    <Award size={11} style={{ color: `rgb(${gp})` }} />
+                                    <span>Certificate</span>
+                                    <ArrowUpRight size={10} className="text-zinc-500" />
                                   </button>
-                                )}
+
+                                  {isMyRecord && patron.isLocal && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveSingleRecord(patron);
+                                      }}
+                                      className="p-1 rounded text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                      title="Remove record"
+                                    >
+                                      <Trash2 size={11} />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">{patron.platform}</div>
-                        </div>
+                          );
+                        })}
                       </div>
-                      {patron.message && (
-                        <div className="mt-auto pt-3.5 border-t border-white/[0.06] flex items-start gap-2">
-                          <MessageSquareHeart size={13} className="shrink-0 mt-0.5" style={{ color: `rgb(${gp})` }} />
-                          <p className="text-xs text-zinc-300 italic font-mono leading-relaxed break-words">
-                            &ldquo;{patron.message}&rdquo;
-                          </p>
-                        </div>
-                      )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-                })}
-              </div>
-              
-              <div className="mt-10 text-center">
-                <button
-                  onClick={() => {
-                    const terminal = document.getElementById('payment-terminal');
-                    if (terminal) terminal.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="px-6 py-3 rounded-full font-mono text-xs font-bold text-black transition-transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.05)] cursor-pointer"
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Archival Underwriting Callout & CTA */}
+              <div className="mt-14 relative rounded-3xl p-px overflow-hidden bg-gradient-to-b from-white/[0.08] to-transparent">
+                <div
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-48 rounded-full blur-[90px] opacity-15 pointer-events-none"
                   style={{ backgroundColor: `rgb(${gp})` }}
-                >
-                  BECOME A SUPPORTER &amp; JOIN THE WALL
-                </button>
+                />
+                <div className="relative rounded-[calc(1.5rem-1px)] bg-[#090b10]/95 backdrop-blur-2xl p-8 sm:p-10 text-center flex flex-col items-center">
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono font-bold tracking-[0.2em] uppercase border mb-3"
+                    style={{ borderColor: `rgba(${gp}, 0.3)`, backgroundColor: `rgba(${gp}, 0.08)`, color: `rgb(${gp})` }}
+                  >
+                    <Sparkles size={11} /> BECOME A SOVEREIGN PATRON
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    Engrave Your Callsign in TypeNova Lore.
+                  </h3>
+                  <p className="text-xs sm:text-sm text-zinc-400 font-mono mt-2 max-w-lg leading-relaxed">
+                    Underwrite independent, ad-free engineering. Backers instantly unlock holographic title rewards, digital certificates, and priority governance.
+                  </p>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => {
+                        const terminal = document.getElementById('payment-terminal');
+                        if (terminal) terminal.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="group relative inline-flex items-center gap-3 px-8 py-3.5 rounded-full font-mono text-xs font-black tracking-wider uppercase text-black transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer overflow-hidden shadow-[0_0_30px_rgba(var(--glow-primary),0.35)]"
+                      style={{ backgroundColor: `rgb(${gp})` }}
+                    >
+                      <span>JOIN THE IMMUTABLE LEDGER</span>
+                      <span className="w-6 h-6 rounded-full bg-black/15 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                        <ArrowUpRight size={13} className="text-black" />
+                      </span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 sm:gap-3 text-[11px] font-mono text-zinc-500 mt-4 flex-wrap justify-center">
+                    <span>Instant Certificate Issuance</span>
+                    <span className="w-1 h-1 rounded-full bg-white/20" />
+                    <span>Holographic Callsign Titles</span>
+                    <span className="w-1 h-1 rounded-full bg-white/20" />
+                    <span>Cryptographic Archival Proof</span>
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -1418,11 +1884,25 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
         >
           <div className="relative rounded-3xl p-px bg-gradient-to-b from-purple-500/40 via-amber-500/30 to-purple-500/10 overflow-hidden shadow-[0_0_50px_rgba(168,85,247,0.15)]">
             <div className="rounded-[calc(1.5rem-1px)] bg-[#07090f]/95 p-8 sm:p-12 backdrop-blur-2xl text-center relative">
-              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 mx-auto flex items-center justify-center mb-6 shadow-[0_0_25px_rgba(245,158,11,0.25)]">
-                <Crown size={28} className="text-amber-400" />
+              <div
+                className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-6"
+                style={{
+                  backgroundColor: `rgba(${gp}, 0.1)`,
+                  border: `1px solid rgba(${gp}, 0.3)`,
+                  boxShadow: `0 0 25px rgba(${gp}, 0.25)`,
+                }}
+              >
+                <Crown size={28} style={{ color: `rgb(${gp})` }} />
               </div>
 
-              <div className="inline-flex items-center gap-2 text-[10px] font-mono font-black tracking-[0.25em] uppercase text-amber-300/90 mb-3 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+              <div
+                className="inline-flex items-center gap-2 text-[10px] font-mono font-black tracking-[0.25em] uppercase mb-3 px-3 py-1 rounded-full"
+                style={{
+                  color: `rgb(${gp})`,
+                  backgroundColor: `rgba(${gp}, 0.1)`,
+                  border: `1px solid rgba(${gp}, 0.2)`,
+                }}
+              >
                 ✦ PERPETUAL ARCHIVE ✦
               </div>
 
@@ -1438,13 +1918,21 @@ export const PatronVault: React.FC<PatronVaultProps> = ({
                 {celestialBenefactors.map((ben, idx) => (
                   <div
                     key={idx}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-950/40 via-amber-950/30 to-purple-950/40 border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] flex items-center gap-2.5"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-950/40 via-amber-950/30 to-purple-950/40 border shadow-[0_0_15px_rgba(0,0,0,0.2)] flex items-center gap-2.5"
+                    style={{ borderColor: `rgba(${gp}, 0.35)` }}
                   >
-                    <Crown size={13} className="text-amber-400 shrink-0" />
+                    <Crown size={13} style={{ color: `rgb(${gp})` }} className="shrink-0" />
                     <span className="font-mono font-black text-xs text-white tracking-wider">
                       {ben.name}
                     </span>
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                    <span
+                      className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded"
+                      style={{
+                        backgroundColor: `rgba(${gp}, 0.15)`,
+                        color: `rgb(${gp})`,
+                        border: `1px solid rgba(${gp}, 0.3)`,
+                      }}
+                    >
                       {ben.title}
                     </span>
                   </div>

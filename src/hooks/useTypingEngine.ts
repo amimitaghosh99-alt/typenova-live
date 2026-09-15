@@ -46,7 +46,15 @@ export const useTypingEngine = () => {
   const [targetText, setTargetText] = useState('');
   const [input, setInput] = useState('');
   const inputRef = useRef('');
-  const [startTime, setStartTime] = useState<number | null>(null);
+  const [startTime, setStartTimeState] = useState<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const setStartTime = useCallback((valOrFn: number | null | ((prev: number | null) => number | null)) => {
+    setStartTimeState(prev => {
+      const next = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+      startTimeRef.current = next;
+      return next;
+    });
+  }, []);
   const [endTime, setEndTime] = useState<number | null>(null);
 
   const spokenBoundariesRef = useRef<SpokenWordBoundary[]>([]);
@@ -207,14 +215,17 @@ export const useTypingEngine = () => {
       });
     }
 
-    const wpmVals = timeline.map(p => p.wpm).filter(v => !isNaN(v));
+    const wpmVals = timeline.filter(p => p.t > 0).map(p => p.wpm).filter(v => !isNaN(v));
     const mean = wpmVals.length ? wpmVals.reduce((a, b) => a + b, 0) / wpmVals.length : 0;
     const variance = wpmVals.length ? wpmVals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / wpmVals.length : 0;
     const stddev = Math.sqrt(variance);
 
     let consistencyScore = 100;
-    if (mean > 0) consistencyScore = Math.round(Math.max(0, Math.min(100, (1 - (stddev / mean)) * 100)));
-    else if (stddev > 0) consistencyScore = 50;
+    if (wpmVals.length > 1 && mean > 0) {
+      consistencyScore = Math.round(Math.max(0, Math.min(100, (1 - (stddev / mean)) * 100)));
+    } else if (stddev > 0) {
+      consistencyScore = 50;
+    }
 
     const burstWpm = calculateBurstWpm(entries, timeline);
     const cpiBreakdown = calculateCPI(validWpm, validAcc, localMaxStreak, consistencyScore, totalTyped);
@@ -241,13 +252,14 @@ export const useTypingEngine = () => {
 
   const finishTestImpl = useCallback((finalTimestamp: number, finalInput: string | null = null) => {
     if (isFinishingRef.current) return; // GUARD: prevent double-submission
-    if (!startTime) { setPhase('FINISHED'); setEndTime(finalTimestamp); return; }
+    const effectiveStart = startTimeRef.current ?? startTime ?? keystrokeLog.current[0]?.time;
+    if (!effectiveStart) { setPhase('FINISHED'); setEndTime(finalTimestamp); return; }
 
     isFinishingRef.current = true;
     setEndTime(finalTimestamp);
     setPhase('FINISHED');
     const statsInput = finalInput !== null ? finalInput : input;
-    const finalStats = calculateStats(statsInput, finalTimestamp - startTime, timePenalty, startTime, true);
+    const finalStats = calculateStats(statsInput, finalTimestamp - effectiveStart, timePenalty, effectiveStart, true);
     setLiveStats({
       wpm: finalStats.currentWpm,
       rawWpm: finalStats.rawWpm,
@@ -373,6 +385,7 @@ export const useTypingEngine = () => {
     comboRef.current = 0;
     setMaxCombo(0);
     setTimePenalty(0);
+    startTimeRef.current = null;
     keystrokeLog.current = [];
     setPhase('CONFIGURING');
   }, []);
@@ -413,6 +426,8 @@ export const useTypingEngine = () => {
     calculateStats,
     finishTest,
     scheduleStart,
+    isFinishingRef,
+    startTimeRef,
     resetEngine,
     resetKeystrokes,
   };

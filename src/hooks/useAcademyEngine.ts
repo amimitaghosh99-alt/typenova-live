@@ -459,8 +459,7 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
   /** Advance to the next lesson the player can actually play. */
   const nextLesson = useCallback(() => {
     const unlocked = unlockedRef.current;
-    const next = LESSONS.slice(currentLessonIndex + 1).find(l => unlocked.has(l.id))
-      ?? LESSONS[currentLessonIndex + 1];
+    const next = LESSONS.slice(currentLessonIndex + 1).find(l => unlocked.has(l.id));
     if (next) {
       setActiveNodeId(next.id);
       resetStatsForLesson();
@@ -480,7 +479,7 @@ export function useAcademyEngine(isActive = true): AcademyEngineState {
     const totalAtt = correct + mistakesRef.current;
     const finalAcc = totalAtt > 0 ? Math.round((correct / totalAtt) * 100) : 100;
     const elapsedMin = startTimeRef.current ? (Date.now() - startTimeRef.current) / 60000 : 0.1;
-    const finalWpm = Math.round((correct / 5) / Math.max(0.05, elapsedMin));
+    const finalWpm = Math.round((correct / 5) / Math.max(0.00833, elapsedMin));
     setWpm(finalWpm);
 
     let earnedStars = calculateStars(finalAcc, finalWpm, lesson.targetWpm, lesson.isBossNode);

@@ -30,6 +30,23 @@ export const ZERO_DECIMAL_CURRENCIES = new Set([
   'MGA', 'PYG', 'RWF', 'UGX', 'UYI', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
 ]);
 
+/**
+ * Currencies with 3 decimal places (subunits are 1/1000th of whole unit).
+ */
+export const THREE_DECIMAL_CURRENCIES = new Set([
+  'BHD', 'JOD', 'KWD', 'OMR', 'TND', 'LYD'
+]);
+
+/**
+ * Returns the subunit multiplier for the given currency code (1 for zero-decimal, 1000 for 3-decimal, 100 standard).
+ */
+export function getCurrencySubunitFactor(currency: string): number {
+  const c = String(currency).toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(c)) return 1;
+  if (THREE_DECIMAL_CURRENCIES.has(c)) return 1000;
+  return 100;
+}
+
 /** Quick-access primary currencies rendered as top-level segmented control pills */
 export const POPULAR_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'CAD', 'JPY', 'AUD'] as const;
 

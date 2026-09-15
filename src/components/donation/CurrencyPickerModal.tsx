@@ -170,6 +170,7 @@ export const CurrencyPickerModal: React.FC<CurrencyPickerModalProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by code (SGD, AED, EUR), currency name, or symbol..."
+                data-keyboard-isolated="true"
                 className="w-full pl-11 pr-10 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/25 focus:bg-white/[0.06] transition-all font-mono"
               />
               {searchQuery && (

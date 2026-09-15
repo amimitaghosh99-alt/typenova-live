@@ -375,6 +375,20 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
             </div>
           )}
 
+          {hasGlitchFog && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-purple-950/90 backdrop-blur-md text-purple-300 text-[10px] md:text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-[0_0_20px_rgba(168,85,247,0.4)] border border-purple-500/40 z-40 uppercase tracking-widest font-display animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mr-2 shadow-[0_0_6px_rgba(168,85,247,0.8)]" />
+              GLITCH FOG ACTIVE
+            </div>
+          )}
+
+          {hasCleanseShield && !hasGlitchFog && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-emerald-950/90 backdrop-blur-md text-emerald-300 text-[10px] md:text-xs px-4 py-1.5 rounded-full font-bold flex items-center shadow-[0_0_20px_rgba(16,185,129,0.4)] border border-emerald-500/40 z-40 uppercase tracking-widest font-display">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+              CLEANSE SHIELD ACTIVE
+            </div>
+          )}
+
           <AnimatedHeight expandDuration={0.45} shrinkDuration={0.65} className="w-[calc(100%+2rem)] -ml-4 px-4">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -385,7 +399,7 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                 transition={{ duration: 0.15 }}
                 id="typing-text-container"
                 ref={containerRef}
-                className={`relative ${baseFontClass} tracking-wide leading-[2.2rem] md:leading-[2.6rem] whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto py-2 px-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full [contain:layout_style]`}
+                className={`relative ${baseFontClass} tracking-wide leading-[2.2rem] md:leading-[2.6rem] whitespace-pre-wrap text-left max-h-[70vh] overflow-y-auto py-2 px-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full [contain:layout_style] ${hasGlitchFog ? 'filter blur-[1.5px] contrast-125 select-none transition-all duration-300' : ''}`}
                 style={{
                   userSelect: phase === 'CONFIGURING' ? 'none' : 'auto',
                   pointerEvents: phase === 'CONFIGURING' ? 'none' : 'auto',
@@ -459,8 +473,11 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                 index={input.length}
                 containerRef={containerRef}
                 targetText={effectiveTargetText}
-                barClass={`bg-white caret-lucid ${theme.drop} ${hasCaretInversion ? 'animate-bounce !bg-purple-400 drop-shadow-[0_0_15px_#c084fc]' : ''}`}
-                barStyle={hasCaretInversion ? { transform: 'scaleX(-1) translateX(4px)', filter: 'hue-rotate(180deg)' } : undefined}
+                barClass={`caret-lucid ${theme.drop} ${hasCaretInversion ? 'animate-bounce !bg-purple-400 drop-shadow-[0_0_15px_#c084fc]' : ''}`}
+                barStyle={hasCaretInversion ? { transform: 'scaleX(-1) translateX(4px)', filter: 'hue-rotate(180deg)' } : {
+                  backgroundColor: `rgb(${theme.glowPrimary})`,
+                  boxShadow: `0 0 12px rgba(${theme.glowPrimary}, 0.8)`,
+                }}
               />
             )}
 
@@ -553,6 +570,15 @@ const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, b
   barStyle?: React.CSSProperties;
 }) {
   const [pos, setPos] = useState<{ x: number; y: number; w: number } | null>(null);
+  const [isLineWrap, setIsLineWrap] = useState(false);
+  const prevYRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isLineWrap) {
+      const raf = requestAnimationFrame(() => setIsLineWrap(false));
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [isLineWrap]);
 
   const measure = useCallback(() => {
     const container = containerRef.current;
@@ -569,6 +595,11 @@ const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, b
     const x = el.offsetLeft;
     const y = el.offsetTop + el.offsetHeight - 4;
     const w = Math.max(6, el.offsetWidth);
+
+    if (prevYRef.current !== null && prevYRef.current !== y) {
+      setIsLineWrap(true);
+    }
+    prevYRef.current = y;
 
     setPos(prev => {
       if (!prev || prev.x !== x || prev.y !== y || prev.w !== w) {
@@ -612,7 +643,7 @@ const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, b
 
   if (!pos) return null;
 
-  const { background, opacity, transition, ...restStyle } = barStyle || {};
+  const { background, backgroundColor, boxShadow, opacity, transition, ...restStyle } = barStyle || {};
 
   return (
     <span
@@ -620,14 +651,17 @@ const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, b
       style={{
         width: pos.w,
         transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
-        transition: transition || 'transform 100ms ease-out, width 100ms ease-out',
+        transition: isLineWrap ? 'none' : (transition || 'transform 100ms ease-out, width 100ms ease-out'),
         opacity,
         ...restStyle,
       }}
     >
       <span 
-        className={`block w-full h-[4px] rounded-full ${barClass}`}
-        style={{ background }}
+        className={`block w-full ${restStyle.height ? 'h-full' : 'h-[4px]'} rounded-full ${barClass}`}
+        style={{
+          background: background || backgroundColor,
+          boxShadow,
+        }}
       />
     </span>
   );

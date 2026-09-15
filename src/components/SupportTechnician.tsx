@@ -212,6 +212,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
         url = PROVIDER_PRESETS.find(p => p.id === 'google')?.url || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
         providerId = 'google';
       } else if (text.startsWith('sk-')) {
+        url = PROVIDER_PRESETS.find(p => p.id === 'openai')?.url || 'https://api.openai.com/v1/chat/completions';
         providerId = 'openai';
       }
 

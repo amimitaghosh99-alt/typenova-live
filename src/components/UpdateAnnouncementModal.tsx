@@ -1,12 +1,7 @@
 import { memo, useEffect, useCallback } from 'react';
 import { 
   X, 
-  Cpu, 
-  HeartHandshake, 
   Zap, 
-  BrainCircuit, 
-  Trophy, 
-  ShieldCheck, 
   ArrowRight, 
   ExternalLink,
   Activity,

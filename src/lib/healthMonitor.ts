@@ -307,7 +307,7 @@ export async function runSyntheticHealthCheck(): Promise<SystemHealthReport> {
   return {
     overall,
     timestamp: Date.now(),
-    environment: typeof process !== 'undefined' && process.env?.NODE_ENV === 'test' ? 'test' : 'production',
+    environment: (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>)['process'] ? ((globalThis as Record<string, unknown>)['process'] as { env?: { NODE_ENV?: string } })?.env?.NODE_ENV === 'test' : false) ? 'test' : 'production',
     checks: {
       storage: storageCheck,
       audio: audioCheck,

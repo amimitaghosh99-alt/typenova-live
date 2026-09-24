@@ -1,3 +1,5 @@
+import { appStorage, StorageKeys } from '@/lib/storage';
+
 // Seeded RNG + local-date helpers for the Daily Challenge.
 // mulberry32 is deterministic: same seed → same sequence, so every player
 // gets the same daily text without any server involvement.
@@ -44,13 +46,6 @@ export function isTodayDailyCompleted(curKey: string = todayKey(), storageOverri
   if (storageOverride !== undefined) {
     return storageOverride?.lastDay === curKey;
   }
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return false;
-  try {
-    const raw = localStorage.getItem('typezen_daily');
-    if (!raw) return false;
-    const d = JSON.parse(raw);
-    return d?.lastDay === curKey;
-  } catch {
-    return false;
-  }
+  const d = appStorage.get<{ lastDay?: string } | null>(StorageKeys.DAILY, null);
+  return d?.lastDay === curKey;
 }

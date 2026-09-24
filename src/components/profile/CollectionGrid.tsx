@@ -255,7 +255,7 @@ export function CollectionGrid({
                                     a promise the tile cannot keep. */}
                                 <span
                                     aria-hidden
-                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border transition-transform duration-300 ease-snappy motion-reduce:transition-none ${
                                         interactive
                                             ? 'group-hover:-rotate-6 group-hover:scale-110 motion-reduce:group-hover:rotate-0 motion-reduce:group-hover:scale-100'
                                             : ''

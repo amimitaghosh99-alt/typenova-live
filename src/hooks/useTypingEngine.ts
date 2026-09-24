@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type { Phase } from '@/data/constants';
 import type { PerformanceGrade, CPIBreakdown } from '@/lib/scoringEngine';
 import { calculateCPI, calculateBurstWpm } from '@/lib/scoringEngine';
@@ -394,7 +394,15 @@ export const useTypingEngine = () => {
     keystrokeLog.current = [];
   }, []);
 
-  return {
+  const setSpokenBoundaries = useCallback((b: SpokenWordBoundary[]) => {
+    spokenBoundariesRef.current = b;
+  }, []);
+
+  const setDictationSpeed = useCallback((s: number) => {
+    dictationSpeedRef.current = s;
+  }, []);
+
+  return useMemo(() => ({
     phase, setPhase,
     countdownTimer, setCountdownTimer,
     targetText, setTargetText,
@@ -413,8 +421,8 @@ export const useTypingEngine = () => {
     grade: liveStats.grade, setGrade,
     ikiMetrics: liveStats.ikiMetrics,
     shadowMetrics: liveStats.shadowMetrics,
-    setSpokenBoundaries: (b: SpokenWordBoundary[]) => { spokenBoundariesRef.current = b; },
-    setDictationSpeed: (s: number) => { dictationSpeedRef.current = s; },
+    setSpokenBoundaries,
+    setDictationSpeed,
     combo, setCombo,
     maxCombo, setMaxCombo,
     timePenalty, setTimePenalty,
@@ -430,6 +438,28 @@ export const useTypingEngine = () => {
     startTimeRef,
     resetEngine,
     resetKeystrokes,
-  };
+  }), [
+    phase, setPhase,
+    countdownTimer, setCountdownTimer,
+    targetText, setTargetText,
+    input, setInput,
+    inputRef, setInputSync,
+    startTime, setStartTime,
+    endTime, setEndTime,
+    liveStats, setWpm, setRawWpm, setAccuracy, setConsistency, setFlawlessStreak, setTimelinePoints, setBurstWpm, setCpi, setGrade,
+    setSpokenBoundaries,
+    setDictationSpeed,
+    combo, setCombo,
+    maxCombo, setMaxCombo,
+    timePenalty, setTimePenalty,
+    capsLock, setCapsLock,
+    shake, setShake,
+    syncComboRef,
+    calculateStats,
+    finishTest,
+    scheduleStart,
+    resetEngine,
+    resetKeystrokes,
+  ]);
 
 };

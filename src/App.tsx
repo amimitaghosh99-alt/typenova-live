@@ -57,12 +57,15 @@ import { useAuth, AuthProvider } from '@/hooks/useAuth';
 import { useCloudSync } from '@/hooks/useCloudSync';
 import { ACADEMY_PROGRESS_CHANGED, onSyncEvent } from '@/lib/syncEvents';
 import { readLocalProgress, writeLocalProgress } from '@/lib/progress';
+import { appStorage, StorageKeys } from '@/lib/storage';
 import { useFriends } from '@/hooks/useFriends';
 import { PracticeArena } from '@/components/PracticeArena';
 import { HEX_ABILITIES, applyIncomingHex, pruneExpiredHexes, type ActiveHex, type HexType } from '@/lib/sabotageEngine';
-import { LeaderboardSidebar, type BoardTab } from '@/components/LeaderboardSidebar';
+import type { BoardTab } from '@/components/LeaderboardSidebar';
+const LeaderboardSidebar = lazy(() => import('@/components/LeaderboardSidebar').then(m => ({ default: m.LeaderboardSidebar })));
 import { BottomControlsDock } from '@/components/BottomControlsDock';
-import { AppModalManager } from '@/components/AppModalManager';
+const AppModalManager = lazy(() => import('@/components/AppModalManager').then(m => ({ default: m.AppModalManager })));
+import { loadFontOnDemand } from '@/lib/fontLoader';
 import { TimedHud } from '@/components/TimedHud';
 
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router';
@@ -70,29 +73,28 @@ const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login }
 const OperatorDossier = lazy(() => import('@/pages/OperatorDossier').then(m => ({ default: m.OperatorDossier })));
 const OperatorAnalytics = lazy(() => import('@/pages/OperatorAnalytics').then(m => ({ default: m.OperatorAnalytics })));
 const PatronVault = lazy(() => import('@/pages/PatronVault').then(m => ({ default: m.PatronVault })));
-const TypeNovaStudio = lazy(() => import('@/pages/TypeNovaStudio').then(m => ({ default: m.TypeNovaStudio })));
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CHANGELOG } from '@/data/changelog';
+import { APP_VERSION } from '@/data/version';
 
 const AcademyLayout = lazy(() => import('@/components/academy/AcademyLayout').then(m => ({ default: m.AcademyLayout })));
 import { useSmartDrills } from '@/hooks/useSmartDrills';
 import { useWordWeakness } from '@/hooks/useWordWeakness';
 import { aggregateWords, type DrillRunMeta } from '@/lib/wordWeakness';
 import { useCosmetics } from '@/hooks/useCosmetics';
-import { AI_KEYS } from '@/lib/aiClient';
+import { AI_KEYS, getStoredAIKey } from '@/lib/aiClient';
 import { CosmicNavBar } from '@/components/CosmicNavBar';
-import CosmicLiquidShader from '@/components/CosmicLiquidShader';
+const CosmicLiquidShader = lazy(() => import('@/components/CosmicLiquidShader'));
 import { useShaderConfig } from '@/hooks/useShaderConfig';
-import { LobbyScreen } from '@/components/LobbyScreen';
-import { CompeteEntryScreen } from '@/components/CompeteEntryScreen';
-import { QuickMatchPanel } from '@/components/QuickMatchPanel';
-import { RoomBrowser } from '@/components/RoomBrowser';
-import { RankedHistoryPanel } from '@/components/RankedHistoryPanel';
-import { RankedTeaserCard } from '@/components/RankedTeaserCard';
+const LobbyScreen = lazy(() => import('@/components/LobbyScreen').then(m => ({ default: m.LobbyScreen })));
+const CompeteEntryScreen = lazy(() => import('@/components/CompeteEntryScreen').then(m => ({ default: m.CompeteEntryScreen })));
+const QuickMatchPanel = lazy(() => import('@/components/QuickMatchPanel').then(m => ({ default: m.QuickMatchPanel })));
+const RoomBrowser = lazy(() => import('@/components/RoomBrowser').then(m => ({ default: m.RoomBrowser })));
+const RankedHistoryPanel = lazy(() => import('@/components/RankedHistoryPanel').then(m => ({ default: m.RankedHistoryPanel })));
+const RankedTeaserCard = lazy(() => import('@/components/RankedTeaserCard').then(m => ({ default: m.RankedTeaserCard })));
 
-import { RaceTrack } from '@/components/RaceTrack';
+const RaceTrack = lazy(() => import('@/components/RaceTrack').then(m => ({ default: m.RaceTrack })));
 
 
 // ─── STAGE PAGE TRANSITION VARIANTS ────────────────────────────────────
@@ -175,12 +177,9 @@ const buildPaceSamples = (log: Keystroke[]): PaceSample[] => {
 
 // ─── DAILY STREAK ─────────────────────────────────────────────────────
 const loadDailyStreak = (): number => {
-  try {
-    const d = JSON.parse(localStorage.getItem('typezen_daily') || 'null');
-    if (!d?.lastDay) return 0;
-    // streak is alive if the last completion was today or yesterday
-    return (d.lastDay === todayKey() || isYesterday(d.lastDay)) ? d.streak : 0;
-  } catch { return 0; }
+  const d = appStorage.get<{ lastDay?: string; streak?: number } | null>(StorageKeys.DAILY, null);
+  if (!d?.lastDay) return 0;
+  return (d.lastDay === todayKey() || isYesterday(d.lastDay)) ? (d.streak || 0) : 0;
 };
 
 function MainApp() {
@@ -215,7 +214,7 @@ function MainApp() {
 
   const [techAiState, setTechAiState] = useState({
 
-    apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',
+    apiKey: getStoredAIKey(),
     baseUrl: localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1',
     model: localStorage.getItem(AI_KEYS.byokModel) || 'groq/compound-mini',
     connectionStatus: 'idle' as const,
@@ -227,13 +226,17 @@ function MainApp() {
     const handleStorage = () => {
       setTechAiState(prev => ({
         ...prev,
-        apiKey: localStorage.getItem(AI_KEYS.byokKey) || '',
+        apiKey: getStoredAIKey(),
         baseUrl: localStorage.getItem(AI_KEYS.byokUrl) || 'https://api.groq.com/openai/v1',
         model: localStorage.getItem(AI_KEYS.byokModel) || 'groq/compound-mini',
       }));
     };
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('typenova_ai_sync', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('typenova_ai_sync', handleStorage);
+    };
   }, []);
 
   const openTabTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -266,10 +269,11 @@ function MainApp() {
     }
   }), [openModal]);
 
-  const [themeFont, setThemeFont] = useState(() => localStorage.getItem('typezen_font') || 'JetBrains Mono');
+  const [themeFont, setThemeFont] = useState(() => appStorage.getString(StorageKeys.FONT, 'JetBrains Mono'));
 
   useEffect(() => {
     document.documentElement.style.setProperty('--typezen-font', `"${themeFont}"`);
+    loadFontOnDemand(themeFont);
   }, [themeFont]);
 
   const [dailyStreak, setDailyStreak] = useState(loadDailyStreak);
@@ -277,15 +281,9 @@ function MainApp() {
   const [racesWon, setRacesWon] = useState(() => readLocalProgress().racesWon);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [themeIndex, setThemeIndex] = useState(() => {
-    try { const saved = localStorage.getItem('typezen_theme'); return saved ? parseInt(saved, 10) : 0; } catch { return 0; }
-  });
-  const [soundProfile, setSoundProfileState] = useState(() => {
-    try { return localStorage.getItem('typezen_sound') || 'thocky'; } catch { return 'thocky'; }
-  });
-  const [_seenThemes, setSeenThemes] = useState(() => {
-    try { const saved = localStorage.getItem('typezen_theme'); return new Set([0, saved ? parseInt(saved, 10) : 0]); } catch { return new Set([0]); }
-  });
+  const [themeIndex, setThemeIndex] = useState(() => appStorage.getNumber(StorageKeys.THEME, 0));
+  const [soundProfile, setSoundProfileState] = useState(() => appStorage.getString(StorageKeys.SOUND, 'thocky'));
+  const [_seenThemes, setSeenThemes] = useState(() => new Set([0, appStorage.getNumber(StorageKeys.THEME, 0)]));
 
   const [tetrisEffect, setTetrisEffect] = useState(false);
   const [raceActive, setRaceActive] = useState(false);
@@ -312,17 +310,15 @@ function MainApp() {
   }, [isSabotagePreview]);
 
   useEffect(() => {
-    if (!isSabotagePreview || testHexes.length === 0) return;
+    if (testHexes.length === 0) return;
     const interval = setInterval(() => {
       setTestHexes(prev => pruneExpiredHexes(prev));
     }, 250);
     return () => clearInterval(interval);
-  }, [isSabotagePreview, testHexes.length]);
+  }, [testHexes.length]);
   // A room is only advertised in the public directory when its host opted in.
   // Challenge and quick-match rooms are never listed.
-  const [listRoomsPublicly, setListRoomsPublicly] = useState(() => {
-    try { return localStorage.getItem('typenova_list_rooms') !== 'false'; } catch { return true; }
-  });
+  const [listRoomsPublicly, setListRoomsPublicly] = useState(() => appStorage.getBoolean(StorageKeys.LIST_ROOMS, true));
   const [publicRoom, setPublicRoom] = useState(false);
   const { generateDrill, generateWordDrill, isGenerating: isSmartDrillGenerating } = useSmartDrills();
   const wordWeakness = useWordWeakness();
@@ -364,7 +360,10 @@ function MainApp() {
     const timer = setTimeout(() => {
       import('@/components/academy/AcademyLayout');
       import('@/components/CompeteEntryScreen');
+      import('@/components/LobbyScreen');
+      import('@/components/QuickMatchPanel');
       import('@/components/RoomBrowser');
+      import('@/components/RankedHistoryPanel');
       import('@/components/RankedTeaserCard');
     }, 800);
     return () => clearTimeout(timer);
@@ -425,7 +424,6 @@ function MainApp() {
   const location = useLocation();
   const isAnalytics = location.pathname.endsWith('/analytics');
   const donateOpen = location.pathname === '/donate';
-  const studioOpen = location.pathname === '/studio' || location.pathname === '/showcase';
   const dossierOpen = location.pathname.startsWith('/operator') && !isAnalytics;
   const analyticsOpen = isAnalytics;
   /** Null when the URL carries no name, i.e. "my own dossier". */
@@ -462,6 +460,25 @@ function MainApp() {
   const audio = useAudioEngine();
   const typing = useTypingEngine();
   const rpg = useRPGSystem();
+
+  const [isBotRunning, setIsBotRunning] = useState(false);
+  const botIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (botIntervalRef.current) clearInterval(botIntervalRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typing.phase === 'FINISHED' || typing.phase === 'CONFIGURING' || typing.phase === 'READY') {
+      if (botIntervalRef.current) {
+        clearInterval(botIntervalRef.current);
+        botIntervalRef.current = null;
+        setIsBotRunning(false);
+      }
+    }
+  }, [typing.phase]);
 
   // Force document background via JS to prevent any browser extensions from overriding the dark theme
   useEffect(() => {
@@ -725,7 +742,7 @@ function MainApp() {
     const next = !listRoomsPublicly;
     setListRoomsPublicly(next);
     setPublicRoom(next);
-    try { localStorage.setItem('typenova_list_rooms', String(next)); } catch { }
+    appStorage.set(StorageKeys.LIST_ROOMS, next);
   }, [listRoomsPublicly]);
 
   // Handle URL share links
@@ -780,10 +797,6 @@ function MainApp() {
 
   // Keep audio engine in sync
   useEffect(() => { audio.setSoundProfile(soundProfile); }, [soundProfile, audio]);
-  useEffect(() => {
-    audio.setComboRef(typing.combo);
-    typing.syncComboRef(typing.combo);
-  }, [typing.combo, audio, typing]);
 
   // Click outside listener for Theme & Sound Dropdowns
   useEffect(() => {
@@ -861,6 +874,40 @@ function MainApp() {
 
   useEffect(() => { fetchLeaderboard(); fetchDailyBoard(); }, [fetchLeaderboard, fetchDailyBoard]);
   useEffect(() => { if (boardTab === 'friends') fetchFriendsBoard(); }, [boardTab, fetchFriendsBoard]);
+
+  // ─── Guest Score Ingestion ─────────────────────────────────────────
+  // If a first-time guest recorded a test and chose "Save Score", submit their
+  // benchmark now that their account and display name are confirmed.
+  useEffect(() => {
+    if (!supabase || !auth.session || !cloud.username) return;
+    try {
+      const pendingRaw = localStorage.getItem('typenova_pending_guest_score');
+      if (!pendingRaw) return;
+      const pending = JSON.parse(pendingRaw);
+      if (pending && typeof pending.wpm === 'number' && pending.wpm > 0 && Date.now() - (pending.timestamp || 0) < 1000 * 60 * 60) {
+        localStorage.removeItem('typenova_pending_guest_score');
+        fireAndForget(
+          supabase.rpc('submit_score', {
+            p_wpm: Math.round(pending.wpm),
+            p_accuracy: Math.round(pending.accuracy || 100),
+            p_time_ms: pending.durationMs || 30000,
+            p_daily: false,
+            p_consistency: Math.round(pending.consistency || 90),
+          }).then(({ error }) => {
+            if (!error) {
+              fetchLeaderboard();
+              toast.success(`Guest benchmark (${Math.round(pending.wpm)} WPM) saved to your profile!`);
+            }
+          }),
+          'guest pending score sync'
+        );
+      } else {
+        localStorage.removeItem('typenova_pending_guest_score');
+      }
+    } catch {
+      localStorage.removeItem('typenova_pending_guest_score');
+    }
+  }, [auth.session, cloud.username, supabase, fetchLeaderboard]);
 
   // ─── Cloud Sync push ─────────────────────────────────────────────
   // Once synced, mirror progress back to the cloud whenever it changes
@@ -1199,13 +1246,13 @@ function MainApp() {
     setThemeIndex(index);
     setSeenThemes(prev => new Set([...prev, index]));
     setShowThemeMenu(false);
-    try { localStorage.setItem('typezen_theme', index.toString()); } catch { }
+    appStorage.set(StorageKeys.THEME, index);
   }, []);
 
   const selectSoundProfile = useCallback((key: string) => {
     setSoundProfileState(key);
     setShowSoundMenu(false);
-    try { localStorage.setItem('typezen_sound', key); } catch { }
+    appStorage.set(StorageKeys.SOUND, key);
   }, []);
 
 
@@ -1487,7 +1534,7 @@ function MainApp() {
   // controls the collapse animation. It used to also carry `lg:w-[30%]` and
   // `shrink-0`, which fought with the arena's own `lg:w-[70%]` and left a
   // rounding gap between the two panels at several widths.
-  const leaderboardClass = `transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-[opacity,transform] glass-panel rounded-[2rem] overflow-hidden ${shouldHideClutter ? 'w-0 opacity-0 translate-x-12 pointer-events-none p-0 border-transparent m-0 hidden lg:hidden' : 'w-full p-6 md:p-8 opacity-100 translate-x-0'
+  const leaderboardClass = `transition-[opacity,transform] duration-500 ease-fluid will-change-[opacity,transform] glass-panel rounded-[2rem] overflow-hidden ${shouldHideClutter ? 'w-0 opacity-0 translate-x-12 pointer-events-none p-0 border-transparent m-0 hidden lg:hidden' : 'w-full p-5 lg:p-6 opacity-100 translate-x-0'
     }`;
 
   // ====== MEMOIZED HANDLERS FOR MODALS ======
@@ -1703,7 +1750,7 @@ function MainApp() {
     if (!listRoomsPublicly) {
       setListRoomsPublicly(true);
       setPublicRoom(true);
-      try { localStorage.setItem('typenova_list_rooms', 'true'); } catch { }
+      appStorage.set(StorageKeys.LIST_ROOMS, true);
     }
     handleRaceCreate(cloud.username || 'Player', race.roomSize || 4, false, undefined, true);
   }, [handleRaceCreate, cloud.username, race.roomSize, listRoomsPublicly]);
@@ -1804,7 +1851,7 @@ function MainApp() {
 
   const handleSetThemeFont = useCallback((font: string) => {
     setThemeFont(font);
-    localStorage.setItem('typezen_font', font);
+    appStorage.set(StorageKeys.FONT, font);
   }, []);
 
   const otherRacePlayers = useMemo(() => (
@@ -1840,7 +1887,28 @@ function MainApp() {
     setCountdownTimer: typing.setCountdownTimer,
     timelinePoints: activeModal === 'expandedGraph' ? typing.timelinePoints : EMPTY_TIMELINE,
     wpm: activeModal === 'expandedGraph' ? typing.wpm : 0,
-  }), [typing.phase, typing.countdownTimer, typing.setPhase, typing.setCountdownTimer, activeModal, typing.timelinePoints, typing.wpm, EMPTY_TIMELINE]);
+    targetText: typing.targetText,
+    input: typing.input,
+    setInputSync: typing.setInputSync,
+    setStartTime: typing.setStartTime,
+    setCombo: typing.setCombo,
+    finishTestImpl: typing.finishTest,
+  }), [
+    typing.phase,
+    typing.countdownTimer,
+    typing.setPhase,
+    typing.setCountdownTimer,
+    activeModal,
+    typing.timelinePoints,
+    typing.wpm,
+    EMPTY_TIMELINE,
+    typing.targetText,
+    typing.input,
+    typing.setInputSync,
+    typing.setStartTime,
+    typing.setCombo,
+    typing.finishTest,
+  ]);
 
   const handleOpenPractice = useCallback(() => {
     switchStage('practice');
@@ -1848,19 +1916,6 @@ function MainApp() {
       navigate('/');
     }
   }, [switchStage, navigate, location.pathname]);
-
-  const handleOpenTrophies = useCallback(() => {
-    closeModal();
-    if (location.pathname === '/operator' || location.pathname.startsWith('/operator/')) {
-      const el = document.getElementById('hall-of-legends');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        window.history.replaceState(null, '', `${location.pathname}#hall-of-legends`);
-        return;
-      }
-    }
-    navigate('/operator#hall-of-legends');
-  }, [closeModal, navigate, location.pathname]);
 
   const handleOpenRace = useCallback(() => {
     setRaceActive(false);
@@ -1900,16 +1955,16 @@ function MainApp() {
     openModal('whatsNew');
   }, [openModal]);
 
+  const handleOpenDonate = useCallback(() => {
+    navigate('/donate');
+  }, [navigate]);
+
   // Auto-display What's New update popup on first visit after a release
   useEffect(() => {
     if (raceActive || donateOpen) return;
-    try {
-      const seenVersion = localStorage.getItem('typenova_seen_version');
-      if (seenVersion !== 'v3.0.0') {
-        openModal('whatsNew');
-      }
-    } catch {
-      // Ignore localStorage restrictions
+    const seenVersion = appStorage.getString(StorageKeys.SEEN_VERSION, '');
+    if (seenVersion !== APP_VERSION) {
+      openModal('whatsNew');
     }
   }, [raceActive, donateOpen, openModal]);
 
@@ -1977,6 +2032,148 @@ function MainApp() {
     if (key) audio.setSoundProfile(key);
     audio.playSound('key');
   }, [audio]);
+
+  const handleTriggerTestHex = useCallback((hexType: HexType) => {
+    const ability = HEX_ABILITIES[hexType];
+    if (hexType === 'cleanse_shield') {
+      setTestHexes(prev => applyIncomingHex({
+        activeHexes: prev,
+        incomingHex: {
+          id: `shield-${Date.now()}`,
+          hexType: 'cleanse_shield',
+          fromName: 'Self',
+          fromId: 'self',
+          appliedAt: Date.now(),
+          durationMs: 4000,
+        },
+      }).updatedHexes);
+    } else {
+      setTestHexes(prev => [...prev, {
+        id: `hex-${Date.now()}`,
+        hexType,
+        fromName: 'CyberPhantom (God Mode)',
+        fromId: 'rival',
+        appliedAt: Date.now(),
+        expiresAt: Date.now() + (ability?.durationMs || 5000),
+        durationMs: ability?.durationMs || 5000,
+      }]);
+    }
+  }, []);
+
+  const handleClearTestHexes = useCallback(() => {
+    setTestHexes([]);
+  }, []);
+
+  const handleToggleBot = useCallback((targetWpm: number, targetAcc: number) => {
+    if (isBotRunning) {
+      if (botIntervalRef.current) clearInterval(botIntervalRef.current);
+      botIntervalRef.current = null;
+      setIsBotRunning(false);
+      toast('Auto-Typist halted', { icon: '⏹️' });
+      return;
+    }
+
+    setIsBotRunning(true);
+    toast.success(`Auto-Typist Bot launched at ${targetWpm} WPM`, { icon: '🤖' });
+
+    // Transition into TYPING phase if not already typing
+    if (typing.phase !== 'TYPING') {
+      typing.setPhase('TYPING');
+      typing.setStartTime(Date.now());
+    }
+
+    const delayMs = Math.max(12, Math.round(12000 / Math.max(targetWpm, 20)));
+
+    if (botIntervalRef.current) clearInterval(botIntervalRef.current);
+
+    botIntervalRef.current = setInterval(() => {
+      const currentTarget = typing.targetText;
+      const currentInput = typing.inputRef.current;
+      if (!currentTarget || currentInput.length >= currentTarget.length) {
+        if (botIntervalRef.current) clearInterval(botIntervalRef.current);
+        botIntervalRef.current = null;
+        setIsBotRunning(false);
+        typing.finishTest(Date.now(), currentInput);
+        return;
+      }
+
+      const nextIndex = currentInput.length;
+      const nextChar = currentTarget[nextIndex];
+      const shouldError = targetAcc < 100 && Math.random() * 100 > targetAcc;
+
+      if (shouldError) {
+        typing.keystrokeLog.current.push({
+          time: Date.now(),
+          key: nextChar === 'a' ? 'b' : 'a',
+          expected: nextChar,
+          isError: true,
+          isBackspace: false,
+        });
+      }
+
+      const nextInput = currentInput + nextChar;
+      typing.keystrokeLog.current.push({
+        time: Date.now(),
+        key: nextChar,
+        expected: nextChar,
+        isError: false,
+        isBackspace: false,
+      });
+      typing.setInputSync(nextInput);
+
+      if (nextInput.length >= currentTarget.length) {
+        if (botIntervalRef.current) clearInterval(botIntervalRef.current);
+        botIntervalRef.current = null;
+        setIsBotRunning(false);
+        typing.finishTest(Date.now(), nextInput);
+      }
+    }, delayMs);
+  }, [isBotRunning, typing]);
+
+  const handleInstantFinish = useCallback((targetWpm: number, targetAcc: number) => {
+    const currentTarget = typing.targetText;
+    if (!currentTarget || currentTarget.length === 0) return;
+
+    const totalChars = currentTarget.length;
+    const clampedAcc = Math.min(Math.max(targetAcc, 50), 100);
+    const totalErrors = Math.round(totalChars * (1 - clampedAcc / 100));
+    const totalNonErrors = totalChars - totalErrors;
+    const minutes = (totalNonErrors / 5) / Math.max(targetWpm, 1);
+    const durationMs = Math.max(1000, Math.round(minutes * 60000));
+    const now = Date.now();
+    const startTs = now - durationMs;
+    const step = durationMs / Math.max(totalChars, 1);
+
+    typing.keystrokeLog.current = [];
+    for (let i = 0; i < totalChars; i++) {
+      const isErr = totalErrors > 0 && (i % Math.max(1, Math.floor(totalChars / totalErrors)) === 0);
+      typing.keystrokeLog.current.push({
+        time: Math.round(startTs + step * (i + 1)),
+        key: currentTarget[i],
+        expected: currentTarget[i],
+        isError: isErr,
+        isBackspace: false,
+      });
+    }
+
+    typing.setStartTime(startTs);
+    typing.setInputSync(currentTarget);
+    typing.finishTest(now, currentTarget);
+    closeModal();
+    toast.success(`Instant Finish: ${targetWpm} WPM (${targetAcc}% Acc)`, { icon: '⚡' });
+  }, [typing, closeModal]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + Shift + Alt + G  OR  Ctrl + Shift + G
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'G' || e.key === 'g')) {
+        e.preventDefault();
+        openModal('godMode');
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [openModal]);
 
 
   // ─── Render ──────────────────────────────────────────────────────
@@ -2126,8 +2323,10 @@ function MainApp() {
       } : undefined),
       theme,
       heatmapData: rpg.heatmapData,
-      isLoggedIn: !!cloud.username,
+      isLoggedIn: !!auth.session && !!cloud.username,
       displayName: cloud.username,
+      onSignIn: handleSignIn,
+      onToggleAru: handleToggleAru,
       saveStatus: saveStatus || (isResultsPreview ? 'SCORE SAVED!' : ''),
       timelinePoints: typing.timelinePoints && typing.timelinePoints.length > 0 ? typing.timelinePoints : (isResultsPreview ? [
         { t: 0, wpm: 75, rawWpm: 80, errors: 0 },
@@ -2241,7 +2440,7 @@ function MainApp() {
         // The dossier is a page, not a dialog, so it isn't in `activeModal` —
         // without this every keystroke on it drove the test underneath.
         // Also block keyboard when not in practice stage (e.g. typing in compete lobby chat)
-        keyboardBlocked={dossierOpen || analyticsOpen || donateOpen || studioOpen || (currentStage !== 'practice' && !raceActive)}
+        keyboardBlocked={dossierOpen || analyticsOpen || donateOpen || (currentStage !== 'practice' && !raceActive)}
         raceActive={raceActive}
         theme={theme}
         tetrisEffect={tetrisEffect}
@@ -2249,7 +2448,7 @@ function MainApp() {
         onReset={handleReset}
         onExitMicroDrill={exitMicroDrill}
         onChargeHexEnergy={race.chargeHexEnergy}
-        activeHexes={isSabotagePreview ? testHexes : race.activeHexes}
+        activeHexes={testHexes.length > 0 ? testHexes : race.activeHexes}
       />
       <div
         className={`h-screen overflow-hidden theme-transition transition-colors duration-700 ${theme.bg} font-mono selection:bg-transparent outline-none flex flex-col items-center relative`}
@@ -2285,7 +2484,7 @@ function MainApp() {
               full-viewport filtered element, which keeps a promoted, filtered layer
               alive and composited on every frame no matter what is on top of it.
               Unmounting is the only way to stop paying for it. */}
-          {dossierOpen || analyticsOpen || donateOpen || studioOpen ? null : themeIndex === -1 && wallpaperUrl ? (
+          {dossierOpen || analyticsOpen || donateOpen ? null : themeIndex === -1 && wallpaperUrl ? (
             <motion.div
               key="custom-bg"
               initial={{ opacity: 0 }}
@@ -2321,10 +2520,12 @@ function MainApp() {
                   fragment shader (three octaves of simplex noise), so it is the
                   most expensive thing running on that route. `activeModal`
                   doesn't cover this case: the dossier is a page, not a dialog. */}
-              <CosmicLiquidShader
-                theme={theme}
-                isPaused={Boolean(activeModal) || dossierOpen || analyticsOpen || donateOpen || studioOpen || isAcademyMode || stageOverlaySettled || isStageTransitioning || (shaderConfig.activeTypingThrottle && typing.phase === 'TYPING')}
-              />
+              <Suspense fallback={null}>
+                <CosmicLiquidShader
+                  theme={theme}
+                  isPaused={Boolean(activeModal) || dossierOpen || analyticsOpen || donateOpen || isAcademyMode || stageOverlaySettled || isStageTransitioning || (shaderConfig.activeTypingThrottle && typing.phase === 'TYPING')}
+                />
+              </Suspense>
             </motion.div>
           )}
         </AnimatePresence>
@@ -2342,25 +2543,16 @@ function MainApp() {
           activeTitle={activeTitle}
           dailyStreak={dailyStreak}
           isLoggedIn={isLoggedIn}
-          unlockedAchievements={rpg.unlockedAchievements}
           onOpenProfile={handleOpenProfile}
           onOpenAcademy={enterAcademy}
           onOpenPractice={handleOpenPractice}
-          onOpenTrophies={handleOpenTrophies}
           onOpenRace={handleOpenRace}
           onOpenSocial={handleOpenSocial}
           onOpenComms={handleOpenComms}
-          onOpenSettings={handleOpenSettings}
           onOpenDailyQuests={handleOpenDailyQuests}
-          onOpenDonate={() => {
-            // Donations are a page, not a dialog — no modal cleanup needed.
-            navigate('/donate');
-          }}
-          onOpenStudio={() => {
-            navigate('/studio');
-          }}
-          activePage={studioOpen ? 'studio' : analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
-          shouldHide={shouldHideClutter || studioOpen}
+          onOpenDonate={handleOpenDonate}
+          activePage={analyticsOpen || dossierOpen ? 'dossier' : donateOpen ? 'donate' : currentStage}
+          shouldHide={shouldHideClutter}
         />
 
         {/* Noise texture overlay removed to fix GPU rendering white screen bug */}
@@ -2411,19 +2603,7 @@ function MainApp() {
             It sits outside the stage `AnimatePresence` because it is not one of
             the three stages — the presence group there only exists to give the
             stage swap a direction. */}
-        {studioOpen ? (
-          <Suspense fallback={
-            <div className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest bg-[#060608]">
-              CALIBRATING STUDIO ENVIRONMENT...
-            </div>
-          }>
-            <TypeNovaStudio
-              onBack={() => navigate('/')}
-              theme={theme}
-              onNavigate={(path) => navigate(path)}
-            />
-          </Suspense>
-        ) : donateOpen ? (
+        {donateOpen ? (
           <Suspense fallback={
             <div className="fixed inset-0 top-[var(--nav-h)] z-[var(--z-content)] flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest bg-[#080809]">
               INITIALIZING PATRON VAULT...
@@ -2508,20 +2688,22 @@ function MainApp() {
                     }`}
                   >
                     {raceActive && (
-                      <RaceTrack
-                        players={race.players}
-                        selfId={race.selfId ?? ''}
-                        theme={theme}
-                        roomCode={race.code}
-                        targetLength={typing.targetText.length}
-                        myProgress={progressPercent}
-                        myWpm={typing.wpm}
-                        myAccuracy={typing.accuracy}
-                        phase={typing.phase}
-                        countdown={typing.countdownTimer}
-                      />
+                      <Suspense fallback={null}>
+                        <RaceTrack
+                          players={race.players}
+                          selfId={race.selfId ?? ''}
+                          theme={theme}
+                          roomCode={race.code}
+                          targetLength={typing.targetText.length}
+                          myProgress={progressPercent}
+                          myWpm={typing.wpm}
+                          myAccuracy={typing.accuracy}
+                          phase={typing.phase}
+                          countdown={typing.countdownTimer}
+                        />
+                      </Suspense>
                     )}
-                    <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-start gap-6 lg:gap-8 xl:gap-10 2xl:gap-12 transition-[margin,padding] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] 3xl:grid-cols-[minmax(0,1fr)_460px] mt-2 sm:mt-4 pb-16'}`}>
+                    <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-start gap-6 lg:gap-8 xl:gap-10 2xl:gap-12 transition-[margin,padding] duration-500 ease-fluid ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] 3xl:grid-cols-[minmax(0,1fr)_460px] mt-2 sm:mt-4 pb-16'}`}>
                       <PracticeArena
                         game={game}
                         typing={typing}
@@ -2545,32 +2727,34 @@ function MainApp() {
                         dueWordsCount={wordWeakness.dueCount}
                         onTrainDue={startDueWordsDrill}
                         raceActive={raceActive || isSabotagePreview}
-                        hexEnergy={isSabotagePreview ? testHexEnergy : race.hexEnergy}
-                        activeHexes={isSabotagePreview ? testHexes : race.activeHexes}
+                        hexEnergy={testHexes.length > 0 ? testHexEnergy : race.hexEnergy}
+                        activeHexes={testHexes.length > 0 ? testHexes : race.activeHexes}
                         onCastHex={handleArenaCastHex}
                         playSfx={handleArenaPlaySfx}
                       />
 
-                      <LeaderboardSidebar
-                        activeTitle={activeTitle}
-                        leaderboardClass={leaderboardClass}
-                        theme={theme}
-                        boardTab={boardTab}
-                        isLoggedIn={isLoggedIn}
-                        leaderboard={leaderboard}
-                        dailyBoard={dailyBoard}
-                        friendsBoard={friendsBoard}
-                        modeBoard={modeBoard}
-                        modeKey={boardModeKey}
-                        modeUnavailable={modeBoardUnavailable}
-                        currentUsername={cloud.username}
-                        onTabChange={handleBoardTabChange}
-                        onProfileClick={handleOpenProfile}
-                        onRaceGhost={handleSelectRival}
-                        onChallengeFriend={handleBoardChallengeFriend}
-                        onRemoveFriend={handleBoardRemoveFriend}
-                        enabled={practiceActive}
-                      />
+                      <Suspense fallback={null}>
+                        <LeaderboardSidebar
+                          activeTitle={activeTitle}
+                          leaderboardClass={leaderboardClass}
+                          theme={theme}
+                          boardTab={boardTab}
+                          isLoggedIn={isLoggedIn}
+                          leaderboard={leaderboard}
+                          dailyBoard={dailyBoard}
+                          friendsBoard={friendsBoard}
+                          modeBoard={modeBoard}
+                          modeKey={boardModeKey}
+                          modeUnavailable={modeBoardUnavailable}
+                          currentUsername={cloud.username}
+                          onTabChange={handleBoardTabChange}
+                          onProfileClick={handleOpenProfile}
+                          onRaceGhost={handleSelectRival}
+                          onChallengeFriend={handleBoardChallengeFriend}
+                          onRemoveFriend={handleBoardRemoveFriend}
+                          enabled={practiceActive}
+                        />
+                      </Suspense>
                     </main>
                   </div>
                 </motion.div>
@@ -2657,51 +2841,57 @@ function MainApp() {
                   inert={!competeActive}
                 >
                   <div className="w-full max-w-[var(--w-wide)] mx-auto px-2 md:px-6 2xl:px-10 pt-4 pb-[calc(var(--dock-h)+1rem)] flex flex-col min-h-full">
-                    {race.status === 'idle' || race.status === 'joining' ? (
-                      <CompeteEntryScreen
-                        username={cloud.username || 'Player'}
-                        theme={theme}
-                        themeTextClass={theme.text}
-                        defaultRoomSize={race.roomSize || 4}
-                        isBusy={race.status === 'joining'}
-                        error={race.error}
-                        multiplayerAvailable={!!supabase}
-                        emptyRoomCode={race.emptyRoomCode}
-                        quickMatchSlot={competeQuickMatchSlot}
-                        sidebarSlot={competeSidebarSlot}
-                        onHostCode={handleCompeteHostCode}
-                        onCreate={handleCompeteCreate}
-                        onJoin={handleCompeteJoin}
-                        onBack={handleCompeteBack}
-                      />
-                    ) : (
-                      <LobbyScreen
-                        activeTitle={activeTitle}
-                        code={race.code}
-                        players={race.players}
-                        roomSize={race.roomSize}
-                        selfId={race.selfId ?? ''}
-                        isHost={race.isHost}
-                        lobbyConfig={race.lobbyConfig}
-                        updateLobbyConfig={race.updateLobbyConfig}
-                        updateRoomSize={race.updateRoomSize}
-                        chatMessages={race.chatMessages}
-                        sendChatMessage={race.sendChatMessage}
-                        onStart={handleLobbyStart}
-                        onLeave={handleRaceLeave}
-                        theme={theme}
-                        themeTextClass={theme.text}
-                        isJoining={false}
-                        error={race.error}
-                        countdown={race.countdown}
-                        connection={race.connection}
-                        onToggleReady={race.setReady}
-                        friends={friendsState.friends}
-                        friendsLoading={friendsState.loading}
-                        isLoggedIn={isLoggedIn}
-                        onInviteFriend={handleInviteFriendToRoom}
-                      />
-                    )}
+                    <Suspense fallback={
+                      <div className="w-full py-24 flex items-center justify-center font-mono text-xs text-zinc-500 font-bold uppercase tracking-widest">
+                        CONNECTING TO MULTIPLAYER ARENA...
+                      </div>
+                    }>
+                      {race.status === 'idle' || race.status === 'joining' ? (
+                        <CompeteEntryScreen
+                          username={cloud.username || 'Player'}
+                          theme={theme}
+                          themeTextClass={theme.text}
+                          defaultRoomSize={race.roomSize || 4}
+                          isBusy={race.status === 'joining'}
+                          error={race.error}
+                          multiplayerAvailable={!!supabase}
+                          emptyRoomCode={race.emptyRoomCode}
+                          quickMatchSlot={competeQuickMatchSlot}
+                          sidebarSlot={competeSidebarSlot}
+                          onHostCode={handleCompeteHostCode}
+                          onCreate={handleCompeteCreate}
+                          onJoin={handleCompeteJoin}
+                          onBack={handleCompeteBack}
+                        />
+                      ) : (
+                        <LobbyScreen
+                          activeTitle={activeTitle}
+                          code={race.code}
+                          players={race.players}
+                          roomSize={race.roomSize}
+                          selfId={race.selfId ?? ''}
+                          isHost={race.isHost}
+                          lobbyConfig={race.lobbyConfig}
+                          updateLobbyConfig={race.updateLobbyConfig}
+                          updateRoomSize={race.updateRoomSize}
+                          chatMessages={race.chatMessages}
+                          sendChatMessage={race.sendChatMessage}
+                          onStart={handleLobbyStart}
+                          onLeave={handleRaceLeave}
+                          theme={theme}
+                          themeTextClass={theme.text}
+                          isJoining={false}
+                          error={race.error}
+                          countdown={race.countdown}
+                          connection={race.connection}
+                          onToggleReady={race.setReady}
+                          friends={friendsState.friends}
+                          friendsLoading={friendsState.loading}
+                          isLoggedIn={isLoggedIn}
+                          onInviteFriend={handleInviteFriendToRoom}
+                        />
+                      )}
+                    </Suspense>
                   </div>
                 </motion.div>
                 );
@@ -2719,7 +2909,8 @@ function MainApp() {
           onOpenSettings={handleOpenSettings}
           onOpenChangelog={handleOpenChangelog}
           onOpenWhatsNew={handleOpenWhatsNew}
-          latestVersion={CHANGELOG[0].version}
+          onOpenGodMode={() => openModal('godMode')}
+          latestVersion={APP_VERSION}
           cloud={cloud}
           auth={auth}
           avatarId={cosmetics.avatarId}
@@ -2728,8 +2919,17 @@ function MainApp() {
         />
 
         {/* Consolidated Modals & Overlays */}
-        <AppModalManager
-          activeModal={activeModal}
+        {Boolean(
+          activeModal ||
+          isAruOpen ||
+          challenges.pendingChallenge ||
+          cloud.status === 'needs-username' ||
+          (typing.phase === 'COUNTDOWN' && !raceActive) ||
+          rpg.achievementQueue.length > 0
+        ) && (
+          <Suspense fallback={null}>
+            <AppModalManager
+            activeModal={activeModal}
           theme={theme}
           themeIndex={themeIndex}
           soundProfile={soundProfile}
@@ -2794,8 +2994,16 @@ function MainApp() {
           onPlayPreviewSound={handlePlayPreviewSound}
           onAcceptChallenge={handleAcceptChallenge}
           onDeclineChallenge={handleDeclineChallenge}
+          onTriggerTestHex={handleTriggerTestHex}
+          onClearTestHexes={handleClearTestHexes}
+          onSetTestHexEnergy={setTestHexEnergy}
+          isBotRunning={isBotRunning}
+          onToggleBot={handleToggleBot}
+          onInstantFinish={handleInstantFinish}
           raceActive={raceActive}
         />
+          </Suspense>
+        )}
       </div>
     </>
   );
@@ -2818,7 +3026,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isGuest = localStorage.getItem('guestMode') === 'true';
+  const isGuest = appStorage.getBoolean(StorageKeys.GUEST_MODE, false);
 
   if (!session && !isGuest) {
     return <Navigate to="/login" replace />;
@@ -2827,9 +3035,73 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PageMetaSync() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    let title = 'TypeNova | Next-Gen Gamified Typing Platform';
+    let description = 'Next-Gen Gamified Typing Platform with AI Coach, RPG CyberHands, sensory soundscapes, and global multiplayer cyber racing.';
+
+    if (path === '/login') {
+      title = 'Login & Operator Access | TypeNova';
+      description = 'Sign in or enter as Guest to access the TypeNova terminal, sync stats, and unlock CyberHands.';
+    } else if (path === '/donate') {
+      title = 'Patron Vault & Sovereign Backing | TypeNova';
+      description = 'Support independent, ad-free development of TypeNova. Unlock exclusive patron titles and cosmic cosmetics.';
+    } else if (path.startsWith('/operator')) {
+      const parts = path.split('/').filter(Boolean);
+      const isAnalytics = parts.includes('analytics');
+      const username = parts[1] && parts[1] !== 'analytics' ? parts[1] : null;
+      if (username) {
+        title = isAnalytics 
+          ? `${username} — Operator Analytics | TypeNova` 
+          : `${username} — Operator Dossier | TypeNova`;
+        description = `Inspect ${username}'s typing telemetry, CPI mastery grade, burst speed, and CyberHands equipment on TypeNova.`;
+      } else if (isAnalytics) {
+        title = 'Operator Analytics | TypeNova';
+        description = 'Deep dive into your keystroke telemetry, speed burst graphs, and fatigue curves.';
+      } else {
+        title = 'Operator Dossier | TypeNova';
+        description = 'Your personal typing dossier, personal best records, quest milestones, and RPG loadouts.';
+      }
+    }
+
+    document.title = title;
+
+    const descMeta = document.querySelector('meta[name="description"]');
+    if (descMeta) descMeta.setAttribute('content', description);
+
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', title);
+
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', description);
+
+    const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twitterTitle) twitterTitle.setAttribute('content', title);
+
+    const twitterDesc = document.querySelector('meta[name="twitter:description"]');
+    if (twitterDesc) twitterDesc.setAttribute('content', description);
+
+    const canonical = document.querySelector('link[rel="canonical"]');
+    const fullUrl = `https://typenova.app${path === '/' ? '' : path}`;
+    if (canonical) canonical.setAttribute('href', fullUrl);
+
+    const ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', fullUrl);
+
+    const twitterUrl = document.querySelector('meta[name="twitter:url"]');
+    if (twitterUrl) twitterUrl.setAttribute('content', fullUrl);
+  }, [location.pathname]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <PageMetaSync />
       <Routes>
         <Route path="/" element={<AuthGuard><MainApp /></AuthGuard>} />
         {/*
@@ -2844,8 +3116,6 @@ export default function App() {
         <Route path="/operator/:username" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route path="/operator/:username/analytics" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route path="/donate" element={<AuthGuard><MainApp /></AuthGuard>} />
-        <Route path="/studio" element={<AuthGuard><MainApp /></AuthGuard>} />
-        <Route path="/showcase" element={<AuthGuard><MainApp /></AuthGuard>} />
         <Route
           path="/login"
           element={

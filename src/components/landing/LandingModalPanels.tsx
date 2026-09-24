@@ -1,6 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CHANGELOG, type ChangelogEntry } from '@/data/changelog';
 import { supabase } from '@/lib/supabase';
+import { 
+  runSyntheticHealthCheck, 
+  type SystemHealthReport, 
+  getRecentHealthSignals, 
+  subscribeHealthSignals, 
+  type HealthSignal 
+} from '@/lib/healthMonitor';
+import { THEMES, THEME_KEYS } from '@/data/themes';
 import { 
   Send, 
   CheckCircle2, 
@@ -17,8 +25,15 @@ import {
   Cpu,
   WifiOff,
   KeyRound,
-  Zap
+  Zap,
+  Radio,
+  Database,
+  Volume2,
+  HardDrive,
+  RotateCcw,
+  Activity
 } from 'lucide-react';
+
 
 /* ─── 1. CONTACT & SUPPORT PANEL ───────────────────────────────────────── */
 
@@ -469,3 +484,355 @@ export function FAQPanel() {
     </div>
   );
 }
+
+/* ─── 4. SYSTEM STATUS & LIVE TELEMETRY PANEL ───────────────────────────── */
+
+function getActiveThemeGlow(): string {
+  if (typeof window === 'undefined') return '56, 189, 248';
+  try {
+    const rawThemeIdx = localStorage.getItem('typenova_theme_index');
+    if (rawThemeIdx !== null) {
+      const idx = parseInt(rawThemeIdx, 10);
+      const key = THEME_KEYS[idx] || THEME_KEYS[0];
+      if (THEMES[key]?.glowPrimary) return THEMES[key].glowPrimary;
+    }
+    const wallpaperThemeRaw = localStorage.getItem('typenova_wallpaper_theme');
+    if (wallpaperThemeRaw) {
+      const parsed = JSON.parse(wallpaperThemeRaw);
+      if (parsed.glowPrimary) return parsed.glowPrimary;
+    }
+  } catch { /* ignore */ }
+  return '56, 189, 248';
+}
+
+export function SystemStatusPanel() {
+  const [report, setReport] = useState<SystemHealthReport | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [lastCheckTime, setLastCheckTime] = useState<Date | null>(null);
+  const [activeGlow, setActiveGlow] = useState<string>('56, 189, 248');
+  const [signals, setSignals] = useState<readonly HealthSignal[]>(() => getRecentHealthSignals());
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setActiveGlow(getActiveThemeGlow());
+  }, []);
+
+  // Subscribe to live incoming health signals across race, ai, and auth
+  useEffect(() => {
+    const unsubscribe = subscribeHealthSignals(() => {
+      if (isMountedRef.current) {
+        setSignals([...getRecentHealthSignals()]);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const executeDiagnostics = useCallback(async () => {
+    setIsRunning(true);
+    try {
+      const res = await runSyntheticHealthCheck();
+      if (!isMountedRef.current) return;
+      setReport(res);
+      setLastCheckTime(new Date());
+      setSignals([...getRecentHealthSignals()]);
+    } finally {
+      if (isMountedRef.current) {
+        setIsRunning(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    executeDiagnostics();
+  }, [executeDiagnostics]);
+
+  const renderBadge = (status?: 'pass' | 'warn' | 'fail', label?: string) => {
+    if (status === 'pass') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-none bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          {label || 'OPERATIONAL'}
+        </span>
+      );
+    }
+    if (status === 'warn') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-none bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          {label || 'DEGRADED'}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-none bg-rose-500/10 text-rose-400 border border-rose-500/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+        {label || 'OFFLINE'}
+      </span>
+    );
+  };
+
+  const overall = report?.overall || 'healthy';
+
+  return (
+    <div className="space-y-5 text-sm font-sans">
+      {/* Top Banner Card with Dynamic Glow */}
+      <div 
+        className="p-4 rounded-xl border bg-black/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all"
+        style={{
+          borderColor: `rgba(${activeGlow}, 0.25)`,
+          boxShadow: `0 0 25px rgba(${activeGlow}, 0.08)`
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div 
+            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border"
+            style={{
+              backgroundColor: `rgba(${activeGlow}, 0.15)`,
+              borderColor: `rgba(${activeGlow}, 0.3)`,
+              color: `rgb(${activeGlow})`
+            }}
+          >
+            <Activity size={18} className={isRunning ? 'animate-spin' : ''} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-white font-bold text-sm tracking-wide">
+                {overall === 'healthy' ? 'ALL SYSTEMS OPERATIONAL' : overall === 'degraded' ? 'SYSTEMS DEGRADED' : 'SYSTEM CRITICAL'}
+              </span>
+              {renderBadge(overall === 'healthy' ? 'pass' : overall === 'degraded' ? 'warn' : 'fail')}
+            </div>
+            <div className="text-[11px] font-mono text-zinc-400 mt-0.5">
+              {lastCheckTime ? `Last probed: ${lastCheckTime.toLocaleTimeString()}` : 'Initializing telemetry...'}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={executeDiagnostics}
+          disabled={isRunning}
+          className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-lg font-mono text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer self-start sm:self-center shrink-0 border"
+          style={{
+            backgroundColor: `rgba(${activeGlow}, 0.18)`,
+            borderColor: `rgba(${activeGlow}, 0.4)`,
+            color: `rgb(${activeGlow})`,
+            boxShadow: `0 0 15px rgba(${activeGlow}, 0.15)`
+          }}
+        >
+          {isRunning ? (
+            <>
+              <Loader2 size={13} className="animate-spin" />
+              <span>Probing...</span>
+            </>
+          ) : (
+            <>
+              <RotateCcw size={13} />
+              <span>Run Diagnostics</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Subsystem Metrics Matrix */}
+      <div className="space-y-2.5">
+        {/* 1. Multiplayer Relay Engine */}
+        <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/15 transition-colors flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div 
+              className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+              style={{
+                backgroundColor: `rgba(${activeGlow}, 0.12)`,
+                color: `rgb(${activeGlow})`
+              }}
+            >
+              <Radio size={14} />
+            </div>
+            <div>
+              <div className="text-white font-medium text-xs tracking-wide">Multiplayer Relay Engine</div>
+              <div className="text-zinc-400 text-[11px] font-mono mt-0.5">
+                {report?.checks.network.detail || 'WebSocket low-latency cluster'}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            {renderBadge(report?.checks.network.status, report?.checks.network.latencyMs ? `${report.checks.network.latencyMs}ms Ping` : undefined)}
+          </div>
+        </div>
+
+        {/* 2. Supabase Cloud Database & Auth */}
+        <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/15 transition-colors flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div 
+              className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+              style={{
+                backgroundColor: `rgba(${activeGlow}, 0.12)`,
+                color: `rgb(${activeGlow})`
+              }}
+            >
+              <Database size={14} />
+            </div>
+            <div>
+              <div className="text-white font-medium text-xs tracking-wide">Supabase Database &amp; Auth</div>
+              <div className="text-zinc-400 text-[11px] font-mono mt-0.5">
+                {report?.checks.auth.detail || 'Row-level security synced'}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            {renderBadge(report?.checks.auth.status)}
+          </div>
+        </div>
+
+        {/* 3. AI Inference Pipeline */}
+        <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/15 transition-colors flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div 
+              className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+              style={{
+                backgroundColor: `rgba(${activeGlow}, 0.12)`,
+                color: `rgb(${activeGlow})`
+              }}
+            >
+              <Cpu size={14} />
+            </div>
+            <div>
+              <div className="text-white font-medium text-xs tracking-wide">AI Inference Pipeline (Aru Coach)</div>
+              <div className="text-zinc-400 text-[11px] font-mono mt-0.5">
+                {report?.checks.ai.detail || 'Zero-Knowledge direct client SSL'}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            {renderBadge(report?.checks.ai.status)}
+          </div>
+        </div>
+
+        {/* 4. Audio Synthesizer */}
+        <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/15 transition-colors flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div 
+              className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+              style={{
+                backgroundColor: `rgba(${activeGlow}, 0.12)`,
+                color: `rgb(${activeGlow})`
+              }}
+            >
+              <Volume2 size={14} />
+            </div>
+            <div>
+              <div className="text-white font-medium text-xs tracking-wide">Web Audio Synthesizer Engine</div>
+              <div className="text-zinc-400 text-[11px] font-mono mt-0.5">
+                {report?.checks.audio.detail || 'Low-latency key click generation'}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            {renderBadge(report?.checks.audio.status)}
+          </div>
+        </div>
+
+        {/* 5. Client Storage & Quota */}
+        <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/15 transition-colors flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div 
+              className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+              style={{
+                backgroundColor: `rgba(${activeGlow}, 0.12)`,
+                color: `rgb(${activeGlow})`
+              }}
+            >
+              <HardDrive size={14} />
+            </div>
+            <div>
+              <div className="text-white font-medium text-xs tracking-wide">Client Storage &amp; Cache Quota</div>
+              <div className="text-zinc-400 text-[11px] font-mono mt-0.5">
+                {report?.checks.storage.detail || 'Local & Session storage operational'}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            {renderBadge(report?.checks.storage.status)}
+          </div>
+        </div>
+      </div>
+
+      {/* Live Health Signal Stream & Incident Buffer */}
+      <div className="p-3.5 rounded-xl border bg-black/30 border-white/5 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+            <Radio size={12} style={{ color: `rgb(${activeGlow})` }} />
+            <span>Telemetry Bus &amp; Signal Stream</span>
+          </div>
+          <span className="text-[10px] font-mono text-zinc-500">
+            {signals.length} {signals.length === 1 ? 'event' : 'events'} captured
+          </span>
+        </div>
+
+        {signals.length === 0 ? (
+          <div className="p-3 rounded-lg bg-white/[0.01] border border-white/5 text-center text-[11px] font-mono text-zinc-500">
+            No critical client subsystem incidents recorded in local buffer.
+          </div>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.1)_transparent]">
+            {signals.map((sig) => (
+              <div 
+                key={sig.id} 
+                className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 flex items-start justify-between gap-3 text-xs"
+              >
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/10">
+                      {sig.subsystem}
+                    </span>
+                    <span className="font-mono text-[10px] text-zinc-500">
+                      {new Date(sig.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="text-zinc-300 text-[11px] font-sans truncate">
+                    {sig.message}
+                  </div>
+                </div>
+
+                {sig.recoveryAction && sig.recoveryLabel && (
+                  <button
+                    type="button"
+                    onClick={() => sig.recoveryAction?.()}
+                    className="shrink-0 px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border cursor-pointer transition-opacity hover:opacity-90"
+                    style={{
+                      backgroundColor: `rgba(${activeGlow}, 0.15)`,
+                      borderColor: `rgba(${activeGlow}, 0.3)`,
+                      color: `rgb(${activeGlow})`
+                    }}
+                  >
+                    {sig.recoveryLabel}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Warnings Banner if any */}
+      {report?.warnings && report.warnings.length > 0 && (
+        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-mono space-y-1">
+          <div className="font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <AlertCircle size={13} />
+            <span>Diagnostics Advisory</span>
+          </div>
+          {report.warnings.map((w, i) => (
+            <div key={i} className="pl-4 text-zinc-300 text-[11px]">• {w}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+

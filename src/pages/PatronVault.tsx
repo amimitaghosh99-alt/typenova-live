@@ -14,7 +14,6 @@ import {
   Server,
   BookOpen,
   Code2,
-  MessageSquareHeart,
   CreditCard,
   DollarSign,
   Lock,

@@ -1,6 +1,6 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
 import {
-  Copy, Link, Check, UserPlus, Play, LogOut, Settings, Crown,
+  Copy, Link, Check, UserPlus, Play, LogOut, Crown,
   Radio, MessageSquare, Send, Sparkles, WifiOff, Rocket, Zap, Flame, Trophy, Skull, Crosshair, AlertTriangle, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

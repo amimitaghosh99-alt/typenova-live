@@ -37,3 +37,5 @@ dist-ssr
 # Scratch and CLI cache
 scratch/
 supabase/.temp/
+screenshot_*.png
+videos/

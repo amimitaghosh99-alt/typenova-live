@@ -107,12 +107,12 @@ export const BugReportsModal = React.memo(function BugReportsModal({ supabase, o
                     </button>
                   </div>
 
-                  {report.screenshot_url && (
+                  {report.screenshot_url && /^https?:\/\//i.test(report.screenshot_url) && (
                     <div className="mt-2 rounded-xl border border-zinc-800 overflow-hidden bg-black/50 p-2">
                       <div className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mb-2 flex items-center gap-2">
                         <ImageIcon size={12} /> Attached Evidence
                       </div>
-                      <a href={report.screenshot_url} target="_blank" rel="noreferrer" className="block w-full">
+                      <a href={report.screenshot_url} target="_blank" rel="noreferrer noopener" className="block w-full">
                         <img 
                           src={report.screenshot_url} 
                           alt="Bug Screenshot" 

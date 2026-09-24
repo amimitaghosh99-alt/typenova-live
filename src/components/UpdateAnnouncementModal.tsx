@@ -8,10 +8,16 @@ import {
   Trophy, 
   ShieldCheck, 
   ArrowRight, 
-  ExternalLink 
+  ExternalLink,
+  Activity,
+  Lock,
+  UserCheck,
+  Maximize2,
+  ShieldAlert
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Theme } from '@/data/constants';
+import { APP_VERSION } from '@/data/version';
 
 interface UpdateAnnouncementModalProps {
   theme: Theme;
@@ -21,40 +27,40 @@ interface UpdateAnnouncementModalProps {
 
 const HIGHLIGHTS = [
   {
-    icon: Cpu,
-    tag: 'HARDWARE',
-    title: 'WebHID Esports Benchmark',
-    desc: 'Direct raw USB polling rate inspection measuring true 1000Hz / 8000Hz device reporting rates, packet jitter deltas, and debounce latency scoring.',
+    icon: Activity,
+    tag: 'TELEMETRY',
+    title: 'Synthetic Client Health Diagnostics',
+    desc: 'Sub-20ms proactive subsystem probing: Storage quota, Web Audio sample rate, low-latency WebSocket ping, Supabase token validity, and BYOK AI endpoints.',
   },
   {
-    icon: HeartHandshake,
-    tag: 'COMMUNITY',
-    title: 'High-End Patron Vault',
-    desc: 'Consolidated supporter surface at /donate with live SVG community progress ring ($2,000 goal), milestone rail, UPI QR codes, and Patron Wall.',
+    icon: Lock,
+    tag: 'PRIVACY',
+    title: 'Zero-Knowledge BYOK AI Direct SSL',
+    desc: 'Direct browser HTTPS inference to Groq, OpenAI, Gemini, and OpenRouter. Keys never transit backend servers, with dual session/local storage toggles.',
+  },
+  {
+    icon: UserCheck,
+    tag: 'CONVERSION',
+    title: 'Guest First-Win 30s Speed Test',
+    desc: 'Frictionless guest entry CTA, instant benchmark telemetry banner, 1-click Google OAuth score ingestion, and glassmorphic feature showcases.',
+  },
+  {
+    icon: Maximize2,
+    tag: 'DISPLAY',
+    title: 'In-Webapp Display Scaling & 1:1 OS DPI',
+    desc: 'Granular 70%-150% zoom engine with instant presets and 1-click Windows 125%/150% high-DPI counteraction for pixel-perfect clarity.',
+  },
+  {
+    icon: ShieldAlert,
+    tag: 'SECURITY',
+    title: '9-Bug Hardening & Enterprise Headers',
+    desc: 'Adversarial defect resolution across storage cleanup, fetch abort timeouts, AudioContext limits, key regex masking, and nosniff/CSP headers.',
   },
   {
     icon: Zap,
     tag: 'MULTIPLAYER',
-    title: 'Tactical Cyber Sabotage',
-    desc: 'Real-time multiplayer sabotage dock in custom lobbies: deploy EMP scramblers, keystroke latency jitter, and HUD visual distortion on opponents.',
-  },
-  {
-    icon: BrainCircuit,
-    tag: 'INTELLIGENCE',
-    title: 'Leitner Word Weakness Trainer',
-    desc: 'Diagnostic engine tracking word hesitation delay and typo rates with 5-box Leitner spaced repetition and 1-click procedural target drills.',
-  },
-  {
-    icon: Trophy,
-    tag: 'PROGRESSION',
-    title: 'Operator Dossier & Hall of Legends',
-    desc: '20 prestige achievements, Catmull-Rom SVG trend sparklines, real-time IKI rhythm jitter inspector, and Ghost Shadow replay inspection.',
-  },
-  {
-    icon: ShieldCheck,
-    tag: 'ENGINE',
-    title: '27-Bug Zero-Defect Stability',
-    desc: 'Synchronous input refs, accurate keystroke-log WPM math, React AuthProvider singleton, zero layout thrashing, and 100% test pass rate.',
+    title: 'Tactical Cyber Sabotage & Signal Bus',
+    desc: 'Real-time sabotage dock in custom lobbies with EMP scramblers and input jitter, backed by typed proactive health telemetry.',
   },
 ];
 
@@ -66,12 +72,12 @@ export const UpdateAnnouncementModal = memo(function UpdateAnnouncementModal({
   const primaryRgb = theme.glowPrimary || '6, 182, 212';
 
   const handleDismiss = useCallback(() => {
-    localStorage.setItem('typenova_seen_version', 'v3.0.0');
+    localStorage.setItem('typenova_seen_version', APP_VERSION);
     onClose();
   }, [onClose]);
 
   const handleViewChangelog = useCallback(() => {
-    localStorage.setItem('typenova_seen_version', 'v3.0.0');
+    localStorage.setItem('typenova_seen_version', APP_VERSION);
     onClose();
     onOpenChangelog();
   }, [onClose, onOpenChangelog]);
@@ -130,15 +136,15 @@ export const UpdateAnnouncementModal = memo(function UpdateAnnouncementModal({
                 NEW MAJOR RELEASE
               </span>
               <span className="text-xs font-mono font-bold text-zinc-400">
-                v3.0.0 • September 2026
+                {APP_VERSION} • September 2026
               </span>
             </div>
 
             <h2 id="whats-new-title" className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              What's New in <span style={{ color: `rgb(${primaryRgb})` }}>TypeNova 3.0</span>
+              What's New in <span style={{ color: `rgb(${primaryRgb})` }}>TypeNova {APP_VERSION}</span>
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 font-medium max-w-xl">
-              Esports hardware diagnostics, high-end community patronage, tactical sabotage mechanics, and ergonomic spaced repetition.
+              Synthetic client diagnostics, Zero-Knowledge BYOK privacy, guest speed test onboarding, and in-webapp display scaling.
             </p>
           </div>
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Bot, RotateCcw, AlertTriangle, Square, Copy, Check, Zap } from 'lucide-react';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
-import { hasAIKey, AI_KEYS, PROVIDER_PRESETS } from '@/lib/aiClient';
+import { hasAIKey, PROVIDER_PRESETS, saveStoredAIKey } from '@/lib/aiClient';
 import {
   offlineRespond,
   parseActions,
@@ -217,7 +217,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
       }
 
       // Save the key and provider directly, then dispatch storage event
-      localStorage.setItem(AI_KEYS.byokKey, text);
+      saveStoredAIKey(text);
       capabilities.setProvider(url);
 
       let responseText = "Got it. I'm slotting this key into the mainframe now...\n\nNeural link established. Aru is waking up.";
@@ -249,7 +249,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
       }
 
       if (!isValid) {
-        localStorage.removeItem(AI_KEYS.byokKey);
+        saveStoredAIKey('');
       }
 
       let i = 0;

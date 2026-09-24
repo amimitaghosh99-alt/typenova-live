@@ -2,6 +2,10 @@ import { createContext, createElement, useCallback, useContext, useEffect, useSt
 import type { Session } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import { emitHealthSignal } from '@/lib/healthMonitor';
+
+
+
 
 interface AuthState {
   session: Session | null;
@@ -56,6 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }, (err: unknown) => {
       console.warn('[auth] getSession failed:', err);
+      emitHealthSignal({
+        type: 'auth_error',
+        severity: 'warning',
+        subsystem: 'auth',
+        message: err instanceof Error ? err.message : 'Failed to query Supabase auth session',
+      });
       if (!active) return;
       setSession(null);
       if (!hasOAuthCode) {

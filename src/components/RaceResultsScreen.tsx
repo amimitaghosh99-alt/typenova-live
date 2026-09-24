@@ -348,14 +348,9 @@ export function RaceResultsScreen({
 
       (async () => {
         try {
-          let { error, data } = await supabase.rpc('resolve_ranked_duel', { ...baseArgs, p_match_key: raceId ?? null });
-          // PGRST202 = no function with that signature, i.e. the dedupe migration
-          // hasn't been applied yet. Fall back so ranked keeps working (without
-          // double-resolution protection) rather than failing outright.
-          if (error?.code === 'PGRST202') {
-            console.warn('resolve_ranked_duel is missing p_match_key — apply migration 20260728000000_ranked_duel_dedupe.sql');
-            ({ error, data } = await supabase.rpc('resolve_ranked_duel', baseArgs));
-          }
+          // match_key is mandatory — use raceId or generate a fallback UUID
+          const matchKey = raceId || crypto.randomUUID();
+          const { error, data } = await supabase.rpc('resolve_ranked_duel', { ...baseArgs, p_match_key: matchKey });
 
           if (!error && typeof data === 'number') {
             if (isMounted) {

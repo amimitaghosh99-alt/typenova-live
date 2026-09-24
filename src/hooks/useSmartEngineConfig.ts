@@ -10,6 +10,13 @@ import {
   setAruDebriefPolicy as saveAruDebriefPolicy,
   getEngineTierStatus,
   chatCompletion,
+  getKeyPersistence,
+  setKeyPersistence as saveKeyPersistence,
+  getStoredAIKey,
+  saveStoredAIKey,
+  clearAllAIData,
+  redactApiKey,
+  type KeyPersistence,
   type AruPersona,
   type DebriefPolicy,
   type EngineTierStatus,
@@ -39,6 +46,9 @@ export interface SmartEngineConfig {
   debriefPolicy: DebriefPolicy;
   setDebriefPolicy: (p: DebriefPolicy) => void;
   engineTier: EngineTierStatus;
+  keyPersistence: KeyPersistence;
+  setKeyPersistence: (mode: KeyPersistence) => void;
+  clearKeyAndHistory: () => void;
   testConnection: (keyToUse?: string, urlToUse?: string) => Promise<void>;
   triggerAruPing: () => Promise<{ success: boolean; latency: number; reply: string }>;
   handleProviderSelect: (id: string) => void;
@@ -47,7 +57,8 @@ export interface SmartEngineConfig {
 }
 
 export function useSmartEngineConfig(): SmartEngineConfig {
-  const [byokKey, setByokKey] = useState(() => localStorage.getItem(AI_KEYS.byokKey) || '');
+  const [byokKey, setByokKey] = useState(() => getStoredAIKey());
+  const [keyPersistence, setKeyPersistenceState] = useState<KeyPersistence>(() => getKeyPersistence());
   const [byokUrl, setByokUrl] = useState(() => localStorage.getItem(AI_KEYS.byokUrl) || DEFAULT_BASE_URL);
   const [byokModel, setByokModel] = useState(() => localStorage.getItem(AI_KEYS.byokModel) || DEFAULT_MODEL);
 
@@ -76,6 +87,26 @@ export function useSmartEngineConfig(): SmartEngineConfig {
   const [debriefPolicy, setDebriefPolicyState] = useState<DebriefPolicy>(() => getAruDebriefPolicy());
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [isAutoFetching, setIsAutoFetching] = useState(false);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setByokKey(getStoredAIKey());
+      setKeyPersistenceState(getKeyPersistence());
+      const savedUrl = localStorage.getItem(AI_KEYS.byokUrl) || DEFAULT_BASE_URL;
+      setByokUrl(savedUrl);
+      const savedModel = localStorage.getItem(AI_KEYS.byokModel) || DEFAULT_MODEL;
+      setByokModel(savedModel);
+      setPersonaState(getAruPersona());
+      setDebriefPolicyState(getAruDebriefPolicy());
+    };
+
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('typenova_ai_sync', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('typenova_ai_sync', handleSync);
+    };
+  }, []);
 
   const setPersona = useCallback((p: AruPersona) => {
     setPersonaState(p);
@@ -121,6 +152,9 @@ export function useSmartEngineConfig(): SmartEngineConfig {
           errData = errObj?.error?.message || errObj?.error || `HTTP ${response.status}`;
         } catch {
           errData = `HTTP ${response.status}`;
+        }
+        if (keyToUse && keyToUse.length >= 8 && errData.includes(keyToUse)) {
+          errData = errData.replaceAll(keyToUse, redactApiKey(keyToUse));
         }
         throw new Error(errData);
       }
@@ -234,9 +268,23 @@ export function useSmartEngineConfig(): SmartEngineConfig {
     }
   };
 
+  const handlePersistenceChange = useCallback((mode: KeyPersistence) => {
+    setKeyPersistenceState(mode);
+    saveKeyPersistence(mode);
+  }, []);
+
+  const clearKeyAndHistory = useCallback(() => {
+    clearAllAIData();
+    setByokKey('');
+    setConnectionStatus('idle');
+    setConnectionError('');
+    setAvailableModels([]);
+    setWorkingModels([]);
+  }, []);
+
   const handleKeyChange = (val: string) => {
     setByokKey(val);
-    localStorage.setItem(AI_KEYS.byokKey, val);
+    saveStoredAIKey(val);
 
     let newProviderId = selectedProvider;
 
@@ -293,6 +341,9 @@ export function useSmartEngineConfig(): SmartEngineConfig {
     debriefPolicy,
     setDebriefPolicy,
     engineTier,
+    keyPersistence,
+    setKeyPersistence: handlePersistenceChange,
+    clearKeyAndHistory,
     testConnection,
     triggerAruPing,
     handleProviderSelect,

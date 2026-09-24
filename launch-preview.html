@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TypeNova — 60s Cinematic Launch Film</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #040507;
+      color: #f8fafc;
+      overflow-x: hidden;
+    }
+    .font-code { font-family: 'Fira Code', monospace; }
+    .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Double-bezel hardware styling */
+    .outer-chassis {
+      background: radial-gradient(130% 100% at 50% 0%, rgba(15, 23, 42, 0.95), rgba(4, 5, 8, 0.98));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 35px 80px -20px rgba(0, 0, 0, 0.95), 0 0 50px -10px rgba(0, 242, 254, 0.25);
+    }
+    .inner-viewport {
+      background: #06080D;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), inset 0 0 40px rgba(0, 242, 254, 0.05);
+    }
+
+    /* Glows & Lighting */
+    .cyan-glow {
+      box-shadow: 0 0 30px rgba(0, 242, 254, 0.45);
+    }
+    .text-glow-cyan {
+      text-shadow: 0 0 20px rgba(0, 242, 254, 0.8), 0 0 40px rgba(0, 242, 254, 0.3);
+    }
+    .text-glow-purple {
+      text-shadow: 0 0 20px rgba(168, 85, 247, 0.8), 0 0 40px rgba(168, 85, 247, 0.3);
+    }
+    .text-glow-green {
+      text-shadow: 0 0 20px rgba(34, 197, 94, 0.8);
+    }
+
+    /* CRT scanlines effect */
+    .scanlines {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+    }
+
+    /* Keycap 3D */
+    .keycap {
+      background: linear-gradient(180deg, #1e293b, #0f172a);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 6px 0 #020617, 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+      transition: all 0.08s ease;
+    }
+    .keycap.active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #020617, 0 0 25px rgba(0, 242, 254, 0.7);
+      border-color: #00f2fe;
+      color: #00f2fe;
+    }
+
+    @keyframes pulseCaret {
+      0%, 100% { opacity: 1; transform: scaleY(1); }
+      50% { opacity: 0; transform: scaleY(0.9); }
+    }
+    .caret-blink {
+      animation: pulseCaret 0.75s infinite ease-in-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-3px, 2px); }
+      40% { transform: translate(3px, -2px); }
+      60% { transform: translate(-2px, -3px); }
+      80% { transform: translate(2px, 3px); }
+    }
+    .glitch-shake {
+      animation: shake 0.25s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-3 sm:p-6 selection:bg-cyan-500/30">
+
+  <!-- Top Cinema Header & Audio Toggle -->
+  <header class="w-full max-w-5xl mb-4 flex flex-wrap items-center justify-between gap-3 px-2">
+    <div class="flex items-center gap-3">
+      <div class="flex h-3 w-3 relative">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+      </div>
+      <div>
+        <h1 class="text-sm font-extrabold tracking-wider font-mono-tech text-white uppercase flex items-center gap-2">
+          <span>TypeNova // Launch Film (60s Ultra)</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono">v3.0.1 PROMO</span>
+        </h1>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <button id="soundToggleBtn" class="px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-xs font-mono-tech transition-all flex items-center gap-2 text-slate-300">
+        <span id="soundIcon">🔊</span>
+        <span id="soundLabel">Sound: ON</span>
+      </button>
+
+      <button id="playBtn" class="px-5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 hover:from-cyan-300 hover:to-cyan-400 text-slate-950 font-extrabold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-500/25 active:scale-95">
+        <svg id="playIcon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <span id="playLabel">Play Film</span>
+      </button>
+
+      <button id="restartBtn" class="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-mono-tech transition-all text-slate-400 hover:text-white">
+        ↺ Restart
+      </button>
+    </div>
+  </header>
+
+  <!-- Video Player Chassis (Double-Bezel Design) -->
+  <main class="w-full max-w-5xl rounded-[2rem] p-2.5 outer-chassis relative">
+    <div class="relative w-full aspect-video rounded-[calc(2rem-0.625rem)] overflow-hidden inner-viewport select-none flex flex-col justify-between">
+      
+      <!-- Top HUD Header Inside Video -->
+      <div class="absolute top-0 left-0 right-0 p-4 z-40 flex items-center justify-between pointer-events-none bg-gradient-to-b from-black/80 via-black/30 to-transparent">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-mono-tech text-cyan-400 font-bold tracking-widest">⚡ TYPENOVA</span>
+          <span class="w-1 h-1 rounded-full bg-white/20"></span>
+          <span id="sceneTitleHud" class="text-xs font-mono-tech text-white/60 tracking-wider uppercase">ACT I: THE MONOTONY</span>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-mono-tech">
+          <span class="text-white/40">FPS: <span class="text-emerald-400 font-bold">144.0</span></span>
+          <span class="text-white/40">LATENCY: <span class="text-cyan-400 font-bold">&lt; 1.8ms</span></span>
+          <div class="px-2 py-0.5 rounded bg-white/10 text-white font-mono text-[11px]" id="hudTimer">00:00.0</div>
+        </div>
+      </div>
+
+      <!-- Scannable Progress Bar -->
+      <div class="absolute top-0 left-0 right-0 h-1 bg-white/10 z-50">
+        <div id="videoProgressBar" class="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 via-purple-500 to-emerald-400 w-0 transition-all duration-75"></div>
+      </div>
+
+      <!-- CRT Overlay & Ambient Grids -->
+      <div class="absolute inset-0 scanlines opacity-30 z-30"></div>
+      <div class="absolute inset-0 bg-[linear-gradient(to_right,#ffffff04_1px,transparent_1px),linear-gradient(to_bottom,#ffffff04_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] pointer-events-none"></div>
+
+      <!-- ========================================================================================= -->
+      <!-- ACT 1: THE MONOTONY (0.0s – 10.0s) -->
+      <!-- ========================================================================================= -->
+      <div id="act1" class="absolute inset-0 flex flex-col items-center justify-center p-8 text-center transition-all duration-700 opacity-100 z-20">
+        <div id="retroTestBox" class="w-full max-w-xl p-6 rounded-xl bg-slate-900/90 border border-slate-700/60 shadow-2xl transition-all duration-500">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-white/10 text-xs font-mono text-slate-400">
+            <span>classic-typing-test-2014.html</span>
+            <span class="text-amber-400">60 WPM • Latency: 48ms</span>
+          </div>
+          <p class="font-code text-base text-slate-400 text-left leading-relaxed">
+            The quick brown fox jumps over the lazy dog while your browser suffers from layout thrashing and input lag...
+          </p>
+          <div class="mt-4 flex items-center gap-2 text-xs font-mono text-slate-500">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>DOM Reflow Detected: 12 dropped frames</span>
+          </div>
+        </div>
+
+        <div id="act1GlitchText" class="mt-8 transition-opacity duration-300 opacity-0">
+          <span class="px-3 py-1 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-400 font-mono-tech text-xs tracking-widest uppercase">The Problem</span>
+          <h2 class="text-2xl md:text-4xl font-extrabold text-white mt-3 tracking-tight">
+            Typing tools haven't changed in <span class="text-rose-400 line-through">10 years</span>.
+          </h2>
+          <p class="text-sm font-mono-tech text-white/50 mt-1">Sluggish carets. Generic styling. Zero adrenaline.</p>
+        </div>
+      </div>
+
+      <!-- ========================================================================================= -->
+      <!-- ACT 2: THE REVELATION & THE ENGINE (10.0s – 22.0s) -->
+      <!-- ========================================================================================= -->
+      <div id="act2" class="absolute inset-0 flex flex-col items-center justify-center p-8 text-center transition-all duration-700 opacity-0 pointer-events-none z-20">
+        
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/40 bg-cyan-950/40 text-cyan-300 text-xs font-mono-tech mb-3">
+          <span>⚡ ENGINE REVOLUTION</span>
+          <span>•</span>
+          <span>ZERO LAYOUT REFLOW</span>
+        </div>
+
+        <h1 class="text-5xl md:text-7xl font-black tracking-tight text-white font-mono-tech text-glow-cyan">
+          TYPENOVA
+        </h1>
+        <p class="text-base text-slate-300 max-w-lg mt-2 font-medium">
+          The next-generation cybernetic typing platform engineered for competitive typists and engineers.
+        </p>
+
+        <!-- 3D Keycaps Demo Deck -->
+        <div class="mt-8 flex items-center justify-center gap-3 perspective-1000">
+          <div class="keycap w-14 h-14 rounded-xl flex flex-col items-center justify-center font-mono-tech font-bold text-sm" id="keyT">
+            <span>T</span>
+            <span class="text-[9px] text-white/40">01</span>
+          </div>
+          <div class="keycap w-14 h-14 rounded-xl flex flex-col items-center justify-center font-mono-tech font-bold text-sm" id="keyY">
+            <span>Y</span>
+            <span class="text-[9px] text-white/40">02</span>
+          </div>
+          <div class="keycap w-14 h-14 rounded-xl flex flex-col items-center justify-center font-mono-tech font-bold text-sm" id="keyP">
+            <span>P</span>
+            <span class="text-[9px] text-white/40">03</span>
+          </div>
+          <div class="keycap w-14 h-14 rounded-xl flex flex-col items-center justify-center font-mono-tech font-bold text-sm" id="keyE">
+            <span>E</span>
+            <span class="text-[9px] text-white/40">04</span>
+          </div>
+        </div>
+
+        <!-- Metric Badges -->
+        <div class="mt-8 grid grid-cols-3 gap-3 max-w-lg w-full">
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+            <div class="text-xl font-black font-mono-tech text-cyan-400">&lt; 1.8ms</div>
+            <div class="text-[10px] uppercase font-mono-tech text-slate-400 mt-0.5">Input Latency</div>
+          </div>
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+            <div class="text-xl font-black font-mono-tech text-purple-400">144 FPS</div>
+            <div class="text-[10px] uppercase font-mono-tech text-slate-400 mt-0.5">Fluid Caret</div>
+          </div>
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+            <div class="text-xl font-black font-mono-tech text-emerald-400">100%</div>
+            <div class="text-[10px] uppercase font-mono-tech text-slate-400 mt-0.5">Offline PWA</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================================================= -->
+      <!-- ACT 3: THE CYBERNETIC ARSENAL (22.0s – 38.0s) -->
+      <!-- ========================================================================================= -->
+      <div id="act3" class="absolute inset-0 flex flex-col items-center justify-center p-6 sm:p-8 transition-all duration-700 opacity-0 pointer-events-none z-20">
+        
+        <!-- Tab Sub-selector indicator -->
+        <div class="flex items-center gap-2 mb-4">
+          <div id="tabCode" class="px-3 py-1 rounded-lg text-xs font-mono-tech bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">01. CODE & FOG</div>
+          <div id="tabHands" class="px-3 py-1 rounded-lg text-xs font-mono-tech bg-white/5 text-white/40 border border-white/10">02. 3D CYBERHANDS</div>
+          <div id="tabRanks" class="px-3 py-1 rounded-lg text-xs font-mono-tech bg-white/5 text-white/40 border border-white/10">03. RPG TIERS</div>
+        </div>
+
+        <!-- Section 3A: Live Code Mode & Procedural Fog -->
+        <div id="subCodeMode" class="w-full max-w-xl transition-all duration-500">
+          <div class="p-5 rounded-2xl bg-slate-950/90 border border-cyan-500/30 shadow-2xl relative overflow-hidden">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/10 text-xs font-mono-tech">
+              <span class="text-cyan-400 font-bold flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                RUST_SYNTAX_DRILL.rs
+              </span>
+              <span class="text-slate-400">15+ Programming Languages</span>
+            </div>
+            
+            <div class="font-code text-sm text-left leading-relaxed relative">
+              <span class="text-purple-400">pub async fn</span> <span class="text-blue-400 font-bold">ignite_singularity</span>() -&gt; <span class="text-amber-400">Result</span>&lt;Speed&gt; {<br/>
+              &nbsp;&nbsp;<span class="text-cyan-400">let</span> mut engine = TypeNova::connect();<br/>
+              &nbsp;&nbsp;<span id="codeTypedTarget" class="text-emerald-400 bg-emerald-950/40 px-1 rounded">engine.execute_cognitive_fog</span><span class="inline-block w-2 h-4 bg-cyan-400 caret-blink ml-1 align-middle"></span><br/>
+              &nbsp;&nbsp;<span id="codeFogTokens" class="text-white/20 filter blur-[3px] transition-all duration-700">(mode: BlindMode::Strict);</span><br/>
+              }
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs font-mono-tech text-slate-400">
+              <span>Cognitive Modifiers:</span>
+              <div class="flex gap-2">
+                <span class="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300">Fog Active</span>
+                <span class="px-2 py-0.5 rounded bg-purple-950 border border-purple-500/40 text-purple-300">Mirrored</span>
+                <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400">Blind</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3B: 3D CyberHands & Tier Progression -->
+        <div id="subCyberHands" class="w-full max-w-xl hidden transition-all duration-500">
+          <div class="p-6 rounded-2xl bg-slate-950/90 border border-purple-500/40 shadow-2xl relative text-left">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <p class="text-[11px] font-mono-tech uppercase text-purple-400 tracking-wider">Holographic Telemetry</p>
+                <h3 class="text-xl font-bold font-mono-tech text-white">3D CYBERHANDS MIRRORING</h3>
+              </div>
+              <div class="text-right">
+                <span class="text-xs px-2 py-1 rounded bg-purple-950 text-purple-300 border border-purple-500/30 font-mono-tech">PRISM FOIL SKIN</span>
+              </div>
+            </div>
+
+            <!-- Hand schematic visual -->
+            <div class="grid grid-cols-5 gap-2 my-4 text-center font-mono-tech text-xs">
+              <div class="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400">Pinky<br/><span class="text-emerald-400 font-bold">99%</span></div>
+              <div class="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400">Ring<br/><span class="text-emerald-400 font-bold">100%</span></div>
+              <div class="p-2 rounded-lg bg-cyan-950/60 border border-cyan-500 text-cyan-300">Middle<br/><span class="text-cyan-400 font-bold">ACTIVE</span></div>
+              <div class="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400">Index<br/><span class="text-emerald-400 font-bold">98%</span></div>
+              <div class="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400">Thumb<br/><span class="text-emerald-400 font-bold">Space</span></div>
+            </div>
+
+            <!-- Rank advancement bar -->
+            <div class="mt-4 p-3 rounded-xl bg-purple-950/30 border border-purple-500/30 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-mono-tech text-purple-400">TIER PROMOTION</span>
+                <p class="text-base font-extrabold font-mono-tech text-white text-glow-purple">SINGULARITY GOD</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-mono-tech text-emerald-400 font-bold">+750 XP</span>
+                <p class="text-[11px] font-mono-tech text-slate-400">188 WPM Peak</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================================================================================= -->
+      <!-- ACT 4: THE MULTIPLAYER ARENA & ARU AI (38.0s – 50.0s) -->
+      <!-- ========================================================================================= -->
+      <div id="act4" class="absolute inset-0 flex flex-col items-center justify-center p-6 sm:p-8 transition-all duration-700 opacity-0 pointer-events-none z-20">
+        
+        <div class="w-full max-w-2xl">
+          <!-- Split screen arena header -->
+          <div class="flex items-center justify-between text-xs font-mono-tech mb-3">
+            <span class="text-cyan-400 font-bold flex items-center gap-1.5">
+              <span>🏁 WEBSOCKET MULTIPLAYER DRAG RACE</span>
+              <span class="text-white/40">• ROOM #9281</span>
+            </span>
+            <span class="text-emerald-400">MATCH STATE: LIVE 60 FPS</span>
+          </div>
+
+          <!-- Racing Lanes -->
+          <div class="space-y-2 mb-5">
+            <!-- Lane 1 (Player) -->
+            <div class="p-3 rounded-xl bg-slate-900/90 border border-cyan-500/50 relative overflow-hidden">
+              <div class="flex items-center justify-between text-xs font-mono-tech text-cyan-300 mb-1.5">
+                <span class="font-bold">YOU (SINGULARITY GOD)</span>
+                <span class="font-bold text-white"><span id="liveWpmPlayer">174</span> WPM</span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-800 overflow-hidden relative">
+                <div id="playerRaceBar" class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 w-[84%] transition-all duration-300"></div>
+              </div>
+            </div>
+
+            <!-- Lane 2 (Rival) -->
+            <div class="p-3 rounded-xl bg-slate-900/50 border border-white/10 relative overflow-hidden opacity-75">
+              <div class="flex items-center justify-between text-xs font-mono-tech text-slate-400 mb-1.5">
+                <span>RIVAL // NETRUNNER_X</span>
+                <span>158 WPM</span>
+              </div>
+              <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div id="rivalRaceBar" class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 w-[72%] transition-all duration-300"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aru AI Diagnostics Card -->
+          <div class="p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/40 flex items-start gap-4 text-left">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/50 flex items-center justify-center text-xl shrink-0">
+              🤖
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="text-xs font-extrabold font-mono-tech text-indigo-300 uppercase">ARU AUTONOMOUS COACH</h4>
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">BYOK / GEMINI NANO</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1 leading-normal font-mono-tech">
+                Identified recurring 74ms hesitation on transition <span class="text-cyan-300 font-bold bg-cyan-950/80 px-1 rounded">"str"</span> &amp; <span class="text-cyan-300 font-bold bg-cyan-950/80 px-1 rounded">"ing"</span>.
+              </p>
+              <p class="text-[11px] text-emerald-400 mt-1 font-mono-tech">
+                ⚡ Generated 3 adaptive micro-drills to eliminate bigram delay.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ========================================================================================= -->
+      <!-- ACT 5: CLIMAX & CALL TO ACTION (50.0s – 60.0s) -->
+      <!-- ========================================================================================= -->
+      <div id="act5" class="absolute inset-0 flex flex-col items-center justify-center p-8 text-center transition-all duration-700 opacity-0 pointer-events-none z-20">
+        
+        <div class="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-400/60 flex items-center justify-center text-3xl mb-3 shadow-xl cyan-glow">
+          ⚡
+        </div>
+
+        <h1 class="text-4xl sm:text-6xl font-black tracking-tight text-white font-mono-tech text-glow-cyan">
+          TYPENOVA
+        </h1>
+        <p class="text-sm font-mono-tech text-cyan-400 tracking-[0.25em] uppercase font-bold mt-1">
+          Ascend Your Touch Typing
+        </p>
+
+        <p class="text-xs sm:text-sm text-slate-400 max-w-md mt-3 font-medium">
+          Ultra-low latency. 3D cybernetic progression. Offline PWA. 100% Free &amp; Open Source.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a href="https://typenova-live.vercel.app" target="_blank" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-400 to-cyan-500 hover:from-cyan-300 hover:to-cyan-400 text-slate-950 font-extrabold text-xs uppercase tracking-wider transition-all shadow-xl shadow-cyan-500/30 flex items-center gap-2">
+            <span>Play Live Demo</span>
+            <span>↗</span>
+          </a>
+          <a href="https://github.com/amimitaghosh99-alt/typenova-live" target="_blank" class="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono-tech text-xs uppercase tracking-wider transition-all border border-white/20 flex items-center gap-2">
+            <span>Star on GitHub ⭐</span>
+          </a>
+        </div>
+
+        <div class="mt-6 flex items-center gap-4 text-[11px] font-mono-tech text-slate-500">
+          <span>React 19</span>
+          <span>•</span>
+          <span>Three.js</span>
+          <span>•</span>
+          <span>Tailwind CSS</span>
+          <span>•</span>
+          <span>GPL-3.0</span>
+        </div>
+      </div>
+
+      <!-- Bottom Audio Waveform Visualizer & Timeline Scrubbing -->
+      <div class="absolute bottom-0 left-0 right-0 p-4 z-40 flex items-center justify-between pointer-events-none bg-gradient-to-t from-black/80 via-black/20 to-transparent">
+        <div class="flex items-center gap-1.5 h-4">
+          <div class="w-1 bg-cyan-400/80 rounded-full h-2 animate-pulse"></div>
+          <div class="w-1 bg-cyan-400/80 rounded-full h-4 animate-pulse"></div>
+          <div class="w-1 bg-cyan-400/80 rounded-full h-3 animate-pulse"></div>
+          <div class="w-1 bg-cyan-400/80 rounded-full h-4 animate-pulse"></div>
+          <div class="w-1 bg-cyan-400/80 rounded-full h-2 animate-pulse"></div>
+          <span class="text-[10px] font-mono-tech text-white/40 ml-2">Web Audio Synthesizer: Active</span>
+        </div>
+        <div class="text-right text-[11px] font-mono-tech text-white/50">
+          <span id="currentTimeDisplay" class="text-cyan-400 font-bold">00:00.0</span> / 01:00.0
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Timeline Scene Quick Jumps -->
+  <div class="w-full max-w-5xl mt-4 flex items-center justify-between gap-2 overflow-x-auto py-2">
+    <button onclick="jumpTo(0)" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono-tech text-slate-300 transition-all shrink-0">
+      00:00 • The Problem
+    </button>
+    <button onclick="jumpTo(10)" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono-tech text-slate-300 transition-all shrink-0">
+      00:10 • Engine Reveal
+    </button>
+    <button onclick="jumpTo(22)" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono-tech text-slate-300 transition-all shrink-0">
+      00:22 • Code & Fog
+    </button>
+    <button onclick="jumpTo(38)" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono-tech text-slate-300 transition-all shrink-0">
+      00:38 • Multiplayer & AI
+    </button>
+    <button onclick="jumpTo(50)" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono-tech text-slate-300 transition-all shrink-0">
+      00:50 • Ascension CTA
+    </button>
+  </div>
+
+  <!-- Procedural Sound Engine & Timeline Choreography Script -->
+  <script>
+    // -------------------------------------------------------------
+    // Web Audio Procedural Sound Synthesizer
+    // -------------------------------------------------------------
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+      }
+      playMechanicalClick(pitch = 1200) {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        
+        // Oscillator click
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(pitch, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.04);
+
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+
+        // White noise transient for mechanical tactile feel
+        const bufferSize = this.ctx.sampleRate * 0.015;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 3500;
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.12, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+        noise.start(now);
+      }
+
+      playBassDrop() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(32, now + 0.9);
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 1.2);
+      }
+
+      playCyberChime() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        [880, 1320, 1760].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.15, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.35);
+        });
+      }
+
+      playGlitch() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.setValueAtTime(900, now + 0.03);
+        osc.frequency.setValueAtTime(200, now + 0.06);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    // -------------------------------------------------------------
+    // Video Director Timeline Logic (60.0 Seconds)
+    // -------------------------------------------------------------
+    const TOTAL_DURATION = 60.0;
+    let currentTime = 0.0;
+    let isPlaying = false;
+    let animFrame = null;
+    let lastTimestamp = null;
+
+    // DOM Elements
+    const act1 = document.getElementById('act1');
+    const act2 = document.getElementById('act2');
+    const act3 = document.getElementById('act3');
+    const act4 = document.getElementById('act4');
+    const act5 = document.getElementById('act5');
+
+    const retroTestBox = document.getElementById('retroTestBox');
+    const act1GlitchText = document.getElementById('act1GlitchText');
+    const keyT = document.getElementById('keyT');
+    const keyY = document.getElementById('keyY');
+    const keyP = document.getElementById('keyP');
+    const keyE = document.getElementById('keyE');
+
+    const subCodeMode = document.getElementById('subCodeMode');
+    const subCyberHands = document.getElementById('subCyberHands');
+    const tabCode = document.getElementById('tabCode');
+    const tabHands = document.getElementById('tabHands');
+    const tabRanks = document.getElementById('tabRanks');
+    const codeFogTokens = document.getElementById('codeFogTokens');
+
+    const playerRaceBar = document.getElementById('playerRaceBar');
+    const rivalRaceBar = document.getElementById('rivalRaceBar');
+    const liveWpmPlayer = document.getElementById('liveWpmPlayer');
+
+    const videoProgressBar = document.getElementById('videoProgressBar');
+    const hudTimer = document.getElementById('hudTimer');
+    const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+    const sceneTitleHud = document.getElementById('sceneTitleHud');
+
+    const playBtn = document.getElementById('playBtn');
+    const playIcon = document.getElementById('playIcon');
+    const playLabel = document.getElementById('playLabel');
+    const restartBtn = document.getElementById('restartBtn');
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundLabel = document.getElementById('soundLabel');
+
+    let lastSecondTick = -1;
+
+    function formatTime(s) {
+      const mins = Math.floor(s / 60);
+      const secs = (s % 60).toFixed(1);
+      const minsStr = mins < 10 ? '0' + mins : mins;
+      const secsStr = (secs < 10 ? '0' : '') + secs;
+      return `${minsStr}:${secsStr}`;
+    }
+
+    function renderFrame(t) {
+      // Progress Bar & HUD
+      videoProgressBar.style.width = ((t / TOTAL_DURATION) * 100) + '%';
+      const formatted = formatTime(t);
+      hudTimer.innerText = formatted;
+      currentTimeDisplay.innerText = formatted;
+
+      const currentIntSec = Math.floor(t);
+      if (currentIntSec !== lastSecondTick) {
+        lastSecondTick = currentIntSec;
+        if (isPlaying && t > 2 && t < 48) {
+          // Play periodic typing switch audio
+          sound.playMechanicalClick(900 + Math.random() * 400);
+        }
+      }
+
+      // ==========================================
+      // ACT 1: 0.0s – 10.0s (The Monotony)
+      // ==========================================
+      if (t < 10.0) {
+        showAct(act1);
+        sceneTitleHud.innerText = "ACT I: THE MONOTONY (00:00 - 00:10)";
+
+        if (t >= 4.0 && t < 7.0) {
+          retroTestBox.classList.add('glitch-shake');
+          act1GlitchText.classList.remove('opacity-0');
+        } else {
+          retroTestBox.classList.remove('glitch-shake');
+        }
+
+        if (t >= 7.0 && t < 10.0) {
+          retroTestBox.style.opacity = '0.3';
+          retroTestBox.style.filter = 'blur(4px)';
+          act1GlitchText.classList.remove('opacity-0');
+        } else if (t < 4.0) {
+          retroTestBox.style.opacity = '1';
+          retroTestBox.style.filter = 'none';
+          act1GlitchText.classList.add('opacity-0');
+        }
+      }
+
+      // ==========================================
+      // ACT 2: 10.0s – 22.0s (The Engine Revelation)
+      // ==========================================
+      else if (t >= 10.0 && t < 22.0) {
+        showAct(act2);
+        sceneTitleHud.innerText = "ACT II: THE ENGINE (<2ms) (00:10 - 00:22)";
+
+        // Keycap rhythmic activation
+        const subT = t - 10.0;
+        keyT.classList.toggle('active', subT >= 1.0 && subT < 2.5);
+        keyY.classList.toggle('active', subT >= 2.5 && subT < 4.0);
+        keyP.classList.toggle('active', subT >= 4.0 && subT < 5.5);
+        keyE.classList.toggle('active', subT >= 5.5 && subT < 7.0);
+      }
+
+      // ==========================================
+      // ACT 3: 22.0s – 38.0s (The Arsenal)
+      // ==========================================
+      else if (t >= 22.0 && t < 38.0) {
+        showAct(act3);
+        sceneTitleHud.innerText = "ACT III: THE ARSENAL (00:22 - 00:38)";
+
+        const subT = t - 22.0;
+        // Sub-scene A: Code & Fog (22s - 30s)
+        if (subT < 8.0) {
+          subCodeMode.classList.remove('hidden');
+          subCyberHands.classList.add('hidden');
+          tabCode.className = "px-3 py-1 rounded-lg text-xs font-mono-tech bg-cyan-500/20 text-cyan-400 border border-cyan-500/40";
+          tabHands.className = "px-3 py-1 rounded-lg text-xs font-mono-tech bg-white/5 text-white/40 border border-white/10";
+          
+          // Fog clears as typing finishes
+          if (subT > 4.0) {
+            codeFogTokens.classList.remove('blur-[3px]', 'text-white/20');
+            codeFogTokens.classList.add('text-emerald-300');
+          } else {
+            codeFogTokens.classList.add('blur-[3px]', 'text-white/20');
+            codeFogTokens.classList.remove('text-emerald-300');
+          }
+        } 
+        // Sub-scene B: 3D CyberHands & Ranks (30s - 38s)
+        else {
+          subCodeMode.classList.add('hidden');
+          subCyberHands.classList.remove('hidden');
+          tabHands.className = "px-3 py-1 rounded-lg text-xs font-mono-tech bg-purple-500/20 text-purple-400 border border-purple-500/40";
+          tabCode.className = "px-3 py-1 rounded-lg text-xs font-mono-tech bg-white/5 text-white/40 border border-white/10";
+        }
+      }
+
+      // ==========================================
+      // ACT 4: 38.0s – 50.0s (Multiplayer & AI Coach)
+      // ==========================================
+      else if (t >= 38.0 && t < 50.0) {
+        showAct(act4);
+        sceneTitleHud.innerText = "ACT IV: THE ARENA & AI COACH (00:38 - 00:50)";
+
+        const subT = t - 38.0;
+        // Simulate live race progress
+        const pProgress = Math.min(96, 40 + subT * 4.6);
+        const rProgress = Math.min(84, 35 + subT * 3.8);
+        playerRaceBar.style.width = pProgress + '%';
+        rivalRaceBar.style.width = rProgress + '%';
+        liveWpmPlayer.innerText = Math.floor(168 + Math.sin(t * 3) * 12);
+      }
+
+      // ==========================================
+      // ACT 5: 50.0s – 60.0s (Climax & CTA)
+      // ==========================================
+      else {
+        showAct(act5);
+        sceneTitleHud.innerText = "ACT V: THE ASCENSION (00:50 - 01:00)";
+      }
+    }
+
+    function showAct(activeAct) {
+      [act1, act2, act3, act4, act5].forEach(act => {
+        if (act === activeAct) {
+          act.classList.remove('opacity-0', 'pointer-events-none');
+          act.classList.add('opacity-100');
+        } else {
+          act.classList.remove('opacity-100');
+          act.classList.add('opacity-0', 'pointer-events-none');
+        }
+      });
+    }
+
+    function loop(timestamp) {
+      if (!isPlaying) return;
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      currentTime += delta;
+
+      // Event triggers at scene boundaries
+      if (currentTime >= 10.0 && currentTime - delta < 10.0) {
+        sound.playBassDrop();
+      } else if (currentTime >= 22.0 && currentTime - delta < 22.0) {
+        sound.playCyberChime();
+      } else if (currentTime >= 38.0 && currentTime - delta < 38.0) {
+        sound.playGlitch();
+      } else if (currentTime >= 50.0 && currentTime - delta < 50.0) {
+        sound.playBassDrop();
+        sound.playCyberChime();
+      }
+
+      if (currentTime >= TOTAL_DURATION) {
+        currentTime = TOTAL_DURATION;
+        renderFrame(currentTime);
+        pause();
+        playLabel.innerText = "Replay Film";
+        return;
+      }
+
+      renderFrame(currentTime);
+      animFrame = requestAnimationFrame(loop);
+    }
+
+    function play() {
+      sound.init();
+      isPlaying = true;
+      lastTimestamp = null;
+      playLabel.innerText = "Pause";
+      playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+      animFrame = requestAnimationFrame(loop);
+    }
+
+    function pause() {
+      isPlaying = false;
+      playLabel.innerText = "Play Film";
+      playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      if (animFrame) cancelAnimationFrame(animFrame);
+    }
+
+    function jumpTo(targetSec) {
+      sound.init();
+      currentTime = targetSec;
+      lastSecondTick = -1;
+      renderFrame(currentTime);
+      if (!isPlaying) {
+        play();
+      }
+    }
+
+    playBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        pause();
+      } else {
+        if (currentTime >= TOTAL_DURATION) currentTime = 0;
+        play();
+      }
+    });
+
+    restartBtn.addEventListener('click', () => {
+      pause();
+      currentTime = 0;
+      renderFrame(0);
+      play();
+    });
+
+    soundToggleBtn.addEventListener('click', () => {
+      sound.init();
+      sound.muted = !sound.muted;
+      if (sound.muted) {
+        soundIcon.innerText = '🔇';
+        soundLabel.innerText = 'Sound: MUTED';
+        soundToggleBtn.classList.add('text-rose-400', 'border-rose-500/40');
+      } else {
+        soundIcon.innerText = '🔊';
+        soundLabel.innerText = 'Sound: ON';
+        soundToggleBtn.classList.remove('text-rose-400', 'border-rose-500/40');
+        sound.playMechanicalClick();
+      }
+    });
+
+    // Initial render
+    renderFrame(0);
+  </script>
+</body>
+</html>

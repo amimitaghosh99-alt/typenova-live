@@ -25,7 +25,6 @@ import {
   type PatronEntry,
 } from '@/data/donation';
 import {
-  FOUNDER_SIGNATURE_DATA_URL,
   FOUNDER_SIGNATURE_SRC,
   FOUNDER_SIGNATURE_ASPECT_RATIO,
 } from '@/data/founderSignature';
@@ -897,7 +896,7 @@ export const SupporterCertificateModal: React.FC<SupporterCertificateModalProps>
       await new Promise<void>((resolve) => {
         sigImg.onload = () => resolve();
         sigImg.onerror = () => resolve();
-        sigImg.src = FOUNDER_SIGNATURE_DATA_URL;
+        sigImg.src = FOUNDER_SIGNATURE_SRC;
         if (sigImg.complete) resolve();
       });
 

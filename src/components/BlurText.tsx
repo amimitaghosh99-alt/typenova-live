@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { useSprings, animated } from '@react-spring/web';
+import React, { useRef, useMemo } from 'react';
+import { motion, useInView, type Variants } from 'framer-motion';
 
 interface BlurTextProps {
   text: string;
@@ -9,9 +9,6 @@ interface BlurTextProps {
   direction?: 'top' | 'bottom';
   threshold?: number;
   rootMargin?: string;
-  animationFrom?: Record<string, any>;
-  animationTo?: Record<string, any>[];
-  easing?: (t: number) => number;
   onAnimationComplete?: () => void;
 }
 
@@ -22,94 +19,63 @@ export const BlurText = React.memo(({
   animateBy = 'words',
   direction = 'top',
   threshold = 0.1,
-  rootMargin = '0px',
-  animationFrom,
-  animationTo,
-  easing,
   onAnimationComplete,
 }: BlurTextProps) => {
-  const elements = useMemo(() => (animateBy === 'words' ? text.split(' ') : text.split('')), [text, animateBy]);
-  const [inView, setInView] = useState(false);
-  const ref = useRef<HTMLParagraphElement>(null);
-  const isCompletedRef = useRef(false);
-  const animatedCount = useRef(0);
-
-  // Default animations based on direction
-  const defaultFrom = useMemo(() => (
-    direction === 'top'
-      ? { filter: 'blur(10px)', opacity: 0, transform: 'translate3d(0,-50px,0)' }
-      : { filter: 'blur(10px)', opacity: 0, transform: 'translate3d(0,50px,0)' }
-  ), [direction]);
-
-  const defaultTo = useMemo(() => [
-    {
-      filter: 'blur(5px)',
-      opacity: 0.5,
-      transform: direction === 'top' ? 'translate3d(0,5px,0)' : 'translate3d(0,-5px,0)',
-    },
-    { filter: 'blur(0px)', opacity: 1, transform: 'translate3d(0,0,0)' },
-  ], [direction]);
-
-  const finalState = useMemo(() => ({
-    filter: 'blur(0px)',
-    opacity: 1,
-    transform: 'translate3d(0,0,0)',
-  }), []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.unobserve(ref.current!);
-        }
-      },
-      { threshold, rootMargin }
-    );
-
-    if (ref.current) observer.observe(ref.current);
-
-    return () => observer.disconnect();
-  }, [threshold, rootMargin]);
-
-  const springs = useSprings(
-    elements.length,
-    elements.map((_, i) => ({
-      from: isCompletedRef.current ? finalState : (animationFrom || defaultFrom),
-      to: isCompletedRef.current
-        ? finalState
-        : inView
-        ? async (next: (arg: any) => Promise<void>) => {
-            for (const step of animationTo || defaultTo) {
-              await next(step);
-            }
-            animatedCount.current += 1;
-            if (animatedCount.current === elements.length) {
-              isCompletedRef.current = true;
-              if (onAnimationComplete) {
-                onAnimationComplete();
-              }
-            }
-          }
-        : animationFrom || defaultFrom,
-      delay: isCompletedRef.current ? 0 : i * delay,
-      config: { easing: easing, tension: 280, friction: 60 },
-    }))
+  const elements = useMemo(
+    () => (animateBy === 'words' ? text.split(' ') : text.split('')),
+    [text, animateBy]
   );
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(containerRef, { once: true, amount: threshold });
+
+  const containerVariants: Variants = useMemo(() => ({
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: delay / 1000,
+      },
+    },
+  }), [delay]);
+
+  const yOffset = direction === 'top' ? -25 : 25;
+
+  const itemVariants: Variants = useMemo(() => ({
+    hidden: {
+      opacity: 0,
+      filter: 'blur(10px)',
+      y: yOffset,
+    },
+    visible: {
+      opacity: 1,
+      filter: 'blur(0px)',
+      y: 0,
+      transition: {
+        duration: 0.4,
+        ease: [0.25, 0.1, 0.25, 1],
+      },
+    },
+  }), [yOffset]);
 
   return (
-    <span ref={ref} className={`inline-flex flex-wrap ${className}`}>
-      {springs.map((props, index) => (
-        <animated.span
+    <motion.span
+      ref={containerRef}
+      className={`inline-flex flex-wrap ${className}`}
+      variants={containerVariants}
+      initial="hidden"
+      animate={isInView ? 'visible' : 'hidden'}
+      onAnimationComplete={onAnimationComplete}
+    >
+      {elements.map((elem, index) => (
+        <motion.span
           key={index}
-          style={props}
+          variants={itemVariants}
           className="inline-block transition-transform will-change-[transform,filter,opacity]"
         >
-          {elements[index] === ' ' ? '\u00A0' : elements[index]}
+          {elem === ' ' ? '\u00A0' : elem}
           {animateBy === 'words' && index < elements.length - 1 && '\u00A0'}
-        </animated.span>
+        </motion.span>
       ))}
-    </span>
+    </motion.span>
   );
 });
 

@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Activity, TrendingUp, RotateCcw, Brain, Share2, Play, Ghost, ArrowLeft,
-  Sparkles, ShieldCheck, Crosshair, Waves, Lock, Zap, Award, Bot, X, Loader2, Terminal
+  Sparkles, ShieldCheck, Crosshair, Waves, Lock, Zap, Award, Bot, X, Loader2, Terminal,
+  Bookmark, ChevronRight, GraduationCap, Swords
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { springFluid } from '@/lib/motion';
 import type { Theme } from '@/data/constants';
 import type { Keystroke } from '@/hooks/useTypingEngine';
@@ -64,6 +65,9 @@ export interface ResultsScreenProps {
   /** Suppress the solo action row (NEXT TEST / replay / drills) when this panel
       is embedded inside a screen that owns its own navigation, e.g. a race. */
   hideActions?: boolean;
+  onSignIn?: () => void;
+  onToggleAru?: () => void;
+  onOpenFeatures?: () => void;
 }
 
 const PERSONA_ICONS: Record<string, typeof Crosshair> = {
@@ -79,10 +83,13 @@ export function ResultsScreen({
   cpi: propCpi, grade: propGrade, burstWpm: propBurstWpm, ikiMetrics: propIkiMetrics,
   shadowMetrics,
   theme,
+  isLoggedIn = false,
+  displayName: _displayName = null,
   saveStatus = '',
   timelinePoints = [], errorTimes = [], durationMs = 1000,
   keystrokeLog = [],
   onReset, onWatchReplay, onStartMicroDrill, onStartSmartDrill, isSmartDrillGenerating,
+  onSignIn, onToggleAru, onOpenFeatures,
   ghostTimeline, ghostLabel, ghostDeltaS, ghostDeltaAcc, ghostDeltaCons, ghostDeltaStreak,
   compact = false,
   hideActions = false
@@ -269,6 +276,45 @@ export function ResultsScreen({
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setShareStatus(''), 3000);
   };
+
+  // ─── Guest Conversion State & Handlers ───────────────────────────
+  const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [guestCalloutDismissed, setGuestCalloutDismissed] = useState(false);
+  const [isSavingGuestScore, setIsSavingGuestScore] = useState(false);
+
+  const handleGuestSaveScore = useCallback(() => {
+    setIsSavingGuestScore(true);
+    try {
+      const pendingScore = {
+        wpm: Math.round(wpm),
+        rawWpm: Math.round(rawWpm),
+        accuracy: Math.round(accuracy),
+        consistency: Math.round(consistency),
+        cpi: evaluatedCpi,
+        grade: evaluatedGrade,
+        durationMs: safeDurationMs,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('typenova_pending_guest_score', JSON.stringify(pendingScore));
+    } catch (e) {
+      console.warn('[ResultsScreen] Failed to store pending guest score', e);
+    }
+    if (onSignIn) {
+      onSignIn();
+    } else {
+      window.location.href = '/login';
+    }
+  }, [wpm, rawWpm, accuracy, consistency, evaluatedCpi, evaluatedGrade, safeDurationMs, onSignIn]);
+
+  const handleGuestTryAiCoach = useCallback(() => {
+    if (onToggleAru) {
+      onToggleAru();
+    } else if (onStartSmartDrill) {
+      onStartSmartDrill(sessionWeakKeys.length > 0 ? sessionWeakKeys : ['E', 'T', 'A', 'O', 'I']);
+    } else {
+      fetchDebrief(true);
+    }
+  }, [onToggleAru, onStartSmartDrill, sessionWeakKeys, fetchDebrief]);
 
   // Build heatmap rows
   const heatmapRows = [
@@ -555,6 +601,169 @@ export function ResultsScreen({
           </span>
         </div>
       </div>
+
+      {/* ── GUEST FIRST-WIN CONVERSION CALLOUT ── */}
+      {!isLoggedIn && !guestCalloutDismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springFluid}
+          className="relative rounded-3xl p-6 md:p-8 mb-10 overflow-hidden border backdrop-blur-2xl animate-in fade-in duration-500"
+          style={{
+            backgroundColor: 'rgba(10, 12, 18, 0.85)',
+            borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.35)`,
+            boxShadow: `0 0 45px rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08)`
+          }}
+        >
+          {/* Luminous ambient background glow */}
+          <div
+            className="absolute -top-24 -right-24 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-20"
+            style={{ backgroundColor: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }}
+          />
+
+          <div className="relative z-10 flex flex-col gap-6">
+            {/* Top Row: Benchmark status + Dismiss */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <span
+                  className="w-2.5 h-2.5 rounded-full animate-ping shrink-0"
+                  style={{ backgroundColor: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }}
+                />
+                <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider font-bold">
+                  <span className="text-white">Guest Benchmark Logged</span>
+                  <span className="text-white/20">•</span>
+                  <span style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }}>
+                    {wpm} WPM · Grade {evaluatedGrade} · {accuracy}% ACC
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setGuestCalloutDismissed(true)}
+                className="text-[11px] font-mono text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Dismiss and continue in guest mode"
+              >
+                <span>Continue as Guest</span>
+                <X size={12} />
+              </button>
+            </div>
+
+            {/* Middle Row: Value proposition statement */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg md:text-xl font-black text-white tracking-tight flex items-center gap-2">
+                  <span>Lock in your speed and unlock TypeNova</span>
+                  <Sparkles size={16} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                </h3>
+                <p className="text-xs md:text-sm text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                  Your first speed test is recorded. Save this benchmark to your global profile, launch personalized AI diagnostics with Aru, or explore the full CyberHands RPG arsenal.
+                </p>
+              </div>
+            </div>
+
+            {/* Three Primary Actions (Responsive Grid) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-2">
+              {/* Action 1: Save Score */}
+              <button
+                type="button"
+                onClick={handleGuestSaveScore}
+                disabled={isSavingGuestScore}
+                className="group relative p-4 rounded-2xl border text-left transition-all duration-300 hover:scale-[1.02] active:scale-[0.99] flex flex-col justify-between gap-3 cursor-pointer overflow-hidden"
+                style={{
+                  backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.12)`,
+                  borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.5)`,
+                  boxShadow: `0 0 25px rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.2)`
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center border"
+                    style={{
+                      backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.25)`,
+                      borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.6)`
+                    }}
+                  >
+                    <Bookmark size={18} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                  </div>
+                  <span
+                    className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border"
+                    style={{
+                      backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.2)`,
+                      borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.4)`,
+                      color: `rgb(${theme?.glowPrimary || '6, 182, 212'})`
+                    }}
+                  >
+                    Leaderboards
+                  </span>
+                </div>
+                <div>
+                  <div className="text-sm font-black text-white tracking-wide group-hover:translate-x-0.5 transition-transform flex items-center justify-between">
+                    <span>Save Score &amp; Rank</span>
+                    <ChevronRight size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                    Sync {wpm} WPM &amp; Grade {evaluatedGrade} to your permanent cloud dossier with Google Sign-In.
+                  </div>
+                </div>
+              </button>
+
+              {/* Action 2: Try AI Coach */}
+              <button
+                type="button"
+                onClick={handleGuestTryAiCoach}
+                className="group relative p-4 rounded-2xl border text-left transition-all duration-300 hover:scale-[1.02] active:scale-[0.99] flex flex-col justify-between gap-3 cursor-pointer overflow-hidden bg-white/[0.03] hover:bg-white/[0.06] border-white/10 hover:border-white/20"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center border bg-white/5 border-white/10 text-zinc-200 group-hover:text-white">
+                    <Bot size={18} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                  </div>
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
+                    Aru Coach
+                  </span>
+                </div>
+                <div>
+                  <div className="text-sm font-black text-white tracking-wide group-hover:translate-x-0.5 transition-transform flex items-center justify-between">
+                    <span>Try AI Coach</span>
+                    <ChevronRight size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                    Inspect biomechanical friction, error clusters, and launch targeted weak-finger drills.
+                  </div>
+                </div>
+              </button>
+
+              {/* Action 3: Sign Up for More Features */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFeaturesModal(true);
+                  onOpenFeatures?.();
+                }}
+                className="group relative p-4 rounded-2xl border text-left transition-all duration-300 hover:scale-[1.02] active:scale-[0.99] flex flex-col justify-between gap-3 cursor-pointer overflow-hidden bg-white/[0.03] hover:bg-white/[0.06] border-white/10 hover:border-white/20"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center border bg-white/5 border-white/10 text-zinc-200 group-hover:text-white">
+                    <Sparkles size={18} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                  </div>
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
+                    Full Arsenal
+                  </span>
+                </div>
+                <div>
+                  <div className="text-sm font-black text-white tracking-wide group-hover:translate-x-0.5 transition-transform flex items-center justify-between">
+                    <span>Sign Up for More Features</span>
+                    <ChevronRight size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                    Unlock CyberHands RPG gear, 40+ Touch Academy lessons, and live global multiplayer.
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── ACCOLADE BADGES SECTION ──────────────────────── */}
       <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '200ms' }}>
@@ -954,6 +1163,172 @@ export function ResultsScreen({
           </button>
         </div>
       )}
+
+      {/* ── GUEST FEATURE SHOWCASE MODAL ── */}
+      <AnimatePresence>
+        {showFeaturesModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFeaturesModal(false)}
+              className="fixed inset-0 bg-black/85 backdrop-blur-xl"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={springFluid}
+              className="relative w-full max-w-2xl rounded-3xl p-6 sm:p-8 border shadow-2xl z-10 overflow-hidden"
+              style={{
+                backgroundColor: 'rgba(12, 14, 20, 0.95)',
+                borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.3)`,
+                boxShadow: `0 0 50px rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`
+              }}
+            >
+              {/* Modal header */}
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span
+                      className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border"
+                      style={{
+                        backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+                        borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.35)`,
+                        color: `rgb(${theme?.glowPrimary || '6, 182, 212'})`
+                      }}
+                    >
+                      TypeNova Arsenal
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+                      100% Free &amp; Open Source
+                    </span>
+                  </div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">
+                    Level Up Beyond The Arena
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Connect your free profile to preserve your {wpm} WPM benchmark and unlock the full ecosystem.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFeaturesModal(false)}
+                  className="p-2 rounded-xl text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* 4 Feature cards grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-8">
+                {/* Feature 1: RPG */}
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-8 h-8 rounded-xl flex items-center justify-center border"
+                      style={{
+                        backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+                        borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.3)`
+                      }}
+                    >
+                      <Swords size={16} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                    </div>
+                    <span className="font-bold text-sm text-white">CyberHands RPG</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Earn XP, upgrade mechanical switches, and customize your cybernetic operator dossier.
+                  </p>
+                </div>
+
+                {/* Feature 2: Academy */}
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-8 h-8 rounded-xl flex items-center justify-center border"
+                      style={{
+                        backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+                        borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.3)`
+                      }}
+                    >
+                      <GraduationCap size={16} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                    </div>
+                    <span className="font-bold text-sm text-white">Touch Academy</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    40+ structured progressive modules from home row fundamentals to real codebase syntax.
+                  </p>
+                </div>
+
+                {/* Feature 3: Multiplayer */}
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-8 h-8 rounded-xl flex items-center justify-center border"
+                      style={{
+                        backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+                        borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.3)`
+                      }}
+                    >
+                      <Zap size={16} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                    </div>
+                    <span className="font-bold text-sm text-white">Live Multiplayer</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Real-time 8-player circuits, competitive Elo matchmaking, and private room battles.
+                  </p>
+                </div>
+
+                {/* Feature 4: AI Coach */}
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-8 h-8 rounded-xl flex items-center justify-center border"
+                      style={{
+                        backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+                        borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.3)`
+                      }}
+                    >
+                      <Bot size={16} style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }} />
+                    </div>
+                    <span className="font-bold text-sm text-white">Neural Coach Aru</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Biomechanic keystroke interval (IKI) analytics and automated personalized drills.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bottom modal actions */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setShowFeaturesModal(false)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-mono font-bold uppercase text-zinc-400 hover:text-white transition-colors cursor-pointer order-2 sm:order-1"
+                >
+                  Continue in Guest Mode
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleGuestSaveScore}
+                  disabled={isSavingGuestScore}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2.5 cursor-pointer shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] order-1 sm:order-2"
+                  style={{
+                    backgroundColor: `rgb(${theme?.glowPrimary || '6, 182, 212'})`,
+                    boxShadow: `0 0 25px rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.4)`
+                  }}
+                >
+                  <Bookmark size={16} />
+                  <span>Save Benchmark &amp; Sign In</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 

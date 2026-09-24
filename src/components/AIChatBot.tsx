@@ -1,6 +1,6 @@
 import { memo, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Send, Bot, Sparkles, Square, Copy, Check, Trash2, Target, RotateCcw, Wrench, AlertTriangle, Settings, ChevronDown, Zap, Play, Crosshair, Activity, Terminal } from 'lucide-react';
+import { X, Send, Bot, Sparkles, Square, Copy, Check, Trash2, Target, RotateCcw, Wrench, AlertTriangle, Settings, ChevronDown, Zap, Play, Crosshair, Activity, Terminal, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatMarkdown } from '@/components/ChatMarkdown';
 import { chatCompletion, hasAIKey, hasNativeAI, PROVIDER_PRESETS, getAruPersona, setAruPersona, ARU_PERSONAS, type AruPersona, type ChatMessage } from '@/lib/aiClient';
@@ -155,6 +155,7 @@ export const AIChatBot = memo(function AIChatBot({
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const [techQuery, setTechQuery] = useState<string | null>(null);
     const [configExpanded, setConfigExpanded] = useState(false);
+    const [showKeyInAru, setShowKeyInAru] = useState(false);
     const revealRef = useRef<HTMLDivElement>(null);
 
     // Smart Engine config — shared with Settings modal
@@ -211,7 +212,11 @@ export const AIChatBot = memo(function AIChatBot({
     useEffect(() => {
       const handleStorage = () => setPersonaState(getAruPersona());
       window.addEventListener('storage', handleStorage);
-      return () => window.removeEventListener('storage', handleStorage);
+      window.addEventListener('typenova_ai_sync', handleStorage);
+      return () => {
+        window.removeEventListener('storage', handleStorage);
+        window.removeEventListener('typenova_ai_sync', handleStorage);
+      };
     }, []);
 
     const systemPrompt = useMemo(() => buildSystemPrompt(stats, persona), [stats, persona]);
@@ -633,13 +638,23 @@ export const AIChatBot = memo(function AIChatBot({
                                   {/* API Key */}
                                   <div>
                                     <label className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 mb-1 block">API Key</label>
-                                    <input
-                                      type="password"
-                                      value={engineConfig.byokKey}
-                                      onChange={e => engineConfig.handleKeyChange(e.target.value)}
-                                      placeholder="Paste your API key here..."
-                                      className="w-full px-2 py-1.5 bg-zinc-900 border border-zinc-700/50 rounded text-[11px] text-zinc-200 focus:outline-none focus:border-zinc-500"
-                                    />
+                                    <div className="relative flex items-center">
+                                      <input
+                                        type={showKeyInAru ? 'text' : 'password'}
+                                        value={engineConfig.byokKey}
+                                        onChange={e => engineConfig.handleKeyChange(e.target.value)}
+                                        placeholder="Paste your API key here..."
+                                        className="w-full pl-2 pr-7 py-1.5 bg-zinc-900 border border-zinc-700/50 rounded text-[11px] text-zinc-200 focus:outline-none focus:border-zinc-500"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowKeyInAru(!showKeyInAru)}
+                                        className="absolute right-1.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                                        title={showKeyInAru ? 'Hide key' : 'Show key'}
+                                      >
+                                        {showKeyInAru ? <EyeOff size={11} /> : <Eye size={11} />}
+                                      </button>
+                                    </div>
                                   </div>
                                   {/* Model */}
                                   {engineConfig.availableModels.length > 0 && (
@@ -723,13 +738,23 @@ export const AIChatBot = memo(function AIChatBot({
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <input
-                                  type="password"
-                                  value={engineConfig.byokKey}
-                                  onChange={(e) => engineConfig.handleKeyChange(e.target.value)}
-                                  placeholder="gsk_..."
-                                  className="flex-1 px-3 py-2 bg-zinc-900/90 border border-white/10 focus:border-white/30 rounded-xl text-xs text-white placeholder:text-zinc-600 focus:outline-none font-mono transition-colors"
-                                />
+                                <div className="relative flex-1 flex items-center">
+                                  <input
+                                    type={showKeyInAru ? 'text' : 'password'}
+                                    value={engineConfig.byokKey}
+                                    onChange={(e) => engineConfig.handleKeyChange(e.target.value)}
+                                    placeholder="gsk_..."
+                                    className="w-full pl-3 pr-8 py-2 bg-zinc-900/90 border border-white/10 focus:border-white/30 rounded-xl text-xs text-white placeholder:text-zinc-600 focus:outline-none font-mono transition-colors"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowKeyInAru(!showKeyInAru)}
+                                    className="absolute right-2.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                                    title={showKeyInAru ? 'Hide key' : 'Show key'}
+                                  >
+                                    {showKeyInAru ? <EyeOff size={13} /> : <Eye size={13} />}
+                                  </button>
+                                </div>
                                 <button
                                   type="button"
                                   disabled={!engineConfig.byokKey.trim() || engineConfig.connectionStatus === 'testing'}
@@ -749,6 +774,10 @@ export const AIChatBot = memo(function AIChatBot({
                                 >
                                   {engineConfig.connectionStatus === 'testing' ? 'Testing...' : 'Connect'}
                                 </button>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 mt-0.5">
+                                <ShieldCheck size={11} style={{ color: `rgb(${theme ? theme.glowPrimary : '6, 182, 212'})` }} />
+                                <span>Zero-Knowledge: Local storage only. Never sent to TypeNova servers.</span>
                               </div>
                             </div>
                           </div>

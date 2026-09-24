@@ -19,9 +19,11 @@
 //  comes straight from the catalog entry so a keycap matches its own glow.
 // ═══════════════════════════════════════════════════════════════════════
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AVATARS } from '@/data/customization';
+import { loadArtisanConfig, type ArtisanConfig } from '@/data/artisanCustomizer';
+import { ArtisanKeycapSvg } from './ArtisanKeycapSvg';
 import { rgba } from './profileMotion';
 
 /* ─── Keycap geometry ─────────────────────────────────────────────────── */
@@ -50,12 +52,33 @@ export type KeycapMaterial = 'abs' | 'doubleshot' | 'translucent' | 'artisan' | 
 
 /** Rarity climbs with catalog position and tier definitions. */
 export function materialFor(index: number, id?: string): KeycapMaterial {
-    if (id === 'gold_esc' || id === 'prism' || id === 'phoenix' || index >= 31) return 'celestial';
-    if (id === 'carbon' || (index >= 21 && index <= 23) || index === 30) return 'artisan';
-    if (id === 'matrix' || id === 'turbo' || id === 'quantum' || id === 'aurora' || (index >= 15 && index <= 20)) return 'translucent';
+    if (id === 'custom_artisan' || id === 'sakura_rift' || id === 'astral_bloom' || id === 'gold_esc' || id === 'prism' || id === 'phoenix' || id === 'nova_prime' || id === 'typenova' || index >= 34) return 'celestial';
+    if (id === 'damascus_relic' || id === 'carbon' || (index >= 21 && index <= 23) || index === 30) return 'artisan';
+    if (id === 'ghost_circuit' || id === 'matrix' || id === 'turbo' || id === 'quantum' || id === 'aurora' || (index >= 15 && index <= 20)) return 'translucent';
     if (id === 'vim' || id === 'soundwave' || (index >= 8 && index <= 14)) return 'doubleshot';
     return 'abs';
 }
+
+/* ─── Procedural Artisan & Circuit Helpers ───────────────────────────────── */
+
+function damascusRing(radius: number, cx = 36, cy = 41) {
+    return Array.from({ length: 81 }, (_, i) => {
+        const angle = (i / 80) * Math.PI * 2;
+        const ripple = Math.sin(angle * 5 + radius * 0.13) * 1.7 + Math.cos(angle * 3) * 1.4;
+        return `${i === 0 ? 'M' : 'L'}${(cx + Math.cos(angle) * (radius + ripple)).toFixed(2)} ${(cy + Math.sin(angle) * (radius * 0.7 + ripple)).toFixed(2)}`;
+    }).join(' ') + ' Z';
+}
+
+const metalRings = Array.from({ length: 33 }, (_, i) => damascusRing(4 + i * 1.9));
+const circuitLines = [
+    'M25 31 H31 V39 H36 V45 H42', 'M75 31 H67 V39 H63 V45 H58',
+    'M23 42 H29 V48 H36 V51 H42', 'M77 42 H71 V48 H64 V51 H58',
+    'M22 55 H28 V62 H37 V57 H42', 'M78 55 H72 V62 H63 V57 H58',
+    'M29 69 H38 V63 H43', 'M71 69 H62 V63 H57',
+    'M37 25 V31 H40', 'M63 25 V31 H60',
+];
+const circuitTraceFlow = 'M28 35 H34 L39 40 H43 M72 35 H65 L60 40 H57 M27 59 H35 L40 54 H43 M73 59 H65 L60 54 H57 M33 27 V30 L39 36 M67 67 V64 L61 58';
+const damascusRune = 'M38 34 L50 42 L62 34 V42 L54 47 L62 52 V60 L50 52 L38 60 V52 L46 47 L38 42 Z';
 
 /* ─── Legends ─────────────────────────────────────────────────────────────
    Each legend draws inside a 100-unit box centred on (50, 47) and inherits
@@ -373,6 +396,659 @@ const LEGENDS: Record<string, () => React.ReactNode> = {
             <path d="M60 44 C68 40 74 46 76 54 C70 54 64 52 58 50" strokeWidth={4} strokeLinecap="round" fill="none" />
         </>
     ),
+
+    // Nova Prime — Apex celestial cosmic core with real-time vector line drawing animation
+    nova_prime: () => (
+        <>
+            {/* Background blueprint trace guidelines (always anchors the geometry with a subtle electric neon trace) */}
+            <g opacity={0.34}>
+                <path
+                    d="M 27 47 a 23 11 0 1 0 46 0 a 23 11 0 1 0 -46 0"
+                    strokeWidth={2}
+                    fill="none"
+                    strokeDasharray="4 3"
+                />
+                <path
+                    d="M 50 24 a 11 23 0 1 0 0 46 a 11 23 0 1 0 0 -46"
+                    strokeWidth={2}
+                    fill="none"
+                    strokeDasharray="4 3"
+                />
+                <path
+                    d="M50 20 L53 38 L71 35 L57 47 L71 59 L53 56 L50 74 L47 56 L29 59 L43 47 L29 35 L47 38 Z"
+                    strokeWidth={2.4}
+                    strokeLinejoin="round"
+                    fill="none"
+                />
+                <path
+                    d="M50 38 L58 47 L50 56 L42 47 Z"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    fill="none"
+                />
+                <circle cx="50" cy="47" r="2.5" stroke="none" />
+            </g>
+
+            {/* Active drawing lines: dynamic line synthesis that continuously constructs the design */}
+            {/* 1. Horizontal Celestial Orbit */}
+            <motion.path
+                d="M 27 47 a 23 11 0 1 0 46 0 a 23 11 0 1 0 -46 0"
+                strokeWidth={3}
+                fill="none"
+                strokeDasharray="6 3"
+                initial={{ pathLength: 0, pathOffset: 0 }}
+                animate={{
+                    pathLength: [0, 1, 1, 0],
+                    pathOffset: [0, 0, 0.4, 1],
+                }}
+                transition={{
+                    duration: 3.5,
+                    times: [0, 0.48, 0.78, 1],
+                    ease: 'easeInOut',
+                    repeat: Infinity,
+                }}
+            />
+
+            {/* 2. Vertical Celestial Orbit (offset) */}
+            <motion.path
+                d="M 50 24 a 11 23 0 1 0 0 46 a 11 23 0 1 0 0 -46"
+                strokeWidth={3}
+                fill="none"
+                strokeDasharray="6 3"
+                initial={{ pathLength: 0, pathOffset: 0 }}
+                animate={{
+                    pathLength: [0, 1, 1, 0],
+                    pathOffset: [0, 0, 0.4, 1],
+                }}
+                transition={{
+                    duration: 3.5,
+                    times: [0, 0.48, 0.78, 1],
+                    ease: 'easeInOut',
+                    repeat: Infinity,
+                    delay: 0.15,
+                }}
+            />
+
+            {/* 3. The Grand 8-Pointed Nova Star (apex line drawing) */}
+            <motion.path
+                d="M50 20 L53 38 L71 35 L57 47 L71 59 L53 56 L50 74 L47 56 L29 59 L43 47 L29 35 L47 38 Z"
+                strokeWidth={3.6}
+                strokeLinejoin="round"
+                fill="none"
+                initial={{ pathLength: 0, pathOffset: 0 }}
+                animate={{
+                    pathLength: [0, 1, 1, 0],
+                    pathOffset: [0, 0, 0.35, 1],
+                }}
+                transition={{
+                    duration: 3.5,
+                    times: [0, 0.52, 0.78, 1],
+                    ease: 'easeInOut',
+                    repeat: Infinity,
+                    delay: 0.25,
+                }}
+            />
+
+            {/* 4. Diamond Matrix Core */}
+            <motion.path
+                d="M50 38 L58 47 L50 56 L42 47 Z"
+                strokeWidth={3}
+                strokeLinejoin="round"
+                fill="none"
+                initial={{ pathLength: 0, pathOffset: 0 }}
+                animate={{
+                    pathLength: [0, 1, 1, 0],
+                    pathOffset: [0, 0, 0.4, 1],
+                }}
+                transition={{
+                    duration: 3.5,
+                    times: [0, 0.55, 0.78, 1],
+                    ease: 'easeInOut',
+                    repeat: Infinity,
+                    delay: 0.38,
+                }}
+            />
+
+            {/* 5. Radiant Core Flare — ignites as the lines complete the geometry */}
+            <motion.circle
+                cx="50"
+                cy="47"
+                stroke="none"
+                initial={{ r: 0, opacity: 0 }}
+                animate={{
+                    r: [0, 0, 5.2, 3.8, 0],
+                    opacity: [0, 0, 1, 0.95, 0],
+                }}
+                transition={{
+                    duration: 3.5,
+                    times: [0, 0.45, 0.58, 0.78, 1],
+                    ease: 'easeInOut',
+                    repeat: Infinity,
+                    delay: 0.38,
+                }}
+            />
+        </>
+    ),
+
+    // TypeNova — Apex Living Fluid Glass Keycap Emblem with active streaming conduits, cavitation bubbles, and molten dynamics
+    typenova: () => (
+        <motion.g
+            style={{ transformOrigin: '50px 47px' }}
+            animate={{
+                scale: [1, 1.025, 1],
+                filter: [
+                    'drop-shadow(0 0 8px rgba(0, 240, 255, 0.7)) drop-shadow(0 0 20px rgba(0, 180, 255, 0.35)) brightness(1.05)',
+                    'drop-shadow(0 0 22px rgba(0, 240, 255, 1)) drop-shadow(0 0 45px rgba(0, 240, 255, 0.6)) brightness(1.26)',
+                    'drop-shadow(0 0 8px rgba(0, 240, 255, 0.7)) drop-shadow(0 0 20px rgba(0, 180, 255, 0.35)) brightness(1.05)',
+                ],
+            }}
+            transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: 'easeInOut',
+            }}
+        >
+            {/* 1. Masked 3D Molten Glass Logo with Physical SVG Fluid Refraction */}
+            <g mask="url(#typenova-smooth-mask)">
+                <image
+                    href="/logo.png"
+                    x="20.5"
+                    y="17.5"
+                    width="59"
+                    height="59"
+                    preserveAspectRatio="xMidYMid meet"
+                    filter="url(#typenova-fluid-warp)"
+                />
+            </g>
+
+            {/* 2. Active Fluid Conduits (Surges flowing through the T and N channels) */}
+            <g filter="url(#typenova-conduit-glow)" style={{ mixBlendMode: 'screen', pointerEvents: 'none' }}>
+                {/* T-tube cyan outer stream */}
+                <motion.path
+                    d="M 28 29.5 H 50 M 37 29.5 V 63"
+                    stroke="#00f0ff"
+                    strokeWidth={3.2}
+                    strokeLinecap="round"
+                    fill="none"
+                    strokeDasharray="20 34"
+                    animate={{ strokeDashoffset: [120, 0] }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: [0.4, 0, 0.2, 1] }}
+                />
+                {/* T-tube white-hot inner fluid core */}
+                <motion.path
+                    d="M 28 29.5 H 50 M 37 29.5 V 63"
+                    stroke="#ffffff"
+                    strokeWidth={1.4}
+                    strokeLinecap="round"
+                    fill="none"
+                    strokeDasharray="10 44"
+                    animate={{ strokeDashoffset: [120, 0] }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: [0.4, 0, 0.2, 1] }}
+                />
+
+                {/* N-tube cyan outer stream */}
+                <motion.path
+                    d="M 47 62.5 V 34.5 L 68 62.5 V 34.5"
+                    stroke="#00f0ff"
+                    strokeWidth={3.2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                    strokeDasharray="28 46"
+                    animate={{ strokeDashoffset: [160, 0] }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: [0.4, 0, 0.2, 1], delay: 0.15 }}
+                />
+                {/* N-tube white-hot inner fluid core */}
+                <motion.path
+                    d="M 47 62.5 V 34.5 L 68 62.5 V 34.5"
+                    stroke="#ffffff"
+                    strokeWidth={1.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                    strokeDasharray="14 60"
+                    animate={{ strokeDashoffset: [160, 0] }}
+                    transition={{ duration: 2.8, repeat: Infinity, ease: [0.4, 0, 0.2, 1], delay: 0.15 }}
+                />
+            </g>
+
+            {/* 3. Molten Droplet Sag with Elastic Surface Tension at bottom */}
+            <motion.path
+                d="M 39 70 C 42 75.5 48 76.5 52 71"
+                stroke="#00f0ff"
+                strokeWidth={2}
+                fill="none"
+                strokeLinecap="round"
+                style={{ transformOrigin: '45px 72px' }}
+                animate={{
+                    scaleY: [1, 1.3, 0.9, 1],
+                    y: [0, 1, -0.3, 0],
+                }}
+                transition={{
+                    duration: 3.2,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                }}
+            />
+            <motion.circle
+                cx="45.5"
+                cy="73.5"
+                r="1.6"
+                fill="#ffffff"
+                style={{ transformOrigin: '45.5px 73.5px' }}
+                animate={{
+                    scaleY: [1, 1.3, 0.9, 1],
+                    y: [0, 1, -0.3, 0],
+                }}
+                transition={{
+                    duration: 3.2,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                }}
+            />
+
+            {/* 4. Cavitation Micro-Bubbles in Fluid Conduits */}
+            <g style={{ mixBlendMode: 'screen', pointerEvents: 'none' }}>
+                <motion.circle
+                    cx="37"
+                    cy="57"
+                    r="1.4"
+                    fill="#ffffff"
+                    stroke="#00f0ff"
+                    strokeWidth={0.6}
+                    animate={{
+                        y: [0, -24],
+                        scale: [0.6, 1.2],
+                        opacity: [0, 1, 1, 0],
+                    }}
+                    transition={{
+                        duration: 3.2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                    }}
+                />
+                <motion.circle
+                    cx="58"
+                    cy="52"
+                    r="1.5"
+                    fill="#ffffff"
+                    stroke="#00f0ff"
+                    strokeWidth={0.6}
+                    animate={{
+                        y: [0, -28],
+                        scale: [0.6, 1.1],
+                        opacity: [0, 1, 1, 0],
+                    }}
+                    transition={{
+                        duration: 3.6,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                        delay: 0.6,
+                    }}
+                />
+            </g>
+
+            {/* 5. Specular Rolling Caustic Sweep across glass face */}
+            <g clipPath="url(#typenova-dish-clip)" style={{ mixBlendMode: 'overlay', pointerEvents: 'none' }}>
+                <motion.rect
+                    x="20"
+                    y="16"
+                    width="60"
+                    height="60"
+                    fill="url(#typenova-caustic-sweep)"
+                    style={{ transformOrigin: '50px 46px' }}
+                    animate={{
+                        x: [-35, 40],
+                        y: [-30, 35],
+                        opacity: [0, 0.85, 0.85, 0],
+                    }}
+                    transition={{
+                        duration: 4.2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                    }}
+                />
+            </g>
+        </motion.g>
+    ),
+
+    // Damascus Relic — 1000 layers of folded steel, brass inlay maker's seal, corner machine screws
+    damascus_relic: () => (
+        <g style={{ transformOrigin: '50px 47px' }}>
+            <defs>
+                <linearGradient id="damascus-brass" x1="0" y1="0" x2="0.8" y2="1">
+                    <stop stopColor="#fcdf9e" />
+                    <stop offset=".3" stopColor="#b98d4b" />
+                    <stop offset=".53" stopColor="#f5d899" />
+                    <stop offset=".74" stopColor="#a87b3c" />
+                    <stop offset="1" stopColor="#e2bd77" />
+                </linearGradient>
+                <filter id="damascus-engrave" x="-35%" y="-35%" width="170%" height="170%">
+                    <feDropShadow dx="0" dy="1.1" stdDeviation=".8" floodColor="#080e09" floodOpacity=".95" />
+                </filter>
+            </defs>
+
+            {/* Damascus steel folded ripples across the face */}
+            <g opacity={0.65}>
+                {metalRings.map((d, i) => (
+                    <path
+                        key={i}
+                        d={d}
+                        stroke={i % 3 === 0 ? '#cec5a7' : '#aaa88d'}
+                        strokeWidth={i % 3 === 0 ? 0.35 : 0.22}
+                        opacity={i % 3 === 0 ? 0.5 : 0.33}
+                        fill="none"
+                    />
+                ))}
+                {Array.from({ length: 30 }, (_, i) => (
+                    <path key={i} d={`M17 ${19 + i * 2} H83`} stroke="#e4dfbf" strokeWidth={0.1} opacity={0.18} fill="none" />
+                ))}
+            </g>
+
+            {/* 4 Corner Brass Machine Screws */}
+            {[[29, 23.7], [71, 23.7], [25.8, 70.5], [74.2, 70.5]].map(([x, y], i) => (
+                <g key={i}>
+                    <circle cx={x} cy={y} r={1.8} fill="#272d25" stroke="#cab78a" strokeWidth={0.5} />
+                    <circle cx={x} cy={y} r={1.2} fill="#b39b68" />
+                    <path d={`M${x - 0.75} ${y + 0.35} L${x + 0.75} ${y - 0.35}`} stroke="#383929" strokeWidth={0.55} />
+                </g>
+            ))}
+
+            {/* Center Dial & Engraved Brass Seal */}
+            <circle cx="50" cy="47" r={20.4} fill="#0f1914" fillOpacity={0.4} stroke="#afa078" strokeWidth={0.45} />
+            <circle cx="50" cy="47" r={18.6} fill="none" stroke="#c7b185" strokeWidth={1.65} strokeDasharray="1.2 3.65" opacity={0.57} />
+            <circle cx="50" cy="47" r={16.5} fill="none" stroke="#0b140f" strokeWidth={0.9} />
+            <circle cx="50" cy="47" r={16} fill="none" stroke="#d6c396" strokeWidth={0.35} opacity={0.7} />
+            
+            {/* The Brass Relic Rune */}
+            <path d={damascusRune} fill="url(#damascus-brass)" stroke="#f6dba2" strokeWidth={0.45} strokeLinejoin="bevel" filter="url(#damascus-engrave)" />
+            <path d="M39 35 L50 43 L61 35 M39 59 L50 51 L61 59" fill="none" stroke="#ffe6af" strokeWidth={0.6} opacity={0.85} />
+            <path d="M46.5 47 L50 44.7 L53.5 47 L50 49.3 Z" fill="#eacb86" stroke="none" />
+            
+            {/* Shimmering gleam */}
+            <motion.path
+                d="M39 35 L50 43 L61 35 M38 52 L46 47 M54 47 L62 42"
+                fill="none"
+                stroke="#fff3c5"
+                strokeWidth={0.8}
+                animate={{ opacity: [0.15, 0.85, 0.15] }}
+                transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            {/* Cardinal tick alignment marks */}
+            <path d="M48 25.5 H52 M48 68.5 H52 M28.5 45 V49 M71.5 45 V49" stroke="#d4bb83" strokeWidth={0.65} opacity={0.8} />
+        </g>
+    ),
+
+    // Ghost Circuit — Smoked polymer shell, live motherboard PCB traces, and glowing vacuum tube heart
+    ghost_circuit: () => (
+        <g style={{ transformOrigin: '50px 47px' }}>
+            <defs>
+                <linearGradient id="circuit-tube" x1="0" y1="0" x2="1" y2="0">
+                    <stop stopColor="#9dffcf" stopOpacity={0.26} />
+                    <stop offset=".25" stopColor="#043125" stopOpacity={0.75} />
+                    <stop offset=".58" stopColor="#145e3f" stopOpacity={0.7} />
+                    <stop offset="1" stopColor="#c1ffe0" stopOpacity={0.25} />
+                </linearGradient>
+                <linearGradient id="circuit-filament" x1="0" y1="0" x2="0" y2="1">
+                    <stop stopColor="#eaffcb" />
+                    <stop offset=".5" stopColor="#7bffaf" />
+                    <stop offset="1" stopColor="#d4ffae" />
+                </linearGradient>
+                <filter id="circuit-glow" x="-100%" y="-50%" width="300%" height="200%">
+                    <feGaussianBlur stdDeviation="1.6" />
+                    <feMerge>
+                        <feMergeNode />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+            </defs>
+
+            {/* Motherboard PCB Traces & SMT Components across dish */}
+            <g opacity={0.75}>
+                {circuitLines.map((d, i) => (
+                    <path key={i} d={d} stroke={i % 3 === 0 ? '#b5bc78' : '#76c296'} strokeWidth={0.5} opacity={0.65} fill="none" />
+                ))}
+                {[[30, 32], [69, 31], [28, 63], [72, 63], [36, 48], [64, 48]].map(([x, y], i) => (
+                    <g key={i}>
+                        <rect x={x - 1.1} y={y - 1.8} width={2.2} height={3.6} rx={0.3} fill="#09271b" stroke="#91aa74" strokeWidth={0.35} />
+                        <path d={`M${x - 1.3} ${y - 1} h2.6 M${x - 1.3} ${y + 1} h2.6`} stroke="#d8bc8a" strokeWidth={0.5} />
+                    </g>
+                ))}
+            </g>
+
+            {/* Static & Flowing Circuit Lines */}
+            <path d={circuitTraceFlow} fill="none" stroke="#5bd596" strokeWidth={0.8} opacity={0.65} />
+            <motion.path
+                d={circuitTraceFlow}
+                fill="none"
+                stroke="#c1ffe0"
+                strokeWidth={1.1}
+                strokeDasharray="2 22"
+                animate={{ strokeDashoffset: [48, 0], opacity: [0.5, 0.9, 0.5] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+            />
+            {[[28, 35], [72, 35], [27, 59], [73, 59], [33, 27], [67, 67]].map(([x, y], i) => (
+                <g key={i}>
+                    <circle cx={x} cy={y} r={1.7} fill="#132d21" stroke="#6fdeaa" strokeWidth={0.65} />
+                    <circle cx={x} cy={y} r={0.7} fill="#baffd2" />
+                </g>
+            ))}
+
+            {/* Vacuum Glass Envelope */}
+            <path d="M42 38 C42 27 58 27 58 38 V57 C58 67 42 67 42 57 Z" fill="url(#circuit-tube)" stroke="#a0e7ba" strokeWidth={0.85} />
+            <path d="M44 38 C44 30 54 30 55 35 M44 40 V55" stroke="#e4ffe6" strokeWidth={0.8} opacity={0.8} strokeLinecap="round" fill="none" />
+            <path d="M57 39 V56" stroke="#67c987" strokeWidth={0.45} opacity={0.6} fill="none" />
+            <ellipse cx="50" cy="59" rx={7.5} ry={2.7} fill="#062018" stroke="#7db791" strokeWidth={0.6} />
+            <path d="M44 61 H56 M44.5 63 H55.5 M46 65 H54" stroke="#baaf71" strokeWidth={1.3} />
+            <path d="M47 62 V67 M53 62 V67" stroke="#cff8ba" strokeWidth={0.8} />
+
+            {/* Breathing Vacuum Filament */}
+            <motion.g
+                animate={{ opacity: [0.65, 1, 0.65] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+                <path d="M47 57 V39 L50 35 L53 39 V57" fill="none" stroke="url(#circuit-filament)" strokeWidth={1.9} strokeLinejoin="round" filter="url(#circuit-glow)" />
+                <path d="M46 41 L54 44 L46 47 L54 50 L46 53" fill="none" stroke="#ceffc2" strokeWidth={1.1} strokeLinejoin="round" />
+                <path d="M50 36 V56" stroke="#efffe1" strokeWidth={0.55} />
+            </motion.g>
+            <path d="M40 40 H42 M58 40 H60 M40 54 H42 M58 54 H60" stroke="#f2d08b" strokeWidth={1.5} />
+        </g>
+    ),
+
+    // Astral Bloom — Crystallized supernova in violet glass with faceted crystal petals and celestial orbit
+    astral_bloom: () => (
+        <g style={{ transformOrigin: '50px 47px' }}>
+            <defs>
+                <radialGradient id="astral-aura">
+                    <stop stopColor="#edbfff" stopOpacity={0.65} />
+                    <stop offset=".4" stopColor="#c580e6" stopOpacity={0.2} />
+                    <stop offset="1" stopColor="#a893f8" stopOpacity={0} />
+                </radialGradient>
+                <linearGradient id="astral-crystal" x1="0" y1="0" x2=".8" y2="1">
+                    <stop stopColor="#ffffff" />
+                    <stop offset=".35" stopColor="#f2c5ee" />
+                    <stop offset=".7" stopColor="#afa3f9" />
+                    <stop offset="1" stopColor="#7150a2" />
+                </linearGradient>
+                <filter id="astral-bloom-glow" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="1.2" />
+                    <feMerge>
+                        <feMergeNode />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+            </defs>
+
+            {/* Radiant Astral Aura */}
+            <motion.circle
+                cx="50" cy="47" r={26} fill="url(#astral-aura)"
+                animate={{ opacity: [0.55, 1, 0.55], scale: [0.96, 1.04, 0.96] }}
+                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformOrigin: '50px 47px' }}
+            />
+
+            {/* Geometric Refractive Crystal Facets */}
+            <g strokeLinejoin="round" strokeWidth={0.3}>
+                <path d="M50 25 L55 39 L50 47 L45 39 Z" fill="#b59ddb" stroke="#f6e5ff" />
+                <path d="M50 25 V47 L55 39 Z" fill="#f5d8f3" />
+                <path d="M50 69 L45 55 L50 47 L55 55 Z" fill="#8b77c1" stroke="#d9b9f4" />
+                <path d="M50 69 V47 L55 55 Z" fill="#d4b4ed" />
+                <path d="M27 47 L42 41 L50 47 L42 53 Z" fill="#af98d3" stroke="#ebd5ff" />
+                <path d="M27 47 H50 L42 53 Z" fill="#d3b6dc" />
+                <path d="M73 47 L58 53 L50 47 L58 41 Z" fill="#9c85c8" stroke="#e4ceff" />
+                <path d="M73 47 H50 L58 41 Z" fill="#f1d3eb" />
+                <path d="M34 31 L47 37 L50 47 L40 44 Z" fill="#e8c5db" stroke="#fce7fb" />
+                <path d="M34 31 L50 47 L47 37 Z" fill="#a890d4" />
+                <path d="M66 31 L60 44 L50 47 L53 37 Z" fill="#cfacd9" stroke="#f4daff" />
+                <path d="M66 31 L50 47 L60 44 Z" fill="#897bc5" />
+                <path d="M34 63 L40 50 L50 47 L47 57 Z" fill="#b7a5ec" stroke="#f4daff" />
+                <path d="M34 63 L50 47 L40 50 Z" fill="#8067b1" />
+                <path d="M66 63 L53 57 L50 47 L60 50 Z" fill="#b99bd2" stroke="#e3c6ff" />
+                <path d="M66 63 L50 47 L53 57 Z" fill="#f1cae4" />
+            </g>
+
+            {/* Central Crystal Gem */}
+            <path d="M50 36 L61 47 L50 58 L39 47 Z" fill="url(#astral-crystal)" stroke="#f6e4ff" strokeWidth={0.55} />
+            <path d="M50 36 V47 L39 47 Z" fill="#fff0ff" opacity={0.8} />
+            <path d="M61 47 H50 V58 Z" fill="#7867b8" opacity={0.6} />
+            <path d="M50 36 V58 M39 47 H61" stroke="#fcecff" strokeWidth={0.45} opacity={0.85} fill="none" />
+
+            {/* Prismatic Core Starlight */}
+            <motion.path
+                d="M50 39 L51.8 45.2 L58 47 L51.8 48.8 L50 55 L48.2 48.8 L42 47 L48.2 45.2 Z"
+                fill="#fff1fb"
+                filter="url(#astral-bloom-glow)"
+                animate={{ opacity: [0.65, 1, 0.65], scale: [0.9, 1.15, 0.9] }}
+                transition={{ duration: 3.8, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformOrigin: '50px 47px' }}
+            />
+
+            {/* Rotating Star Constellation Orbit */}
+            <motion.g
+                style={{ transformOrigin: '50px 47px' }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 42, repeat: Infinity, ease: 'linear' }}
+            >
+                <path d="M32 37 V41 M30 39 H34 M68 54 V58 M66 56 H70" stroke="#f3d4ff" strokeWidth={0.6} />
+                <circle cx="38" cy="65" r={0.7} fill="#e5c1ff" />
+                <circle cx="65" cy="30" r={0.85} fill="#fff0e7" />
+            </motion.g>
+        </g>
+    ),
+
+    // Sakura Rift — Liquid crystal cherry blossom with aurora petal refraction
+    sakura_rift: () => (
+        <g>
+            {/* SVG defs for sakura-specific effects */}
+            <defs>
+                <radialGradient id="sakura-core-glow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#fff0f5" stopOpacity={0.95} />
+                    <stop offset="60%" stopColor="#f9a8d4" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#be185d" stopOpacity={0} />
+                </radialGradient>
+                <filter id="sakura-bloom-glow" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="2.5" result="glow" />
+                    <feMerge>
+                        <feMergeNode in="glow" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+                <linearGradient id="sakura-petal-aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#fce7f3" />
+                    <stop offset="40%" stopColor="#f9a8d4" />
+                    <stop offset="75%" stopColor="#c084fc" />
+                    <stop offset="100%" stopColor="#818cf8" />
+                </linearGradient>
+            </defs>
+
+            {/* Ghost petal traces — faint background geometry */}
+            <g opacity={0.2}>
+                <path d="M50 24 C44 30 42 38 46 44 L50 47 L54 44 C58 38 56 30 50 24 Z" strokeWidth={1.5} fill="none" />
+                <path d="M68 37 C62 35 56 37 53 43 L50 47 L54 49 C60 48 66 43 68 37 Z" strokeWidth={1.5} fill="none" />
+                <path d="M63 62 C58 58 52 57 50 51 L50 47 L53 45 C57 50 60 56 63 62 Z" strokeWidth={1.5} fill="none" />
+                <path d="M37 62 C42 58 48 57 50 51 L50 47 L47 45 C43 50 40 56 37 62 Z" strokeWidth={1.5} fill="none" />
+                <path d="M32 37 C38 35 44 37 47 43 L50 47 L46 49 C40 48 34 43 32 37 Z" strokeWidth={1.5} fill="none" />
+            </g>
+
+            {/* 5 animated cherry blossom petals — breathing scale */}
+            <motion.g
+                style={{ transformOrigin: '50px 47px' }}
+                animate={{ scale: [0.95, 1.05, 0.95] }}
+                transition={{ duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+            >
+                {/* Top petal */}
+                <path d="M50 24 C44 30 42 38 46 44 L50 47 L54 44 C58 38 56 30 50 24 Z"
+                    fill="url(#sakura-petal-aurora)" stroke="#fce7f3" strokeWidth={0.7} opacity={0.85} />
+                <path d="M50 24 L50 47 L46 44 C42 38 44 30 50 24 Z" fill="#fff0f5" opacity={0.45} />
+
+                {/* Right petal */}
+                <path d="M68 37 C62 35 56 37 53 43 L50 47 L54 49 C60 48 66 43 68 37 Z"
+                    fill="url(#sakura-petal-aurora)" stroke="#fce7f3" strokeWidth={0.7} opacity={0.8} />
+                <path d="M68 37 L50 47 L53 43 C56 37 62 35 68 37 Z" fill="#fdf2f8" opacity={0.4} />
+
+                {/* Bottom-right petal */}
+                <path d="M63 62 C58 58 52 57 50 51 L50 47 L53 45 C57 50 60 56 63 62 Z"
+                    fill="url(#sakura-petal-aurora)" stroke="#fce7f3" strokeWidth={0.7} opacity={0.75} />
+
+                {/* Bottom-left petal */}
+                <path d="M37 62 C42 58 48 57 50 51 L50 47 L47 45 C43 50 40 56 37 62 Z"
+                    fill="url(#sakura-petal-aurora)" stroke="#fce7f3" strokeWidth={0.7} opacity={0.75} />
+
+                {/* Left petal */}
+                <path d="M32 37 C38 35 44 37 47 43 L50 47 L46 49 C40 48 34 43 32 37 Z"
+                    fill="url(#sakura-petal-aurora)" stroke="#fce7f3" strokeWidth={0.7} opacity={0.8} />
+                <path d="M32 37 L50 47 L47 43 C44 37 38 35 32 37 Z" fill="#fdf2f8" opacity={0.4} />
+            </motion.g>
+
+            {/* Central stamen cluster */}
+            <circle cx="50" cy="47" r="5" fill="url(#sakura-core-glow)" />
+            <motion.circle
+                cx="50" cy="47" r="3.5"
+                fill="#fff5f7"
+                filter="url(#sakura-bloom-glow)"
+                animate={{ scale: [0.85, 1.2, 0.85], opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ transformOrigin: '50px 47px' }}
+            />
+
+            {/* Stamen dots */}
+            <circle cx="50" cy="40" r="1.2" fill="#f9a8d4" opacity={0.9} />
+            <circle cx="55" cy="43" r="1" fill="#f472b6" opacity={0.7} />
+            <circle cx="55" cy="51" r="1.1" fill="#f9a8d4" opacity={0.8} />
+            <circle cx="45" cy="43" r="1" fill="#f472b6" opacity={0.7} />
+            <circle cx="45" cy="51" r="1.1" fill="#f9a8d4" opacity={0.8} />
+
+            {/* Drifting petal particles — slow orbit */}
+            <motion.g
+                style={{ transformOrigin: '50px 47px' }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 50, repeat: Infinity, ease: 'linear' }}
+            >
+                <ellipse cx="30" cy="30" rx="2" ry="1.2" fill="#fbcfe8" opacity={0.65} transform="rotate(-30 30 30)" />
+                <ellipse cx="72" cy="58" rx="1.8" ry="1" fill="#f9a8d4" opacity={0.5} transform="rotate(40 72 58)" />
+                <circle cx="68" cy="32" r={0.7} fill="#fce7f3" opacity={0.6} />
+            </motion.g>
+
+            {/* Falling petal particle — drifts down and fades */}
+            <motion.ellipse
+                cx="42" cy="28"
+                rx="2.2" ry="1.3"
+                fill="#fbcfe8"
+                transform="rotate(-20 42 28)"
+                animate={{
+                    y: [0, 38],
+                    x: [0, 6],
+                    rotate: [-20, 45],
+                    opacity: [0, 0.8, 0.8, 0],
+                }}
+                transition={{
+                    duration: 5.5,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                }}
+            />
+        </g>
+    ),
 };
 
 /* ─── Component ───────────────────────────────────────────────────────── */
@@ -399,6 +1075,38 @@ export const AvatarArt = React.memo(function AvatarArt({
     pressed = false,
     className = '',
 }: AvatarArtProps) {
+    const isCustomArtisan = id === 'custom_artisan';
+    const [customArtisanConfig, setCustomArtisanConfig] = useState<ArtisanConfig | null>(() => {
+        if (!isCustomArtisan) return null;
+        return loadArtisanConfig();
+    });
+
+    useEffect(() => {
+        if (!isCustomArtisan) return;
+        const handleUpdate = (e: Event) => {
+            const ce = e as CustomEvent<ArtisanConfig>;
+            if (ce.detail) {
+                setCustomArtisanConfig(ce.detail);
+            } else {
+                setCustomArtisanConfig(loadArtisanConfig());
+            }
+        };
+        window.addEventListener('typenova_artisan_updated', handleUpdate);
+        return () => window.removeEventListener('typenova_artisan_updated', handleUpdate);
+    }, [isCustomArtisan]);
+
+    if (isCustomArtisan) {
+        const cfg = customArtisanConfig || loadArtisanConfig();
+        return (
+            <ArtisanKeycapSvg
+                config={cfg}
+                size={size}
+                pressed={pressed}
+                className={className}
+                showUnderglow={size >= 40}
+            />
+        );
+    }
     const index = Math.max(0, AVATARS.findIndex((a) => a.id === id));
     const def = AVATARS[index] || AVATARS[0];
     const accent = def.glowColor || '6, 182, 212';
@@ -410,15 +1118,30 @@ export const AvatarArt = React.memo(function AvatarArt({
     const fine = size >= 40;
     const uid = `kc-${def.id}-${material}`;
 
+    const isDamascus = def.id === 'damascus_relic';
+    const isCircuit = def.id === 'ghost_circuit';
+    const isAstral = def.id === 'astral_bloom';
     const isGold = def.id === 'gold_esc';
     const isPhoenix = def.id === 'phoenix';
+    const isNovaPrime = def.id === 'nova_prime';
+    const isTypeNova = def.id === 'typenova';
 
     const skirtStops =
-        material === 'celestial'
+        isDamascus
+            ? ['#777061', '#363735', '#171b19']
+            : isCircuit
+            ? ['#487f70', '#163e33', '#081f1a']
+            : isAstral
+            ? ['#b6a6c9', '#665078', '#29233e']
+            : material === 'celestial'
             ? (isGold
                 ? ['#fcd34d', '#b45309', '#451a03']
                 : isPhoenix
                 ? ['#fb7185', '#be123c', '#4c0519']
+                : isNovaPrime
+                ? ['#38bdf8', '#1e40af', '#020617']
+                : isTypeNova
+                ? ['#00f0ff', '#0284c7', '#02182b']
                 : ['#f472b6', '#8b5cf6', '#1e1b4b'])
             : material === 'artisan'
             ? ['#4a5364', '#20252f', '#0d1015']
@@ -429,11 +1152,21 @@ export const AvatarArt = React.memo(function AvatarArt({
                     : ['#252a33', '#171b22', '#0d1014'];
 
     const faceStops =
-        material === 'celestial'
+        isDamascus
+            ? ['#9b9582', '#55564b', '#303830']
+            : isCircuit
+            ? ['#3e7765', '#184937', '#08291f']
+            : isAstral
+            ? ['#b7a9c5', '#6a4b85', '#403651']
+            : material === 'celestial'
             ? (isGold
                 ? ['#fef08a', '#d97706']
                 : isPhoenix
                 ? ['#fda4af', '#e11d48']
+                : isNovaPrime
+                ? ['#0a192f', '#020617']
+                : isTypeNova
+                ? ['#04263f', '#010d18']
                 : ['#fbcfe8', '#a855f7'])
             : material === 'artisan'
             ? ['#5b6577', '#2b313d']
@@ -445,8 +1178,18 @@ export const AvatarArt = React.memo(function AvatarArt({
 
     /** Legend colour: dark caps print bright, light artisan/gold caps print dark. */
     const legendColor =
-        material === 'celestial' && isGold
+        isDamascus
+            ? '#fcdf9e'
+            : isCircuit
+            ? '#88edbb'
+            : isAstral
+            ? '#d5b7f5'
+            : material === 'celestial' && isGold
             ? '#451a03'
+            : isNovaPrime
+            ? '#38bdf8'
+            : isTypeNova
+            ? '#00f0ff'
             : material === 'artisan'
             ? '#0b0e13'
             : rgba(accent, 1);
@@ -464,9 +1207,9 @@ export const AvatarArt = React.memo(function AvatarArt({
                 <span
                     className="fx-bleed pointer-events-none absolute left-1/2 top-[62%] -translate-x-1/2 rounded-[50%] blur-md"
                     style={{
-                        width: size * 0.78,
-                        height: size * 0.3,
-                        background: rgba(accent, material === 'celestial' ? 0.65 : material === 'translucent' ? 0.55 : 0.32),
+                        width: size * (isTypeNova ? 0.88 : 0.78),
+                        height: size * (isTypeNova ? 0.36 : 0.3),
+                        background: rgba(accent, isTypeNova ? 0.8 : material === 'celestial' ? 0.65 : material === 'translucent' ? 0.55 : 0.32),
                     }}
                 />
             )}
@@ -492,10 +1235,88 @@ export const AvatarArt = React.memo(function AvatarArt({
                     </linearGradient>
 
                     <radialGradient id={`${uid}-dish`} cx="50%" cy="42%" r="52%" fx="50%" fy="32%">
-                        <stop offset="0%" stopColor="rgba(0,0,0,0.02)" />
-                        <stop offset="65%" stopColor="rgba(0,0,0,0.18)" />
-                        <stop offset="100%" stopColor="rgba(0,0,0,0.42)" />
+                        {isDamascus ? (
+                            <>
+                                <stop offset="0%" stopColor="#4d5044" />
+                                <stop offset="100%" stopColor="#252d28" />
+                            </>
+                        ) : isCircuit ? (
+                            <>
+                                <stop offset="0%" stopColor="#173e2c" />
+                                <stop offset="100%" stopColor="#051e17" />
+                            </>
+                        ) : isAstral ? (
+                            <>
+                                <stop offset="0%" stopColor="#493257" />
+                                <stop offset="100%" stopColor="#24253e" />
+                            </>
+                        ) : (
+                            <>
+                                <stop offset="0%" stopColor="rgba(0,0,0,0.02)" />
+                                <stop offset="65%" stopColor="rgba(0,0,0,0.18)" />
+                                <stop offset="100%" stopColor="rgba(0,0,0,0.42)" />
+                            </>
+                        )}
                     </radialGradient>
+
+                    {isTypeNova && (
+                        <>
+                            {/* Deep liquid reservoir backlighting inside concave dish */}
+                            <radialGradient id={`${uid}-reservoir`} cx="50%" cy="47%" r="48%">
+                                <stop offset="0%" stopColor="rgba(0, 240, 255, 0.65)" />
+                                <stop offset="40%" stopColor="rgba(6, 182, 212, 0.35)" />
+                                <stop offset="75%" stopColor="rgba(2, 24, 43, 0.12)" />
+                                <stop offset="100%" stopColor="rgba(0, 0, 0, 0)" />
+                            </radialGradient>
+
+                            {/* SVG Physical Fluid Turbulence & Displacement Map */}
+                            <filter id="typenova-fluid-warp" x="-15%" y="-15%" width="130%" height="130%">
+                                <feTurbulence type="fractalNoise" baseFrequency="0.04 0.03" numOctaves={3} result="noise">
+                                    <animate
+                                        attributeName="baseFrequency"
+                                        values="0.038 0.03; 0.045 0.046; 0.038 0.03"
+                                        dur="5.5s"
+                                        repeatCount="indefinite"
+                                    />
+                                </feTurbulence>
+                                <feDisplacementMap in="SourceGraphic" in2="noise" scale={2.5} xChannelSelector="R" yChannelSelector="G" />
+                            </filter>
+
+                            {/* Conduit glow filter for internal neon fluid surges */}
+                            <filter id="typenova-conduit-glow" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="1.8" result="blur" />
+                                <feMerge>
+                                    <feMergeNode in="blur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+
+                            {/* Specular caustic light sweep gradient */}
+                            <linearGradient id="typenova-caustic-sweep" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="rgba(255, 255, 255, 0)" />
+                                <stop offset="25%" stopColor="rgba(0, 240, 255, 0.25)" />
+                                <stop offset="50%" stopColor="rgba(255, 255, 255, 0.85)" />
+                                <stop offset="75%" stopColor="rgba(0, 240, 255, 0.25)" />
+                                <stop offset="100%" stopColor="rgba(255, 255, 255, 0)" />
+                            </linearGradient>
+
+                            {/* Smooth radial feather mask to eliminate square borders */}
+                            <mask id="typenova-smooth-mask">
+                                <radialGradient id="typenova-mask-grad" cx="50%" cy="47%" r="48%">
+                                    <stop offset="0%" stopColor="#ffffff" />
+                                    <stop offset="72%" stopColor="#ffffff" />
+                                    <stop offset="90%" stopColor="#888888" />
+                                    <stop offset="100%" stopColor="#000000" />
+                                </radialGradient>
+                                <rect x="0" y="0" width="100" height="100" fill="url(#typenova-mask-grad)" />
+                            </mask>
+
+                            {/* Dish clip path for sweeping caustics */}
+                            <clipPath id="typenova-dish-clip">
+                                <path d={DISH} />
+                            </clipPath>
+                        </>
+                    )}
 
                     <linearGradient id={`${uid}-sheen`} x1="0" y1="0" x2="0.2" y2="1">
                         <stop offset="0%" stopColor="rgba(255,255,255,0.34)" />
@@ -525,13 +1346,34 @@ export const AvatarArt = React.memo(function AvatarArt({
                 {/* Top face */}
                 <path d={FACE} fill={`url(#${uid}-face)`} />
                 {/* Spherical Concave Dish */}
-                <path d={DISH} fill={`url(#${uid}-dish)`} />
-                <path d={DISH} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={0.8} />
+                {isTypeNova ? (
+                    <>
+                        <path d={DISH} fill="#010d19" />
+                        <path d={DISH} fill={`url(#${uid}-reservoir)`} />
+                        <path
+                            d={DISH}
+                            fill="none"
+                            stroke="#00f0ff"
+                            strokeWidth={1.4}
+                            opacity={0.6}
+                        />
+                    </>
+                ) : (
+                    <>
+                        <path d={DISH} fill={`url(#${uid}-dish)`} />
+                        <path
+                            d={DISH}
+                            fill="none"
+                            stroke="rgba(255,255,255,0.08)"
+                            strokeWidth={0.8}
+                        />
+                    </>
+                )}
                 <path d={SHEEN} fill={`url(#${uid}-sheen)`} />
                 <path d={FACE} fill="none" stroke={rgba(accent, material === 'celestial' ? 0.85 : material === 'artisan' ? 0.75 : 0.4)} strokeWidth={1.3} />
 
                 {/* Artisan caps get engraved corner ticks — a machined touch. */}
-                {fine && material === 'artisan' && (
+                {fine && material === 'artisan' && !isDamascus && (
                     <g clipPath={`url(#${uid}-faceclip)`} stroke="rgba(0,0,0,0.35)" strokeWidth={1.2}>
                         <path d="M22 24 L30 24 M22 24 L22 31" />
                         <path d="M78 24 L70 24 M78 24 L78 31" />
@@ -540,10 +1382,25 @@ export const AvatarArt = React.memo(function AvatarArt({
 
                 {/* Celestial starburst shimmer */}
                 {fine && material === 'celestial' && (
-                    <path
+                    <motion.path
                         d="M72 22 L74 25.5 L78 27 L74 28.5 L72 32 L70 28.5 L66 27 L70 25.5 Z"
                         fill="#ffffff"
                         className="drop-shadow-[0_0_6px_rgba(255,255,255,0.9)]"
+                        animate={{ opacity: [0.65, 1, 0.65], scale: [0.9, 1.15, 0.9] }}
+                        transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                        style={{ transformOrigin: '72px 27px' }}
+                    />
+                )}
+
+                {/* Secondary bottom-left celestial sparkle for TypeNova flagship */}
+                {fine && isTypeNova && (
+                    <motion.path
+                        d="M28 64 L29.2 66 L31.2 67.2 L29.2 68.4 L28 70.4 L26.8 68.4 L24.8 67.2 L26.8 66 Z"
+                        fill="#00f0ff"
+                        className="drop-shadow-[0_0_5px_rgba(0,240,255,0.9)]"
+                        animate={{ opacity: [0.35, 1, 0.35], scale: [0.85, 1.25, 0.85] }}
+                        transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 1.1 }}
+                        style={{ transformOrigin: '28px 67.2px' }}
                     />
                 )}
 
@@ -555,7 +1412,7 @@ export const AvatarArt = React.memo(function AvatarArt({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     style={
-                        fine
+                        fine && !isTypeNova && !isDamascus && !isCircuit && !isAstral
                             ? { filter: `drop-shadow(0 0 ${material === 'artisan' ? 1 : 3}px ${rgba(accent, glowStrength)})` }
                             : undefined
                     }

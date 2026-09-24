@@ -511,6 +511,10 @@ export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({
               message: customMessage,
             });
 
+            if (!verification.success || !verification.verified) {
+              throw new Error(verification.error || 'Payment signature could not be verified by the security authority.');
+            }
+
             const paymentId = response.razorpay_payment_id;
             setTxHash(paymentId);
             setStep('settled');

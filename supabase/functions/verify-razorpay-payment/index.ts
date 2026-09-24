@@ -10,6 +10,22 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3000',
 ];
 
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'BIF', 'CLP', 'DJF', 'GNF', 'ISK', 'JPY', 'KMF', 'KRW',
+  'MGA', 'PYG', 'RWF', 'UGX', 'UYI', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
+]);
+
+const THREE_DECIMAL_CURRENCIES = new Set([
+  'BHD', 'JOD', 'KWD', 'OMR', 'TND', 'LYD'
+]);
+
+function getCurrencySubunitFactor(currency: string): number {
+  const c = String(currency).toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(c)) return 1;
+  if (THREE_DECIMAL_CURRENCIES.has(c)) return 1000;
+  return 100;
+}
+
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') || '';
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -98,15 +114,16 @@ serve(async (req) => {
   }
 
   try {
+    const keyId = Deno.env.get('RAZORPAY_KEY_ID');
     const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!keySecret) {
-      throw new Error('RAZORPAY_KEY_SECRET not configured. Set it via supabase secrets set.');
+    if (!keySecret || !keyId) {
+      throw new Error('Payment gateway credentials not configured.');
     }
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not configured.');
+      throw new Error('Database service credentials not configured.');
     }
 
     const body = await req.json();
@@ -115,15 +132,16 @@ serve(async (req) => {
       razorpay_payment_id,
       razorpay_signature,
       donor_name = 'Anonymous Patron',
-      amount = 0,
-      currency = 'INR',
       tier_id = 'tier_supporter',
       user_id = null,
       message = null,
     } = body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      throw new Error('Missing required payment verification parameters');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing required payment verification parameters.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // 1. Authenticate signature: HMAC SHA256 of `${order_id}|${payment_id}`
@@ -137,17 +155,61 @@ serve(async (req) => {
         expected: expectedSignature,
         received: razorpay_signature,
       });
-      throw new Error('Payment signature verification failed. Possible tampering detected.');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Payment signature verification failed. Possible tampering detected.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // 2. Server-side tier authorization based on normalized USD value
-    const normalizedCurr = String(currency || 'INR').toUpperCase();
-    const rate = RATES_TO_USD[normalizedCurr];
-    if (!rate || rate <= 0) {
-      console.error(`[verify-razorpay-payment] Unsupported currency: ${normalizedCurr}`);
-      throw new Error(`Unsupported or unrecognized currency: ${normalizedCurr}`);
+    // 2. AUTHORITATIVE SERVER-SIDE VERIFICATION VIA RAZORPAY API
+    // Do NOT trust client-supplied amount or currency! Query the payment entity directly from Razorpay.
+    const authHeader = `Basic ${btoa(`${keyId}:${keySecret}`)}`;
+    const paymentResponse = await fetch(`https://api.razorpay.com/v1/payments/${razorpay_payment_id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!paymentResponse.ok) {
+      const errText = await paymentResponse.text();
+      console.error('[verify-razorpay-payment] Razorpay payment fetch failed:', errText);
+      throw new Error('Failed to retrieve authoritative payment status from payment gateway.');
     }
-    const amountUsd = (Number(amount) || 0) / rate;
+
+    const paymentEntity = await paymentResponse.json();
+
+    // Verify order linkage and payment capture status
+    if (paymentEntity.order_id !== razorpay_order_id) {
+      console.error('[verify-razorpay-payment] Order ID mismatch:', {
+        expected: razorpay_order_id,
+        actual: paymentEntity.order_id,
+      });
+      throw new Error('Payment entity order ID does not match transaction order ID.');
+    }
+
+    if (paymentEntity.status !== 'captured') {
+      console.warn('[verify-razorpay-payment] Payment status is not captured:', paymentEntity.status);
+      throw new Error(`Payment is not in captured state (current status: ${paymentEntity.status}).`);
+    }
+
+    // Extract verified amount and currency from Razorpay entity
+    const verifiedCurrency = String(paymentEntity.currency || 'INR').toUpperCase();
+    const factor = getCurrencySubunitFactor(verifiedCurrency);
+    const verifiedAmount = (Number(paymentEntity.amount) || 0) / factor;
+
+    if (verifiedAmount <= 0) {
+      throw new Error('Invalid payment amount detected from gateway.');
+    }
+
+    // 3. Authorize tier based on verified normalized USD value
+    const rate = RATES_TO_USD[verifiedCurrency];
+    if (!rate || rate <= 0) {
+      console.error(`[verify-razorpay-payment] Unsupported currency: ${verifiedCurrency}`);
+      throw new Error(`Unsupported or unrecognized currency: ${verifiedCurrency}`);
+    }
+    const amountUsd = verifiedAmount / rate;
 
     let authorizedTier = 'tier_supporter';
     if (amountUsd >= 48) authorizedTier = 'tier_legend';
@@ -158,17 +220,18 @@ serve(async (req) => {
     const authorizedTierIndex = TIER_HIERARCHY.indexOf(authorizedTier);
     const effectiveTier = requestedTierIndex > authorizedTierIndex ? authorizedTier : tier_id;
 
-    // 3. Signature verified! Fulfill contribution in database
+    // 4. Calculate accurate INR equivalent for ledger
     const titleId = TIER_TITLE_MAP[effectiveTier] || 'cyber_patron';
-    const amountInr = normalizedCurr === 'INR' ? amount : Math.round(amountUsd * 86.5);
+    const amountInr = verifiedCurrency === 'INR' ? Math.round(verifiedAmount) : Math.round(amountUsd * 86.5);
 
+    // 5. Fulfill contribution in database via secure RPC
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { data, error } = await supabase.rpc('record_patron_success', {
       p_order_id: razorpay_order_id,
       p_payment_id: razorpay_payment_id,
-      p_donor_name: donor_name,
-      p_amount: amount,
-      p_currency: currency,
+      p_donor_name: String(donor_name).slice(0, 40),
+      p_amount: verifiedAmount,
+      p_currency: verifiedCurrency,
       p_amount_inr: amountInr,
       p_user_id: user_id,
       p_tier_id: effectiveTier,
@@ -187,12 +250,11 @@ serve(async (req) => {
 
     if (error) {
       console.error('[verify-razorpay-payment] Database fulfillment error:', error);
-      // Even if DB RPC fails, the payment itself succeeded
       return new Response(
         JSON.stringify({
           success: true,
           verified: true,
-          dbWarning: error.message,
+          dbWarning: 'Payment verified but database update encountered an issue. Support has been notified.',
           titleId,
         }),
         {
@@ -218,7 +280,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('[verify-razorpay-payment] Error:', error);
     return new Response(
-      JSON.stringify({ success: false, error: (error as Error).message }),
+      JSON.stringify({ success: false, error: (error as Error).message || 'Payment verification failed.' }),
       {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

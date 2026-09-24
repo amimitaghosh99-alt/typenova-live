@@ -8,6 +8,7 @@ import type { useParticles } from '@/hooks/useParticles';
 import type { GameConfigState } from '@/hooks/useGameConfig';
 import type { useGameConfig } from '@/hooks/useGameConfig';
 import { applyCapitalsCurse, type ActiveHex } from '@/lib/sabotageEngine';
+import { toast } from 'sonner';
 
 interface TypingControllerProps {
   typing: ReturnType<typeof useTypingEngine>;
@@ -63,6 +64,7 @@ export function TypingController({
 
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMilestoneRef = useRef(0);
+  const restartArmedRef = useRef(0);
 
   // Use a ref to store the latest props so the keydown listener doesn't need to re-bind
   // and trigger GC thrashing on every keystroke.
@@ -92,7 +94,7 @@ export function TypingController({
     const handleKeyDown = (e: KeyboardEvent) => {
       const s = stateRef.current;
       const {
-        typing, audio, rpg, particles, gameConfig, gameActions,
+        typing, audio, particles, gameConfig, gameActions,
         activeModal, keyboardBlocked, raceActive, theme, tetrisEffect,
         onUnlockGodMode, onReset, onExitMicroDrill, onChargeHexEnergy
       } = s;
@@ -131,9 +133,9 @@ export function TypingController({
         typing.isFinishingRef.current = false;
       }
 
-      // During an active multiplayer race, swallow ESC so a mid-race abort
-      // can't desync the room; typing still flows through below.
-      if (raceActive && e.key === 'Escape') { e.preventDefault(); return; }
+      // During an active multiplayer race, swallow ESC/TAB so a mid-race abort
+      // can't desync the room or shift focus; typing still flows through below.
+      if (raceActive && (e.key === 'Escape' || e.key === 'Tab')) { e.preventDefault(); return; }
 
       // Caps lock detection
       if (e.getModifierState && e.getModifierState('CapsLock')) typing.setCapsLock(true);
@@ -141,6 +143,12 @@ export function TypingController({
 
       // ─── CONFIGURING ───
       if (currentPhase === 'CONFIGURING') {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          onReset();
+          return;
+        }
+
         if (e.key === 'Enter') {
           e.preventDefault();
           if (e.shiftKey) {
@@ -191,6 +199,12 @@ export function TypingController({
 
       // ─── READY ───
       if (currentPhase === 'READY') {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          onReset();
+          return;
+        }
+
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           if (e.shiftKey) {
@@ -218,6 +232,36 @@ export function TypingController({
       // ─── COUNTDOWN / TYPING / FINISHED ───
       if (currentPhase === 'COUNTDOWN' || currentPhase === 'TYPING' || currentPhase === 'FINISHED') {
         if (e.key === 'Escape') {
+          e.preventDefault();
+          restartArmedRef.current = 0;
+          toast.dismiss('quick-restart-arm');
+          lastMilestoneRef.current = 0;
+          if (cfg.microDrillActive) { onExitMicroDrill(); }
+          else { onReset(); }
+          return;
+        }
+
+        // Tab + Enter / Tab + Tab quick restart ergonomics
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const now = Date.now();
+          if (now - restartArmedRef.current < 1500) {
+            restartArmedRef.current = 0;
+            toast.dismiss('quick-restart-arm');
+            lastMilestoneRef.current = 0;
+            if (cfg.microDrillActive) { onExitMicroDrill(); }
+            else { onReset(); }
+            return;
+          }
+          restartArmedRef.current = now;
+          toast.info('Press ENTER or TAB again to restart', { duration: 1500, id: 'quick-restart-arm' });
+          return;
+        }
+
+        if (e.key === 'Enter' && Date.now() - restartArmedRef.current < 1500) {
+          e.preventDefault();
+          restartArmedRef.current = 0;
+          toast.dismiss('quick-restart-arm');
           lastMilestoneRef.current = 0;
           if (cfg.microDrillActive) { onExitMicroDrill(); }
           else { onReset(); }
@@ -227,6 +271,13 @@ export function TypingController({
 
       // ─── TYPING ONLY ───
       if (currentPhase !== 'TYPING') return;
+
+      // Typing any non-restart key disarms the quick-restart confirmation so accidental tabs never disrupt flow
+      if (restartArmedRef.current > 0) {
+        restartArmedRef.current = 0;
+        toast.dismiss('quick-restart-arm');
+      }
+
       if (e.ctrlKey || e.metaKey || e.altKey || (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace')) return;
       if (e.key === 'Shift') return;
 
@@ -254,6 +305,7 @@ export function TypingController({
           audio.playSound('click');
           typing.setCombo(0);
           typing.comboRef.current = 0;
+          audio.setComboRef(0);
           lastMilestoneRef.current = 0;
           onChargeHexEnergy?.({ combo: 0, isError: true });
         }
@@ -283,6 +335,7 @@ export function TypingController({
           audio.playSound('error');
           typing.setCombo(0);
           typing.comboRef.current = 0;
+          audio.setComboRef(0);
           lastMilestoneRef.current = 0;
           onChargeHexEnergy?.({ combo: 0, isError: true });
           if (shakeTimeoutRef.current) {
@@ -301,6 +354,7 @@ export function TypingController({
         } else {
           const nextCombo = typing.comboRef.current + 1;
           typing.comboRef.current = nextCombo;
+          audio.setComboRef(nextCombo);
           typing.setCombo(nextCombo);
           typing.setMaxCombo((prev: number) => Math.max(prev, nextCombo));
           audio.playSound('key');

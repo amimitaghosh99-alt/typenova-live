@@ -1,0 +1,26 @@
+# Netlify & Cloudflare Pages Security & Header Directives
+
+# Global Security Headers
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  X-XSS-Protection: 1; mode=block
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self "https://checkout.razorpay.com")
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://checkout.razorpay.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* blob:; worker-src 'self' blob:; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://accounts.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self';
+
+# Real Health Endpoints
+/api/health.json
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+  Access-Control-Allow-Origin: *
+
+/health.json
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: no-cache, no-store, must-revalidate
+  Access-Control-Allow-Origin: *
+
+# PWA Web Manifest
+/manifest.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+  Access-Control-Allow-Origin: *

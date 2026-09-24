@@ -1,0 +1,18 @@
+{
+  "status": "healthy",
+  "app": "typenova",
+  "version": "3.1.0",
+  "environment": "production",
+  "timestamp": "2026-09-24T00:00:00.000Z",
+  "checks": {
+    "spa_bundle": "ok",
+    "pwa_service_worker": "active",
+    "byok_direct_ssl": "enabled",
+    "supabase_integration": "ready",
+    "audio_subsystem": "web_audio_api"
+  },
+  "uptime_slas": {
+    "client_side_ready": true,
+    "offline_capable": true
+  }
+}

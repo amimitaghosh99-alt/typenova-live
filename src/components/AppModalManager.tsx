@@ -1,6 +1,6 @@
 import { memo, lazy, Suspense } from 'react';
 import {
-  X, Trophy, Lock, Terminal, Zap, Star, RotateCcw, Swords, Check
+  X, Trophy, Lock, Swords, Check
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AruStats } from '@/components/AIChatBot';
@@ -14,11 +14,13 @@ const CommsModal = lazy(() => import('@/components/CommsModal').then(m => ({ def
 const GhostPacerModal = lazy(() => import('@/components/GhostPacerModal').then(m => ({ default: m.GhostPacerModal })));
 const WebHidBenchmarkModal = lazy(() => import('@/components/profile/WebHidBenchmarkModal').then(m => ({ default: m.WebHidBenchmarkModal })));
 const UpdateAnnouncementModal = lazy(() => import('@/components/UpdateAnnouncementModal').then(m => ({ default: m.UpdateAnnouncementModal })));
+const GodModeModal = lazy(() => import('@/components/GodModeModal').then(m => ({ default: m.GodModeModal })));
 // DonateModal was removed: donations live on the PatronVault page at /donate.
 const AIChatBot = lazy(() => import('@/components/AIChatBot').then(m => ({ default: m.AIChatBot })));
 import { type PaceSample, type RivalPace } from '@/components/TypingArea';
 import type { ModeScoreRow } from '@/hooks/useModeLeaderboard';
 import { ACHIEVEMENTS, type Theme, type SoundProfile } from '@/data/constants';
+import type { HexType } from '@/lib/sabotageEngine';
 import type { useGameConfig } from '@/hooks/useGameConfig';
 import type { useTypingEngine } from '@/hooks/useTypingEngine';
 import type { useRPGSystem } from '@/hooks/useRPGSystem';
@@ -110,6 +112,12 @@ interface AppModalManagerProps {
   onPlayPreviewSound?: (profileKey?: string) => void;
   onAcceptChallenge?: () => void;
   onDeclineChallenge?: () => void;
+  onTriggerTestHex?: (hexType: HexType) => void;
+  onClearTestHexes?: () => void;
+  onSetTestHexEnergy?: (energy: number) => void;
+  isBotRunning?: boolean;
+  onToggleBot?: (wpm: number, accuracy: number) => void;
+  onInstantFinish?: (wpm: number, accuracy: number) => void;
   /** When true, the giant full-screen countdown overlay is suppressed because
       the lobby already ran its own visual countdown. */
   raceActive?: boolean;
@@ -178,6 +186,12 @@ export const AppModalManager = memo(function AppModalManager({
   onPlayPreviewSound,
   onAcceptChallenge,
   onDeclineChallenge,
+  onTriggerTestHex,
+  onClearTestHexes,
+  onSetTestHexEnergy,
+  isBotRunning,
+  onToggleBot,
+  onInstantFinish,
   raceActive,
 }: AppModalManagerProps) {
   return (
@@ -432,60 +446,24 @@ export const AppModalManager = memo(function AppModalManager({
           );
 
           case 'godMode': return (
-            <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={onCloseModal}>
-              <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-6">
-                  <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Terminal className="mr-4 text-emerald-400" size={32} /> God Mode</h2>
-                  <button onClick={onCloseModal} className="p-3 bg-zinc-800 hover:bg-red-500/20 hover:text-red-400 rounded-full text-zinc-400 transition-all duration-200 border border-zinc-700 hover:border-red-500/50 cursor-pointer"><X size={24} /></button>
-                </div>
-                <div className="flex flex-col gap-6">
-                  <div className="flex justify-between items-center bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800 shadow-inner">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-2xl ${tetrisEffect ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                        <Zap size={20} />
-                      </div>
-                      <div>
-                        <h4 className="text-white font-bold tracking-widest uppercase mb-1">Tetris Effect Particles</h4>
-                        <p className="text-xs text-zinc-500 font-bold">Auto-unlocks at 50 combo. Toggle here to test early.</p>
-                      </div>
-                    </div>
-                    <button onClick={() => onSetTetrisEffect(!tetrisEffect)} className={`px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 cursor-pointer ${tetrisEffect ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:shadow-[0_0_30px_rgba(34,197,94,0.6)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-                      {tetrisEffect ? 'ON ✓' : 'OFF'}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <button onClick={() => { rpg.unlockAllAchievements(); onCloseModal(); }} className="p-6 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(245,158,11,0.1)] transition-all flex flex-col items-center text-center text-xs cursor-pointer">
-                      <Trophy size={24} className="mb-2" /> Unlock All Achievements
-                    </button>
-                    <button onClick={() => { rpg.setXp(250000); onCloseModal(); }} className="p-6 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(14,165,233,0.1)] transition-all flex flex-col items-center text-center text-xs cursor-pointer">
-                      <Star size={24} className="mb-2" /> Set Level to Max (50+)
-                    </button>
-                  </div>
-
-                  {/* Admin Bug Reports Button */}
-                  <div className="mt-4">
-                    <button
-                      // This called `onOpenProfile('bugReports')`, which opened
-                      // the *player profile* for a user literally named
-                      // "bugReports" — the inbox below was unreachable.
-                      onClick={() => onOpenModal('bugReports')}
-                      className="w-full p-6 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-3xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all flex items-center justify-center gap-3 text-xs cursor-pointer"
-                    >
-                      <Terminal size={24} /> Open Admin Bug Reports Inbox
-                    </button>
-                  </div>
-
-                  <div className="mt-4 p-6 bg-red-500/5 border border-red-500/20 rounded-3xl">
-                    <h4 className="text-red-400 font-bold tracking-widest uppercase mb-3 text-xs flex items-center gap-2">
-                      <RotateCcw size={16} /> DANGER ZONE
-                    </h4>
-                    <button onClick={() => { rpg.resetAllProgress(); onCloseModal(); }} className="w-full p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 text-xs hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] cursor-pointer">
-                      <RotateCcw size={18} /> Reset All Progress (Level, XP, Achievements, Themes)
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <GodModeModal
+              theme={theme}
+              soundProfile={soundProfile}
+              tetrisEffect={tetrisEffect}
+              onSetTetrisEffect={onSetTetrisEffect}
+              rpg={rpg}
+              typing={typing as any}
+              onClose={onCloseModal}
+              onOpenModal={onOpenModal}
+              onSelectSoundProfile={onSelectSoundProfile}
+              onPlayPreviewSound={onPlayPreviewSound}
+              onTriggerTestHex={onTriggerTestHex}
+              onClearTestHexes={onClearTestHexes}
+              onSetTestHexEnergy={onSetTestHexEnergy}
+              isBotRunning={isBotRunning}
+              onToggleBot={onToggleBot}
+              onInstantFinish={onInstantFinish}
+            />
           );
 
           case 'bugReports': return (

@@ -25,6 +25,7 @@
 
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { mulberry32 } from '@/utils/seededRandom';
 
 /* ─── Deterministic noise ─────────────────────────────────────────────── */
 
@@ -38,17 +39,8 @@ function hashSeed(s: string) {
     return h >>> 0;
 }
 
-/** mulberry32 — tiny, stable PRNG so scatter is identical every render. */
-function makeRng(seed: number) {
-    let a = seed;
-    return () => {
-        a = (a + 0x6d2b79f5) >>> 0;
-        let t = a;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
+/** Stable PRNG reference from seededRandom */
+const makeRng = mulberry32;
 
 type Detail = 'full' | 'compact';
 
@@ -331,43 +323,6 @@ function Clouds({
     );
 }
 
-/** Water caustics — displaced wave bands. */
-function Caustics({ seed, color, animate }: { seed: string; color: string; animate: boolean }) {
-    const id = `cau-${hashSeed(seed).toString(36)}`;
-    const lines = useMemo(() => {
-        const rng = makeRng(hashSeed(`cau:${seed}`));
-        return Array.from({ length: 7 }, (_, i) => ({
-            y: 12 + i * 26 + rng() * 8,
-            w: 1 + rng() * 2.4,
-            o: 0.2 + rng() * 0.5,
-            dur: 7 + rng() * 6,
-        }));
-    }, [seed]);
-
-    return (
-        <g filter={`url(#${id})`}>
-            <defs>
-                <filter id={id} x="-10%" y="-10%" width="120%" height="120%">
-                    <feTurbulence type="fractalNoise" baseFrequency="0.02 0.05" numOctaves={2} seed={7} result="t" />
-                    <feDisplacementMap in="SourceGraphic" in2="t" scale={26} xChannelSelector="R" yChannelSelector="G" />
-                    <feGaussianBlur stdDeviation={0.9} />
-                </filter>
-            </defs>
-            {lines.map((l, i) => (
-                <motion.path
-                    key={i}
-                    d={`M-20 ${l.y} Q ${VB.w * 0.35} ${l.y - 10}, ${VB.w * 0.6} ${l.y + 6} T ${VB.w + 20} ${l.y}`}
-                    stroke={color}
-                    strokeWidth={l.w}
-                    fill="none"
-                    opacity={l.o}
-                    animate={animate ? { x: [0, 14, 0] } : undefined}
-                    transition={{ duration: l.dur, repeat: Infinity, ease: 'easeInOut' }}
-                />
-            ))}
-        </g>
-    );
-}
 
 /** Orthogonal circuit traces with solder pads. */
 function Circuitry({
@@ -533,108 +488,6 @@ function Fissures({ seed, color, hot, animate = false }: { seed: string; color: 
     );
 }
 
-/** Faceted ice / crystal shards with light refraction & vertex sparkles. */
-function Shards({
-    seed,
-    color,
-    opacity = 0.5,
-    animate = false,
-}: {
-    seed: string;
-    color: string;
-    opacity?: number;
-    animate?: boolean;
-}) {
-    const { shards, sparkles } = useMemo(() => {
-        const rng = makeRng(hashSeed(`shard:${seed}`));
-        const sList = Array.from({ length: 11 }, (_, i) => {
-            const x = 12 + (i / 11) * (VB.w - 24) + (rng() - 0.5) * 25;
-            const y = 25 + rng() * (VB.h - 95);
-            const w = 22 + rng() * 46;
-            const h = 45 + rng() * 85;
-            const lean = (rng() - 0.5) * 32;
-            const tipX = x + w * 0.48 + lean;
-            const tipY = y;
-            return {
-                d: `M${x} ${y + h} L${tipX} ${tipY} L${x + w * 0.75 + lean * 0.6} ${y + h * 0.28} L${x + w} ${y + h} Z`,
-                dFacet: `M${tipX} ${tipY} L${x + w * 0.45} ${y + h} L${x + w} ${y + h} Z`,
-                tipX,
-                tipY,
-                o: 0.28 + rng() * 0.55,
-                dur: 4 + (i % 4) * 1.5,
-                delay: (i % 5) * 0.6,
-                drift: (rng() - 0.5) * 8,
-            };
-        });
-
-        // 4-pointed diamond sparkles on crystal tips
-        const spList = sList.map((s, i) => ({
-            x: s.tipX,
-            y: s.tipY,
-            dur: 2.2 + (i % 3) * 0.9,
-            delay: (i * 0.7) % 3,
-        }));
-
-        return { shards: sList, sparkles: spList };
-    }, [seed]);
-
-    return (
-        <g opacity={opacity}>
-            {shards.map((s, i) => (
-                <motion.g
-                    key={i}
-                    animate={animate ? {
-                        y: [0, -6 - (i % 3) * 2, 0],
-                        x: [0, s.drift, 0],
-                        opacity: [s.o * 0.8, s.o * 1.3, s.o * 0.8],
-                    } : undefined}
-                    transition={{ duration: s.dur, repeat: Infinity, ease: 'easeInOut', delay: s.delay }}
-                >
-                    {/* Main crystal body */}
-                    <path
-                        d={s.d}
-                        fill={color}
-                        opacity={s.o}
-                        stroke="#ffffff"
-                        strokeOpacity={0.45}
-                        strokeWidth={0.8}
-                    />
-                    {/* Internal faceted reflection */}
-                    <path
-                        d={s.dFacet}
-                        fill="#ffffff"
-                        opacity={s.o * 0.4}
-                    />
-                </motion.g>
-            ))}
-
-            {/* Crystal vertex glint sparkles */}
-            {sparkles.map((sp, i) => (
-                <motion.g
-                    key={`sp-${i}`}
-                    transform={`translate(${sp.x} ${sp.y})`}
-                    animate={animate ? {
-                        scale: [0, 1.3, 0],
-                        rotate: [0, 90],
-                        opacity: [0, 0.95, 0],
-                    } : undefined}
-                    transition={{
-                        duration: sp.dur,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                        delay: sp.delay,
-                        repeatDelay: 1.5 + (i % 4) * 0.8,
-                    }}
-                >
-                    <path
-                        d="M0 -4.5 Q0 0 -4.5 0 Q0 0 0 4.5 Q0 0 4.5 0 Q0 0 0 -4.5 Z"
-                        fill="#ffffff"
-                    />
-                </motion.g>
-            ))}
-        </g>
-    );
-}
 
 /** Drifting motes — embers, petals, snow, gold dust, bubbles. */
 function Motes({
@@ -873,6 +726,8 @@ function Ridge({ seed, color, y = 150 }: { seed: string; color: string; y?: numb
     return <path d={d} fill={color} />;
 }
 
+
+
 /** Vignette + top sheen. Applied to every scene so nothing looks flat. */
 function Finish({ id }: { id: string }) {
     return (
@@ -915,74 +770,6 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                 </>
             );
 
-        case 'ocean_abyss':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#0e7490', 0], ['#0c4a6e', 0.4], ['#082f49', 0.72], ['#020617', 1]]} />
-                    {/* Shimmering underwater god rays */}
-                    <motion.g
-                        animate={animate ? { opacity: [0.18, 0.45, 0.18], skewX: [-2, 2, -2] } : undefined}
-                        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-                    >
-                        {[0.18, 0.38, 0.62, 0.84].map((t, i) => (
-                            <polygon
-                                key={i}
-                                points={`${VB.w * t} 0, ${VB.w * t + 26} 0, ${VB.w * t + 58} ${VB.h}, ${VB.w * t - 18} ${VB.h}`}
-                                fill="#a5f3fc"
-                                opacity={0.16 + i * 0.05}
-                            />
-                        ))}
-                    </motion.g>
-                    {full && <Caustics seed={u} color="#67e8f9" animate={animate} />}
-                    <Motes seed={u} color="#cffafe" count={full ? 24 : 12} rise animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
-
-        case 'crimson_throne':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#7f1d1d', 0], ['#4c0519', 0.5], ['#1c0308', 1]]} />
-                    <Pinstripes id={`${u}-ps`} color="#fda4af" gap={26} opacity={0.14} />
-                    <Rays seed={u} color="#fb7185" animate={animate} cy={VB.h * 0.5} />
-                    {full && <Clouds seed={u} color="#450a0a" freq={0.008} opacity={0.5} />}
-                    <Motes seed={u} color="#fca5a5" count={full ? 24 : 12} rise animate={animate} />
-                    {/* Throne arch. */}
-                    <path
-                        d={`M${VB.w / 2 - 54} ${VB.h} L${VB.w / 2 - 54} 96 Q${VB.w / 2} 40, ${VB.w / 2 + 54} 96 L${VB.w / 2 + 54} ${VB.h} Z`}
-                        fill="#1c0308"
-                        opacity={0.55}
-                    />
-                    <Finish id={u} />
-                </>
-            );
-
-        case 'toxic_swamp':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#65a30d', 0], ['#166534', 0.42], ['#052e16', 0.75], ['#020617', 1]]} />
-                    {full && <Clouds seed={u} color="#a3e635" freq={0.014} opacity={0.34} />}
-                    <Motes seed={u} color="#bef264" count={full ? 26 : 14} rise animate={animate} />
-                    <PulseRings color="#84cc16" animate={animate} cx={VB.w * 0.3} cy={VB.h * 0.85} />
-                    <g opacity={0.45}>
-                        <ellipse cx={VB.w * 0.3} cy={VB.h + 10} rx={120} ry={38} fill="#022c22" />
-                        <ellipse cx={VB.w * 0.78} cy={VB.h + 16} rx={140} ry={44} fill="#022c22" />
-                    </g>
-                    <Finish id={u} />
-                </>
-            );
-
-        case 'royal_amethyst':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#7e22ce', 0], ['#4c1d95', 0.45], ['#1e1b4b', 0.78], ['#030014', 1]]} />
-                    {full && <Clouds seed={u} color="#c084fc" freq={0.01} opacity={0.4} />}
-                    <StarField seed={u} count={full ? 70 : 30} animate={animate} />
-                    <Ribbons seed={u} colors={['#a855f7', '#6366f1']} bands={2} opacity={0.35} animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
-
         case 'neon_pink':
             return (
                 <>
@@ -990,50 +777,6 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
                     <StarField seed={u} count={full ? 40 : 18} color="#fbcfe8" maxY={120} animate={animate} />
                     <SunDisc gradId={`${u}-sun`} color="#db2777" core="#fde68a" cy={126} r={44} slats animate={animate} />
                     <HorizonGrid color="#f472b6" y={128} opacity={0.65} animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
-
-        case 'arctic_frost':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#07192e', 0], ['#0e3860', 0.35], ['#0a2040', 0.7], ['#060f1e', 1]]} />
-                    <Ribbons
-                        seed={`${u}-aurora`}
-                        colors={['#38bdf8', '#e0f2fe', '#818cf8']}
-                        bands={2}
-                        blur={8}
-                        opacity={0.4}
-                        animate={animate}
-                    />
-                    <Shards seed={u} color="#e0f2fe" opacity={full ? 0.65 : 0.45} animate={animate} />
-                    <Motes seed={u} color="#ffffff" count={full ? 36 : 18} shape="flake" animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
-
-        case 'sunset_blaze':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#fb923c', 0], ['#ea580c', 0.32], ['#7c2d12', 0.62], ['#170a04', 1]]} />
-                    <SunDisc gradId={`${u}-sun`} color="#f97316" core="#fef08a" cy={132} r={40} animate={animate} />
-                    <g opacity={0.35}>
-                        {[0, 1, 2, 3].map((i) => (
-                            <motion.rect
-                                key={i}
-                                x={0}
-                                y={104 + i * 12}
-                                width={VB.w}
-                                height={3 + i}
-                                fill="#fed7aa"
-                                opacity={0.5 - i * 0.09}
-                                animate={animate ? { opacity: [0.35 - i * 0.09, 0.65 - i * 0.09, 0.35 - i * 0.09] } : undefined}
-                                transition={{ duration: 3 + i, repeat: Infinity, ease: 'easeInOut' }}
-                            />
-                        ))}
-                    </g>
-                    <Ridge seed={u} color="#160903" y={152} />
-                    <Motes seed={u} color="#fdba74" count={full ? 22 : 10} rise animate={animate} />
                     <Finish id={u} />
                 </>
             );

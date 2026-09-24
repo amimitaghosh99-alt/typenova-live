@@ -5,7 +5,7 @@
 // NOTE: the config is evaluated once per build/dev-server start — after
 // adding or editing a theme, restart `npm run dev` to refresh the safelist.
 const jiti = require('jiti')(__dirname);
-const { THEMES } = jiti('./src/data/constants.ts');
+const { THEMES } = jiti('./src/data/themes.ts');
 const rawTokens = Object.values(THEMES)
   .flatMap(theme => Object.values(theme))
   .filter(v => typeof v === 'string')
@@ -264,6 +264,10 @@ module.exports = {
         'float': 'float 3s ease-in-out infinite',
         'slide-in-right': 'slide-in-right 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'badge-pop': 'badge-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+      },
+      transitionTimingFunction: {
+        'fluid': 'cubic-bezier(0.23, 1, 0.32, 1)',
+        'snappy': 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

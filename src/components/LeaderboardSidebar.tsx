@@ -226,6 +226,10 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                   ? '#f59e0b'
                   : '#a1a1aa';
 
+                const hasGhostAction = boardTab === 'mode' && !!entry.user_id;
+                const hasFriendAction = boardTab === 'friends' && entry.username !== currentUsername;
+                const hasActions = hasGhostAction || hasFriendAction;
+
                 return (
                   <motion.div
                     key={`${boardTab}-${entry.username}-${idx}`}
@@ -236,12 +240,12 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                       delay: idx * 0.055,
                       ease: [0.25, 1, 0.35, 1]
                     }}
-                    className={`flex justify-between items-center group p-4 rounded-2xl transition-all duration-300 w-full relative ${
+                    className={`flex justify-between items-center group p-3.5 sm:p-4 rounded-2xl transition-all duration-300 w-full relative ${
                       isMe
-                        ? 'bg-white/[0.09] border border-white/25 shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_0_15px_rgba(255,255,255,0.06)] backdrop-blur-md pl-6'
+                        ? 'bg-white/[0.09] border border-white/25 shadow-[0_4px_20px_rgba(0,0,0,0.3),inset_0_0_15px_rgba(255,255,255,0.06)] backdrop-blur-md pl-5 sm:pl-6 pr-3.5 sm:pr-4'
                         : isTop1
-                        ? 'bg-white/[0.04] border border-white/10 shadow-[inset_0_0_15px_rgba(255,255,255,0.02)] pl-6'
-                        : 'hover:bg-white/5 border border-transparent hover:border-white/5 hover:translate-x-1 pl-4'
+                        ? 'bg-white/[0.04] border border-white/10 shadow-[inset_0_0_15px_rgba(255,255,255,0.02)] pl-5 sm:pl-6 pr-3.5 sm:pr-4'
+                        : 'hover:bg-white/5 border border-transparent hover:border-white/5 hover:translate-x-1 pl-4 pr-3.5 sm:pr-4'
                     }`}
                   >
                     {/* Glowing Left Indicator for logged-in user or top 1 */}
@@ -254,9 +258,9 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                         }}
                       />
                     )}
-                    <div className="flex items-center space-x-5">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2">
                       <span
-                        className="font-black text-xl tracking-tight w-8 text-left"
+                        className="font-black text-lg sm:text-xl tracking-tight w-7 shrink-0 text-left"
                         style={{
                           color: isTop1 ? '#ffffff' : rankColor,
                           textShadow: isTop1 || isMe ? `0 0 16px ${isTop1 ? `rgb(${theme.glowPrimary})` : rankColor}` : 'none',
@@ -264,55 +268,61 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                       >
                         #{idx + 1}
                       </span>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <button
-                          onClick={() => onProfileClick(entry.username)}
-                          className={`font-black tracking-widest uppercase text-base truncate max-w-[110px] sm:max-w-[140px] hover:underline transition-colors text-left cursor-pointer ${
-                            isMe || isTop1 ? 'text-white font-extrabold' : 'text-zinc-300 hover:text-white'
-                          }`}
-                          title={`View ${entry.username}'s Profile`}
-                        >
-                          {entry.username}
-                        </button>
-                        {isMe && (
-                          <span
-                            className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border shrink-0"
-                            style={{
-                              backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
-                              borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
-                              color: `rgb(${theme.glowPrimary})`,
-                            }}
-                          >
-                            YOU
-                          </span>
-                        )}
-                        {isMe && activeTitle && (
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 shrink-0 ${
-                              mePatron ? 'holographic-title-badge' : 'border border-white/10 bg-white/5 text-zinc-300'
+                      <div className="flex flex-col justify-center min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <button
+                            onClick={() => onProfileClick(entry.username)}
+                            className={`font-black tracking-wider uppercase text-sm sm:text-base truncate hover:underline transition-colors text-left cursor-pointer ${
+                              isMe || isTop1 ? 'text-white font-extrabold' : 'text-zinc-300 hover:text-white'
                             }`}
-                            title={`Title: ${meBadge?.name || activeTitle}`}
+                            title={`View ${entry.username}'s Profile`}
                           >
-                            {MeIcon && <MeIcon size={10} className={mePatron ? 'text-amber-300' : 'text-zinc-400'} />}
-                            <span className={`truncate max-w-[90px] ${mePatron ? 'holographic-title-text' : ''}`}>
-                              {meBadge?.name || activeTitle}
+                            {entry.username}
+                          </button>
+                          {isMe && (
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border shrink-0"
+                              style={{
+                                backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                                borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                                color: `rgb(${theme.glowPrimary})`,
+                              }}
+                            >
+                              YOU
                             </span>
-                          </span>
+                          )}
+                        </div>
+                        {isMe && activeTitle && (
+                          <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                            <span
+                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold inline-flex items-center gap-1 shrink-0 max-w-full ${
+                                mePatron ? 'holographic-title-badge' : 'border border-white/10 bg-white/5 text-zinc-300'
+                              }`}
+                              title={`Title: ${meBadge?.name || activeTitle}`}
+                            >
+                              {MeIcon && <MeIcon size={10} className={`shrink-0 ${mePatron ? 'text-amber-300' : 'text-zinc-400'}`} />}
+                              <span className={`truncate ${mePatron ? 'holographic-title-text' : ''}`}>
+                                {meBadge?.name || activeTitle}
+                              </span>
+                            </span>
+                          </div>
                         )}
                         {isKnownPatron && (
-                          <span
-                            className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 holographic-title-badge"
-                            title="Verified TypeNova Supporter"
-                          >
-                            <Sparkles size={10} className="text-amber-300" />
-                            <span className="holographic-title-text">PATRON</span>
-                          </span>
+                          <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                            <span
+                              className="px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold inline-flex items-center gap-1 shrink-0 holographic-title-badge"
+                              title="Verified TypeNova Supporter"
+                            >
+                              <Sparkles size={10} className="text-amber-300 shrink-0" />
+                              <span className="holographic-title-text">PATRON</span>
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end mr-4 group-hover:mr-10 transition-all">
+                    <div className={`flex flex-col items-end shrink-0 transition-all ${hasActions ? 'group-hover:mr-10' : ''}`}>
                       <span
-                        className="font-black text-3xl leading-none"
+                        className="font-black text-2xl sm:text-3xl leading-none"
                         style={
                           isMe || isTop1
                             ? {
@@ -324,7 +334,7 @@ export const LeaderboardSidebar = memo(function LeaderboardSidebar({
                       >
                         {entry.wpm}
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-bold tracking-widest whitespace-nowrap mt-1">{entry.accuracy}% ACC</span>
+                      <span className="text-[10px] text-zinc-400 font-bold tracking-wider sm:tracking-widest whitespace-nowrap mt-1">{entry.accuracy}% ACC</span>
                     </div>
                   {/* Ghost Net: every mode-board row is a raceable opponent. */}
                   {boardTab === 'mode' && entry.user_id && (

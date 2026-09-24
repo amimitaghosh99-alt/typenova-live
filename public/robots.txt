@@ -1,0 +1,8 @@
+# TypeNova Robots.txt
+# https://typenova.app
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://typenova.app/sitemap.xml

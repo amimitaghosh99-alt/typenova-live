@@ -84,7 +84,7 @@ export const AccountMenu = memo(
         </button>
 
         <div
-          className={`!absolute bottom-full mb-3 right-0 w-60 bg-[#090812] border-2 border-zinc-800/90 rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] z-[3000] shadow-[0_30px_70px_rgba(0,0,0,1)] ${open ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}`}
+          className={`!absolute bottom-full mb-3 right-0 w-60 bg-[#090812] border-2 border-zinc-800/90 rounded-2xl overflow-hidden origin-bottom-right transition-all duration-300 ease-fluid z-[3000] shadow-[0_30px_70px_rgba(0,0,0,1)] ${open ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}`}
         >
           {/* Card Header with user info */}
           <div className="p-4 border-b border-zinc-800/80 bg-zinc-950/60 relative overflow-hidden">

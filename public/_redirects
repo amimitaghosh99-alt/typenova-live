@@ -6,5 +6,10 @@
 #
 # Read by Netlify and Cloudflare Pages. Other hosts need their own equivalent:
 # `vercel.json` (in this repo), `try_files $uri /index.html;` on nginx, or
-# `--single` for `serve`. The dev server and `vite preview` already do this.
+# Health Endpoints — Must precede SPA catch-all
+/api/health    /api/health.json    200
+/health        /api/health.json    200
+
+# SPA history fallback
 /*  /index.html  200
+

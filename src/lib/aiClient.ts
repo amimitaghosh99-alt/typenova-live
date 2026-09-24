@@ -6,8 +6,10 @@
  * the storage keys, the endpoint construction and the usage accounting so the
  * callers can't drift apart.
  */
+import { emitHealthSignal } from './healthMonitor';
 
 export interface WindowAI {
+
   languageModel: {
     capabilities: () => Promise<{ available: 'readily' | 'after-download' | 'no' }>;
     create: (options?: any) => Promise<{
@@ -22,6 +24,7 @@ export const AI_KEYS = {
   byokKey: 'typezen_byok_key',
   byokUrl: 'typezen_byok_url',
   byokModel: 'typezen_byok_model',
+  keyPersistence: 'typenova_ai_key_persistence',
   usageTokens: 'typenova_usage_tokens',
   usageRequests: 'typenova_usage_requests',
   dailyTokens: 'typenova_daily_tokens',
@@ -33,6 +36,7 @@ export const AI_KEYS = {
   aruDebriefPolicy: 'typenova_aru_debrief_policy',
 } as const;
 
+export type KeyPersistence = 'persistent' | 'session';
 export type AruPersona = 'tactical' | 'zen' | 'cyberpunk' | 'hype';
 export type DebriefPolicy = 'always' | 'smart' | 'manual';
 
@@ -234,12 +238,94 @@ export interface AIConfig {
   model: string;
 }
 
+export function getKeyPersistence(): KeyPersistence {
+  if (typeof window === 'undefined') return 'persistent';
+  try {
+    const val = localStorage.getItem(AI_KEYS.keyPersistence);
+    return val === 'session' ? 'session' : 'persistent';
+  } catch {
+    return 'persistent';
+  }
+}
+
+export function setKeyPersistence(mode: KeyPersistence): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(AI_KEYS.keyPersistence, mode);
+    const currentKey = getStoredAIKey();
+    if (mode === 'session') {
+      if (currentKey) sessionStorage.setItem(AI_KEYS.byokKey, currentKey);
+      localStorage.removeItem(AI_KEYS.byokKey);
+    } else {
+      if (currentKey) localStorage.setItem(AI_KEYS.byokKey, currentKey);
+      sessionStorage.removeItem(AI_KEYS.byokKey);
+    }
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('typenova_ai_sync', { detail: { type: 'persistence', mode } }));
+  } catch { /* ignore */ }
+}
+
+export function getStoredAIKey(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const persistence = getKeyPersistence();
+    if (persistence === 'session') {
+      return (sessionStorage.getItem(AI_KEYS.byokKey) || '').trim();
+    }
+    return (localStorage.getItem(AI_KEYS.byokKey) || sessionStorage.getItem(AI_KEYS.byokKey) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+export function saveStoredAIKey(key: string): void {
+  if (typeof window === 'undefined') return;
+  const trimmed = key.trim();
+  const persistence = getKeyPersistence();
+  try {
+    if (persistence === 'session') {
+      sessionStorage.setItem(AI_KEYS.byokKey, trimmed);
+      localStorage.removeItem(AI_KEYS.byokKey);
+    } else {
+      localStorage.setItem(AI_KEYS.byokKey, trimmed);
+      sessionStorage.removeItem(AI_KEYS.byokKey);
+    }
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('typenova_ai_sync', { detail: { type: 'key', key: trimmed } }));
+  } catch { /* ignore */ }
+}
+
+export function clearAllAIData(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(AI_KEYS.byokKey);
+    sessionStorage.removeItem(AI_KEYS.byokKey);
+    localStorage.removeItem(AI_KEYS.workingModels);
+    localStorage.removeItem(AI_KEYS.usageTokens);
+    localStorage.removeItem(AI_KEYS.usageRequests);
+    localStorage.removeItem(AI_KEYS.dailyTokens);
+    localStorage.removeItem(AI_KEYS.dailyRequests);
+    localStorage.removeItem(AI_KEYS.rollingHistory);
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('typenova_ai_sync', { detail: { type: 'clear' } }));
+  } catch { /* ignore */ }
+}
+
+export function redactApiKey(key: string): string {
+  if (!key) return '';
+  const trimmed = key.trim();
+  if (trimmed.length <= 8) return '••••••••';
+  const prefix = trimmed.slice(0, 4);
+  const suffix = trimmed.slice(-4);
+  return `${prefix}••••••••••••••••${suffix}`;
+}
+
 function getAIConfig(): AIConfig {
-  const rawUrl = localStorage.getItem(AI_KEYS.byokUrl) || DEFAULT_BASE_URL;
-  const model = localStorage.getItem(AI_KEYS.byokModel) || DEFAULT_MODEL;
+  const rawUrl = typeof window !== 'undefined' ? (localStorage.getItem(AI_KEYS.byokUrl) || DEFAULT_BASE_URL) : DEFAULT_BASE_URL;
+  const model = typeof window !== 'undefined' ? (localStorage.getItem(AI_KEYS.byokModel) || DEFAULT_MODEL) : DEFAULT_MODEL;
 
   return {
-    apiKey: (localStorage.getItem(AI_KEYS.byokKey) || '').trim(),
+    apiKey: getStoredAIKey(),
     baseUrl: rawUrl.replace(/\/+$/, ''),
     model,
   };
@@ -344,16 +430,43 @@ async function toAIError(response: Response): Promise<AIError> {
     /* body already consumed or unreadable */
   }
   detail = detail.trim().slice(0, 300);
+  const activeKey = getStoredAIKey();
+  if (activeKey && activeKey.length >= 4 && detail.includes(activeKey)) {
+    detail = detail.replaceAll(activeKey, redactApiKey(activeKey));
+  }
+  // Redact typical provider API key tokens (OpenAI sk-, Groq gsk_, Google AIza) to prevent leakage
+  detail = detail.replace(/(?:sk-|gsk_|AIza)[a-zA-Z0-9_-]{8,}/g, (match) => redactApiKey(match));
 
   if (response.status === 401 || response.status === 403) {
-    return new AIError(detail || 'Your API key was rejected. Check it in Settings → Smart Engine.', response.status);
+    const errorMsg = detail || 'Your API key was rejected. Check it in Settings → Smart Engine.';
+    emitHealthSignal({
+      type: 'ai_auth_error',
+      severity: 'error',
+      subsystem: 'ai',
+      message: errorMsg,
+    });
+    return new AIError(errorMsg, response.status);
   }
   if (response.status === 429) {
     const retry = response.headers.get('retry-after');
-    return new AIError(
-      `Rate limited by your provider${retry ? ` — try again in ${retry}s` : ''}.${detail ? ` ${detail}` : ''}`,
-      429,
-    );
+    const errorMsg = `Rate limited by your provider${retry ? ` — try again in ${retry}s` : ''}.${detail ? ` ${detail}` : ''}`;
+    emitHealthSignal({
+      type: 'ai_rate_limit',
+      severity: 'warning',
+      subsystem: 'ai',
+      message: errorMsg,
+    });
+    return new AIError(errorMsg, 429);
+  }
+  if (response.status >= 500) {
+    const errorMsg = detail || `AI provider service error (HTTP ${response.status}).`;
+    emitHealthSignal({
+      type: 'ai_network_error',
+      severity: 'error',
+      subsystem: 'ai',
+      message: errorMsg,
+    });
+    return new AIError(errorMsg, response.status);
   }
   return new AIError(detail || `Request failed (HTTP ${response.status}).`, response.status);
 }
@@ -433,12 +546,25 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
     ...(stream ? { stream: true } : {}),
   });
 
-  const response = await fetch(finalUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${finalKey}` },
-    body: payload,
-    signal: opts.signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(finalUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${finalKey}` },
+      body: payload,
+      signal: opts.signal,
+    });
+  } catch (err: unknown) {
+    if (opts.signal?.aborted) throw err;
+    const msg = err instanceof Error ? err.message : 'Network failure';
+    emitHealthSignal({
+      type: 'ai_network_error',
+      severity: 'error',
+      subsystem: 'ai',
+      message: `Failed to reach AI endpoint: ${msg}`,
+    });
+    throw new AIError(`Could not reach AI provider: ${msg}`);
+  }
 
   if (!response.ok) throw await toAIError(response);
 

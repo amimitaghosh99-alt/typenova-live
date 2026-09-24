@@ -28,6 +28,8 @@ import { registerDailyChallengeTests } from './dailyChallenge.test.ts';
 import { registerDonationTests } from './donation.test.ts';
 import { registerHallOfLegendsTests } from './test_hall_of_legends.ts';
 import { registerDisplayScaleTests } from './display_scale.test.ts';
+import { registerFileValidationTests } from './fileValidation.test.ts';
+import { registerSecurityVerificationTests } from './securityVerification.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -82,6 +84,12 @@ async function main(): Promise<void> {
 
   // In-Webapp Display Scaling & OS DPI Override Engine
   registerDisplayScaleTests();
+
+  // Bug Report File Upload Security & Size Validation Engine
+  registerFileValidationTests();
+
+  // Core Security Verification: Fail-closed payment checks, input validation & secrets protection
+  registerSecurityVerificationTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

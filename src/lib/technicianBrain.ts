@@ -28,6 +28,7 @@ import {
   DEFAULT_BASE_URL,
   DEFAULT_MODEL,
   PROVIDER_PRESETS,
+  getStoredAIKey,
   limitsForModel,
   providerForKey,
   providerForUrl,
@@ -193,7 +194,7 @@ export function readTechSnapshot(
   ai?: Partial<TechAiState>,
   modifiers?: Record<string, boolean>,
 ): TechSnapshot {
-  const apiKey = (ai?.apiKey ?? localStorage.getItem(AI_KEYS.byokKey) ?? '').trim();
+  const apiKey = (ai?.apiKey ?? getStoredAIKey() ?? '').trim();
   const baseUrl = (ai?.baseUrl ?? localStorage.getItem(AI_KEYS.byokUrl) ?? DEFAULT_BASE_URL).trim();
   const model = (ai?.model ?? localStorage.getItem(AI_KEYS.byokModel) ?? DEFAULT_MODEL).trim();
 

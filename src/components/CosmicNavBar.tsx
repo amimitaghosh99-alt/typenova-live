@@ -23,21 +23,17 @@ interface CosmicNavBarProps {
   activeTitle: string;
   dailyStreak: number;
   isLoggedIn: boolean;
-  unlockedAchievements?: string[];
   // Callbacks
   onOpenProfile: (username: string) => void;
-  onOpenTrophies?: () => void;
   onOpenRace: () => void;
   onOpenAcademy: () => void;
   onOpenPractice: () => void;
   onOpenSocial: () => void;
   onOpenComms: () => void;
-  onOpenSettings?: () => void;
   onOpenDailyQuests: () => void;
   onOpenDonate?: () => void;
-  onOpenStudio?: () => void;
   // Active page for nav link highlighting
-  activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier' | 'donate' | 'studio';
+  activePage?: 'academy' | 'practice' | 'compete' | 'store' | 'dossier' | 'donate';
   // Clutter hiding state during typing
   shouldHide?: boolean;
 }
@@ -55,18 +51,14 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   activeTitle,
   dailyStreak,
   isLoggedIn,
-  unlockedAchievements: _unlockedAchievements,
   onOpenProfile,
-  onOpenTrophies: _onOpenTrophies,
   onOpenRace,
   onOpenAcademy,
   onOpenPractice,
   onOpenSocial,
   onOpenComms,
-  onOpenSettings: _onOpenSettings,
   onOpenDailyQuests,
   onOpenDonate,
-  onOpenStudio,
   activePage = 'practice',
   shouldHide = false,
 }: CosmicNavBarProps) {
@@ -86,7 +78,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   const selectedBanner = ALL_BANNERS.find(b => b.id === bannerId) || ALL_BANNERS[0];
   const selectedAvatar = AVATARS.find(a => a.id === avatarId) || AVATARS[0];
 
-  const getNavLinkStyle = (page: 'academy' | 'practice' | 'compete' | 'store' | 'studio') => {
+  const getNavLinkStyle = (page: 'academy' | 'practice' | 'compete' | 'store') => {
     if (activePage === page) {
       return {
         color: `rgb(${theme.glowPrimary})`,
@@ -96,11 +88,10 @@ export const CosmicNavBar = memo(function CosmicNavBar({
     return {};
   };
 
-  const navLinks: Array<{ id: 'academy' | 'practice' | 'compete' | 'store' | 'studio'; label: string; onClick: () => void; badge?: string }> = [
+  const navLinks: Array<{ id: 'academy' | 'practice' | 'compete' | 'store'; label: string; onClick: () => void; badge?: string }> = [
     { id: 'academy', label: 'Academy', onClick: onOpenAcademy },
     { id: 'practice', label: 'Practice', onClick: onOpenPractice },
     { id: 'compete', label: 'Compete', onClick: onOpenRace },
-    ...(onOpenStudio ? [{ id: 'studio' as const, label: 'Studio', badge: '✦', onClick: onOpenStudio }] : []),
     {
       id: 'store',
       label: 'Store',
@@ -124,7 +115,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
           was paid for twice and each stage lost 80px of usable height. */}
       <header
         data-app-chrome="nav"
-        className={`!fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-[var(--z-nav)] flex items-center justify-between font-display transition-[background-color,border-color,box-shadow,opacity,transform] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] shadow-[0_8px_32px_rgba(0,0,0,0.4)] will-change-[transform,opacity] ${
+        className={`!fixed top-0 left-0 w-full px-6 md:px-10 py-3 glass-panel border-t-0 rounded-b-3xl z-[var(--z-nav)] flex items-center justify-between font-display transition-[background-color,border-color,box-shadow,opacity,transform] duration-500 ease-fluid shadow-[0_8px_32px_rgba(0,0,0,0.4)] will-change-[transform,opacity] ${
           shouldHide
             ? '-translate-y-full opacity-0 pointer-events-none'
             : 'translate-y-0 opacity-100'

@@ -97,21 +97,7 @@ import type { HistoryEntry } from '@/lib/history';
 import {
     bannerToast, pulseHaptic, reveal, rgba, shellIn, springSnappy,
 } from '@/components/profile/profileMotion';
-
-interface PublicProfileData {
-    /** `auth.uid()` — the key into `mode_scores` and `ranked_matches`. */
-    id: string;
-    username: string;
-    level: number;
-    xp: number;
-    equipped_title: string;
-    unlocked_badges: string[];
-    max_wpm: number;
-    avg_acc: number;
-    tests_completed: number;
-    avatar_id?: string;
-    banner_id?: string;
-}
+import { useOperatorProfile } from '@/hooks/useOperatorProfile';
 
 export interface OperatorDossierProps {
     /**
@@ -270,12 +256,6 @@ export const OperatorDossier = React.memo(function OperatorDossier({
      */
     const profileKey = targetUsername.toLowerCase();
 
-    /** The settled remote read. `null` means "still in flight for this key". */
-    const [fetched, setFetched] = useState<{ key: string; row: PublicProfileData | null; failed: boolean } | null>(null);
-    /** Bumped by the retry button to re-run the read for the same operator. */
-    const [retryNonce, setRetryNonce] = useState(0);
-    /** Cosmetics arrive on their own for our dossier — stats stay local. */
-    const [cosmetics, setCosmetics] = useState<{ key: string; avatarId: string; bannerId: string } | null>(null);
     /** Our own equipped title is authoritative from localStorage, never the cloud. */
     const [ownTitleId, setOwnTitleId] = useState<string>(() => getActiveTitleId());
     const [showCustomization, setShowCustomization] = useState(false);
@@ -376,97 +356,27 @@ export const OperatorDossier = React.memo(function OperatorDossier({
      */
     const usesLocalStats = isOwnProfile && !!localRPGStats;
 
-    // Remote read. Nothing here resets state on a key change: every result is
-    // tagged with the profile it belongs to and read back through that tag, so a
-    // slow response for the operator you just navigated away from is inert
-    // instead of overwriting the dossier now on screen.
-    useEffect(() => {
-        if (!targetUsername || !supabase) return;
-
-        const key = profileKey;
-        const match = likeEscape(targetUsername);
-        let active = true;
-
-        if (usesLocalStats) {
-            // Cosmetics only — the dossier is already on screen from local data, so
-            // a failure just keeps the default skin. It still needs a rejection
-            // handler, or the error lands at window scope.
-            supabase
-                .from('public_profiles')
-                .select('avatar_id, banner_id')
-                .ilike('username', match)
-                .maybeSingle()
-                .then(
-                    ({ data }) => {
-                        if (!active || !data) return;
-                        const nextAvatar = data.avatar_id || 'default';
-                        const nextBanner = data.banner_id || 'basic_dark';
-                        setCosmetics({
-                            key,
-                            avatarId: nextAvatar,
-                            bannerId: nextBanner,
-                        });
-                        if (isOwnProfile) {
-                            try {
-                                localStorage.setItem('typenova_avatar_id', nextAvatar);
-                                localStorage.setItem('typenova_banner_id', nextBanner);
-                                window.dispatchEvent(new Event('cosmeticsChanged'));
-                            } catch {}
-                        }
-                    },
-                    (err: unknown) => {
-                        console.warn('[profile] cosmetics fetch failed:', err);
-                    }
-                );
-
-            return () => {
-                active = false;
-            };
-        }
-
-        (async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('public_profiles')
-                    .select('*')
-                    .ilike('username', match)
-                    .maybeSingle();
-
-                if (!active) return;
-                if (error) throw error;
-                setFetched({ key, row: (data as PublicProfileData | null) ?? null, failed: false });
-            } catch (err) {
-                // A transport failure is not the same as "no such operator" —
-                // showing "signal lost" for a dropped request sent people looking
-                // for a profile that was there all along.
-                console.error('[profile] public profile fetch failed:', err);
-                if (active) setFetched({ key, row: null, failed: true });
-            }
-        })();
-
-        return () => {
-            active = false;
-        };
-    }, [targetUsername, profileKey, usesLocalStats, supabase, retryNonce]);
+    const {
+        remote,
+        cosmetics,
+        setCosmetics,
+        loading,
+        notFound,
+        fetchFailed,
+        retryFetch,
+    } = useOperatorProfile({
+        targetUsername,
+        profileKey,
+        usesLocalStats,
+        supabase,
+        isOwnProfile,
+    });
 
     /** Keeps our chip honest when a title is equipped from another surface. */
     useEffect(() => {
         const sync = () => setOwnTitleId(getActiveTitleId());
         window.addEventListener('titleChanged', sync);
         return () => window.removeEventListener('titleChanged', sync);
-    }, []);
-
-    /** The settled read for *this* operator, or `undefined` while in flight. */
-    const settled = fetched && fetched.key === profileKey ? fetched : undefined;
-    const remote = settled?.row;
-    const loading = !usesLocalStats && !settled && !!supabase;
-    const notFound = !usesLocalStats && !!settled && settled.row === null && !settled.failed;
-    /** Distinguished from `notFound` so a dropped request offers a retry. */
-    const fetchFailed = !usesLocalStats && (!supabase || (!!settled && settled.failed));
-
-    const retryFetch = useCallback(() => {
-        setFetched(null);
-        setRetryNonce((n) => n + 1);
     }, []);
 
     /**
@@ -1098,29 +1008,94 @@ export const OperatorDossier = React.memo(function OperatorDossier({
     /** The one primary action, which is a different verb depending on who is looking. */
     const primaryAction = isOwnProfile ? (
         <motion.button
-            whileHover={reduce ? undefined : { y: -2 }}
-            whileTap={reduce ? undefined : { scale: 0.985 }}
-            transition={springSnappy}
+            whileHover={reduce ? undefined : { y: -2, scale: 1.03 }}
+            whileTap={reduce ? undefined : { scale: 0.96 }}
+            animate={reduce ? undefined : {
+                boxShadow: [
+                    `0 0 14px ${rgba(accent, 0.2)}, inset 0 0 8px ${rgba(accent, 0.06)}`,
+                    `0 0 24px ${rgba(accent, 0.42)}, inset 0 0 12px ${rgba(accent, 0.14)}`,
+                    `0 0 14px ${rgba(accent, 0.2)}, inset 0 0 8px ${rgba(accent, 0.06)}`
+                ]
+            }}
+            transition={{
+                boxShadow: { repeat: Infinity, duration: 3.2, ease: 'easeInOut' },
+                ...springSnappy
+            }}
             type="button"
             onClick={() => setShowCustomization(true)}
-            className="dsr-interactive flex items-center gap-2 rounded-full px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-            style={{ borderColor: rgba(accent, 0.4), background: rgba(accent, 0.1) }}
+            className="group relative flex items-center gap-2.5 overflow-hidden rounded-full px-4 py-2 outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer border"
+            style={{
+                borderColor: rgba(accent, 0.5),
+                background: rgba(accent, 0.12),
+            }}
         >
-            <Sliders size={13} style={{ color: rgba(accent, 1) }} aria-hidden />
-            <span className="dsr-body text-[13px] text-[var(--dsr-ink)]">Modify loadout</span>
+            {/* Continuous Ambient Light Sheen + Hover Flash */}
+            <motion.span
+                className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                animate={reduce ? undefined : { x: ['-120%', '220%'] }}
+                transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut', repeatDelay: 2 }}
+                aria-hidden
+            />
+
+            {/* Glowing Accent Radial Backing on Hover */}
+            <span
+                className="pointer-events-none absolute inset-0 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                style={{
+                    background: `radial-gradient(circle at center, ${rgba(accent, 0.3)} 0%, transparent 85%)`,
+                    boxShadow: `0 0 24px ${rgba(accent, 0.5)}`,
+                }}
+                aria-hidden
+            />
+
+            <span className="relative z-10 flex items-center justify-center">
+                <Sliders
+                    size={14}
+                    style={{ color: rgba(accent, 1) }}
+                    className="transition-transform duration-300 ease-out group-hover:rotate-12 group-hover:scale-115 drop-shadow-[0_0_6px_currentColor]"
+                    aria-hidden
+                />
+            </span>
+
+            <span className="dsr-body relative z-10 text-[13px] font-medium tracking-wide text-[var(--dsr-ink)] transition-colors duration-200 group-hover:text-white">
+                Modify loadout
+            </span>
         </motion.button>
     ) : canRace && topBest ? (
         <motion.button
-            whileHover={reduce ? undefined : { y: -2 }}
-            whileTap={reduce ? undefined : { scale: 0.985 }}
-            transition={springSnappy}
+            whileHover={reduce ? undefined : { y: -2, scale: 1.03 }}
+            whileTap={reduce ? undefined : { scale: 0.96 }}
+            animate={reduce ? undefined : {
+                boxShadow: [
+                    `0 0 14px ${rgba(accent, 0.2)}, inset 0 0 8px ${rgba(accent, 0.06)}`,
+                    `0 0 24px ${rgba(accent, 0.42)}, inset 0 0 12px ${rgba(accent, 0.14)}`,
+                    `0 0 14px ${rgba(accent, 0.2)}, inset 0 0 8px ${rgba(accent, 0.06)}`
+                ]
+            }}
+            transition={{
+                boxShadow: { repeat: Infinity, duration: 3.2, ease: 'easeInOut' },
+                ...springSnappy
+            }}
             type="button"
             onClick={() => raceRun(topBest.modeKey)}
-            className="dsr-interactive flex items-center gap-2 rounded-full px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-            style={{ borderColor: rgba(accent, 0.4), background: rgba(accent, 0.1) }}
+            className="group relative flex items-center gap-2.5 overflow-hidden rounded-full px-4 py-2 outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-white/40 cursor-pointer border"
+            style={{
+                borderColor: rgba(accent, 0.5),
+                background: rgba(accent, 0.12),
+            }}
         >
-            <Ghost size={14} style={{ color: rgba(accent, 1) }} aria-hidden />
-            <span className="dsr-body text-[13px] text-[var(--dsr-ink)]">
+            <motion.span
+                className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                animate={reduce ? undefined : { x: ['-120%', '220%'] }}
+                transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut', repeatDelay: 2 }}
+                aria-hidden
+            />
+            <Ghost
+                size={14}
+                style={{ color: rgba(accent, 1) }}
+                className="relative z-10 transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:scale-115 drop-shadow-[0_0_6px_currentColor]"
+                aria-hidden
+            />
+            <span className="dsr-body relative z-10 text-[13px] font-medium tracking-wide text-[var(--dsr-ink)] transition-colors duration-200 group-hover:text-white">
                 Race their {topBest.wpm} WPM run
             </span>
         </motion.button>

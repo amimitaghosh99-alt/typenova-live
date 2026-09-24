@@ -29,7 +29,7 @@ export interface AvatarDef {
   iconColor: string;    // Icon foreground color
 }
 
-// 12 Free Banners — each a COMPLETELY different color identity
+// Curated Thematic Banners — hand-crafted identities aligned with typing, cyberpunk & artisan aesthetics
 const FREE_BANNERS: BannerDef[] = [
   {
     id: 'basic_dark',
@@ -41,75 +41,12 @@ const FREE_BANNERS: BannerDef[] = [
     type: 'free'
   },
   {
-    id: 'ocean_abyss',
-    name: 'Ocean Abyss',
-    description: 'Deep sea blues and cyans.',
-    bgClass: 'bg-gradient-to-br from-cyan-800 via-blue-900 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '6, 182, 212',
-    accentBorder: 'border-cyan-500/40',
-    type: 'free'
-  },
-  {
-    id: 'crimson_throne',
-    name: 'Crimson Throne',
-    description: 'Blood red royalty.',
-    bgClass: 'bg-gradient-to-br from-red-700 via-rose-900 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '244, 63, 94',
-    accentBorder: 'border-rose-500/40',
-    type: 'free'
-  },
-  {
-    id: 'toxic_swamp',
-    name: 'Toxic Swamp',
-    description: 'Radioactive green haze.',
-    bgClass: 'bg-gradient-to-br from-lime-600 via-emerald-900 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '52, 211, 153',
-    accentBorder: 'border-emerald-500/40',
-    type: 'free'
-  },
-  {
-    id: 'royal_amethyst',
-    name: 'Royal Amethyst',
-    description: 'Majestic purple reign.',
-    bgClass: 'bg-gradient-to-br from-purple-600 via-violet-900 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '168, 85, 247',
-    accentBorder: 'border-purple-500/40',
-    type: 'free'
-  },
-  {
-    id: 'neon_pink',
-    name: 'Neon Pulse',
-    description: 'Hot pink cyberpunk vibes.',
-    bgClass: 'bg-gradient-to-br from-pink-500 via-fuchsia-900 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '236, 72, 153',
-    accentBorder: 'border-pink-500/40',
-    type: 'free'
-  },
-  {
-    id: 'arctic_frost',
-    name: 'Arctic Frost',
-    description: 'Icy cold white and blue.',
-    bgClass: 'bg-gradient-to-br from-sky-300 via-blue-800 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '125, 211, 252',
-    accentBorder: 'border-sky-400/40',
-    type: 'free'
-  },
-  {
-    id: 'sunset_blaze',
-    name: 'Sunset Blaze',
-    description: 'Orange and amber fire sky.',
-    bgClass: 'bg-gradient-to-br from-orange-500 via-amber-800 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '251, 146, 60',
-    accentBorder: 'border-orange-500/40',
-    type: 'free'
-  },
-  {
-    id: 'aurora_borealis',
-    name: 'Aurora',
-    description: 'Northern lights — green, cyan, purple.',
-    bgClass: 'bg-gradient-to-r from-emerald-600 via-cyan-700 to-purple-800 bg-[length:200%_100%] animate-gradient-x',
-    glowColor: '45, 212, 191',
-    accentBorder: 'border-teal-500/40',
+    id: 'matrix',
+    name: 'Matrix',
+    description: 'Digital green code rain.',
+    bgClass: 'banner-matrix',
+    glowColor: '34, 197, 94',
+    accentBorder: 'border-green-500/40',
     type: 'free'
   },
   {
@@ -131,12 +68,21 @@ const FREE_BANNERS: BannerDef[] = [
     type: 'free'
   },
   {
-    id: 'matrix',
-    name: 'Matrix',
-    description: 'Digital green code rain.',
-    bgClass: 'banner-matrix',
-    glowColor: '34, 197, 94',
-    accentBorder: 'border-green-500/40',
+    id: 'neon_pink',
+    name: 'Neon Pulse',
+    description: 'Hot pink cyberpunk vibes.',
+    bgClass: 'bg-gradient-to-br from-pink-500 via-fuchsia-900 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
+    glowColor: '236, 72, 153',
+    accentBorder: 'border-pink-500/40',
+    type: 'free'
+  },
+  {
+    id: 'aurora_borealis',
+    name: 'Aurora',
+    description: 'Northern lights — green, cyan, purple.',
+    bgClass: 'bg-gradient-to-r from-emerald-600 via-cyan-700 to-purple-800 bg-[length:200%_100%] animate-gradient-x',
+    glowColor: '45, 212, 191',
+    accentBorder: 'border-teal-500/40',
     type: 'free'
   },
 ];
@@ -250,5 +196,18 @@ export const AVATARS: AvatarDef[] = [
   { id: 'carbon', name: 'Carbon Weave', gradient: 'bg-gradient-to-br from-zinc-700 via-neutral-900 to-black', glowColor: '148, 163, 184', borderColor: 'border-zinc-400/80', iconColor: 'text-zinc-200' },
   { id: 'gold_esc', name: 'Midas Esc', gradient: 'bg-gradient-to-br from-yellow-300 via-amber-500 to-yellow-800', glowColor: '234, 179, 8', borderColor: 'border-yellow-200', iconColor: 'text-amber-950' },
   { id: 'prism', name: 'Supernova', gradient: 'bg-gradient-to-br from-fuchsia-500 via-pink-600 to-purple-950', glowColor: '217, 70, 239', borderColor: 'border-fuchsia-300', iconColor: 'text-pink-100' },
-  { id: 'phoenix', name: 'Immortal', gradient: 'bg-gradient-to-br from-rose-500 via-red-600 to-orange-950', glowColor: '251, 113, 133', borderColor: 'border-rose-300', iconColor: 'text-rose-100' }
+  { id: 'phoenix', name: 'Immortal', gradient: 'bg-gradient-to-br from-rose-500 via-red-600 to-orange-950', glowColor: '251, 113, 133', borderColor: 'border-rose-300', iconColor: 'text-rose-100' },
+  { id: 'nova_prime', name: 'Nova Prime', gradient: 'bg-gradient-to-br from-cyan-300 via-blue-600 to-indigo-950', glowColor: '56, 189, 248', borderColor: 'border-cyan-200', iconColor: 'text-cyan-100' },
+  { id: 'typenova', name: 'TypeNova', gradient: 'bg-gradient-to-br from-cyan-300 via-teal-500 to-indigo-950', glowColor: '0, 240, 255', borderColor: 'border-cyan-300', iconColor: 'text-cyan-200' },
+
+  // ── Arena Artisan Series: Damascus Relic, Ghost Circuit, and Astral Bloom ──
+  { id: 'damascus_relic', name: 'Damascus Relic', gradient: 'bg-gradient-to-br from-stone-400 via-stone-700 to-zinc-950', glowColor: '216, 181, 128', borderColor: 'border-amber-200/60', iconColor: 'text-amber-100' },
+  { id: 'ghost_circuit', name: 'Ghost Circuit', gradient: 'bg-gradient-to-br from-emerald-300 via-emerald-900 to-zinc-950', glowColor: '136, 237, 187', borderColor: 'border-emerald-300/70', iconColor: 'text-emerald-100' },
+  { id: 'astral_bloom', name: 'Astral Bloom', gradient: 'bg-gradient-to-br from-violet-200 via-purple-800 to-slate-950', glowColor: '213, 183, 245', borderColor: 'border-purple-200/70', iconColor: 'text-purple-100' },
+
+  // ── Super Premium: Sakura Rift — liquid crystal aurora cherry blossom ──
+  { id: 'sakura_rift', name: 'Sakura Rift', gradient: 'bg-gradient-to-br from-pink-300 via-rose-500 to-fuchsia-900', glowColor: '244, 163, 201', borderColor: 'border-pink-200', iconColor: 'text-pink-100' },
+
+  // ── Player Bespoke Studio Keycap ──
+  { id: 'custom_artisan', name: 'Custom Artisan', gradient: 'bg-gradient-to-br from-amber-400 via-pink-500 to-purple-800', glowColor: '249, 115, 22', borderColor: 'border-amber-300', iconColor: 'text-amber-200' }
 ];

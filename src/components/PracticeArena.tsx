@@ -64,8 +64,8 @@ export const PracticeArena = memo(function PracticeArena({
   onOpenGhostModal,
   onReset,
   raceActive = false,
-  dueWordsCount: _dueWordsCount = 0,
-  onTrainDue: _onTrainDue,
+  dueWordsCount = 0,
+  onTrainDue,
   hexEnergy = 0,
   activeHexes = [],
   onCastHex,
@@ -98,6 +98,8 @@ export const PracticeArena = memo(function PracticeArena({
           handleChangeCountOrDuration={handleChangeCountOrDuration}
           handleChangeCodeLanguage={handleChangeCodeLanguage}
           onSetCustomTargetText={onSetCustomTargetText}
+          dueWordsCount={dueWordsCount}
+          onTrainDue={onTrainDue}
         />
       </motion.div>
 
@@ -331,7 +333,7 @@ export const PracticeArena = memo(function PracticeArena({
             onClick={onReset}
             className="flex items-center space-x-3 px-8 py-3 bg-white/[0.04] hover:bg-white/10 text-zinc-300 hover:text-white transition-colors rounded-full border border-white/10 text-[10px] md:text-xs font-black tracking-widest shadow-xl backdrop-blur-md cursor-pointer"
           >
-            <RotateCcw size={16} /> <span>ABORT &amp; CONFIGURE (ESC)</span>
+            <RotateCcw size={16} /> <span>RESTART (TAB + ENTER / ESC)</span>
           </button>
         )}
       </div>

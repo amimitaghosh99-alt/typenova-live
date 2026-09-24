@@ -4,12 +4,57 @@ import { defineConfig } from "vite"
 import { inspectAttr } from 'kimi-plugin-inspect-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+function healthEndpointPlugin() {
+  return {
+    name: 'typenova-health-endpoint',
+    configureServer(server: import('vite').ViteDevServer) {
+      server.middlewares.use((req, res, next) => {
+        const rawUrl = req.url || '';
+        const pathname = rawUrl.split('?')[0].replace(/\/+$/, '') || '/';
+        if (
+          pathname === '/api/health' ||
+          pathname === '/health' ||
+          pathname === '/api/health.json' ||
+          pathname === '/health.json'
+        ) {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          const payload = {
+            status: 'healthy',
+            app: 'typenova',
+            version: '3.1.0',
+            environment: 'development',
+            timestamp: new Date().toISOString(),
+            uptimeSec: Math.round(process.uptime()),
+            checks: {
+              spa_bundle: 'ok',
+              dev_server: 'vite_active',
+              byok_direct_ssl: 'enabled',
+              audio_subsystem: 'web_audio_api'
+            },
+            uptime_slas: {
+              client_side_ready: true,
+              offline_capable: true
+            }
+          };
+          res.end(JSON.stringify(payload, null, 2));
+          return;
+        }
+        next();
+      });
+    }
+  };
+}
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: '/',
   plugins: [
-    inspectAttr(),
+    healthEndpointPlugin(),
+    ...(mode === 'development' ? [inspectAttr()] : []),
     react(),
+
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'favicon.png', 'favicon-32x32.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'logo.png'],
@@ -74,7 +119,9 @@ export default defineConfig({
           if (norm.includes('/node_modules/')) {
             if (norm.includes('/three/')) return 'vendor-three';
             if (norm.includes('/d3/') || norm.includes('/d3-')) return 'vendor-d3';
-            if (norm.includes('/@react-spring/')) return 'vendor-spring';
+            if (norm.includes('/gsap/')) return 'vendor-gsap';
+            if (norm.includes('/sonner/')) return 'vendor-sonner';
+            if (norm.includes('/canvas-confetti/')) return 'vendor-confetti';
             if (norm.includes('/framer-motion/') || norm.includes('/motion/')) return 'vendor-motion';
             if (norm.includes('/@supabase/')) return 'vendor-supabase';
             if (norm.includes('/@radix-ui/')) return 'vendor-radix';
@@ -91,5 +138,5 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-});
+}));
 

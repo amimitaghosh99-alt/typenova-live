@@ -2,6 +2,52 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(self \"https://checkout.razorpay.com\")"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://checkout.razorpay.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* blob:; worker-src 'self' blob:; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://accounts.google.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
+        }
+      ]
+    },
+    {
+      "source": "/(api/health\\.json|health\\.json)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
       "source": "/manifest.webmanifest",
       "headers": [
         {
@@ -17,7 +63,15 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|sw\\.js|workbox-.*|manifest\\.webmanifest|registerSW\\.js|.*\\.(?:png|svg|ico|json|txt|mp3|wav|woff2)).*)",
+      "source": "/api/health",
+      "destination": "/api/health.json"
+    },
+    {
+      "source": "/health",
+      "destination": "/health.json"
+    },
+    {
+      "source": "/((?!assets/|api/|sw\\.js|workbox-.*|manifest\\.webmanifest|registerSW\\.js|.*\\.(?:png|svg|ico|json|txt|xml|mp3|wav|woff2|webmanifest)).*)",
       "destination": "/index.html"
     }
   ]

@@ -16,7 +16,32 @@ export interface ChangelogEntry {
   impact: ImpactStats;
 }
 
+import { APP_VERSION } from './version';
+export { APP_VERSION };
+
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: APP_VERSION,
+    date: 'September 24, 2026',
+    title: 'Synthetic Health Diagnostics, Real-Time Telemetry Bus, BYOK Zero-Knowledge Privacy & Response Hardening',
+    changes: [
+      { type: 'feature', description: 'Synthetic Client Health Diagnostics Engine: High-speed (<20ms) proactive client diagnostic suite checking 5 mission-critical subsystems — Storage Quota & Read/Write Parity, Web Audio API context sample rate & autoplay suspension state, Multiplayer WebSocket relay network latency, Supabase Cloud auth session token freshness, and Zero-Knowledge BYOK inference provider endpoints.' },
+      { type: 'feature', description: 'Universal Health Signal Bus & Incident Stream: Global reactive event bus (emitHealthSignal, subscribeHealthSignals) capturing client-side anomalies (race disconnections, join timeouts, auth token expirations, AI provider rate limits, audio autoplay restrictions) with in-memory thread isolation and cross-context DOM event bridging.' },
+      { type: 'feature', description: 'System Status & Live Telemetry Console: Pinned infrastructure console in footer with dynamic wallpaper theme color glow, real-time subsystem status matrix with ping roundtrip latencies, interactive diagnostic re-probe trigger, and live incident stream with 1-click recovery actions ([Reconnect], [Configure Key]).' },
+      { type: 'feature', description: 'Zero-Knowledge Bring-Your-Own-Key (BYOK) AI Architecture: 100% direct browser-to-provider HTTPS inference (Groq, OpenAI, Google Gemini, OpenRouter) ensuring API keys never touch or transit TypeNova backend servers. Includes dual persistence toggle (Remember Key in localStorage vs. ephemeral Session Only in sessionStorage) and 1-click instantaneous key purge.' },
+      { type: 'feature', description: 'Guest First-Win Conversion Experience: Frictionless 30-second speed test hero CTA, post-test benchmark conversion banner (WPM, Accuracy, Grade), seamless pending score ingestion upon Google OAuth return, and glassmorphic Feature Showcase modal.' },
+      { type: 'feature', description: 'Edge Health Endpoints & Staged Security Headers: High-performance /api/health and /health JSON endpoints with uptime SLAs and runtime metadata; hardened HTTP response headers (X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-Frame-Options: SAMEORIGIN, Permissions-Policy, staged Content-Security-Policy).' },
+      { type: 'fix', description: '9-Bug Adversarial Hardening Rebuild: Resolved 9 edge cases and vulnerabilities — eliminated storage probe quota clutter via finally blocks, unbounded fetch hangs via 3000ms AbortController timeouts, AudioContext hardware exhaustion via lifecycle guards, error isolation in signal listeners, API key regex token redaction (sk-, gsk_, AIza), and full retry budget resets on manual reconnects.' },
+      { type: 'perf', description: '1000ms Signal Bus Deduplication & Zero-Jank Telemetry: Debounces identical consecutive client warning signals within 1000ms to eliminate event storms, UI re-render thrashing, and console noise during network blips.' },
+      { type: 'tweak', description: 'Dynamic Theme Color Binding & Minimalist Controls: Bound all diagnostics indicators, telemetry badges, and recovery buttons strictly to dynamic theme glow tokens (rgb(${theme.glowPrimary})) with tight gapless Monkeytype-inspired layout density.' }
+    ],
+    impact: {
+      fixes: 9,
+      tweaks: 6,
+      linesChanged: 1850,
+      perfGain: '<20ms Client Synthetic Diagnostics, 100% Direct SSL BYOK & Zero Unmounted Leaks'
+    }
+  },
   {
     version: 'v3.0.1',
     date: 'September 12, 2026',

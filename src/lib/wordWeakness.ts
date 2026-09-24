@@ -219,20 +219,17 @@ export function gradeDrillRun(
     if (errored) {
       next[key] = {
         ...existing,
-        total: Math.max(existing.total + 1, existing.errors + 1),
-        errors: existing.errors + 1,
         box: 0,
         due: today,
-        lastSeen: today
+        lastSeen: today,
       };
     } else {
       const box = Math.min(existing.box + 1, MAX_BOX);
       next[key] = {
         ...existing,
-        total: existing.total + 1,
         box,
         due: addDays(today, BOX_INTERVAL_DAYS[box]),
-        lastSeen: today
+        lastSeen: today,
       };
     }
   }

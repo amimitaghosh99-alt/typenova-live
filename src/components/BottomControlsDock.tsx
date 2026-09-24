@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useRef } from 'react';
 import { Settings, Sparkles, X, Bot } from 'lucide-react';
 import { AccountMenu } from '@/components/AccountMenu';
 import type { Theme } from '@/data/constants';
@@ -14,6 +14,7 @@ interface BottomControlsDockProps {
   onOpenSettings: () => void;
   onOpenChangelog: () => void;
   onOpenWhatsNew?: () => void;
+  onOpenGodMode?: () => void;
   latestVersion: string;
   cloud: {
     username: string | null;
@@ -42,6 +43,7 @@ export const BottomControlsDock = memo(function BottomControlsDock({
   onOpenSettings,
   onOpenChangelog,
   onOpenWhatsNew,
+  onOpenGodMode,
   latestVersion,
   cloud,
   auth,
@@ -49,6 +51,36 @@ export const BottomControlsDock = memo(function BottomControlsDock({
   onSignIn,
   onSignOut,
 }: BottomControlsDockProps) {
+  const versionClickCountRef = useRef(0);
+  const versionClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVersionClick = (e: React.MouseEvent) => {
+    // If Alt / Option key is held, direct shortcut into God Mode!
+    if (e.altKey && onOpenGodMode) {
+      onOpenGodMode();
+      return;
+    }
+
+    versionClickCountRef.current += 1;
+    if (versionClickTimerRef.current) clearTimeout(versionClickTimerRef.current);
+
+    if (versionClickCountRef.current >= 5) {
+      versionClickCountRef.current = 0;
+      if (onOpenGodMode) {
+        onOpenGodMode();
+        return;
+      }
+    }
+
+    versionClickTimerRef.current = setTimeout(() => {
+      if (versionClickCountRef.current < 5) {
+        const handler = onOpenWhatsNew || onOpenChangelog;
+        if (handler) handler();
+      }
+      versionClickCountRef.current = 0;
+    }, 350);
+  };
+
   if (shouldHideClutter) return null;
 
   return (
@@ -150,10 +182,10 @@ export const BottomControlsDock = memo(function BottomControlsDock({
 
       {/* Floating Bottom-Left Version/Changelog Badge */}
       <button
-        onClick={onOpenWhatsNew || onOpenChangelog}
+        onClick={handleVersionClick}
         className="fixed bottom-6 left-6 z-[var(--z-dock)] flex items-center gap-2 px-3 py-1.5 rounded-full glass-pill border-white/10 hover:border-white/25 text-zinc-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] active:scale-95"
 
-        title="View What's New & Updates"
+        title="View What's New & Updates (Alt+Click or 5x Click for God Mode)"
       >
         <Sparkles
           size={12}

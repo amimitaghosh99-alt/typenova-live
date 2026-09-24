@@ -8,7 +8,7 @@
 import { supabase } from '@/lib/supabase';
 
 export const RAZORPAY_KEY_ID =
-  (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || '';
+  (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_RAZORPAY_KEY_ID as string)) || '';
 
 /** Tier→Title mapping (must stay in sync with edge function mapping) */
 export const TIER_TITLE_MAP: Record<string, string> = {
@@ -126,50 +126,64 @@ export function getCurrencySubunitFactor(currency: string): number {
 
 /**
  * Creates a verified Razorpay order via Supabase Edge Functions.
- * Falls back to client key if edge function is unreachable or not yet deployed.
+ * Fails closed if edge function is unreachable to prevent order tampering.
  */
 export async function createRazorpayOrder(params: CreateOrderParams): Promise<CreateOrderResult> {
   const currency = params.currency || 'INR';
   const factor = getCurrencySubunitFactor(currency);
   const amountInPaise = Math.round(params.amount * factor);
 
-  if (supabase) {
-    try {
-      const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
-        body: {
-          amount: params.amount,
-          currency,
-          donorName: params.donorName,
-          tierId: params.tierId,
-          userId: params.userId,
-          message: params.message,
-        },
-      });
-
-      if (!error && data?.success && data?.orderId) {
-        return {
-          success: true,
-          orderId: data.orderId,
-          keyId: data.keyId || RAZORPAY_KEY_ID,
-          amount: data.amount,
-          currency: data.currency,
-        };
-      }
-      if (error) {
-        console.warn('[Razorpay] Edge function create-order returned error, using direct checkout:', error);
-      }
-    } catch (e) {
-      console.warn('[Razorpay] Edge function invoke exception:', e);
-    }
+  if (!supabase) {
+    return {
+      success: false,
+      keyId: RAZORPAY_KEY_ID,
+      amount: amountInPaise,
+      currency,
+      error: 'Backend service unavailable. Please check your network connection.',
+    };
   }
 
-  // Resilient fallback: Direct order initialization on client
-  return {
-    success: true,
-    keyId: RAZORPAY_KEY_ID,
-    amount: amountInPaise,
-    currency,
-  };
+  try {
+    const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
+      body: {
+        amount: params.amount,
+        currency,
+        donorName: params.donorName,
+        tierId: params.tierId,
+        userId: params.userId,
+        message: params.message,
+      },
+    });
+
+    if (!error && data?.success && data?.orderId) {
+      return {
+        success: true,
+        orderId: data.orderId,
+        keyId: data.keyId || RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: data.currency,
+      };
+    }
+
+    const errorMsg = error?.message || data?.error || 'Failed to initialize order with payment gateway';
+    console.warn('[Razorpay] Order creation failed:', errorMsg);
+    return {
+      success: false,
+      keyId: RAZORPAY_KEY_ID,
+      amount: amountInPaise,
+      currency,
+      error: errorMsg,
+    };
+  } catch (e) {
+    console.error('[Razorpay] Edge function invoke exception:', e);
+    return {
+      success: false,
+      keyId: RAZORPAY_KEY_ID,
+      amount: amountInPaise,
+      currency,
+      error: (e as Error).message || 'Failed to communicate with payment gateway',
+    };
+  }
 }
 
 export interface VerifyPaymentParams {
@@ -194,46 +208,43 @@ export interface VerifyPaymentResult {
 /**
  * Verifies Razorpay payment signature cryptographically via Supabase Edge Function
  * and updates public.patron_contributions table.
+ * Strictly fails closed if backend is offline.
  */
 export async function verifyRazorpayPayment(params: VerifyPaymentParams): Promise<VerifyPaymentResult> {
-  if (supabase) {
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-razorpay-payment', {
-        body: params,
-      });
-
-      if (!error && data?.success) {
-        return {
-          success: true,
-          verified: data.verified,
-          titleId: data.titleId || 'cyber_patron',
-        };
-      }
-      if (error) {
-        console.warn('[Razorpay] Verification edge function error:', error);
-        return {
-          success: false,
-          verified: false,
-          error: (error as { message?: string }).message || 'Verification rejected',
-        };
-      }
-    } catch (e) {
-      console.warn('[Razorpay] Verification edge function invoke exception:', e);
-    }
-  }
-
-  // Fallback for local offline mock mode when Supabase client is not instantiated
   if (!supabase) {
     return {
-      success: true,
-      verified: true,
-      titleId: TIER_TITLE_MAP[params.tier_id || 'tier_supporter'] || 'cyber_patron',
+      success: false,
+      verified: false,
+      error: 'Verification backend unreachable. Offline verification is not permitted.',
     };
   }
 
-  return {
-    success: false,
-    verified: false,
-    error: 'Verification service unreachable',
-  };
+  try {
+    const { data, error } = await supabase.functions.invoke('verify-razorpay-payment', {
+      body: params,
+    });
+
+    if (!error && data?.success && data?.verified) {
+      return {
+        success: true,
+        verified: true,
+        titleId: data.titleId || 'cyber_patron',
+      };
+    }
+
+    const errorMsg = error?.message || data?.error || 'Payment verification failed.';
+    console.warn('[Razorpay] Verification rejected:', errorMsg);
+    return {
+      success: false,
+      verified: false,
+      error: errorMsg,
+    };
+  } catch (e) {
+    console.error('[Razorpay] Verification edge function invoke exception:', e);
+    return {
+      success: false,
+      verified: false,
+      error: (e as Error).message || 'Verification service unreachable.',
+    };
+  }
 }

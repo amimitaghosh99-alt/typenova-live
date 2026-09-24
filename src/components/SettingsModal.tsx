@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Settings, Skull, Ghost, Brain, Bot, Zap, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, Sparkles, Sun, Sliders, UploadCloud, Trash2, Cpu, Type, Play, ArrowLeft, Crosshair, Activity, Terminal, ShieldCheck, Radio, Layers, ArrowUpRight, Gauge, Moon, Waves, HelpCircle, HandHeart, Monitor } from 'lucide-react';
+import { X, Settings, Skull, Ghost, Brain, Bot, Zap, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, AlertCircle, Sparkles, Sun, Sliders, UploadCloud, Trash2, Cpu, Type, Play, ArrowLeft, Crosshair, Activity, Terminal, ShieldCheck, Radio, Layers, ArrowUpRight, Gauge, Moon, Waves, HelpCircle, HandHeart, Monitor, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { springGlider, springSnappy, springFluid } from '@/lib/motion';
 import { supabase } from '@/lib/supabase';
@@ -15,6 +15,8 @@ import { useShaderConfig, SHADER_MODES, type ShaderSpeed } from '@/hooks/useShad
 import { CURATED_WALLPAPERS, type CuratedWallpaper } from '@/hooks/useWallpaperTheme';
 import { ACCENT_SWATCHES } from '@/lib/colorExtractor';
 import { useDisplayScale, DISPLAY_SCALE_PRESETS, MIN_DISPLAY_SCALE, MAX_DISPLAY_SCALE } from '@/hooks/useDisplayScale';
+import { validateBugReportFile, formatFileSize, MAX_REPORT_FILE_SIZE_LABEL } from '@/lib/fileValidation';
+import { loadFontOnDemand } from '@/lib/fontLoader';
 
 interface SettingsModalProps {
   theme: Theme;
@@ -257,6 +259,13 @@ export const SettingsModal = React.memo(function SettingsModal({
   const [isDragging, setIsDragging] = useState(false);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
 
+  // Pre-load font specimens asynchronously when settings opens
+  useEffect(() => {
+    FONT_SPECIMENS.forEach(specimen => {
+      loadFontOnDemand(specimen.name);
+    });
+  }, []);
+
   // In-webapp display scaling & OS DPI override
   const {
     scale: displayScale,
@@ -338,8 +347,10 @@ export const SettingsModal = React.memo(function SettingsModal({
     debriefPolicy, setDebriefPolicy,
     latencyMs, isAutoFetching, engineTier,
     triggerAruPing, testConnection,
+    keyPersistence, setKeyPersistence, clearKeyAndHistory,
   } = engineConfig;
   
+  const [showApiKey, setShowApiKey] = useState(false);
   const [_isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [pingStatus, setPingStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
@@ -370,8 +381,21 @@ export const SettingsModal = React.memo(function SettingsModal({
       }
     };
     updateRolling();
+    const handleSync = () => {
+      setUsageTokens(parseInt(localStorage.getItem(AI_KEYS.usageTokens) || '0', 10));
+      setUsageRequests(parseInt(localStorage.getItem(AI_KEYS.usageRequests) || '0', 10));
+      setDailyTokens(parseInt(localStorage.getItem(AI_KEYS.dailyTokens) || '0', 10));
+      setDailyRequests(parseInt(localStorage.getItem(AI_KEYS.dailyRequests) || '0', 10));
+      updateRolling();
+    };
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('typenova_ai_sync', handleSync);
     const interval = setInterval(updateRolling, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('typenova_ai_sync', handleSync);
+    };
   }, []);
 
   const resetUsageStats = () => {
@@ -393,7 +417,11 @@ export const SettingsModal = React.memo(function SettingsModal({
   // Bug Report State
   const [reportMsg, setReportMsg] = useState('');
   const [reportFile, setReportFile] = useState<File | null>(null);
+  const [reportFileSize, setReportFileSize] = useState<string>('');
+  const [reportErrorMsg, setReportErrorMsg] = useState<string | null>(null);
+  const [isValidatingFile, setIsValidatingFile] = useState(false);
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const reportFileInputRef = useRef<HTMLInputElement | null>(null);
   const reportTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -2382,10 +2410,114 @@ export const SettingsModal = React.memo(function SettingsModal({
                       <Settings size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Universal BYOK Configuration
                     </h4>
                     {isAutoFetching && (
-                      <span className="flex items-center gap-1.5 text-[10px] font-mono text-cyan-400 animate-pulse">
+                      <span className="flex items-center gap-1.5 text-[10px] font-mono animate-pulse" style={{ color: `rgb(${theme.glowPrimary})` }}>
                         <Loader2 size={11} className="animate-spin" /> AUTO-FETCHING LIVE MODELS...
                       </span>
                     )}
+                  </div>
+
+                  {/* Zero-Knowledge Privacy & Security Card */}
+                  <div
+                    className="p-4 rounded-2xl border backdrop-blur-md flex flex-col gap-2.5 transition-all"
+                    style={{
+                      borderColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                      backgroundColor: `rgba(${theme.glowPrimary}, 0.04)`,
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center border shrink-0"
+                          style={{
+                            backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                            borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                          }}
+                        >
+                          <ShieldCheck size={18} style={{ color: `rgb(${theme.glowPrimary})` }} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
+                            Zero-Knowledge Local Storage
+                            <span className="text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-white/10 text-zinc-300 border border-white/10">
+                              Client Direct
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-zinc-400 leading-snug">
+                            Keys never touch TypeNova servers. All AI coaching communicates directly via browser HTTPS.
+                          </div>
+                        </div>
+                      </div>
+                      {byokKey ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            clearKeyAndHistory();
+                            setUsageTokens(0);
+                            setUsageRequests(0);
+                            setDailyTokens(0);
+                            setDailyRequests(0);
+                            setRollingUsage({ tokens: 0, requests: 0 });
+                            toast.success('AI credentials and local session cache erased.');
+                          }}
+                          className="px-2.5 py-1.5 rounded-xl border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold tracking-wider uppercase transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                          title="Purge key and all local AI history"
+                        >
+                          <Trash2 size={12} /> Erase Key
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Storage Persistence Selector */}
+                    <div className="pt-2 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        Storage Persistence:
+                      </span>
+                      <div className="grid grid-cols-2 p-0.5 bg-black/40 border border-white/10 rounded-xl max-w-xs text-[10px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setKeyPersistence('persistent')}
+                          className={`px-3 py-1 rounded-lg transition-all cursor-pointer text-center ${
+                            keyPersistence === 'persistent'
+                              ? 'text-white shadow-sm'
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                          style={
+                            keyPersistence === 'persistent'
+                              ? {
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                                  color: `rgb(${theme.glowPrimary})`,
+                                }
+                              : undefined
+                          }
+                        >
+                          Remember Key
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setKeyPersistence('session')}
+                          className={`px-3 py-1 rounded-lg transition-all cursor-pointer text-center ${
+                            keyPersistence === 'session'
+                              ? 'text-white shadow-sm'
+                              : 'text-zinc-500 hover:text-zinc-300'
+                          }`}
+                          style={
+                            keyPersistence === 'session'
+                              ? {
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                                  color: `rgb(${theme.glowPrimary})`,
+                                }
+                              : undefined
+                          }
+                        >
+                          Session Only
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-[9px] text-zinc-500 italic">
+                      {keyPersistence === 'persistent'
+                        ? 'Key persists across browser restarts on this machine via localStorage.'
+                        : 'Key is kept in sessionStorage and discarded when you close this tab (recommended for shared or public devices).'}
+                    </div>
                   </div>
 
                   {/* API Key Input */}
@@ -2393,34 +2525,44 @@ export const SettingsModal = React.memo(function SettingsModal({
                     <label className="text-[10px] font-black tracking-widest text-zinc-400 uppercase flex items-center justify-between">
                       <span>Provider API Key <span className="text-zinc-500 normal-case tracking-normal font-medium ml-1">({PROVIDER_PRESETS.find(p => p.id === selectedProvider)?.label || 'Custom'} Key)</span></span>
                       <span className="inline-flex items-center gap-1 text-[8px] font-mono font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/10">
-                        <Zap size={9} className="text-cyan-400 shrink-0" /> AUTO-DETECT ENABLED
+                        <Zap size={9} style={{ color: `rgb(${theme.glowPrimary})` }} className="shrink-0" /> AUTO-DETECT ENABLED
                       </span>
                     </label>
-                    <div className="relative">
+                    <div className="relative flex items-center">
                       <input
-                        type="password"
+                        type={showApiKey ? 'text' : 'password'}
                         value={byokKey}
                         onChange={(e) => handleKeyChange(e.target.value)}
                         placeholder="sk-... or gsk_... (Paste any key to auto-configure)"
-                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pr-24 text-sm font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-white/30 transition-all font-medium"
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl p-4 pr-36 text-sm font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-white/30 transition-all font-medium"
                       />
-                      <button
-                        onClick={() => {
-                          if (byokKey.trim()) {
-                            testConnection(byokKey, byokUrl);
-                            toast.success('API Key validated & saved!');
-                          } else {
-                            toast('Key cleared.');
-                          }
-                        }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
-                        style={{
-                          backgroundColor: `rgba(${theme.glowPrimary}, 0.2)`,
-                          color: `rgb(${theme.glowPrimary})`,
-                        }}
-                      >
-                        SAVE & TEST
-                      </button>
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="p-2 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-all cursor-pointer"
+                          title={showApiKey ? 'Hide API key' : 'Show API key'}
+                        >
+                          {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (byokKey.trim()) {
+                              testConnection(byokKey, byokUrl);
+                              toast.success('API Key validated & saved!');
+                            } else {
+                              toast('Key cleared.');
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                          style={{
+                            backgroundColor: `rgba(${theme.glowPrimary}, 0.2)`,
+                            color: `rgb(${theme.glowPrimary})`,
+                          }}
+                        >
+                          SAVE & TEST
+                        </button>
+                      </div>
                     </div>
                     {isAmbiguousSk && (
                       <div className="mt-1 text-[10px] text-amber-400/90 flex items-center gap-1.5">
@@ -3109,34 +3251,91 @@ export const SettingsModal = React.memo(function SettingsModal({
                   className="w-full h-32 bg-zinc-900/50 border border-white/10 rounded-xl p-4 text-sm font-mono text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-red-500/50 resize-none mb-4"
                 />
 
-                <div className="flex items-center gap-4 mb-8">
-                  <label className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-800/50 border border-white/10 text-xs font-bold text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer transition-all">
-                    <ImagePlus size={16} />
-                    {reportFile ? 'Screenshot Attached' : 'Attach Screenshot'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          setReportFile(e.target.files[0]);
-                        }
-                      }}
-                    />
-                  </label>
-                  {reportFile && (
-                    <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-2">
-                      {reportFile.name}
-                      <button onClick={() => setReportFile(null)} className="text-red-400 hover:text-red-300">
-                        <X size={12} />
-                      </button>
-                    </div>
-                  )}
+                <div className="flex flex-col gap-2 mb-6">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <label className={`flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-800/50 border border-white/10 text-xs font-bold text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer transition-all ${
+                      isValidatingFile ? 'opacity-50 pointer-events-none' : ''
+                    }`}>
+                      {isValidatingFile ? (
+                        <Loader2 size={16} className="animate-spin text-red-400" />
+                      ) : (
+                        <ImagePlus size={16} />
+                      )}
+                      {reportFile ? 'Screenshot Attached' : 'Attach Screenshot'}
+                      <input
+                        ref={reportFileInputRef}
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.webp,.gif,.avif,image/png,image/jpeg,image/webp,image/gif,image/avif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+
+                          setIsValidatingFile(true);
+                          setReportErrorMsg(null);
+
+                          try {
+                            const validation = await validateBugReportFile(file);
+                            if (!validation.valid) {
+                              setReportFile(null);
+                              setReportFileSize('');
+                              setReportErrorMsg(validation.error || 'Invalid file uploaded.');
+                              setReportStatus('error');
+                              if (reportFileInputRef.current) reportFileInputRef.current.value = '';
+                              return;
+                            }
+
+                            setReportFile(file);
+                            setReportFileSize(formatFileSize(file.size));
+                            setReportErrorMsg(null);
+                            if (reportStatus === 'error') setReportStatus('idle');
+                          } catch (err: any) {
+                            setReportFile(null);
+                            setReportFileSize('');
+                            setReportErrorMsg(err?.message || 'Failed to inspect file.');
+                            setReportStatus('error');
+                            if (reportFileInputRef.current) reportFileInputRef.current.value = '';
+                          } finally {
+                            setIsValidatingFile(false);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    {reportFile && (
+                      <div className="text-[10px] text-zinc-400 font-mono flex items-center gap-2 bg-zinc-900/80 px-3 py-1.5 rounded-lg border border-white/10">
+                        <span className="text-zinc-200 truncate max-w-[200px]" title={reportFile.name}>
+                          {reportFile.name}
+                        </span>
+                        {reportFileSize && (
+                          <span className="text-zinc-500 font-semibold shrink-0">({reportFileSize})</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReportFile(null);
+                            setReportFileSize('');
+                            setReportErrorMsg(null);
+                            if (reportFileInputRef.current) reportFileInputRef.current.value = '';
+                          }}
+                          className="text-red-400 hover:text-red-300 ml-1 p-0.5 rounded hover:bg-red-500/10 transition-colors"
+                          title="Remove attachment"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-zinc-500 font-mono">
+                    PNG, JPG, WebP, GIF up to {MAX_REPORT_FILE_SIZE_LABEL}. Executables, scripts (.php, .jsp, etc.), and unsafe formats are blocked.
+                  </p>
                 </div>
 
                 {reportStatus === 'error' && (
-                  <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs font-bold text-red-400 text-center">
-                    Failed to submit report. Please try again.
+                  <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs font-bold text-red-400 text-center flex items-center justify-center gap-2">
+                    <AlertCircle size={15} className="shrink-0" />
+                    <span>{reportErrorMsg || 'Failed to submit report. Please try again.'}</span>
                   </div>
                 )}
 
@@ -3147,19 +3346,36 @@ export const SettingsModal = React.memo(function SettingsModal({
                 )}
 
                 <button
-                  disabled={!reportMsg.trim() || reportStatus === 'submitting' || reportStatus === 'success'}
+                  disabled={!reportMsg.trim() || reportStatus === 'submitting' || reportStatus === 'success' || isValidatingFile}
                   onClick={async () => {
                     if (!reportMsg.trim() || !supabase) return;
                     setReportStatus('submitting');
+                    setReportErrorMsg(null);
                     try {
-                      let screenshot_url = null;
+                      let screenshot_url: string | null = null;
                       if (reportFile) {
-                        const fileExt = reportFile.name.split('.').pop();
-                        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+                        // Re-validate right before uploading
+                        const validation = await validateBugReportFile(reportFile);
+                        if (!validation.valid) {
+                          setReportErrorMsg(validation.error || 'Invalid file detected.');
+                          setReportStatus('error');
+                          return;
+                        }
+
+                        const safeExt = validation.sanitizedExt || 'png';
+                        const randomId = typeof crypto !== 'undefined' && crypto.randomUUID 
+                          ? crypto.randomUUID() 
+                          : Math.random().toString(36).substring(2, 15);
+                        // Upload under user's own folder for storage RLS compliance
+                        const userId = (await supabase.auth.getUser()).data.user?.id || 'anon';
+                        const fileName = `${userId}/bug_${randomId}_${Date.now()}.${safeExt}`;
 
                         const { data: uploadData, error: uploadError } = await supabase.storage
                           .from('bug-reports')
-                          .upload(fileName, reportFile);
+                          .upload(fileName, reportFile, {
+                            contentType: reportFile.type || `image/${safeExt}`,
+                            upsert: false,
+                          });
 
                         if (uploadError) throw uploadError;
 
@@ -3182,11 +3398,15 @@ export const SettingsModal = React.memo(function SettingsModal({
                       setReportStatus('success');
                       setReportMsg('');
                       setReportFile(null);
+                      setReportFileSize('');
+                      setReportErrorMsg(null);
+                      if (reportFileInputRef.current) reportFileInputRef.current.value = '';
                       if (reportTimeoutRef.current) clearTimeout(reportTimeoutRef.current);
                       reportTimeoutRef.current = setTimeout(() => setReportStatus('idle'), 3000);
-                    } catch (e) {
+                    } catch (e: any) {
                       console.error("Bug report failed:", e);
                       setReportStatus('error');
+                      setReportErrorMsg(e?.message || 'Failed to submit report. Please try again.');
                     }
                   }}
                   className="w-full py-4 rounded-xl font-black tracking-widest uppercase text-xs transition-all flex items-center justify-center gap-2 bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"

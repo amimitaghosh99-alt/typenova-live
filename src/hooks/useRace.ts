@@ -5,6 +5,9 @@ import type { Level, CodeLanguage } from '@/data/constants';
 import { getActiveTitleId } from '@/data/titles';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import { emitHealthSignal } from '@/lib/healthMonitor';
+
+
 import {
   type HexType,
   type ActiveHex,
@@ -179,6 +182,9 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   const [activeHexes, setActiveHexes] = useState<ActiveHex[]>([]);
   const [sabotageStats, setSabotageStats] = useState<SabotageStats>(INITIAL_SABOTAGE_STATS);
 
+  /** SECURITY: Per-sender hex rate tracking to prevent sabotage spam */
+  const hexRateRef = useRef<Map<string, number[]>>(new Map());
+
   const channelRef = useRef<RealtimeChannel | null>(null);
   const onStartRef = useRef(onStart);
   const selfStateRef = useRef<Partial<RacerState> & { roomState?: 'lobby' | 'racing'; config?: RaceConfig; roomSize?: number }>({});
@@ -257,6 +263,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     setHexEnergy(0);
     setActiveHexes([]);
     setSabotageStats(INITIAL_SABOTAGE_STATS);
+    hexRateRef.current.clear();
   }, []);
 
   const leave = useCallback(() => {
@@ -358,9 +365,21 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       }
 
       if (attempt >= RECONNECT_DELAYS_MS.length) {
-        fail(statusRef.current === 'joining'
+        const failMessage = statusRef.current === 'joining'
           ? 'Could not reach the multiplayer channel. Check your connection and try again.'
-          : 'Lost connection to the room. Rejoin with the room code to get back in.');
+          : 'Lost connection to the room. Rejoin with the room code to get back in.';
+        emitHealthSignal({
+          type: 'race_disconnected',
+          severity: 'error',
+          subsystem: 'race',
+          message: failMessage,
+          recoveryLabel: 'Reconnect',
+          recoveryAction: () => {
+            reconnectAttemptRef.current = 0;
+            openChannelRef.current?.(roomCode, 'reconnect');
+          },
+        });
+        fail(failMessage);
         return;
       }
 
@@ -422,8 +441,16 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           }
         }
 
-        const declaredHost = mapped.find(p => p.isHost);
-        const hostId = declaredHost?.id ?? mapped[0]?.id ?? myId;
+        // SECURITY: Deterministic host — earliest joiner wins, ties broken by
+        // lexicographic ID. Ignores self-declared isHost from presence to prevent
+        // rogue clients from hijacking the room.
+        const sorted = [...mapped].sort((a, b) => {
+          const ja = a.joinedAt ?? Infinity;
+          const jb = b.joinedAt ?? Infinity;
+          if (ja !== jb) return ja - jb;
+          return a.id.localeCompare(b.id);
+        });
+        const hostId = sorted[0]?.id ?? myId;
         hostIdRef.current = hostId;
         const amHost = hostId === myId;
 
@@ -456,7 +483,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         // presence frame, so a promoted client has to adopt it â€” otherwise the
         // guards above go blind for everyone who joins after the original host
         // disappears, and a stranger drops into a race in progress.
-        if (!declaredHost && amHost && !selfStateRef.current.isHost) {
+        if (amHost && !selfStateRef.current.isHost) {
           selfStateRef.current.isHost = true;
           selfStateRef.current.ready = true;
           selfStateRef.current.roomState =
@@ -488,6 +515,8 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         setPresencePlayers(mapped);
       })
       .on('broadcast', { event: 'start_race' }, ({ payload }) => {
+        // SECURITY: Only accept start_race from the determined host
+        if (payload.from && hostIdRef.current && payload.from !== hostIdRef.current) return;
         if (countdownWatchdogRef.current) {
           clearTimeout(countdownWatchdogRef.current);
           countdownWatchdogRef.current = null;
@@ -585,6 +614,13 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         if (!payload || !myId || payload.fromId === myId) return;
         if (payload.targetId && payload.targetId !== myId && payload.targetId !== 'all') return;
 
+        // SECURITY: Per-sender rate limit — max 3 hexes per 10 seconds
+        const now = Date.now();
+        const senderHistory = (hexRateRef.current.get(payload.fromId) || []).filter(t => now - t < 10000);
+        if (senderHistory.length >= 3) return; // silently drop excessive hexes
+        senderHistory.push(now);
+        hexRateRef.current.set(payload.fromId, senderHistory);
+
         setActiveHexes(prev => {
           const res = applyIncomingHex({
             activeHexes: prev,
@@ -668,7 +704,14 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
 
     if (!isReconnect) {
       joinTimeoutRef.current = setTimeout(() => {
-        fail('Timed out joining the room. Check your connection and try again.');
+        const timeoutMsg = 'Timed out joining the room. Check your connection and try again.';
+        emitHealthSignal({
+          type: 'race_timeout',
+          severity: 'warning',
+          subsystem: 'race',
+          message: timeoutMsg,
+        });
+        fail(timeoutMsg);
       }, JOIN_TIMEOUT_MS);
     }
   }, [teardown, queueTrack, clearDetails]);
@@ -777,7 +820,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         channelRef.current?.send({
           type: 'broadcast',
           event: 'start_race',
-          payload: { text, startTime, matchKey }
+          payload: { text, startTime, matchKey, from: myIdRef.current }
         });
 
         setStatus('racing');

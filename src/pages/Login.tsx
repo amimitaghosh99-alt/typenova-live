@@ -253,12 +253,16 @@ export function Login() {
               <button 
                 onClick={handleGuest} 
                 className="relative group px-7 py-3.5 rounded-2xl backdrop-blur-xl border transition-all duration-300 flex items-center justify-center gap-3 z-50 bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.12] hover:border-white/[0.28] hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.08)] cursor-pointer"
+                title="Try a frictionless 30-second guest typing test without signing in"
               >
                 <span className="material-symbols-outlined text-xl transition-colors duration-300 text-zinc-400 group-hover:text-cyan-300">
-                  sports_esports
+                  timer
                 </span>
-                <span className="font-sans font-medium text-[15px] tracking-tight transition-colors duration-300 text-zinc-200 group-hover:text-white">
-                  Play as Guest
+                <span className="font-sans font-medium text-[15px] tracking-tight transition-colors duration-300 text-zinc-200 group-hover:text-white flex items-center gap-2">
+                  Try 30s Speed Test
+                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-300 border border-cyan-400/30">
+                    Guest
+                  </span>
                 </span>
               </button>
             </div>

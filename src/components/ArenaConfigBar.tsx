@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Clock, Hash, CalendarCheck, CheckCircle2, Sparkles } from 'lucide-react';
+import { Clock, Hash, CalendarCheck, CheckCircle2, Sparkles, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedHeight } from '@/components/ui/AnimatedHeight';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -24,6 +24,8 @@ interface ArenaConfigBarProps {
   handleChangeCountOrDuration: (val: string | number) => void;
   handleChangeCodeLanguage: (val: string) => void;
   onSetCustomTargetText: (text: string) => void;
+  dueWordsCount?: number;
+  onTrainDue?: () => void;
 }
 
 export const ArenaConfigBar = memo(function ArenaConfigBar({
@@ -38,6 +40,8 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
   handleChangeCountOrDuration,
   handleChangeCodeLanguage,
   onSetCustomTargetText,
+  dueWordsCount = 0,
+  onTrainDue,
 }: ArenaConfigBarProps) {
   const isDailyDone = isTodayDailyCompleted();
   const todayDailySnippet = getDailySnippet();
@@ -307,8 +311,8 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
           </div>
         </div>
 
-        {/* 2. INDEPENDENT Daily Challenge Station */}
-        <div className="flex justify-center w-full mt-0.5">
+        {/* 2. Secondary Action Row: Daily Challenge & Spaced Repetition Due Words */}
+        <div className="flex flex-wrap justify-center items-center gap-2 sm:gap-2.5 w-full mt-0.5">
           <button
             type="button"
             onClick={game.toggleDaily}
@@ -318,7 +322,6 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                     backgroundColor: `rgba(${theme.glowPrimary}, 0.2)`,
                     borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
                     boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.3)`,
-                    color: `rgb(${theme.glowPrimary})`,
                   }
                 : isDailyDone
                 ? {
@@ -328,12 +331,12 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                   }
                 : undefined
             }
-            className={`group flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-mono tracking-wider glass-panel border border-white/15 backdrop-blur-2xl shadow-xl transition-all duration-300 cursor-pointer ${
+            className={`group flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-mono tracking-wider glass-panel !bg-black/75 border border-white/15 backdrop-blur-2xl shadow-xl transition-all duration-300 cursor-pointer ${
               game.dailyActive
-                ? 'font-black scale-[1.02]'
+                ? 'font-black scale-[1.02] text-white'
                 : isDailyDone
-                ? 'font-bold bg-black/65 hover:border-emerald-400/50'
-                : 'text-zinc-300 hover:text-white hover:border-white/30 bg-black/65'
+                ? 'font-bold hover:border-emerald-400/50'
+                : 'text-zinc-300 hover:text-white hover:border-white/30'
             }`}
             title={
               isDailyDone
@@ -351,7 +354,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                   style={game.dailyActive ? { color: `rgb(${theme.glowPrimary})` } : undefined}
                 />
               )}
-              <span className="font-black tracking-widest uppercase">
+              <span className="font-black tracking-widest uppercase text-white">
                 {game.dailyActive ? 'DAILY CHALLENGE ACTIVE' : 'DAILY CHALLENGE'}
               </span>
             </div>
@@ -389,6 +392,49 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
               </span>
             )}
           </button>
+
+          {dueWordsCount > 0 && onTrainDue && (
+            <button
+              type="button"
+              onClick={onTrainDue}
+              style={{
+                borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                boxShadow: `0 0 16px rgba(${theme.glowPrimary}, 0.22)`,
+              }}
+              className="group flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-mono tracking-wider glass-panel !bg-black/80 border backdrop-blur-2xl shadow-xl transition-all duration-300 cursor-pointer hover:scale-[1.02] hover:border-white/40 text-white"
+              title={`${dueWordsCount} word${dueWordsCount === 1 ? '' : 's'} due for spaced-repetition review. Click to launch AI drill.`}
+            >
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Brain
+                  size={13}
+                  className="shrink-0 animate-pulse"
+                  style={{ color: `rgb(${theme.glowPrimary})` }}
+                />
+                <span className="font-black tracking-widest uppercase text-white">
+                  <span
+                    className="font-black"
+                    style={{ color: `rgb(${theme.glowPrimary})` }}
+                  >
+                    {dueWordsCount}
+                  </span>{' '}
+                  DUE FOR REVIEW
+                </span>
+              </div>
+
+              <span className="w-1 h-1 rounded-full bg-white/20 shrink-0 hidden sm:block" />
+
+              <span
+                className="text-[9.5px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 transition-transform group-hover:translate-x-0.5"
+                style={{
+                  backgroundColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                  color: '#ffffff',
+                  border: `1px solid rgba(${theme.glowPrimary}, 0.4)`,
+                }}
+              >
+                PRACTICE →
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Dynamic Secondary Controls (Code Language / Dictation Track / Custom Text) */}

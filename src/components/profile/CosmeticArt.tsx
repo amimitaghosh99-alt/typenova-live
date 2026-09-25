@@ -26,6 +26,16 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { mulberry32 } from '@/utils/seededRandom';
+import {
+    AbyssalBloom,
+    NeonHorizon,
+    KeyforgeBlueprint,
+    SolarCoronach,
+    NullProtocol,
+    HellfireInferno,
+    GrandmasterCosmos,
+    GodspeedWarp,
+} from './AnimatedBanners';
 
 /* ─── Deterministic noise ─────────────────────────────────────────────── */
 
@@ -69,7 +79,7 @@ function Sky({ id, stops }: { id: string; stops: [string, number][] }) {
 }
 
 /** Perspective floor grid — the synthwave/tron horizon. */
-function HorizonGrid({
+export function HorizonGrid({
     color,
     y = 128,
     lines = 13,
@@ -125,7 +135,7 @@ function HorizonGrid({
 }
 
 /** Sun/moon disc, optionally slatted (the retro cut-through look). */
-function SunDisc({
+export function SunDisc({
     color,
     core,
     cx = VB.w / 2,
@@ -445,7 +455,7 @@ function CodeRain({ seed, color, animate }: { seed: string; color: string; anima
 }
 
 /** Glowing fissures for the hellfire family. */
-function Fissures({ seed, color, hot, animate = false }: { seed: string; color: string; hot: string; animate?: boolean }) {
+export function Fissures({ seed, color, hot, animate = false }: { seed: string; color: string; hot: string; animate?: boolean }) {
     const id = `fis-${hashSeed(seed).toString(36)}`;
     const cracks = useMemo(() => {
         const rng = makeRng(hashSeed(`fis:${seed}`));
@@ -565,17 +575,21 @@ function Motes({
 }
 
 /** Long speed streaks with continuous forward velocity. */
-function Streaks({ seed, color, animate = true }: { seed: string; color: string; animate?: boolean }) {
+export function Streaks({ seed, color, animate = true }: { seed: string; color: string; animate?: boolean }) {
     const streaks = useMemo(() => {
         const rng = makeRng(hashSeed(`streak:${seed}`));
-        return Array.from({ length: 18 }, () => ({
-            y: rng() * VB.h,
-            len: 70 + rng() * 200,
-            w: 1 + rng() * 2.5,
-            o: 0.25 + rng() * 0.7,
-            dur: 0.9 + rng() * 1.8,
-            delay: rng() * 2,
-        }));
+        return Array.from({ length: 18 }, () => {
+            const len = 70 + rng() * 200;
+            return {
+                y: rng() * VB.h,
+                len,
+                w: 1 + rng() * 2.5,
+                o: 0.25 + rng() * 0.7,
+                dur: 0.9 + rng() * 1.8,
+                delay: rng() * 2,
+                staticX: rng() * (VB.w - len * 0.5) - 30,
+            };
+        });
     }, [seed]);
 
     return (
@@ -590,7 +604,7 @@ function Streaks({ seed, color, animate = true }: { seed: string; color: string;
                     rx={s.w / 2}
                     fill={color}
                     opacity={s.o}
-                    animate={animate ? { x: [-s.len, VB.w + 40] } : { x: VB.w * 0.3 }}
+                    animate={animate ? { x: [-s.len, VB.w + 40] } : { x: s.staticX }}
                     transition={{ duration: s.dur, repeat: Infinity, ease: 'linear', delay: s.delay }}
                 />
             ))}
@@ -680,7 +694,7 @@ function PulseRings({ color, animate, cx = VB.w / 2, cy = VB.h / 2 }: { color: s
 }
 
 /** Radiating light burst — godspeed / apex. */
-function Rays({ seed, color, animate, cx = VB.w / 2, cy = VB.h * 0.62 }: { seed: string; color: string; animate: boolean; cx?: number; cy?: number }) {
+export function Rays({ seed, color, animate, cx = VB.w / 2, cy = VB.h * 0.62 }: { seed: string; color: string; animate: boolean; cx?: number; cy?: number }) {
     const rays = useMemo(() => {
         const rng = makeRng(hashSeed(`ray:${seed}`));
         return Array.from({ length: 22 }, (_, i) => ({
@@ -771,15 +785,8 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             );
 
         case 'neon_pink':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#2e1065', 0], ['#831843', 0.52], ['#18021a', 1]]} />
-                    <StarField seed={u} count={full ? 40 : 18} color="#fbcfe8" maxY={120} animate={animate} />
-                    <SunDisc gradId={`${u}-sun`} color="#db2777" core="#fde68a" cy={126} r={44} slats animate={animate} />
-                    <HorizonGrid color="#f472b6" y={128} opacity={0.65} animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
+        case 'neon_horizon':
+            return <NeonHorizon a={animate} p={u} />;
 
         case 'aurora_borealis':
             return (
@@ -842,83 +849,27 @@ function Scene({ id, detail, animate }: { id: string; detail: Detail; animate: b
             );
 
         case 'premium_speed':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#083344', 0], ['#0e7490', 0.45], ['#020617', 1]]} />
-                    <HorizonGrid color="#22d3ee" y={140} lines={9} opacity={0.4} animate={animate} />
-                    <Streaks seed={u} color="#a5f3fc" animate={animate} />
-                    <PulseRings color="#67e8f9" animate={animate} cx={VB.w * 0.12} cy={VB.h * 0.5} />
-                    <Finish id={u} />
-                </>
-            );
+        case 'keyforge_blueprint':
+            return <KeyforgeBlueprint a={animate} p={u} />;
 
         case 'premium_godspeed':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#fef3c7', 0], ['#f59e0b', 0.34], ['#78350f', 0.7], ['#1c1004', 1]]} />
-                    <Rays seed={u} color="#fffbeb" animate={animate} cy={VB.h * 0.58} />
-                    <SunDisc gradId={`${u}-sun`} color="#f59e0b" core="#ffffff" cy={VB.h * 0.58} r={34} animate={animate} />
-                    <Streaks seed={u} color="#fde68a" animate={animate} />
-                    <Motes seed={u} color="#fffbeb" count={full ? 24 : 12} rise animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
+            return <GodspeedWarp a={animate} p={u} />;
 
         case 'premium_combo':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#022c22', 0], ['#065f46', 0.42], ['#021b16', 1]]} />
-                    {/* Hex lattice — precision/flawless motif. */}
-                    <defs>
-                        <pattern id={`${u}-hex`} width="28" height="24" patternUnits="userSpaceOnUse">
-                            <path
-                                d="M14 0 L26 6.5 L26 17.5 L14 24 L2 17.5 L2 6.5 Z"
-                                fill="none"
-                                stroke="#34d399"
-                                strokeWidth="0.8"
-                                opacity="0.5"
-                            />
-                        </pattern>
-                    </defs>
-                    <rect width={VB.w} height={VB.h} fill={`url(#${u}-hex)`} opacity={0.5} />
-                    <PulseRings color="#6ee7b7" animate={animate} />
-                    <Motes seed={u} color="#d1fae5" count={full ? 20 : 10} rise animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
+        case 'null_protocol':
+            return <NullProtocol a={animate} p={u} />;
 
         case 'premium_master':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#1e1b4b', 0], ['#4c1d95', 0.38], ['#0b0616', 0.78], ['#000000', 1]]} />
-                    {full && <Clouds seed={u} color="#a78bfa" freq={0.009} octaves={4} opacity={0.45} />}
-                    <StarField seed={u} count={full ? 110 : 40} animate={animate} />
-                    {/* Void core with orbital rings. */}
-                    <g transform={`translate(${VB.w / 2} ${VB.h / 2})`}>
-                        <circle r={26} fill="#050014" />
-                        <circle r={26} fill="none" stroke="#c4b5fd" strokeWidth={1.2} opacity={0.8} />
-                        <motion.g
-                            animate={animate ? { rotate: 360 } : undefined}
-                            transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
-                        >
-                            <ellipse rx={62} ry={17} fill="none" stroke="#8b5cf6" strokeWidth={1.1} opacity={0.7} />
-                            <ellipse rx={86} ry={26} fill="none" stroke="#6366f1" strokeWidth={0.8} opacity={0.45} />
-                        </motion.g>
-                    </g>
-                    <Finish id={u} />
-                </>
-            );
+            return <GrandmasterCosmos a={animate} p={u} />;
 
         case 'premium_hellfire':
-            return (
-                <>
-                    <Sky id={`${u}-sky`} stops={[['#fbbf24', 0], ['#ea580c', 0.3], ['#7f1d1d', 0.62], ['#170303', 1]]} />
-                    {full && <Clouds seed={u} color="#450a0a" freq={0.013} opacity={0.55} />}
-                    <Fissures seed={u} color="#f97316" hot="#fef3c7" animate={animate} />
-                    <Motes seed={u} color="#fdba74" count={full ? 30 : 12} rise animate={animate} />
-                    <Finish id={u} />
-                </>
-            );
+            return <HellfireInferno a={animate} p={u} />;
+
+        case 'abyssal_bloom':
+            return <AbyssalBloom a={animate} p={u} />;
+
+        case 'solar_coronach':
+            return <SolarCoronach a={animate} p={u} />;
 
         default:
             return (

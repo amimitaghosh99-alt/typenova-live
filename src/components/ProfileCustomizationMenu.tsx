@@ -17,7 +17,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
-  AlertTriangle, Check, Crown, Image as ImageIcon, Loader2, Lock, RotateCcw, Save,
+  AlertTriangle, Check, ChevronRight, Crown, Image as ImageIcon, Layers, Loader2, Lock, RotateCcw, Save,
   Sparkles, UserCircle2, X, Zap,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -39,6 +39,9 @@ interface UserStats {
   level: number;
   wpm: number;
   combo: number;
+  races?: number;
+  streak?: number;
+  accuracy?: number;
 }
 
 interface ProfileCustomizationMenuProps {
@@ -67,7 +70,15 @@ const TABS = [
 function unlockProgress(banner: BannerDef, stats: UserStats) {
   if (!banner.unlockCondition) return { unlocked: true, ratio: 1, current: 0, target: 0, label: '' };
   const { type, value, description } = banner.unlockCondition;
-  const current = type === 'level' ? stats.level : type === 'wpm' ? stats.wpm : stats.combo;
+  let current = 0;
+  switch (type) {
+    case 'level': current = stats.level; break;
+    case 'wpm': current = stats.wpm; break;
+    case 'combo': current = stats.combo; break;
+    case 'races': current = stats.races ?? 0; break;
+    case 'streak': current = stats.streak ?? 0; break;
+    case 'accuracy': current = stats.accuracy ?? 0; break;
+  }
   return {
     unlocked: current >= value,
     ratio: Math.max(0, Math.min(1, value > 0 ? current / value : 1)),
@@ -292,84 +303,314 @@ const BannerTile = React.memo(function BannerTile({
 }: BannerTileProps) {
   const { unlocked, ratio, current, target } = unlockProgress(banner, userStats);
   const glow = banner.glowColor;
+  const isPremium = banner.type === 'premium';
+  const [isHovered, setIsHovered] = useState(false);
+  const [glarePos, setGlarePos] = useState<{ x: number; y: number } | null>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+    if (unlocked) onHover(banner.id);
+  }, [unlocked, onHover, banner.id]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    setGlarePos({
+      x: Math.round(((e.clientX - rect.left) / rect.width) * 100),
+      y: Math.round(((e.clientY - rect.top) / rect.height) * 100),
+    });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    setGlarePos(null);
+    onLeave();
+  }, [onLeave]);
 
   return (
     <motion.button
       variants={listChild}
       onClick={() => onPick(banner)}
-      onMouseEnter={() => unlocked && onHover(banner.id)}
-      onFocus={() => unlocked && onHover(banner.id)}
-      onBlur={onLeave}
-      whileHover={reduce || !unlocked ? undefined : { y: -3 }}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onFocus={() => {
+        setIsHovered(true);
+        if (unlocked) onHover(banner.id);
+      }}
+      onBlur={() => {
+        setIsHovered(false);
+        onLeave();
+      }}
+      whileHover={reduce || !unlocked ? undefined : { y: -4, scale: 1.01 }}
       whileTap={reduce ? undefined : { scale: 0.985 }}
       transition={springSnappy}
       aria-pressed={staged}
-      className={`group relative isolate overflow-hidden rounded-2xl border text-left ${unlocked ? '' : 'cursor-not-allowed'}`}
+      className={`group relative isolate flex min-h-[160px] sm:min-h-[168px] flex-col justify-between overflow-hidden rounded-[1.25rem] border p-4 text-left transition-all duration-300 ${
+        unlocked ? 'cursor-pointer' : 'cursor-not-allowed'
+      }`}
       style={{
-        borderColor: staged ? rgba(glow, 0.75) : 'rgba(255,255,255,0.08)',
-        boxShadow: staged ? `0 0 24px ${rgba(glow, 0.3)}` : undefined,
+        borderColor: staged
+          ? rgba(glow, 0.9)
+          : isHovered && unlocked
+          ? rgba(glow, 0.5)
+          : 'rgba(255, 255, 255, 0.08)',
+        background: staged
+          ? 'linear-gradient(135deg, rgba(12, 16, 25, 0.95) 0%, rgba(6, 8, 14, 0.98) 100%)'
+          : 'linear-gradient(135deg, rgba(10, 13, 20, 0.92) 0%, rgba(5, 7, 12, 0.98) 100%)',
+        boxShadow: staged
+          ? `0 0 34px ${rgba(glow, 0.35)}, 0 16px 36px -10px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.2)`
+          : isHovered && unlocked
+          ? `0 0 24px ${rgba(glow, 0.22)}, 0 12px 30px -8px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.14)`
+          : '0 8px 24px -10px rgba(0,0,0,0.6)',
         transform: 'translateZ(0)',
       }}
     >
-      <EquipBurst pulseKey={pulsing} color={glow} radius="1rem" />
+      <EquipBurst pulseKey={pulsing} color={glow} radius="1.25rem" />
 
-      {/* Swatch — the live scene, cheap variant. */}
-      <div className={`relative h-[76px] w-full overflow-hidden bg-[#05070c] ${unlocked ? '' : 'saturate-[0.2]'}`}>
-        <BannerArt id={banner.id} detail="compact" animate={false} />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#05070c] via-transparent to-transparent" />
-        {!unlocked && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <Lock size={16} className="text-white/60" />
-          </div>
-        )}
-        {banner.type === 'premium' && (
-          <span
-            className="absolute left-2 top-2 flex items-center gap-1 rounded-full border px-1.5 py-0.5 font-mono text-[7px] font-black uppercase tracking-[0.18em] backdrop-blur-sm"
-            style={{ borderColor: 'rgba(250,204,21,0.5)', background: 'rgba(250,204,21,0.16)', color: 'rgb(253,224,71)' }}
-          >
-            <Crown size={8} /> Premium
-          </span>
-        )}
-        <AnimatePresence>
-          {staged && (
-            <motion.span
-              {...reveal(reduce ?? false, chipSwap)}
-              className="absolute right-2 top-2 flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[8px] font-black uppercase tracking-[0.16em]"
-              style={{ background: rgba(glow, 1), color: '#05070c' }}
-            >
-              <DrawCheck size={8} strokeWidth={4} />
-              Staged
-            </motion.span>
-          )}
-        </AnimatePresence>
+      {/* ── 1. Full-Bleed Panoramic Art Canvas ── */}
+      <div
+        className={`pointer-events-none absolute inset-0 overflow-hidden transition-all duration-500 ${
+          unlocked ? 'opacity-80 group-hover:opacity-100 group-hover:scale-[1.02]' : 'opacity-25 grayscale'
+        }`}
+      >
+        <BannerArt
+          id={banner.id}
+          detail="full"
+          animate={!reduce && (isHovered || staged)}
+        />
       </div>
 
-      {/* Meta */}
-      <div className="relative bg-white/[0.02] p-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className={`truncate font-sans text-[13px] font-black tracking-tight ${unlocked ? 'text-white' : 'text-white/45'}`}>
-            {banner.name}
-          </span>
-          {live && !staged && (
-            <span className="shrink-0 font-mono text-[8px] uppercase tracking-[0.16em] text-white/30">
-              Equipped
+      {/* ── 2. Asymmetric Liquid Obsidian Scrim ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#04060c] via-[#04060c]/85 to-[#04060c]/25 transition-opacity duration-300"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#04060c]/90 via-transparent to-[#04060c]/40"
+      />
+
+      {/* ── 3. Subtle Tech Micro-Grid Reticle & Cyber Corners ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.12]"
+        style={{
+          backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px)',
+          backgroundSize: '12px 12px',
+        }}
+      />
+      <CyberCorners color={glow} alpha={staged ? 0.65 : isHovered ? 0.4 : 0.18} size={11} inset={6} />
+
+      {/* ── 4. Flank Neon Power Rail ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-0 inset-y-0 w-1 rounded-l-full transition-all duration-300"
+        style={{
+          background: staged
+            ? `rgb(${glow})`
+            : isHovered && unlocked
+            ? rgba(glow, 0.85)
+            : 'rgba(255, 255, 255, 0.12)',
+          boxShadow: staged
+            ? `0 0 16px rgba(${glow}, 0.9), 0 0 32px rgba(${glow}, 0.5)`
+            : isHovered && unlocked
+            ? `0 0 12px rgba(${glow}, 0.7)`
+            : 'none',
+        }}
+      />
+
+      {/* ── 5. Top Rim Specular Hairline ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 h-[1px] transition-opacity duration-300"
+        style={{
+          background: staged
+            ? `linear-gradient(90deg, transparent, rgba(${glow}, 0.9), transparent)`
+            : isHovered
+            ? `linear-gradient(90deg, transparent, rgba(${glow}, 0.65), transparent)`
+            : 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent)',
+        }}
+      />
+
+      {/* ── 6. Interactive Holographic Cursor Glare ── */}
+      {glarePos && unlocked && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20 transition-opacity duration-200"
+          style={{
+            background: `radial-gradient(circle 200px at ${glarePos.x}% ${glarePos.y}%, rgba(${glow}, 0.16), transparent 75%)`,
+          }}
+        />
+      )}
+
+      {/* ── 7. Command HUD Header (Telemetry & Status) ── */}
+      <div className="relative z-10 flex items-center justify-between gap-2 pointer-events-none">
+        {/* Left: Classification Badge */}
+        {isPremium ? (
+          <div
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 backdrop-blur-md transition-all duration-300 shadow-[0_0_12px_rgba(245,158,11,0.25)] border"
+            style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.25) 0%, rgba(217,119,6,0.18) 50%, rgba(251,191,36,0.28) 100%)',
+              borderColor: 'rgba(251, 191, 36, 0.45)',
+            }}
+          >
+            <Crown size={9} className="text-amber-300 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />
+            <span className="font-mono text-[7.5px] font-black uppercase tracking-[0.22em] text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              PRESTIGE MASTERY
             </span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 backdrop-blur-md">
+            <Layers size={9} className="text-white/50" />
+            <span className="font-mono text-[7px] font-bold uppercase tracking-[0.2em] text-white/50">
+              SUITE // THEME
+            </span>
+          </div>
+        )}
+
+        {/* Right: State Beacon */}
+        <div className="flex items-center gap-1.5">
+          <AnimatePresence>
+            {staged ? (
+              <motion.div
+                {...reveal(reduce ?? false, chipSwap)}
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 backdrop-blur-md"
+                style={{
+                  background: 'rgba(6, 9, 15, 0.92)',
+                  border: `1px solid rgba(${glow}, 0.85)`,
+                  boxShadow: `0 0 16px rgba(${glow}, 0.45), inset 0 1px 1px rgba(255,255,255,0.25)`,
+                }}
+              >
+                <span className="relative flex h-1.5 w-1.5">
+                  <span
+                    className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-80"
+                    style={{ background: rgba(glow, 0.9) }}
+                  />
+                  <span
+                    className="relative inline-flex h-1.5 w-1.5 rounded-full"
+                    style={{ background: rgba(glow, 1) }}
+                  />
+                </span>
+                <DrawCheck size={8} strokeWidth={4} className="text-white" />
+                <span
+                  className="font-mono text-[7.5px] font-black uppercase tracking-[0.22em]"
+                  style={{ color: `rgb(${glow})` }}
+                >
+                  STAGED
+                </span>
+              </motion.div>
+            ) : live ? (
+              <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-black/60 px-2.5 py-0.5 backdrop-blur-md shadow-[0_0_12px_rgba(16,185,129,0.25)]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+                <span className="font-mono text-[7px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                  EQUIPPED
+                </span>
+              </div>
+            ) : !unlocked ? (
+              <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/70 px-2 py-0.5 backdrop-blur-md">
+                <Lock size={8} className="text-white/40" />
+                <span className="font-mono text-[7px] font-bold uppercase tracking-[0.16em] text-white/40">
+                  LOCKED
+                </span>
+              </div>
+            ) : (
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1 font-mono text-[7.5px] font-bold tracking-[0.18em] uppercase text-white/60">
+                <span>PREVIEW</span>
+                <ChevronRight size={10} style={{ color: `rgb(${glow})` }} />
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* ── 8. Hero Architectural Typography & Description ── */}
+      <div className="relative z-10 my-auto py-2 pr-2">
+        <div className="flex items-center gap-2">
+          <h4
+            className={`font-sans text-[15px] sm:text-[16px] font-black tracking-tight uppercase transition-all duration-300 ${
+              unlocked ? 'text-white' : 'text-white/40'
+            }`}
+            style={{
+              textShadow: staged
+                ? `0 0 16px rgba(${glow}, 0.7), 0 0 32px rgba(${glow}, 0.35)`
+                : isHovered && unlocked
+                ? `0 0 14px rgba(${glow}, 0.45)`
+                : undefined,
+            }}
+          >
+            {banner.name}
+          </h4>
+          {unlocked && (
+            <span
+              className="h-1.5 w-1.5 rounded-full transition-all duration-300"
+              style={{
+                background: `rgb(${glow})`,
+                boxShadow: staged || isHovered ? `0 0 8px rgb(${glow})` : 'none',
+              }}
+            />
           )}
         </div>
-        <p className="mt-0.5 truncate font-mono text-[9px] tracking-wide text-white/35">
+        <p className="mt-1 max-w-[85%] font-sans text-[11.5px] leading-relaxed text-zinc-300/80 font-normal line-clamp-1">
           {banner.description}
         </p>
-
-        {!unlocked && banner.unlockCondition && (
-          <div className="mt-2">
-            <SegmentBar value={ratio} color={glow} segments={14} height={5} />
-            <div className="mt-1 flex items-center gap-1 font-mono text-[8px] uppercase tracking-[0.16em] text-white/35">
-              <Zap size={8} style={{ color: rgba(glow, 0.9) }} />
-              {Math.round(current)} / {target} {banner.unlockCondition.type === 'level' ? 'level' : banner.unlockCondition.type}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ── 9. Bottom Tactical Telemetry Deck ── */}
+      {unlocked ? (
+        <div className="relative z-10 flex items-center justify-between gap-2 border-t border-white/[0.07] pt-2.5 mt-auto">
+          {banner.unlockCondition ? (
+            <div
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-[7.5px] font-bold uppercase tracking-[0.14em] border backdrop-blur-md"
+              style={{
+                background: `rgba(${glow}, 0.1)`,
+                borderColor: `rgba(${glow}, 0.3)`,
+                color: `rgb(${glow})`,
+                boxShadow: `0 0 12px rgba(${glow}, 0.12)`,
+              }}
+            >
+              <Zap size={8} />
+              <span>{banner.unlockCondition.value} {banner.unlockCondition.type.toUpperCase()} REQUIREMENT</span>
+            </div>
+          ) : (
+            <div className="font-mono text-[7.5px] font-medium tracking-[0.18em] text-white/35 uppercase">
+              SIGNAL ID // {banner.id.toUpperCase()}
+            </div>
+          )}
+
+          <div
+            className="flex items-center gap-1 font-mono text-[8px] font-black uppercase tracking-[0.18em] transition-colors"
+            style={{
+              color: staged ? `rgb(${glow})` : isHovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.4)',
+            }}
+          >
+            <span>{staged ? 'SELECTED' : live ? 'ACTIVE' : 'DEPLOY'}</span>
+            <ChevronRight size={10} className="transition-transform group-hover:translate-x-0.5" />
+          </div>
+        </div>
+      ) : (
+        <div className="relative z-10 border-t border-white/[0.07] pt-2 mt-auto space-y-1.5">
+          <div className="flex items-center justify-between font-mono text-[7.5px] uppercase tracking-[0.16em] text-white/50">
+            <span className="flex items-center gap-1">
+              <Zap size={8} style={{ color: `rgb(${glow})` }} />
+              <span>{Math.round(current)} / {target} {banner.unlockCondition?.type}</span>
+            </span>
+            <span className="font-bold" style={{ color: `rgb(${glow})` }}>
+              {Math.round(ratio * 100)}% UNLOCK PROGRESS
+            </span>
+          </div>
+          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06] border border-white/5 p-px">
+            <motion.div
+              className="h-full rounded-full"
+              style={{
+                width: `${ratio * 100}%`,
+                background: `linear-gradient(90deg, rgba(${glow}, 0.6), rgba(${glow}, 1))`,
+                boxShadow: `0 0 8px rgba(${glow}, 0.7)`,
+              }}
+            />
+          </div>
+        </div>
+      )}
     </motion.button>
   );
 });
@@ -980,47 +1221,90 @@ export const ProfileCustomizationMenu = React.memo(function ProfileCustomization
                       )}
 
                       {/* ── BANNERS ── */}
+                      {/* ── BANNERS CATALOG ── */}
                       {tab === 2 && (
-                        <div className="space-y-5" onMouseLeave={handleLeaveBanner}>
-                          {GROUPED_BANNERS.map((group) => (
-                            <div key={group.group} className="space-y-2.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-[9px] font-black uppercase tracking-[0.24em] text-white/50">
-                                  {group.group}
-                                </span>
-                                <span className="font-mono text-[8px] tracking-[0.14em] text-white/30">
-                                  ({group.items.length})
-                                </span>
-                                <div className="h-px flex-1 bg-white/[0.06]" />
+                        <div className="space-y-6" onMouseLeave={handleLeaveBanner}>
+                          {GROUPED_BANNERS.map((group) => {
+                            const isMastery = group.group === 'SKILL MASTERY';
+                            return (
+                              <div key={group.group} className="space-y-3">
+                                {/* Section Header */}
+                                <div className="flex items-center justify-between gap-3 pb-0.5">
+                                  <div className="flex items-center gap-2.5">
+                                    <div
+                                      className={`flex h-6 w-6 items-center justify-center rounded-lg border ${
+                                        isMastery
+                                          ? 'border-amber-400/40 bg-amber-500/10 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
+                                          : 'border-white/15 bg-white/5 text-white/70'
+                                      }`}
+                                    >
+                                      {isMastery ? <Crown size={12} /> : <Layers size={12} />}
+                                    </div>
+                                    <div className="flex items-baseline gap-2">
+                                      <span
+                                        className={`font-mono text-[10px] font-black uppercase tracking-[0.24em] ${
+                                          isMastery ? 'text-amber-200' : 'text-white/80'
+                                        }`}
+                                      >
+                                        {group.group}
+                                      </span>
+                                      <span
+                                        className={`hidden sm:inline font-mono text-[8px] uppercase tracking-[0.16em] ${
+                                          isMastery ? 'text-amber-400/60' : 'text-white/35'
+                                        }`}
+                                      >
+                                        {isMastery ? 'PRESTIGE MILESTONES' : 'CORE AESTHETICS'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`rounded-full border px-2.5 py-0.5 font-mono text-[8px] font-bold ${
+                                      isMastery
+                                        ? 'border-amber-400/25 bg-amber-500/10 text-amber-200'
+                                        : 'border-white/10 bg-white/5 text-white/40'
+                                    }`}
+                                  >
+                                    {group.items.length} {isMastery ? 'TIERS' : 'THEMES'}
+                                  </span>
+                                </div>
+
+                                <div
+                                  className="h-px w-full"
+                                  style={{
+                                    background: isMastery
+                                      ? 'linear-gradient(to right, rgba(245,158,11,0.45), rgba(245,158,11,0.08), transparent)'
+                                      : 'linear-gradient(to right, rgba(255,255,255,0.16), rgba(255,255,255,0.03), transparent)',
+                                  }}
+                                />
+
+                                <motion.div
+                                  variants={listParent(0.03)}
+                                  className="grid gap-3 sm:grid-cols-2"
+                                >
+                                  {group.items.map((banner) => {
+                                    const staged = banner.id === draftBanner;
+                                    const live = banner.id === currentBannerId;
+                                    const pulsing = burst?.startsWith(`${banner.id}:`) ? burst : null;
+
+                                    return (
+                                      <BannerTile
+                                        key={banner.id}
+                                        banner={banner}
+                                        userStats={userStats}
+                                        staged={staged}
+                                        live={live}
+                                        pulsing={pulsing}
+                                        reduce={reduce}
+                                        onPick={pickBanner}
+                                        onHover={handleHoverBanner}
+                                        onLeave={handleLeaveBanner}
+                                      />
+                                    );
+                                  })}
+                                </motion.div>
                               </div>
-
-                              <motion.div
-                                variants={listParent(0.03)}
-                                className="grid gap-2.5 sm:grid-cols-2"
-                              >
-                                {group.items.map((banner) => {
-                                  const staged = banner.id === draftBanner;
-                                  const live = banner.id === currentBannerId;
-                                  const pulsing = burst?.startsWith(`${banner.id}:`) ? burst : null;
-
-                                  return (
-                                    <BannerTile
-                                      key={banner.id}
-                                      banner={banner}
-                                      userStats={userStats}
-                                      staged={staged}
-                                      live={live}
-                                      pulsing={pulsing}
-                                      reduce={reduce}
-                                      onPick={pickBanner}
-                                      onHover={handleHoverBanner}
-                                      onLeave={handleLeaveBanner}
-                                    />
-                                  );
-                                })}
-                              </motion.div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </motion.div>

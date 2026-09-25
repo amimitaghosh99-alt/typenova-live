@@ -23,7 +23,7 @@ function healthEndpointPlugin() {
           const payload = {
             status: 'healthy',
             app: 'typenova',
-            version: '3.1.0',
+            version: '3.1.1',
             environment: 'development',
             timestamp: new Date().toISOString(),
             uptimeSec: Math.round(process.uptime()),

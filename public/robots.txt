@@ -1,8 +1,8 @@
 # TypeNova Robots.txt
-# https://typenova.app
+# https://typenova-live.vercel.app
 
 User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://typenova.app/sitemap.xml
+Sitemap: https://typenova-live.vercel.app/sitemap.xml

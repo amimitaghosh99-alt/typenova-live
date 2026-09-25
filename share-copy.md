@@ -32,7 +32,7 @@ Why build another typing test?
 4. **Pure Aesthetic:** 3D mechanical keyboard physics, acoustic switch audio synthesis, and dark frosted glass.
 
 Try it live (no login required):
-🔗 https://typenova.dpdns.org
+🔗 https://typenova-live.vercel.app
 
 Star the repo on GitHub:
 ⭐ https://github.com/amimitaghosh99-alt/typenova-live
@@ -54,7 +54,7 @@ Key highlights engineered into TypeNova:
 
 Built with React 19, TypeScript, Three.js, Tailwind CSS, and Supabase.
 
-Check out the live demo: https://typenova.dpdns.org
+Check out the live demo: https://typenova-live.vercel.app
 Source code: https://github.com/amimitaghosh99-alt/typenova-live
 
 Would love to hear your feedback and high scores! What's your current peak WPM?

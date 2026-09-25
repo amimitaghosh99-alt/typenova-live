@@ -97,6 +97,7 @@ import type { HistoryEntry } from '@/lib/history';
 import {
     bannerToast, pulseHaptic, reveal, rgba, shellIn, springSnappy,
 } from '@/components/profile/profileMotion';
+import { appStorage, StorageKeys } from '@/lib/storage';
 import { useOperatorProfile } from '@/hooks/useOperatorProfile';
 
 export interface OperatorDossierProps {
@@ -476,9 +477,11 @@ export const OperatorDossier = React.memo(function OperatorDossier({
 
     const avatarId = (isOwnProfile ? (cosmetics?.key === profileKey ? cosmetics.avatarId : undefined) : undefined)
         ?? remote?.avatar_id
+        ?? (isOwnProfile ? (appStorage.getString(StorageKeys.AVATAR_ID, '') || undefined) : undefined)
         ?? 'default';
     const bannerId = (isOwnProfile ? (cosmetics?.key === profileKey ? cosmetics.bannerId : undefined) : undefined)
         ?? remote?.banner_id
+        ?? (isOwnProfile ? (appStorage.getString(StorageKeys.BANNER_ID, '') || undefined) : undefined)
         ?? 'basic_dark';
     const selectedBanner = ALL_BANNERS.find((b) => b.id === bannerId) || ALL_BANNERS[0];
     const selectedAvatar = AVATARS.find((a) => a.id === avatarId) || AVATARS[0];
@@ -1764,6 +1767,9 @@ export const OperatorDossier = React.memo(function OperatorDossier({
                         level: displayLevel,
                         wpm: skillStats.maxWpm,
                         combo: localRPGStats?.bestCombo ?? 0,
+                        races: skillStats.racesWon || skillStats.testsCompleted,
+                        streak: skillStats.dailyStreak,
+                        accuracy: Math.round(skillStats.avgAccuracy),
                     }}
                     onClose={() => setShowCustomization(false)}
                     onUpdate={handleCustomizationUpdate}

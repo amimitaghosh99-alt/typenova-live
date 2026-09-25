@@ -1,9 +1,9 @@
 {
   "status": "healthy",
   "app": "typenova",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "environment": "production",
-  "timestamp": "2026-09-24T00:00:00.000Z",
+  "timestamp": "2026-09-25T00:00:00.000Z",
   "checks": {
     "spa_bundle": "ok",
     "pwa_service_worker": "active",

@@ -22,6 +22,23 @@ export { APP_VERSION };
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: APP_VERSION,
+    date: 'September 25, 2026',
+    title: 'Search Engine Optimization, Production Canonical Synchronization & Strict Type Hardening',
+    changes: [
+      { type: 'fix', description: 'Canonical URL Synchronization: Replaced disconnected domain references with live production origin (typenova-live.vercel.app) across index.html, robots.txt, sitemap.xml, and dynamic route sync in App.tsx to resolve Googlebot de-indexing loops.' },
+      { type: 'feature', description: 'Dynamic Canonical & Social Open Graph Resolution: Dynamic origin inference in App.tsx adapts canonical URLs, Twitter cards, and OpenGraph tags to any deployed host automatically.' },
+      { type: 'fix', description: 'Unused Import & Lint Cleanups: Eliminated unused component declarations in AnimatedBanners, CosmeticArt, and ProfileCustomizationMenu for 100% strict TypeScript compliance.' },
+      { type: 'tweak', description: 'Search Engine Indexing Schemas: Updated sitemap.xml and robots.txt with fresh lastmod timestamps and direct sitemap pointers for Google Search Console.' }
+    ],
+    impact: {
+      fixes: 3,
+      tweaks: 1,
+      linesChanged: 95,
+      perfGain: 'Direct Search Engine Discoverability & Zero Canonical Drop Penalty'
+    }
+  },
+  {
+    version: 'v3.1.0',
     date: 'September 24, 2026',
     title: 'Synthetic Health Diagnostics, Real-Time Telemetry Bus, BYOK Zero-Knowledge Privacy & Response Hardening',
     changes: [

@@ -96,11 +96,11 @@ export function DossierHeader({
                 forge's picker and the old rail both used `compact` precisely
                 because they were small. Darkened here rather than in the art so
                 one scene serves both. */}
-            <div className="relative h-[132px] overflow-hidden sm:h-[168px]">
+            <div className="relative h-[220px] overflow-hidden rounded-3xl border border-[var(--dsr-line)] sm:h-[280px] md:h-[340px]">
                 <div
                     aria-hidden
                     className="absolute inset-0"
-                    style={{ filter: 'brightness(0.68) saturate(1.18)' }}
+                    style={{ filter: 'brightness(0.92) saturate(1.12)' }}
                 >
                     <BannerArt id={bannerId} detail="full" animate={!reduce} />
                 </div>
@@ -109,10 +109,10 @@ export function DossierHeader({
                     reading as a grey box under a dark banner. */}
                 <div
                     aria-hidden
-                    className="absolute inset-0"
+                    className="pointer-events-none absolute inset-0"
                     style={{
                         background:
-                            'linear-gradient(180deg, rgba(9,11,16,0.18) 0%, rgba(9,11,16,0.48) 58%, var(--dsr-floor) 100%)',
+                            'linear-gradient(180deg, rgba(9,11,16,0.06) 0%, rgba(9,11,16,0.2) 65%, var(--dsr-floor) 100%)',
                     }}
                 />
                 <motion.div

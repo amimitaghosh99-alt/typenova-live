@@ -3085,7 +3085,10 @@ function PageMetaSync() {
     if (twitterDesc) twitterDesc.setAttribute('content', description);
 
     const canonical = document.querySelector('link[rel="canonical"]');
-    const fullUrl = `https://typenova.app${path === '/' ? '' : path}`;
+    const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')
+      ? window.location.origin
+      : 'https://typenova-live.vercel.app';
+    const fullUrl = `${origin}${path === '/' ? '' : path}`;
     if (canonical) canonical.setAttribute('href', fullUrl);
 
     const ogUrl = document.querySelector('meta[property="og:url"]');

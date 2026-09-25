@@ -8,7 +8,7 @@ export interface BannerDef {
   accentBorder: string; // Accent border class
   type: 'free' | 'premium';
   unlockCondition?: {
-    type: 'level' | 'wpm' | 'combo';
+    type: 'level' | 'wpm' | 'combo' | 'races' | 'streak' | 'accuracy';
     value: number;
     description: string;
   };
@@ -68,15 +68,6 @@ const FREE_BANNERS: BannerDef[] = [
     type: 'free'
   },
   {
-    id: 'neon_pink',
-    name: 'Neon Pulse',
-    description: 'Hot pink cyberpunk vibes.',
-    bgClass: 'bg-gradient-to-br from-pink-500 via-fuchsia-900 to-slate-950 bg-[length:200%_200%] animate-gradient-xy',
-    glowColor: '236, 72, 153',
-    accentBorder: 'border-pink-500/40',
-    type: 'free'
-  },
-  {
     id: 'aurora_borealis',
     name: 'Aurora',
     description: 'Northern lights — green, cyan, purple.',
@@ -90,54 +81,84 @@ const FREE_BANNERS: BannerDef[] = [
 // Premium Animated/Skill-based Banners
 const PREMIUM_BANNERS: BannerDef[] = [
   {
-    id: 'premium_speed',
-    name: 'Velocity Stream',
-    description: 'Animated speed streaks.',
-    bgClass: 'bg-gradient-to-r from-cyan-500 via-blue-600 to-cyan-500 bg-[length:200%_100%] animate-gradient-x',
-    glowColor: '6, 182, 212',
-    accentBorder: 'border-cyan-400/50',
+    id: 'keyforge_blueprint',
+    name: 'Keyforge Blueprint',
+    description: 'Precision CAD drafting schematic: cutaway MX linear switch, 3D progressive spring, phosphor-gold contact leaf, differential gear train, and live force displacement oscilloscope.',
+    bgClass: 'bg-gradient-to-br from-sky-950 via-slate-950 to-black',
+    glowColor: '56, 189, 248',
+    accentBorder: 'border-sky-400/40',
+    type: 'premium',
+    unlockCondition: { type: 'races', value: 25, description: 'Complete 25 races / tests' }
+  },
+  {
+    id: 'neon_horizon',
+    name: 'Neon Horizon',
+    description: 'An endless retro-synth highway: a sliced chrome sun sinks behind wireframe peaks as the grid races toward you.',
+    bgClass: 'bg-gradient-to-b from-indigo-950 via-fuchsia-950 to-black',
+    glowColor: '236, 72, 153',
+    accentBorder: 'border-pink-500/40',
+    type: 'premium',
+    unlockCondition: { type: 'wpm', value: 80, description: 'Achieve 80+ WPM' }
+  },
+  {
+    id: 'null_protocol',
+    name: 'Null Protocol',
+    description: 'Raw brutalist concrete slabs, a true-3D rotating wireframe and an acid-lime telemetry ticker. Function over ornament.',
+    bgClass: 'bg-gradient-to-br from-neutral-900 via-neutral-950 to-black',
+    glowColor: '190, 242, 100',
+    accentBorder: 'border-lime-300/40',
+    type: 'premium',
+    unlockCondition: { type: 'accuracy', value: 98, description: 'Achieve 98%+ Accuracy' }
+  },
+  {
+    id: 'solar_coronach',
+    name: 'Solar Coronach',
+    description: 'A dying star breathes magnetic prominences of plasma while solar wind strips embers across the void.',
+    bgClass: 'bg-gradient-to-tl from-orange-950 via-stone-950 to-black',
+    glowColor: '245, 158, 11',
+    accentBorder: 'border-amber-500/40',
+    type: 'premium',
+    unlockCondition: { type: 'streak', value: 7, description: 'Hold a 7-day typing streak' }
+  },
+  {
+    id: 'abyssal_bloom',
+    name: 'Abyssal Bloom',
+    description: 'A midnight trench where bioluminescent jellyfish pulse above swaying kelp and rising plankton.',
+    bgClass: 'bg-gradient-to-b from-teal-950 via-slate-950 to-black',
+    glowColor: '45, 212, 191',
+    accentBorder: 'border-teal-400/40',
     type: 'premium',
     unlockCondition: { type: 'wpm', value: 100, description: 'Achieve 100+ WPM' }
   },
   {
     id: 'premium_godspeed',
     name: 'Godspeed',
-    description: 'Blazing golden flare.',
+    description: 'Relativistic hyperspace velocity: warp speed streaks, supersonic Mach shockwaves, and tachyon overdrive.',
     bgClass: 'bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-500 bg-[length:200%_100%] animate-gradient-x',
     glowColor: '245, 158, 11',
     accentBorder: 'border-amber-400/50',
     type: 'premium',
-    unlockCondition: { type: 'wpm', value: 150, description: 'Achieve 150+ WPM' }
-  },
-  {
-    id: 'premium_combo',
-    name: 'Flawless',
-    description: 'Pulsing emerald perfection.',
-    bgClass: 'bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 bg-[length:200%_100%] animate-pulse',
-    glowColor: '16, 185, 129',
-    accentBorder: 'border-emerald-400/50',
-    type: 'premium',
-    unlockCondition: { type: 'combo', value: 100, description: 'Achieve a 100x Combo' }
+    unlockCondition: { type: 'wpm', value: 130, description: 'Achieve 130+ WPM' }
   },
   {
     id: 'premium_master',
     name: 'Grandmaster',
-    description: 'Cosmic void energy.',
+    description: 'A celestial singularity framed by multi-axis astrolabe rings, relativistic plasma jets, and sacred geometric telemetry.',
     bgClass: 'bg-gradient-to-br from-violet-500 via-purple-700 to-indigo-900 bg-[length:400%_400%] animate-gradient-xy',
     glowColor: '139, 92, 246',
     accentBorder: 'border-violet-400/50',
     type: 'premium',
-    unlockCondition: { type: 'level', value: 50, description: 'Reach Level 50' }
+    unlockCondition: { type: 'level', value: 30, description: 'Reach Level 30' }
   },
   {
     id: 'premium_hellfire',
     name: 'Hellfire',
-    description: 'Infernal blaze.',
+    description: 'A roaring volcanic inferno: multi-layered licking flame tongues, swirling cinders, and molten magma fissures.',
     bgClass: 'bg-gradient-to-t from-red-600 via-orange-500 to-yellow-500 bg-[length:200%_200%] animate-gradient-y',
     glowColor: '239, 68, 68',
     accentBorder: 'border-red-400/50',
     type: 'premium',
-    unlockCondition: { type: 'combo', value: 200, description: 'Achieve a 200x Combo' }
+    unlockCondition: { type: 'combo', value: 150, description: 'Achieve a 150x Combo' }
   },
 ];
 

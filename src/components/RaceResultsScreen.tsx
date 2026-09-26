@@ -136,6 +136,8 @@ export function RaceResultsScreen({
   // Ordered with the shared comparator so the podium here always agrees with
   // the live race HUD and the ranked-duel resolution.
   const ranking = useMemo(() => roster.filter(p => p.finished).sort(compareRacers), [roster]);
+  const connectedIds = useMemo(() => new Set(players.map(p => p.id)), [players]);
+  const activeUnfinished = useMemo(() => roster.filter(p => !p.finished && connectedIds.has(p.id)), [roster, connectedIds]);
   const unfinished = useMemo(() => roster.filter(p => !p.finished), [roster]);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(selfId);
@@ -179,7 +181,7 @@ export function RaceResultsScreen({
   // OTHERS..." forever: no podium, no awards, no medals. Resolve after a grace
   // window and mark the stragglers DNF.
   const [graceExpired, setGraceExpired] = useState(false);
-  const everyoneIn = roster.length > 0 && unfinished.length === 0;
+  const everyoneIn = roster.length > 0 && activeUnfinished.length === 0;
   useEffect(() => {
     if (everyoneIn) return;
     const t = setTimeout(() => setGraceExpired(true), 25000);
@@ -263,7 +265,14 @@ export function RaceResultsScreen({
     if (!isRanked || eloSyncDone.current) return;
     const me = players.find(p => p.id === selfId);
     const op = players.find(p => p.id !== selfId) ?? opponentRef.current;
-    if (!me?.finished || !op) return;
+    if (!op) {
+      if (me?.finished) {
+        rpcCalled.current = true;
+        setEloNote('ELO NOT RATED — SOLO MATCH');
+      }
+      return;
+    }
+    if (!me?.finished) return;
     // Never claim a win just because the opponent hasn't finished *yet* — that
     // let both clients resolve the same duel whenever a finish broadcast was
     // dropped, writing two mirrored rows and showing "+X ELO" to both players.
@@ -537,7 +546,8 @@ export function RaceResultsScreen({
   const effectiveMetric = canCompare ? chartMetric : 'wpm';
 
   const myPlayer = roster.find(p => p.id === selfId);
-  const myBaseElo = myPlayer?.elo ?? 1000;
+  const rawElo = Number(myPlayer?.elo);
+  const myBaseElo = Number.isFinite(rawElo) ? rawElo : 1000;
   const finalElo = eloTransfer
     ? (eloTransfer.direction === 'up' ? myBaseElo + eloTransfer.amount : Math.max(0, myBaseElo - eloTransfer.amount))
     : myBaseElo;

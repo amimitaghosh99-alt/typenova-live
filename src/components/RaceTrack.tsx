@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Crown, Flag, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Theme, Phase } from '@/data/constants';
-import type { RacerState } from '@/hooks/useRace';
+import { compareRacers, type RacerState } from '@/hooks/useRace';
 
 interface RaceTrackProps {
     players: RacerState[];
@@ -58,8 +58,8 @@ export function RaceTrack({
         });
 
         return merged.sort((a, b) => {
+            if (a.finished && b.finished) return compareRacers(a, b);
             if (!!a.finished !== !!b.finished) return a.finished ? -1 : 1;
-            if (a.finished && b.finished) return (a.finishMs ?? 0) - (b.finishMs ?? 0);
             return b.liveProgress - a.liveProgress;
         });
     }, [players, selfId, myProgress, myWpm, myAccuracy]);

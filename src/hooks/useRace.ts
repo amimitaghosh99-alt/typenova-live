@@ -563,6 +563,18 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         setStatus('lobby');
         setCountdown(null);
         clearDetails();
+        selfStateRef.current = {
+          ...selfStateRef.current,
+          finished: false,
+          progress: 0,
+          wpm: 0,
+          finishWpm: undefined,
+          finishAcc: undefined,
+          finishMs: undefined,
+          rank: undefined,
+          ready: false,
+        };
+        queueTrack(true);
       })
       .on('broadcast', { event: 'update_room_size' }, ({ payload }) => {
         if (payload?.roomSize) setRoomSize(payload.roomSize);
@@ -604,9 +616,13 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         });
       })
       .on('broadcast', { event: 'chat_message' }, ({ payload }) => {
+        if (!payload || typeof payload !== 'object') return;
+        const msgText = typeof payload.text === 'string' ? payload.text.slice(0, 200) : '';
+        const msgId = typeof payload.id === 'string' ? payload.id : String(Date.now());
+        const cleanMsg = { ...payload, id: msgId, text: msgText };
         setChatMessages(prev => {
-          if (prev.some(m => m.id === payload.id)) return prev;
-          return [...prev, payload];
+          if (prev.some(m => m.id === cleanMsg.id)) return prev;
+          return [...prev, cleanMsg].slice(-100);
         });
       })
       .on('broadcast', { event: 'sabotage_hex' }, ({ payload }) => {
@@ -621,16 +637,19 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         senderHistory.push(now);
         hexRateRef.current.set(payload.fromId, senderHistory);
 
+        const abilityDef = HEX_ABILITIES[payload.hexType as HexType];
+        if (!abilityDef) return; // Silently ignore unrecognized hex types
+
         setActiveHexes(prev => {
           const res = applyIncomingHex({
             activeHexes: prev,
             incomingHex: {
-              id: payload.id,
-              hexType: payload.hexType,
-              fromName: payload.fromName || 'Rival',
+              id: String(payload.id || Date.now()),
+              hexType: abilityDef.id,
+              fromName: String(payload.fromName || 'Rival').slice(0, 20),
               fromId: payload.fromId,
-              appliedAt: payload.timestamp || Date.now(),
-              durationMs: payload.durationMs,
+              appliedAt: Date.now(),
+              durationMs: abilityDef.durationMs, // Enforce client-side authoritative duration
             },
           });
 
@@ -1021,6 +1040,9 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
             durationMs: ability.durationMs,
           },
         });
+        if (res.cleansed) {
+          setSabotageStats(s => ({ ...s, cleanseCount: s.cleanseCount + 1 }));
+        }
         return res.updatedHexes;
       });
       return true;

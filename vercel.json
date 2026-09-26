@@ -71,7 +71,7 @@
       "destination": "/health.json"
     },
     {
-      "source": "/((?!assets/|api/|sw\\.js|workbox-.*|manifest\\.webmanifest|registerSW\\.js|.*\\.(?:png|svg|ico|json|txt|xml|mp3|wav|woff2|webmanifest)).*)",
+      "source": "/((?!assets/|api/|sw\\.js|workbox-.*|manifest\\.webmanifest|registerSW\\.js|google.*\\.html|.*\\.(?:png|svg|ico|json|txt|xml|mp3|wav|woff2|webmanifest|html)).*)",
       "destination": "/index.html"
     }
   ]

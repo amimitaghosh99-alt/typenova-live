@@ -30,6 +30,7 @@ import { registerHallOfLegendsTests } from './test_hall_of_legends.ts';
 import { registerDisplayScaleTests } from './display_scale.test.ts';
 import { registerFileValidationTests } from './fileValidation.test.ts';
 import { registerSecurityVerificationTests } from './securityVerification.test.ts';
+import { registerLazyWithRetryTests } from './lazyWithRetry.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -90,6 +91,9 @@ async function main(): Promise<void> {
 
   // Core Security Verification: Fail-closed payment checks, input validation & secrets protection
   registerSecurityVerificationTests();
+
+  // Dynamic Chunk Load Resilience: Error classification, backoff retries & preloading
+  registerLazyWithRetryTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

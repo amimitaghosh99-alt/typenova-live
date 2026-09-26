@@ -4,7 +4,7 @@
 /* eslint-disable react-hooks/purity */
 /* eslint-disable no-empty */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import {
   Lock
 } from 'lucide-react';
@@ -35,15 +35,17 @@ import { AudioDictationController, generateSimulatedBoundaries } from '@/lib/aud
 import type { PaceSample, RivalPace } from '@/components/TypingArea';
 import { useModeLeaderboard, fetchRivalGhost, type ModeScoreRow, type RivalGhost } from '@/hooks/useModeLeaderboard';
 import { buildModeKey, formatModeLabelLong, parseModeKey, pbStorageKeyFor, submittableModeKey } from '@/lib/modeKey';
-const ResultsScreen = lazy(() => import('@/components/ResultsScreen').then(m => ({ default: m.ResultsScreen })));
-const RaceResultsScreen = lazy(() => import('@/components/RaceResultsScreen').then(m => ({ default: m.RaceResultsScreen })));
-const AIDrillResultsScreen = lazy(() => import('@/components/AIDrillResultsScreen').then(m => ({ default: m.AIDrillResultsScreen })));
+import { lazyWithRetry, preloadComponent } from '@/lib/lazyWithRetry';
+
+const ResultsScreen = lazyWithRetry(() => import('@/components/ResultsScreen').then(m => ({ default: m.ResultsScreen })), 'ResultsScreen');
+const RaceResultsScreen = lazyWithRetry(() => import('@/components/RaceResultsScreen').then(m => ({ default: m.RaceResultsScreen })), 'RaceResultsScreen');
+const AIDrillResultsScreen = lazyWithRetry(() => import('@/components/AIDrillResultsScreen').then(m => ({ default: m.AIDrillResultsScreen })), 'AIDrillResultsScreen');
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { appendHistory, loadHistory } from '@/lib/history';
 import type { HistoryEntry } from '@/lib/history';
 import { calculateCPI, calculateBurstWpm, calculateGhostDelta, type PerformanceGrade } from '@/lib/scoringEngine';
 import { loadPersonalBests } from '@/lib/personalBests';
-const ReplayModal = lazy(() => import('@/components/ReplayModal').then(m => ({ default: m.ReplayModal })));
+const ReplayModal = lazyWithRetry(() => import('@/components/ReplayModal').then(m => ({ default: m.ReplayModal })), 'ReplayModal');
 import { TITLE_BADGES, getActiveTitleId, setActiveTitleId } from '@/data/titles';
 import { isPatronTitle, isPatronTitleUnlocked } from '@/data/donation';
 import { useChallenges } from '@/hooks/useChallenges';
@@ -62,39 +64,39 @@ import { useFriends } from '@/hooks/useFriends';
 import { PracticeArena } from '@/components/PracticeArena';
 import { HEX_ABILITIES, applyIncomingHex, pruneExpiredHexes, type ActiveHex, type HexType } from '@/lib/sabotageEngine';
 import type { BoardTab } from '@/components/LeaderboardSidebar';
-const LeaderboardSidebar = lazy(() => import('@/components/LeaderboardSidebar').then(m => ({ default: m.LeaderboardSidebar })));
+const LeaderboardSidebar = lazyWithRetry(() => import('@/components/LeaderboardSidebar').then(m => ({ default: m.LeaderboardSidebar })), 'LeaderboardSidebar');
 import { BottomControlsDock } from '@/components/BottomControlsDock';
-const AppModalManager = lazy(() => import('@/components/AppModalManager').then(m => ({ default: m.AppModalManager })));
+const AppModalManager = lazyWithRetry(() => import('@/components/AppModalManager').then(m => ({ default: m.AppModalManager })), 'AppModalManager');
 import { loadFontOnDemand } from '@/lib/fontLoader';
 import { TimedHud } from '@/components/TimedHud';
 
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router';
-const Login = lazy(() => import('@/pages/Login').then(m => ({ default: m.Login })));
-const OperatorDossier = lazy(() => import('@/pages/OperatorDossier').then(m => ({ default: m.OperatorDossier })));
-const OperatorAnalytics = lazy(() => import('@/pages/OperatorAnalytics').then(m => ({ default: m.OperatorAnalytics })));
-const PatronVault = lazy(() => import('@/pages/PatronVault').then(m => ({ default: m.PatronVault })));
+const Login = lazyWithRetry(() => import('@/pages/Login').then(m => ({ default: m.Login })), 'Login');
+const OperatorDossier = lazyWithRetry(() => import('@/pages/OperatorDossier').then(m => ({ default: m.OperatorDossier })), 'OperatorDossier');
+const OperatorAnalytics = lazyWithRetry(() => import('@/pages/OperatorAnalytics').then(m => ({ default: m.OperatorAnalytics })), 'OperatorAnalytics');
+const PatronVault = lazyWithRetry(() => import('@/pages/PatronVault').then(m => ({ default: m.PatronVault })), 'PatronVault');
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { APP_VERSION } from '@/data/version';
 
-const AcademyLayout = lazy(() => import('@/components/academy/AcademyLayout').then(m => ({ default: m.AcademyLayout })));
+const AcademyLayout = lazyWithRetry(() => import('@/components/academy/AcademyLayout').then(m => ({ default: m.AcademyLayout })), 'AcademyLayout');
 import { useSmartDrills } from '@/hooks/useSmartDrills';
 import { useWordWeakness } from '@/hooks/useWordWeakness';
 import { aggregateWords, type DrillRunMeta } from '@/lib/wordWeakness';
 import { useCosmetics } from '@/hooks/useCosmetics';
 import { AI_KEYS, getStoredAIKey } from '@/lib/aiClient';
 import { CosmicNavBar } from '@/components/CosmicNavBar';
-const CosmicLiquidShader = lazy(() => import('@/components/CosmicLiquidShader'));
+const CosmicLiquidShader = lazyWithRetry(() => import('@/components/CosmicLiquidShader'), 'CosmicLiquidShader');
 import { useShaderConfig } from '@/hooks/useShaderConfig';
-const LobbyScreen = lazy(() => import('@/components/LobbyScreen').then(m => ({ default: m.LobbyScreen })));
-const CompeteEntryScreen = lazy(() => import('@/components/CompeteEntryScreen').then(m => ({ default: m.CompeteEntryScreen })));
-const QuickMatchPanel = lazy(() => import('@/components/QuickMatchPanel').then(m => ({ default: m.QuickMatchPanel })));
-const RoomBrowser = lazy(() => import('@/components/RoomBrowser').then(m => ({ default: m.RoomBrowser })));
-const RankedHistoryPanel = lazy(() => import('@/components/RankedHistoryPanel').then(m => ({ default: m.RankedHistoryPanel })));
-const RankedTeaserCard = lazy(() => import('@/components/RankedTeaserCard').then(m => ({ default: m.RankedTeaserCard })));
+const LobbyScreen = lazyWithRetry(() => import('@/components/LobbyScreen').then(m => ({ default: m.LobbyScreen })), 'LobbyScreen');
+const CompeteEntryScreen = lazyWithRetry(() => import('@/components/CompeteEntryScreen').then(m => ({ default: m.CompeteEntryScreen })), 'CompeteEntryScreen');
+const QuickMatchPanel = lazyWithRetry(() => import('@/components/QuickMatchPanel').then(m => ({ default: m.QuickMatchPanel })), 'QuickMatchPanel');
+const RoomBrowser = lazyWithRetry(() => import('@/components/RoomBrowser').then(m => ({ default: m.RoomBrowser })), 'RoomBrowser');
+const RankedHistoryPanel = lazyWithRetry(() => import('@/components/RankedHistoryPanel').then(m => ({ default: m.RankedHistoryPanel })), 'RankedHistoryPanel');
+const RankedTeaserCard = lazyWithRetry(() => import('@/components/RankedTeaserCard').then(m => ({ default: m.RankedTeaserCard })), 'RankedTeaserCard');
 
-const RaceTrack = lazy(() => import('@/components/RaceTrack').then(m => ({ default: m.RaceTrack })));
+const RaceTrack = lazyWithRetry(() => import('@/components/RaceTrack').then(m => ({ default: m.RaceTrack })), 'RaceTrack');
 
 
 // ─── STAGE PAGE TRANSITION VARIANTS ────────────────────────────────────
@@ -549,6 +551,43 @@ function MainApp() {
       window.removeEventListener('patronTitlesUpdated', handleTitleChange);
     };
   }, []);
+
+  // Preload results screens during idle periods to eliminate transition delay
+  // and protect against mid-session deployment chunk invalidation
+  useEffect(() => {
+    const preloadResults = () => {
+      preloadComponent(() => import('@/components/ResultsScreen'));
+      preloadComponent(() => import('@/components/RaceResultsScreen'));
+      preloadComponent(() => import('@/components/AIDrillResultsScreen'));
+    };
+
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        const id = (window as any).requestIdleCallback(preloadResults, { timeout: 2500 });
+        return () => {
+          if ('cancelIdleCallback' in window) {
+            (window as any).cancelIdleCallback(id);
+          }
+        };
+      } else {
+        const t = setTimeout(preloadResults, 2000);
+        return () => clearTimeout(t);
+      }
+    }
+  }, []);
+
+  // Proactively prefetch results modules as soon as typing begins
+  useEffect(() => {
+    if (typing.startTime && typing.startTime > 0) {
+      preloadComponent(() => import('@/components/ResultsScreen'));
+      if (raceActive) {
+        preloadComponent(() => import('@/components/RaceResultsScreen'));
+      }
+      if (game.microDrillActive) {
+        preloadComponent(() => import('@/components/AIDrillResultsScreen'));
+      }
+    }
+  }, [typing.startTime, raceActive, game.microDrillActive]);
 
   const isLoggedIn = !!auth.session;
   const levelOptions = useMemo(() => (["NOVICE", "ADEPT", "MASTER", "QUOTES", "CODE", "CUSTOM", "DICTATION"] as Level[]).map(l => ({
@@ -2377,7 +2416,7 @@ function MainApp() {
               isHost={race.isHost}
               onRequestDetails={race.requestDetails}
               chatMessages={race.chatMessages}
-              onSendMessage={(msg) => race.sendChatMessage(msg, cloud.username || 'Typist')}
+              onSendMessage={(msg: string) => race.sendChatMessage(msg, cloud.username || 'Typist')}
               onRematch={handleRematchRace}
               onReturnToRoom={handleReturnToRoom}
               onLeaveRace={handleLeaveRace}
@@ -2612,7 +2651,7 @@ function MainApp() {
             <PatronVault
               onBack={() => navigate('/')}
               theme={theme}
-              onTitleEquipped={(titleId) => setActiveTitle(titleId)}
+              onTitleEquipped={(titleId: string) => setActiveTitle(titleId)}
               username={cloud.username || auth.user?.user_metadata?.full_name || auth.user?.user_metadata?.name || (auth.user?.email ? auth.user.email.split('@')[0] : null)}
             />
           </Suspense>

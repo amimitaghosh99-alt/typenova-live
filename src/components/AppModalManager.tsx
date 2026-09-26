@@ -1,22 +1,23 @@
-import { memo, lazy, Suspense } from 'react';
+import { memo, Suspense } from 'react';
 import {
   X, Trophy, Lock, Swords, Check
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AruStats } from '@/components/AIChatBot';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
-const DailyQuestsPanel = lazy(() => import('@/components/DailyQuestsPanel').then(m => ({ default: m.DailyQuestsPanel })));
-const SocialModal = lazy(() => import('@/components/SocialModal').then(m => ({ default: m.SocialModal })));
-const ChangelogModal = lazy(() => import('@/components/ChangelogModal').then(m => ({ default: m.ChangelogModal })));
-const SettingsModal = lazy(() => import('@/components/SettingsModal').then(m => ({ default: m.SettingsModal })));
-const BugReportsModal = lazy(() => import('@/components/BugReportsModal').then(m => ({ default: m.BugReportsModal })));
-const CommsModal = lazy(() => import('@/components/CommsModal').then(m => ({ default: m.CommsModal })));
-const GhostPacerModal = lazy(() => import('@/components/GhostPacerModal').then(m => ({ default: m.GhostPacerModal })));
-const WebHidBenchmarkModal = lazy(() => import('@/components/profile/WebHidBenchmarkModal').then(m => ({ default: m.WebHidBenchmarkModal })));
-const UpdateAnnouncementModal = lazy(() => import('@/components/UpdateAnnouncementModal').then(m => ({ default: m.UpdateAnnouncementModal })));
-const GodModeModal = lazy(() => import('@/components/GodModeModal').then(m => ({ default: m.GodModeModal })));
+const DailyQuestsPanel = lazyWithRetry(() => import('@/components/DailyQuestsPanel').then(m => ({ default: m.DailyQuestsPanel })), 'DailyQuestsPanel');
+const SocialModal = lazyWithRetry(() => import('@/components/SocialModal').then(m => ({ default: m.SocialModal })), 'SocialModal');
+const ChangelogModal = lazyWithRetry(() => import('@/components/ChangelogModal').then(m => ({ default: m.ChangelogModal })), 'ChangelogModal');
+const SettingsModal = lazyWithRetry(() => import('@/components/SettingsModal').then(m => ({ default: m.SettingsModal })), 'SettingsModal');
+const BugReportsModal = lazyWithRetry(() => import('@/components/BugReportsModal').then(m => ({ default: m.BugReportsModal })), 'BugReportsModal');
+const CommsModal = lazyWithRetry(() => import('@/components/CommsModal').then(m => ({ default: m.CommsModal })), 'CommsModal');
+const GhostPacerModal = lazyWithRetry(() => import('@/components/GhostPacerModal').then(m => ({ default: m.GhostPacerModal })), 'GhostPacerModal');
+const WebHidBenchmarkModal = lazyWithRetry(() => import('@/components/profile/WebHidBenchmarkModal').then(m => ({ default: m.WebHidBenchmarkModal })), 'WebHidBenchmarkModal');
+const UpdateAnnouncementModal = lazyWithRetry(() => import('@/components/UpdateAnnouncementModal').then(m => ({ default: m.UpdateAnnouncementModal })), 'UpdateAnnouncementModal');
+const GodModeModal = lazyWithRetry(() => import('@/components/GodModeModal').then(m => ({ default: m.GodModeModal })), 'GodModeModal');
 // DonateModal was removed: donations live on the PatronVault page at /donate.
-const AIChatBot = lazy(() => import('@/components/AIChatBot').then(m => ({ default: m.AIChatBot })));
+const AIChatBot = lazyWithRetry(() => import('@/components/AIChatBot').then(m => ({ default: m.AIChatBot })), 'AIChatBot');
 import { type PaceSample, type RivalPace } from '@/components/TypingArea';
 import type { ModeScoreRow } from '@/hooks/useModeLeaderboard';
 import { ACHIEVEMENTS, type Theme, type SoundProfile } from '@/data/constants';

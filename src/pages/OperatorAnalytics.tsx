@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-    ArrowLeft, BarChart3,
+    ArrowLeft, BarChart3, Lock,
     History as HistoryIcon,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -45,11 +45,13 @@ export function OperatorAnalytics({
     localRPGStats,
 }: OperatorAnalyticsProps) {
     const targetUsername = routeUsername || localUsername || 'Operator';
+    const isOwner = !routeUsername || (localUsername != null && routeUsername.toLowerCase() === localUsername.toLowerCase());
     const accent = theme.glowPrimary;
 
     const history = useMemo<HistoryEntry[]>(() => {
+        if (!isOwner) return [];
         return localRPGStats?.history ?? [];
-    }, [localRPGStats?.history]);
+    }, [isOwner, localRPGStats?.history]);
 
     // Discover all unique test modes present in history
     const availableModes = useMemo<ModeStat[]>(() => {
@@ -162,6 +164,15 @@ export function OperatorAnalytics({
                         </div>
                     </div>
                 </div>
+
+                {!isOwner && (
+                    <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 flex items-center gap-3 text-xs font-mono text-zinc-400">
+                        <Lock size={16} className="text-zinc-500 shrink-0" />
+                        <span>
+                            Detailed session telemetry and historical test logs are stored locally on each operator&apos;s client for cryptographic privacy. Viewing public profile for <strong className="text-white">{targetUsername}</strong>.
+                        </span>
+                    </div>
+                )}
 
                 {/* ── Mode Selection Strip (Tabs) ── */}
                 <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
@@ -371,7 +382,7 @@ export function OperatorAnalytics({
                         </div>
                     ) : (
                         <EmptyNote icon={HistoryIcon}>
-                            No test entries recorded yet.
+                            {isOwner ? 'No test entries recorded yet.' : 'Session logs are private to this operator.'}
                         </EmptyNote>
                     )}
                 </Panel>

@@ -76,7 +76,7 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
           {/* Ambient Glow */}
           <div
             className="absolute top-0 right-0 w-64 h-64 rounded-full blur-[100px] pointer-events-none opacity-20"
-            style={{ background: theme.glowPrimary || 'rgba(6,182,212,0.4)' }}
+            style={{ background: `radial-gradient(circle, rgba(${theme.glowPrimary}, 0.5) 0%, transparent 70%)` }}
           />
 
           {/* Header */}

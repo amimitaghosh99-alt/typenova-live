@@ -110,15 +110,20 @@ export const BottomControlsDock = memo(function BottomControlsDock({
           {/* Ask Aru AI Button */}
           <button
             onClick={onToggleAru}
+            style={isAruOpen ? {
+              backgroundColor: `rgba(${theme.glowPrimary}, 0.2)`,
+              borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+              boxShadow: `0 0 30px rgba(${theme.glowPrimary}, 0.6)`,
+            } : undefined}
             className={`relative flex items-center gap-2.5 px-5 py-2 rounded-full transition-all duration-500 group overflow-hidden cursor-pointer ${isAruOpen
-              ? `bg-[rgba(${theme.glowPrimary},0.2)] border border-[rgba(${theme.glowPrimary},0.5)] shadow-[0_0_30px_rgba(${theme.glowPrimary},0.6)] scale-95`
-              : 'bg-[#0f0e1a] border border-fuchsia-500/20 hover:border-transparent shadow-[0_0_20px_rgba(217,70,239,0.15)] hover:shadow-[0_0_40px_rgba(34,211,238,0.4)]'
+              ? 'border scale-95'
+              : 'bg-[#0f0e1a] border border-white/10 hover:border-transparent shadow-[0_0_20px_rgba(0,0,0,0.4)]'
               }`}
             title="Ask Aru — AI Typing Coach"
           >
             {/* Spinning Neon Gradient Border (Active on Hover) */}
             {!isAruOpen && (
-              <span className="absolute inset-[-1000%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,transparent_0%,#c084fc_33%,#22d3ee_66%,transparent_100%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <span className="absolute inset-[-1000%] animate-[spin_3s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,transparent_0%,rgba(255,255,255,0.2)_50%,transparent_100%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             )}
 
             {/* Dark Inner Surface */}
@@ -134,8 +139,8 @@ export const BottomControlsDock = memo(function BottomControlsDock({
             <div className="relative z-10 flex items-center gap-2">
               {isAruOpen ? (
                 <>
-                  <X size={15} className="text-fuchsia-400" />
-                  <span className="text-[11px] font-black tracking-[0.2em] uppercase text-fuchsia-300">Close</span>
+                  <X size={15} style={{ color: `rgb(${theme.glowPrimary})` }} />
+                  <span className="text-[11px] font-black tracking-[0.2em] uppercase" style={{ color: `rgb(${theme.glowPrimary})` }}>Close</span>
                 </>
               ) : (
                 <>
@@ -150,14 +155,30 @@ export const BottomControlsDock = memo(function BottomControlsDock({
                       }}
                     />
                     <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-fuchsia-400 opacity-75 duration-1000" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-fuchsia-500 shadow-[0_0_10px_#d946ef]" />
+                      <span
+                        className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 duration-1000"
+                        style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                      />
+                      <span
+                        className="relative inline-flex rounded-full h-2 w-2"
+                        style={{
+                          backgroundColor: `rgb(${theme.glowPrimary})`,
+                          boxShadow: `0 0 8px rgba(${theme.glowPrimary}, 0.8)`,
+                        }}
+                      />
                     </span>
                   </div>
-                  <span className="text-[11px] font-black tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-pink-300 group-hover:from-white group-hover:to-cyan-100 transition-all drop-shadow-sm">
+                  <span className="text-[11px] font-black tracking-[0.2em] uppercase text-white group-hover:text-white transition-all drop-shadow-sm">
                     Ask Aru
                   </span>
-                  <Sparkles size={13} className="text-amber-300 animate-pulse drop-shadow-[0_0_5px_rgba(252,211,77,0.8)]" />
+                  <Sparkles
+                    size={13}
+                    className="animate-pulse"
+                    style={{
+                      color: `rgb(${theme.glowPrimary})`,
+                      filter: `drop-shadow(0 0 5px rgba(${theme.glowPrimary}, 0.8))`,
+                    }}
+                  />
                 </>
               )}
             </div>

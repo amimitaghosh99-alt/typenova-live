@@ -124,7 +124,8 @@ export const useTypingEngine = () => {
   }, []);
 
   const calculateStats = useCallback((currentInput: string, timeMs: number, currentPenalty = 0, explicitStartTime: number | null = null, includeTimeline = false): TypingStats => {
-    if (!timeMs || currentInput.length === 0) {
+    const entries = keystrokeLog.current;
+    if (entries.length === 0 && (!timeMs || currentInput.length === 0)) {
       return {
         currentWpm: 0,
         rawWpm: 0,
@@ -137,9 +138,9 @@ export const useTypingEngine = () => {
         grade: 'D',
       };
     }
-    const entries = keystrokeLog.current;
-    const startTs = explicitStartTime !== null ? explicitStartTime : (Date.now() - timeMs);
-    const totalTimeMs = timeMs + currentPenalty;
+
+    const startTs = explicitStartTime !== null ? explicitStartTime : (Date.now() - Math.max(0, timeMs));
+    const totalTimeMs = Math.max(0, timeMs) + currentPenalty;
     const minutes = totalTimeMs / 60000;
 
     // Single-pass loop for total non-backspace keystrokes, errors, and max flawless streak
@@ -163,13 +164,14 @@ export const useTypingEngine = () => {
     }
     if (curStreak > localMaxStreak) localMaxStreak = curStreak;
 
-    const rawCalc = minutes > 0 ? Math.round((totalTyped / 5) / minutes) : 0;
-    const netCalc = minutes > 0 ? Math.max(0, Math.round(((totalTyped - errorCount) / 5) / minutes)) : 0;
+    // Guard against microscopic sub-300ms intervals causing inflated WPM spikes
+    const rawCalc = minutes >= 0.005 ? Math.round((totalTyped / 5) / minutes) : 0;
+    const netCalc = minutes >= 0.005 ? Math.max(0, Math.round(((totalTyped - errorCount) / 5) / minutes)) : 0;
     const currentAcc = totalTyped > 0 ? Math.min(Math.max(Math.round(((totalTyped - errorCount) / totalTyped) * 100), 0), 100) : 100;
 
-    const validWpm = isNaN(netCalc) || netCalc < 0 ? 0 : netCalc;
-    const validRaw = isNaN(rawCalc) ? 0 : rawCalc;
-    const validAcc = isNaN(currentAcc) ? 100 : currentAcc;
+    const validWpm = Number.isFinite(netCalc) && netCalc >= 0 ? netCalc : 0;
+    const validRaw = Number.isFinite(rawCalc) && rawCalc >= 0 ? rawCalc : 0;
+    const validAcc = Number.isFinite(currentAcc) ? currentAcc : 100;
 
     if (!includeTimeline) {
       const cpiBreakdown = calculateCPI(validWpm, validAcc, localMaxStreak, 100, totalTyped);
@@ -188,7 +190,7 @@ export const useTypingEngine = () => {
     }
 
     const intervals = Math.max(1, Math.floor(totalTimeMs / 1000));
-    const step = totalTimeMs / intervals;
+    const step = intervals > 0 ? totalTimeMs / intervals : 0;
     const timeline: TimelinePoint[] = [{ t: 0, wpm: 0, rawWpm: 0 }];
 
     let entryIndex = 0;
@@ -206,19 +208,21 @@ export const useTypingEngine = () => {
         entryIndex++;
       }
 
-      const calcWpm = Math.round((runningChars / 5) / ((step * i) / 60000));
-      const calcRaw = Math.round((runningRawChars / 5) / ((step * i) / 60000));
+      const elapsedMin = (step * i) / 60000;
+      const calcWpm = elapsedMin > 0 ? Math.round((runningChars / 5) / elapsedMin) : 0;
+      const calcRaw = elapsedMin > 0 ? Math.round((runningRawChars / 5) / elapsedMin) : 0;
       timeline.push({
         t: step * i,
-        wpm: isNaN(calcWpm) ? 0 : calcWpm,
-        rawWpm: isNaN(calcRaw) ? 0 : calcRaw
+        wpm: Number.isFinite(calcWpm) ? calcWpm : 0,
+        rawWpm: Number.isFinite(calcRaw) ? calcRaw : 0,
       });
     }
 
-    const wpmVals = timeline.filter(p => p.t > 0).map(p => p.wpm).filter(v => !isNaN(v));
+    const wpmVals = timeline.filter(p => p.t > 0).map(p => p.wpm).filter(v => Number.isFinite(v));
     const mean = wpmVals.length ? wpmVals.reduce((a, b) => a + b, 0) / wpmVals.length : 0;
     const variance = wpmVals.length ? wpmVals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / wpmVals.length : 0;
-    const stddev = Math.sqrt(variance);
+    const safeVariance = Number.isFinite(variance) ? variance : 0;
+    const stddev = Math.sqrt(safeVariance);
 
     let consistencyScore = 100;
     if (wpmVals.length > 1 && mean > 0) {

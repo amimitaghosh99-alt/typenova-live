@@ -643,14 +643,14 @@ const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, b
 
   if (!pos) return null;
 
-  const { background, backgroundColor, boxShadow, opacity, transition, ...restStyle } = barStyle || {};
+  const { background, backgroundColor, boxShadow, opacity, transition, transform: customTransform, ...restStyle } = barStyle || {};
 
   return (
     <span
       className="absolute left-0 top-0 pointer-events-none z-40 will-change-transform"
       style={{
         width: pos.w,
-        transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+        transform: `translate3d(${pos.x}px, ${pos.y}px, 0)${customTransform ? ` ${customTransform}` : ''}`,
         transition: isLineWrap ? 'none' : (transition || 'transform 100ms ease-out, width 100ms ease-out'),
         opacity,
         ...restStyle,

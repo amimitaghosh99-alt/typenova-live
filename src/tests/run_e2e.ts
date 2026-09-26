@@ -32,6 +32,7 @@ import { registerFileValidationTests } from './fileValidation.test.ts';
 import { registerSecurityVerificationTests } from './securityVerification.test.ts';
 import { registerLazyWithRetryTests } from './lazyWithRetry.test.ts';
 import { registerBatch1SecurityPersistenceTests } from './batch1SecurityPersistence.test.ts';
+import { registerBatch2EngineAudioTests } from './batch2EngineAudio.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -98,6 +99,9 @@ async function main(): Promise<void> {
 
   // Batch 1: Security, Financial Integrity & Data Persistence Tests
   registerBatch1SecurityPersistenceTests();
+
+  // Batch 2: Core Typing Engine, Scoring & Web Audio Tests
+  registerBatch2EngineAudioTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

@@ -3,7 +3,10 @@ import { useCallback, useRef, useMemo } from 'react';
 let globalAudioCtx: AudioContext | null = null;
 let globalMasterCompressor: DynamicsCompressorNode | null = null;
 let activeVoices = 0;
-const MAX_POLYPHONY = 6;
+export const MAX_POLYPHONY = 6;
+
+export const getActiveVoicesCount = (): number => activeVoices;
+export const resetActiveVoices = (): void => { activeVoices = 0; };
 
 const getAudioContext = (): { ctx: AudioContext; compressor: DynamicsCompressorNode } | null => {
   if (typeof window === 'undefined') return null;
@@ -73,7 +76,8 @@ export const useAudioEngine = () => {
       startTime?: number;
       ignoreComboFactor?: boolean;
     }) => {
-      activeVoices++;
+      activeVoices = Math.min(MAX_POLYPHONY * 2, activeVoices + 1);
+      let cleanedUp = false;
       const startT = now + startTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -86,13 +90,26 @@ export const useAudioEngine = () => {
       gain.gain.exponentialRampToValueAtTime(0.001, startT + duration);
       osc.connect(gain);
       gain.connect(compressor);
-      osc.onended = () => {
-        osc.disconnect();
-        gain.disconnect();
+
+      const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        try { osc.disconnect(); } catch {}
+        try { gain.disconnect(); } catch {}
         activeVoices = Math.max(0, activeVoices - 1);
       };
-      osc.start(startT);
-      osc.stop(startT + duration);
+
+      osc.onended = cleanup;
+      // Watchdog: Guarantee voice reclamation even if Web Audio callback is dropped or context suspends
+      const maxDurationMs = Math.max(80, Math.ceil((startTime + duration + 0.1) * 1000));
+      setTimeout(cleanup, maxDurationMs);
+
+      try {
+        osc.start(startT);
+        osc.stop(startT + duration);
+      } catch {
+        cleanup();
+      }
     };
 
     if (type === 'error') {

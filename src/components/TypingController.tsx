@@ -278,7 +278,15 @@ export function TypingController({
         toast.dismiss('quick-restart-arm');
       }
 
-      if (e.ctrlKey || e.metaKey || e.altKey || (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace')) return;
+      // Handle Ctrl+Backspace (word deletion) or AltGr combinations
+      const isAltGr = e.ctrlKey && e.altKey;
+      const isCtrlBackspace = e.ctrlKey && !e.altKey && e.key === 'Backspace';
+
+      if (!isAltGr && !isCtrlBackspace) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+      }
+
+      if (e.key.length > 1 && e.key !== 'Enter' && e.key !== 'Backspace') return;
       if (e.key === 'Shift') return;
 
       // Backspace
@@ -300,8 +308,22 @@ export function TypingController({
             audio.playSound('error');
             return;
           }
-          typing.setInputSync((prev: string) => prev.slice(0, -1));
-          typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
+
+          if (isCtrlBackspace) {
+            e.preventDefault();
+            const trimmed = currentInput.trimEnd();
+            const lastSpaceIdx = trimmed.lastIndexOf(' ');
+            const sliceIdx = lastSpaceIdx === -1 ? 0 : lastSpaceIdx + 1;
+            const deletedCount = currentInput.length - sliceIdx;
+            typing.setInputSync((prev: string) => prev.slice(0, sliceIdx));
+            for (let d = 0; d < Math.max(1, deletedCount); d++) {
+              typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
+            }
+          } else {
+            typing.setInputSync((prev: string) => prev.slice(0, -1));
+            typing.keystrokeLog.current.push({ key: 'Backspace', expected: '', time: Date.now(), isError: false, isBackspace: true });
+          }
+
           audio.playSound('click');
           typing.setCombo(0);
           typing.comboRef.current = 0;

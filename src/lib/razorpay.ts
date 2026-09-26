@@ -202,6 +202,7 @@ export interface VerifyPaymentResult {
   success: boolean;
   verified: boolean;
   titleId?: string;
+  effectiveTier?: string;
   error?: string;
 }
 
@@ -229,6 +230,7 @@ export async function verifyRazorpayPayment(params: VerifyPaymentParams): Promis
         success: true,
         verified: true,
         titleId: data.titleId || 'cyber_patron',
+        effectiveTier: data.effectiveTier || data.tierId,
       };
     }
 

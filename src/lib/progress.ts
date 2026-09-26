@@ -100,21 +100,29 @@ export function readLocalProgress(): ProgressSnapshot {
     }
   } catch { /* storage disabled — non-fatal */ }
 
+  const getSafe = (k: string) => {
+    try {
+      return typeof localStorage !== 'undefined' ? localStorage.getItem(k) : null;
+    } catch {
+      return null;
+    }
+  };
+
   return {
-    xp: parseInt(localStorage.getItem(K.xp) || '0', 10) || 0,
-    tests: parseInt(localStorage.getItem(K.tests) || '0', 10) || 0,
-    achievements: safeParse<string[]>(localStorage.getItem(K.achievements), []),
-    heatmap: safeParse<Record<string, HeatKey>>(localStorage.getItem(K.heatmap), {}),
-    daily: safeParse<DailyState | null>(localStorage.getItem(K.daily), null),
-    quests: safeParse<QuestsState | null>(localStorage.getItem(K.quests), null),
-    history: safeParse<HistoryEntry[]>(localStorage.getItem(HISTORY_KEY), []),
+    xp: parseInt(getSafe(K.xp) || '0', 10) || 0,
+    tests: parseInt(getSafe(K.tests) || '0', 10) || 0,
+    achievements: safeParse<string[]>(getSafe(K.achievements), []),
+    heatmap: safeParse<Record<string, HeatKey>>(getSafe(K.heatmap), {}),
+    daily: safeParse<DailyState | null>(getSafe(K.daily), null),
+    quests: safeParse<QuestsState | null>(getSafe(K.quests), null),
+    history: safeParse<HistoryEntry[]>(getSafe(HISTORY_KEY), []),
     pbs,
-    bestCombo: parseInt(localStorage.getItem(K.bestCombo) || '0', 10) || 0,
-    racesWon: parseInt(localStorage.getItem(K.racesWon) || '0', 10) || 0,
+    bestCombo: parseInt(getSafe(K.bestCombo) || '0', 10) || 0,
+    racesWon: parseInt(getSafe(K.racesWon) || '0', 10) || 0,
     academyRecords: academy.records,
     academyXp: academy.xp,
     academyStreak: academy.streak,
-    wordWeakness: normalizeWordWeakness(safeParse<unknown>(localStorage.getItem(K.wordWeakness), null)),
+    wordWeakness: normalizeWordWeakness(safeParse<unknown>(getSafe(K.wordWeakness), null)),
     consent: getConsentRecord(),
   };
 }
@@ -147,6 +155,28 @@ export function writeLocalProgress(s: ProgressSnapshot): void {
       localStorage.setItem('typenova_consent_record', JSON.stringify(s.consent));
     }
   } catch { /* quota / disabled — non-fatal */ }
+}
+
+/** Purge all user-specific progress and session keys on logout to prevent cross-account profile contamination. */
+export function clearLocalProgress(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    Object.values(K).forEach(key => localStorage.removeItem(key));
+    localStorage.removeItem(HISTORY_KEY);
+    const pbKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(PB_PREFIX)) pbKeys.push(key);
+    }
+    pbKeys.forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem('typezen_academy_records');
+    localStorage.removeItem('typezen_academy_xp');
+    localStorage.removeItem('typezen_academy_streak');
+    localStorage.removeItem('typenova_active_title');
+    localStorage.removeItem('guestMode');
+    localStorage.removeItem('typenova_guest_mode');
+    localStorage.removeItem('typenova_pending_guest_score');
+  } catch { /* storage disabled or quota — non-fatal */ }
 }
 
 function normalize(p: Partial<ProgressSnapshot> | null | undefined): ProgressSnapshot {

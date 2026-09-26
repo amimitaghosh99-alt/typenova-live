@@ -75,7 +75,8 @@ export const RecordContributionModal: React.FC<RecordContributionModalProps> = (
       platform,
       message: message.trim() || undefined,
       date: today,
-      txHash: txRef.trim() || undefined,
+      txHash: txRef.trim() ? `manual_${txRef.trim()}` : undefined,
+      isManualClaim: true,
     });
 
     setIsDone(true);

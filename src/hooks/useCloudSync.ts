@@ -63,6 +63,9 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
   // Keep the latest onHydrated without making it an effect dependency.
   const onHydratedRef = useRef(onHydrated);
   useEffect(() => { onHydratedRef.current = onHydrated; });
+  const hydrateRPGRef = useRef(hydrateRPG);
+  useEffect(() => { hydrateRPGRef.current = hydrateRPG; }, [hydrateRPG]);
+  const isPushing = useRef(false);
 
   useEffect(() => {
     const sb = supabase;
@@ -234,22 +237,33 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     const uid = session.user.id;
     if (pushTimer.current) clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(async () => {
+      if (isPushing.current) return;
+      isPushing.current = true;
       try {
-        const local = readLocalProgress();
         const { data: remoteRow } = await sb
           .from('profiles')
           .select('data')
           .eq('id', uid)
           .maybeSingle();
 
-        const merged = remoteRow?.data ? mergeProgress(local, remoteRow.data as ProgressSnapshot) : local;
+        const freshLocal = readLocalProgress();
+        const merged = remoteRow?.data ? mergeProgress(freshLocal, remoteRow.data as ProgressSnapshot) : freshLocal;
         writeLocalProgress(merged);
+        hydrateRPGRef.current?.({
+          xp: merged.xp,
+          tests: merged.tests,
+          achievements: merged.achievements,
+          heatmap: merged.heatmap,
+          bestCombo: merged.bestCombo,
+        });
 
         await sb.from('profiles')
           .update({ data: merged, updated_at: new Date().toISOString() })
           .eq('id', uid);
       } catch (err) {
         console.warn('[cloudSync] pushProgress failed:', err);
+      } finally {
+        isPushing.current = false;
       }
 
       if (extraData && username) {

@@ -52,11 +52,15 @@ export const useRPGSystem = () => {
   // Persist to localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(STORAGE_KEYS.xp, xp.toString());
-    localStorage.setItem(STORAGE_KEYS.tests, testsCompleted.toString());
-    localStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(unlockedAchievements));
-    localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(heatmapData));
-    localStorage.setItem(STORAGE_KEYS.bestCombo, bestCombo.toString());
+    try {
+      localStorage.setItem(STORAGE_KEYS.xp, xp.toString());
+      localStorage.setItem(STORAGE_KEYS.tests, testsCompleted.toString());
+      localStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(unlockedAchievements));
+      localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(heatmapData));
+      localStorage.setItem(STORAGE_KEYS.bestCombo, bestCombo.toString());
+    } catch (err) {
+      console.warn('[useRPGSystem] Failed to persist to localStorage:', err);
+    }
   }, [xp, testsCompleted, unlockedAchievements, heatmapData, bestCombo]);
 
   // Achievement toast auto-dismiss
@@ -66,9 +70,10 @@ export const useRPGSystem = () => {
     return () => clearTimeout(timer);
   }, [achievementQueue]);
 
-  const userLevel = Math.floor(Math.sqrt(xp / 100)) + 1;
+  const safeXp = Math.max(0, Number.isFinite(xp) ? xp : 0);
+  const userLevel = Math.floor(Math.sqrt(safeXp / 100)) + 1;
   const nextLevelXp = Math.pow(userLevel, 2) * 100;
-  const currentLevelProgress = xp - Math.pow(userLevel - 1, 2) * 100;
+  const currentLevelProgress = safeXp - Math.pow(userLevel - 1, 2) * 100;
   const xpNeeded = nextLevelXp - Math.pow(userLevel - 1, 2) * 100;
 
   const processRPG = useCallback((
@@ -108,7 +113,9 @@ export const useRPGSystem = () => {
       };
     });
     setHeatmapData(updatedHeatmap);
-    localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(updatedHeatmap));
+    try {
+      localStorage.setItem(STORAGE_KEYS.heatmap, JSON.stringify(updatedHeatmap));
+    } catch { /* storage quota exceeded — non-fatal */ }
 
     // Calculate XP progression and structured breakdown
     const xpBreakdown = calculateXPProgression(

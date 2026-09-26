@@ -26,6 +26,7 @@ import {
   recordPatronContribution,
   SUPPORTER_TIERS,
   unlockPatronTitlesForTier,
+  TITLE_TO_TIER_MAP,
 } from '@/data/donation';
 import { setActiveTitleId } from '@/data/titles';
 import {
@@ -519,6 +520,10 @@ export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({
             setTxHash(paymentId);
             setStep('settled');
 
+            const verifiedTier =
+              verification.effectiveTier ||
+              (verification.titleId ? TITLE_TO_TIER_MAP[verification.titleId] : tierId);
+
             recordPatronContribution({
               name: donorName,
               amount,
@@ -527,7 +532,7 @@ export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({
               date: new Date().toISOString().split('T')[0],
               message: customMessage,
               txHash: paymentId,
-              tierId,
+              tierId: verifiedTier,
             });
 
             if (supabase && customMessage) {
@@ -541,7 +546,7 @@ export const PaymentGatewayModal: React.FC<PaymentGatewayModalProps> = ({
               }
             }
 
-            unlockPatronTitlesForTier(tierId);
+            unlockPatronTitlesForTier(verifiedTier);
             if (verification.titleId) {
               setActiveTitleId(verification.titleId);
             }

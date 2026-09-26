@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { emitHealthSignal } from '@/lib/healthMonitor';
+import { clearLocalProgress } from '@/lib/progress';
 
 
 
@@ -120,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await sb.auth.signOut();
     } catch (err) {
       console.warn('[auth] signOut failed:', err);
+    } finally {
+      clearLocalProgress();
     }
   }, []);
 

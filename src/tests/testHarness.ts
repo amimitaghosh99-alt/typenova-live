@@ -3,6 +3,39 @@
  * Minimal, zero-dependency, rich assertion and test execution framework.
  */
 
+if (typeof globalThis.window === 'undefined') {
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, val: string) => store.set(key, String(val)),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+    key: (i: number) => Array.from(store.keys())[i] ?? null,
+    get length() { return store.size; },
+  };
+  const eventListeners = new Map<string, Function[]>();
+  const mockWindow = {
+    addEventListener: (type: string, fn: Function) => {
+      const list = eventListeners.get(type) || [];
+      list.push(fn);
+      eventListeners.set(type, list);
+    },
+    removeEventListener: (type: string, fn: Function) => {
+      const list = eventListeners.get(type) || [];
+      eventListeners.set(type, list.filter(f => f !== fn));
+    },
+    dispatchEvent: (e: { type: string }) => {
+      (eventListeners.get(e.type) || []).forEach(f => f(e));
+      return true;
+    },
+    localStorage: mockStorage,
+    sessionStorage: mockStorage,
+  };
+  (globalThis as unknown as { window: unknown }).window = mockWindow;
+  (globalThis as unknown as { localStorage: unknown }).localStorage = mockStorage;
+  (globalThis as unknown as { sessionStorage: unknown }).sessionStorage = mockStorage;
+}
+
 export interface TestResult {
   suite: string;
   name: string;

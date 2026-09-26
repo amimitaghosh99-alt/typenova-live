@@ -151,6 +151,7 @@ export interface PatronEntry {
   date: string;
   txHash?: string;
   tierId?: string;
+  isManualClaim?: boolean;
 }
 
 export interface DonationConfig {
@@ -657,6 +658,13 @@ export function getTitlesForTier(tierId: string): string[] {
   }
 }
 
+export const TITLE_TO_TIER_MAP: Record<string, string> = {
+  cyber_patron: 'tier_supporter',
+  server_sustainer: 'tier_sustainer',
+  grand_architect: 'tier_scholar',
+  eternal_benefactor: 'tier_legend',
+};
+
 /**
  * Returns set of currently unlocked patron titles from verified payments and cloud records.
  * Sandbox simulated transactions (TN-SIM-*) are strictly excluded.
@@ -686,6 +694,8 @@ export function getUnlockedPatronTitles(targetCallsign?: string | null): Set<str
         p.amount > 0 &&
         typeof p.txHash === 'string' &&
         p.txHash.startsWith('pay_') &&
+        !p.isManualClaim &&
+        !p.txHash.startsWith('manual_') &&
         !p.message?.includes('Sandbox') &&
         !p.message?.includes('Simulated') &&
         !p.txHash.startsWith('TN-SIM-');

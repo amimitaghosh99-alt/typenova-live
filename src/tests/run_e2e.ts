@@ -31,6 +31,7 @@ import { registerDisplayScaleTests } from './display_scale.test.ts';
 import { registerFileValidationTests } from './fileValidation.test.ts';
 import { registerSecurityVerificationTests } from './securityVerification.test.ts';
 import { registerLazyWithRetryTests } from './lazyWithRetry.test.ts';
+import { registerBatch1SecurityPersistenceTests } from './batch1SecurityPersistence.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -94,6 +95,9 @@ async function main(): Promise<void> {
 
   // Dynamic Chunk Load Resilience: Error classification, backoff retries & preloading
   registerLazyWithRetryTests();
+
+  // Batch 1: Security, Financial Integrity & Data Persistence Tests
+  registerBatch1SecurityPersistenceTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

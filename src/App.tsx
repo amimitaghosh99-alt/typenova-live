@@ -1442,8 +1442,9 @@ function MainApp() {
         try { prevDaily = JSON.parse(localStorage.getItem('typezen_daily') || 'null'); } catch { /* corrupt — treat as fresh */ }
         if (prevDaily?.lastDay === today) streakNow = prevDaily.streak;
         else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
-        else streakNow = 1;
-        localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
+        try {
+          localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
+        } catch { /* storage quota exceeded or disabled — non-fatal */ }
 
         setDailyStreak(streakNow);
       }

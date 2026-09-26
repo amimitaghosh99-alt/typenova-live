@@ -1,4 +1,4 @@
-import { memo, Suspense } from 'react';
+import { memo, Suspense, useEffect } from 'react';
 import {
   X, Trophy, Lock, Swords, Check
 } from 'lucide-react';
@@ -195,6 +195,26 @@ export const AppModalManager = memo(function AppModalManager({
   onInstantFinish,
   raceActive,
 }: AppModalManagerProps) {
+  // Global Escape key listener & body scroll lock for open dialogs
+  useEffect(() => {
+    if (!activeModal) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCloseModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [activeModal, onCloseModal]);
+
   return (
     <>
       {/* ═══ OVERLAY MODALS ═══ */}
@@ -480,6 +500,7 @@ export const AppModalManager = memo(function AppModalManager({
               userId={auth.session?.user.id}
               friends={friendsState.friends}
               onClose={onCloseModal}
+              theme={theme}
             />
           ) : null;
 
@@ -487,7 +508,7 @@ export const AppModalManager = memo(function AppModalManager({
             <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={onCloseModal}>
               <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto lucid-scale" style={{ '--delay': '0ms' } as React.CSSProperties} onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6 sticky top-0 bg-zinc-950/90 backdrop-blur-md z-10">
-                  <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Trophy className="mr-4 text-amber-400" size={32} /> Hall of Legends</h2>
+                  <h2 className="text-3xl font-black text-white uppercase tracking-widest flex items-center"><Trophy className="mr-4" size={32} style={{ color: `rgb(${theme.glowPrimary})` }} /> Hall of Legends</h2>
                   <button onClick={onCloseModal} className="p-3 bg-zinc-900 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors cursor-pointer"><X size={24} /></button>
                 </div>
                 <div className="flex flex-col gap-12">

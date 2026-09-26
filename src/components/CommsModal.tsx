@@ -3,15 +3,17 @@ import { X, Send, Sparkles, MessageSquare } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FriendData } from '@/hooks/useFriends';
 import { useMessages } from '@/hooks/useMessages';
+import type { Theme } from '@/data/constants';
 
 interface CommsModalProps {
   supabase: SupabaseClient | null;
   userId?: string;
   friends: FriendData[];
   onClose: () => void;
+  theme?: Theme;
 }
 
-export const CommsModal = React.memo(function CommsModal({ supabase, userId, friends, onClose }: CommsModalProps) {
+export const CommsModal = React.memo(function CommsModal({ supabase, userId, friends, onClose, theme }: CommsModalProps) {
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -62,9 +64,15 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
           
           {/* Left Panel - Friends Roster */}
           <div className="w-[320px] shrink-0 border-r border-cyan-500/20 bg-cyan-950/20 flex flex-col relative z-10 shadow-[20px_0_30px_-10px_rgba(0,0,0,0.5)]">
-            <div className="px-6 py-5 border-b border-cyan-500/20 flex items-center gap-3">
-              <MessageSquare size={16} className="text-cyan-400" />
-              <h2 className="text-cyan-50 font-black tracking-widest uppercase text-sm drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">
+            <div className="px-6 py-5 border-b border-white/10 flex items-center gap-3">
+              <MessageSquare size={16} style={theme ? { color: `rgb(${theme.glowPrimary})` } : undefined} className={theme ? '' : 'text-cyan-400'} />
+              <h2
+                className="font-black tracking-widest uppercase text-sm"
+                style={{
+                  color: theme ? `rgb(${theme.glowPrimary})` : 'rgb(236,254,255)',
+                  textShadow: theme ? `0 0 8px rgba(${theme.glowPrimary}, 0.5)` : '0 0 8px rgba(34,211,238,0.5)',
+                }}
+              >
                 Communications
               </h2>
             </div>
@@ -219,7 +227,12 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
                       type="submit"
                       disabled={!inputText.trim()}
                       onClick={handleSend}
-                      className="flex-shrink-0 w-12 h-12 rounded-full border border-cyan-400 bg-cyan-950/50 text-cyan-400 flex items-center justify-center hover:bg-cyan-400 hover:text-cyan-950 hover:shadow-[0_0_20px_rgba(34,211,238,0.8)] transition-all disabled:opacity-30 disabled:hover:bg-cyan-950/50 disabled:hover:text-cyan-400 disabled:hover:shadow-none disabled:cursor-not-allowed shadow-[0_0_10px_rgba(34,211,238,0.3)] group"
+                      style={theme ? {
+                        borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
+                        color: `rgb(${theme.glowPrimary})`,
+                        boxShadow: `0 0 12px rgba(${theme.glowPrimary}, 0.35)`,
+                      } : undefined}
+                      className="flex-shrink-0 w-12 h-12 rounded-full border border-cyan-400 bg-black/50 text-cyan-400 flex items-center justify-center hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed group cursor-pointer"
                     >
                       <Send size={18} className="transform translate-x-[1px] -translate-y-[1px] group-hover:scale-110 transition-transform" />
                     </button>

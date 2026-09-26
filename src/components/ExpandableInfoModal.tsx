@@ -23,16 +23,15 @@ export function ExpandableInfoModal({ activeId, onClose }: ExpandableInfoModalPr
     }
 
     if (activeCard) {
+      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", onKeyDown);
-    } else {
-      document.body.style.overflow = "auto";
-    }
 
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "auto";
-    };
+      return () => {
+        window.removeEventListener("keydown", onKeyDown);
+        document.body.style.overflow = originalOverflow;
+      };
+    }
   }, [activeCard, onClose]);
 
   useOutsideClick(modalRef, () => {

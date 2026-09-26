@@ -183,17 +183,21 @@ export function useWallpaperTheme() {
   const setCustomAccent = useCallback(async (accent: string) => {
     setCustomAccentState(accent);
     if (activeUrlRef.current) {
-      const theme = await extractThemeFromImage(activeUrlRef.current, accent);
-      setWallpaperTheme(theme);
-      saveWallpaperToDB({
-        id: 'active',
-        dataUrl: activeUrlRef.current,
-        brightness,
-        blur,
-        customAccent: accent,
-        extractedThemeJson: JSON.stringify(theme),
-        timestamp: Date.now(),
-      });
+      try {
+        const theme = await extractThemeFromImage(activeUrlRef.current, accent);
+        setWallpaperTheme(theme);
+        saveWallpaperToDB({
+          id: 'active',
+          dataUrl: activeUrlRef.current,
+          brightness,
+          blur,
+          customAccent: accent,
+          extractedThemeJson: JSON.stringify(theme),
+          timestamp: Date.now(),
+        });
+      } catch (err) {
+        console.warn('Failed to extract theme for custom accent:', err);
+      }
     }
   }, [brightness, blur]);
 

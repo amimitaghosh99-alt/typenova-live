@@ -53,88 +53,114 @@ export const ACCENT_SWATCHES = [
 ] as const;
 
 export function extractThemeFromImage(dataUrl: string, customAccentOverride?: string): Promise<Theme> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
+    const fallbackAccent = (customAccentOverride && customAccentOverride !== 'auto') ? customAccentOverride : 'cyan';
+    const fallbackTheme = makeTheme(
+      'wallpaper',
+      'bg-black/60',
+      `text-${fallbackAccent}-300`,
+      fallbackAccent,
+      undefined,
+      '6,182,212'
+    );
+
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error('No canvas context'));
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(fallbackTheme);
 
-      // Scale down for faster processing
-      const MAX_SIZE = 200;
-      let width = img.width;
-      let height = img.height;
-      if (width > height) {
-        if (width > MAX_SIZE) {
-          height = height * (MAX_SIZE / width);
-          width = MAX_SIZE;
+        // Scale down for faster processing
+        const MAX_SIZE = 200;
+        let width = img.width || img.naturalWidth || 100;
+        let height = img.height || img.naturalHeight || 100;
+        if (width <= 0 || height <= 0) return resolve(fallbackTheme);
+
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = height * (MAX_SIZE / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = width * (MAX_SIZE / height);
+            height = MAX_SIZE;
+          }
         }
-      } else {
-        if (height > MAX_SIZE) {
-          width = width * (MAX_SIZE / height);
-          height = MAX_SIZE;
+
+        canvas.width = Math.max(1, Math.floor(width));
+        canvas.height = Math.max(1, Math.floor(height));
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        let data: Uint8ClampedArray;
+        try {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          data = imageData.data;
+        } catch (canvasErr) {
+          console.warn('[colorExtractor] Canvas tainted by cross-origin policy or read failed:', canvasErr);
+          return resolve(fallbackTheme);
         }
-      }
 
-      canvas.width = Math.max(1, Math.floor(width));
-      canvas.height = Math.max(1, Math.floor(height));
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        let bestScore = -1;
+        let bestRgb: RGB = { r: 6, g: 182, b: 212 };
+        let bestHsl: HSL = { h: 0.5, s: 0.8, l: 0.5 };
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
+        // Sample pixels with vibrant color filtration (skip muddy grays and washed out whites)
+        for (let i = 0; i < data.length; i += 16) {
+          const r = data[i];
+          const g = data[i+1];
+          const b = data[i+2];
+          const a = data[i+3];
+          if (a < 128) continue;
 
-      let bestScore = -1;
-      let bestRgb: RGB = { r: 6, g: 182, b: 212 };
-      let bestHsl: HSL = { h: 0.5, s: 0.8, l: 0.5 };
+          const hsl = rgbToHsl(r, g, b);
+          
+          // Skip unsaturated colors (grays, whites, washed out haze) and extreme darks/lights
+          if (hsl.s < 0.25 || hsl.l < 0.15 || hsl.l > 0.85) continue;
 
-      // Sample pixels with vibrant color filtration (skip muddy grays and washed out whites)
-      for (let i = 0; i < data.length; i += 16) {
-        const r = data[i];
-        const g = data[i+1];
-        const b = data[i+2];
-        const a = data[i+3];
-        if (a < 128) continue;
+          // Reward rich saturation with balanced lightness
+          const lightnessSweetspot = 1 - Math.abs(0.55 - hsl.l) * 2;
+          const score = (hsl.s * 3.5) + (lightnessSweetspot * 1.5);
 
-        const hsl = rgbToHsl(r, g, b);
+          if (score > bestScore) {
+            bestScore = score;
+            bestRgb = { r, g, b };
+            bestHsl = hsl;
+          }
+        }
+
+        // If no vibrant pixel met the threshold, fallback to default neon cyan
+        if (bestScore <= 0) {
+          bestRgb = { r: 6, g: 182, b: 212 };
+          bestHsl = { h: 0.52, s: 0.9, l: 0.5 };
+        }
+
+        const autoAccent = getClosestAccent(bestHsl);
+        const accent = (customAccentOverride && customAccentOverride !== 'auto') ? customAccentOverride : autoAccent;
         
-        // Skip unsaturated colors (grays, whites, washed out haze) and extreme darks/lights
-        if (hsl.s < 0.25 || hsl.l < 0.15 || hsl.l > 0.85) continue;
-
-        // Reward rich saturation with balanced lightness
-        const lightnessSweetspot = 1 - Math.abs(0.55 - hsl.l) * 2;
-        const score = (hsl.s * 3.5) + (lightnessSweetspot * 1.5);
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestRgb = { r, g, b };
-          bestHsl = hsl;
-        }
+        const glowPrimary = `${bestRgb.r},${bestRgb.g},${bestRgb.b}`;
+        
+        const customTheme = makeTheme(
+          'wallpaper', 
+          'bg-black/60', 
+          `text-${accent}-300`, 
+          accent, 
+          undefined,
+          glowPrimary
+        );
+        
+        resolve(customTheme);
+      } catch (err) {
+        console.warn('[colorExtractor] Extraction error:', err);
+        resolve(fallbackTheme);
       }
-
-      // If no vibrant pixel met the threshold, fallback to default neon cyan
-      if (bestScore <= 0) {
-        bestRgb = { r: 6, g: 182, b: 212 };
-        bestHsl = { h: 0.52, s: 0.9, l: 0.5 };
-      }
-
-      const autoAccent = getClosestAccent(bestHsl);
-      const accent = (customAccentOverride && customAccentOverride !== 'auto') ? customAccentOverride : autoAccent;
-      
-      const glowPrimary = `${bestRgb.r},${bestRgb.g},${bestRgb.b}`;
-      
-      const customTheme = makeTheme(
-        'wallpaper', 
-        'bg-black/60', 
-        `text-${accent}-300`, 
-        accent, 
-        undefined,
-        glowPrimary
-      );
-      
-      resolve(customTheme);
     };
-    img.onerror = (err) => reject(err);
+    img.onerror = () => {
+      console.warn('[colorExtractor] Image loading failed, resolving to fallback theme');
+      resolve(fallbackTheme);
+    };
     img.src = dataUrl;
   });
 }

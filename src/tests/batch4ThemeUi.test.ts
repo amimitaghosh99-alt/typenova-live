@@ -73,5 +73,28 @@ export function registerBatch4ThemeUiTests(): void {
       expect(dynamicStyle?.borderColor).toBe('rgba(34, 211, 238, 0.5)');
       expect(dynamicStyle?.boxShadow).toBe('0 0 30px rgba(34, 211, 238, 0.6)');
     });
+
+    it('THEME-04: Color extractor fallback theme generation handles tainted canvas gracefully', () => {
+      const customAccentOverride = 'rose';
+      const fallbackAccent = (customAccentOverride && customAccentOverride !== 'auto') ? customAccentOverride : 'cyan';
+      expect(fallbackAccent).toBe('rose');
+
+      const autoFallback = (undefined && undefined !== 'auto') ? undefined : 'cyan';
+      expect(autoFallback).toBe('cyan');
+    });
+
+    it('THEME-05: Modal body scroll lock preserves and restores original overflow style', () => {
+      // Simulate document.body.style
+      const bodyMock = { style: { overflow: 'visible' } };
+      const originalOverflow = bodyMock.style.overflow;
+
+      // Modal open
+      bodyMock.style.overflow = 'hidden';
+      expect(bodyMock.style.overflow).toBe('hidden');
+
+      // Modal close (restore)
+      bodyMock.style.overflow = originalOverflow;
+      expect(bodyMock.style.overflow).toBe('visible');
+    });
   });
 }

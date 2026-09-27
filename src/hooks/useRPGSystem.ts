@@ -35,7 +35,10 @@ export const useRPGSystem = () => {
 
   const [unlockedAchievements, setUnlockedAchievements] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.achievements) || '[]'); } catch { return []; }
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.achievements) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
   });
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
   const [xpGainedLast, setXpGainedLast] = useState(0);

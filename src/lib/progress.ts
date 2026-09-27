@@ -179,14 +179,57 @@ export function clearLocalProgress(): void {
   } catch { /* storage disabled or quota — non-fatal */ }
 }
 
+function normalizeDaily(raw: unknown): DailyState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, any>;
+  if (typeof d.lastDay !== 'string') return null;
+  return {
+    lastDay: d.lastDay,
+    streak: Number.isFinite(Number(d.streak)) ? Math.max(0, Math.floor(Number(d.streak))) : 0,
+  };
+}
+
+export function normalizeQuests(raw: unknown): QuestsState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const q = raw as Record<string, any>;
+  if (typeof q.lastReset !== 'string' || !Array.isArray(q.active)) return null;
+  const validActive: Quest[] = [];
+  for (const item of q.active) {
+    if (
+      item &&
+      typeof item === 'object' &&
+      typeof item.id === 'string' &&
+      typeof item.type === 'string' &&
+      Number.isFinite(Number(item.target)) &&
+      Number(item.target) > 0 &&
+      Number.isFinite(Number(item.progress)) &&
+      typeof item.completed === 'boolean' &&
+      Number.isFinite(Number(item.xpReward))
+    ) {
+      validActive.push({
+        id: item.id,
+        type: item.type,
+        target: Number(item.target),
+        progress: Math.max(0, Number(item.progress)),
+        completed: Boolean(item.completed),
+        xpReward: Math.max(0, Number(item.xpReward)),
+      });
+    }
+  }
+  return {
+    lastReset: q.lastReset,
+    active: validActive,
+  };
+}
+
 function normalize(p: Partial<ProgressSnapshot> | null | undefined): ProgressSnapshot {
   return {
     xp: Number(p?.xp) || 0,
     tests: Number(p?.tests) || 0,
     achievements: Array.isArray(p?.achievements) ? p!.achievements : [],
     heatmap: (p?.heatmap && typeof p.heatmap === 'object') ? p.heatmap : {},
-    daily: p?.daily ?? null,
-    quests: p?.quests ?? null,
+    daily: normalizeDaily(p?.daily),
+    quests: normalizeQuests(p?.quests),
     history: Array.isArray(p?.history) ? p!.history : [],
     pbs: (p?.pbs && typeof p.pbs === 'object') ? p.pbs : {},
     bestCombo: Number(p?.bestCombo) || 0,
@@ -200,31 +243,35 @@ function normalize(p: Partial<ProgressSnapshot> | null | undefined): ProgressSna
 }
 
 function pickDaily(a: DailyState | null, b: DailyState | null): DailyState | null {
-  if (!a) return b;
-  if (!b) return a;
+  const normA = normalizeDaily(a);
+  const normB = normalizeDaily(b);
+  if (!normA) return normB;
+  if (!normB) return normA;
   // lastDay is "YYYY-MM-DD" — lexical compare matches chronological order
-  if (a.lastDay > b.lastDay) return a;
-  if (b.lastDay > a.lastDay) return b;
-  return a.streak >= b.streak ? a : b;
+  if (normA.lastDay > normB.lastDay) return normA;
+  if (normB.lastDay > normA.lastDay) return normB;
+  return normA.streak >= normB.streak ? normA : normB;
 }
 
 function pickQuests(a: QuestsState | null, b: QuestsState | null): QuestsState | null {
-  if (!a) return b;
-  if (!b) return a;
+  const normA = normalizeQuests(a);
+  const normB = normalizeQuests(b);
+  if (!normA) return normB;
+  if (!normB) return normA;
   // Different reset days: the newer day's quests replace the older completely
-  if (a.lastReset > b.lastReset) return a;
-  if (b.lastReset > a.lastReset) return b;
+  if (normA.lastReset > normB.lastReset) return normA;
+  if (normB.lastReset > normA.lastReset) return normB;
   // Same reset day — deep merge individual quest progress so neither device
   // loses its specific quest updates.
   const merged = new Map<string, Quest>();
-  for (const q of a.active) merged.set(q.id, q);
-  for (const q of b.active) {
+  for (const q of normA.active) merged.set(q.id, q);
+  for (const q of normB.active) {
     const existing = merged.get(q.id);
     if (!existing || q.progress > existing.progress) {
       merged.set(q.id, q);
     }
   }
-  return { lastReset: a.lastReset, active: Array.from(merged.values()) };
+  return { lastReset: normA.lastReset, active: Array.from(merged.values()) };
 }
 
 export function mergeProgress(

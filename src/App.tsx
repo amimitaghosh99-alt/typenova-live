@@ -496,7 +496,7 @@ function MainApp() {
     if (root) root.style.setProperty('background-color', '#080809', 'important');
   }, []);
 
-  const quests = useQuests((gained) => rpg.setXp((prev: number) => prev + gained));
+  const quests = useQuests((gained) => rpg.setXp((prev: number) => prev + gained), dailyStreak);
   const particles = useParticles();
   const shaderConfig = useShaderConfig();
 
@@ -1405,9 +1405,10 @@ function MainApp() {
     const effWordCount = isTimed ? typedWords : (game.dailyActive ? typing.targetText.trim().split(/\s+/).length : game.wordCount);
     const effLength = isTimed ? statsInput.length : typing.targetText.length;
 
-    // Quest Progression (custom mode excluded)
-    if (stats.currentWpm > 0 && !isCustom) {
-      quests.progressQuest('words_typed', Math.round(stats.currentWpm * (timeMs / 60000)));
+    // Quest Progression (custom mode excluded; require meaningful run volume)
+    const isMeaningfulRun = stats.currentWpm > 0 && effLength >= 40 && typedWords >= 5;
+    if (isMeaningfulRun && !isCustom) {
+      quests.progressQuest('words_typed', typedWords);
       quests.progressQuest('wpm_achieved', stats.currentWpm);
       quests.progressQuest('acc_achieved', stats.currentAcc);
     }
@@ -1445,11 +1446,23 @@ function MainApp() {
       if (stats.currentWpm > 0 && stats.currentAcc >= 50) {
         const today = todayKey();
         let prevDaily: { lastDay: string; streak: number } | null = null;
-        try { prevDaily = JSON.parse(localStorage.getItem('typezen_daily') || 'null'); } catch { /* corrupt — treat as fresh */ }
-        if (prevDaily?.lastDay === today) streakNow = prevDaily.streak;
-        else if (prevDaily && isYesterday(prevDaily.lastDay)) streakNow = prevDaily.streak + 1;
         try {
-          localStorage.setItem('typezen_daily', JSON.stringify({ lastDay: today, streak: streakNow }));
+          const raw = localStorage.getItem(StorageKeys.DAILY) || localStorage.getItem('typezen_daily');
+          if (raw) prevDaily = JSON.parse(raw);
+        } catch { /* corrupt — treat as fresh */ }
+
+        if (prevDaily?.lastDay === today) {
+          streakNow = Math.max(1, prevDaily.streak || 1);
+        } else if (prevDaily && isYesterday(prevDaily.lastDay)) {
+          streakNow = (prevDaily.streak || 0) + 1;
+        } else {
+          streakNow = 1;
+        }
+
+        const dailyPayload = JSON.stringify({ lastDay: today, streak: streakNow });
+        try {
+          localStorage.setItem('typezen_daily', dailyPayload);
+          localStorage.setItem(StorageKeys.DAILY, dailyPayload);
         } catch { /* storage quota exceeded or disabled — non-fatal */ }
 
         setDailyStreak(streakNow);

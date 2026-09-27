@@ -16,10 +16,29 @@ const QUEST_TEMPLATES = [
 
 function generateDailyQuests(): QuestsState {
   const rng = mulberry32(daySeed() + 777);
-  // Deterministic shuffle
-  const shuffled = [...QUEST_TEMPLATES].sort(() => 0.5 - rng());
-  // Pick 3 unique quests
-  const selected = shuffled.slice(0, 3);
+  // Deterministic Fisher-Yates shuffle
+  const pool = [...QUEST_TEMPLATES];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  // Pick 3 distinct quest types
+  const selected: typeof QUEST_TEMPLATES[number][] = [];
+  const usedTypes = new Set<string>();
+  for (const t of pool) {
+    if (!usedTypes.has(t.type)) {
+      selected.push(t);
+      usedTypes.add(t.type);
+      if (selected.length === 3) break;
+    }
+  }
+  while (selected.length < 3 && selected.length < pool.length) {
+    const candidate = pool.find(p => !selected.includes(p));
+    if (candidate) selected.push(candidate);
+    else break;
+  }
+
   const today = todayKey();
   
   return {
@@ -35,10 +54,12 @@ function generateDailyQuests(): QuestsState {
   };
 }
 
-export function useQuests(grantXp?: (amount: number) => void) {
+export function useQuests(grantXp?: (amount: number) => void, dailyStreak: number = 0) {
   const [questsState, setQuestsState] = useState<QuestsState | null>(null);
   const questsRef = useRef(questsState);
   useEffect(() => { questsRef.current = questsState; }, [questsState]);
+  const streakRef = useRef(dailyStreak);
+  useEffect(() => { streakRef.current = dailyStreak; }, [dailyStreak]);
 
   // Load and generate quests on mount
   useEffect(() => {
@@ -48,18 +69,43 @@ export function useQuests(grantXp?: (amount: number) => void) {
     if (!progress.quests || progress.quests.lastReset !== today) {
       const newQuests = generateDailyQuests();
       setQuestsState(newQuests);
+      questsRef.current = newQuests;
       progress.quests = newQuests;
       writeLocalProgress(progress);
     } else {
       setQuestsState(progress.quests);
+      questsRef.current = progress.quests;
     }
+  }, []);
+
+  // Check for day rollover across midnight when tab gains focus or visibility changes
+  useEffect(() => {
+    const handleCheckDay = () => {
+      const today = todayKey();
+      if (questsRef.current && questsRef.current.lastReset !== today) {
+        const newQuests = generateDailyQuests();
+        setQuestsState(newQuests);
+        questsRef.current = newQuests;
+        const progress = readLocalProgress();
+        progress.quests = newQuests;
+        writeLocalProgress(progress);
+      }
+    };
+    window.addEventListener('focus', handleCheckDay);
+    document.addEventListener('visibilitychange', handleCheckDay);
+    return () => {
+      window.removeEventListener('focus', handleCheckDay);
+      document.removeEventListener('visibilitychange', handleCheckDay);
+    };
   }, []);
 
   const progressQuest = useCallback((type: Quest['type'], value: number) => {
     const prev = questsRef.current;
-    if (!prev) return;
+    if (!prev || !Array.isArray(prev.active)) return;
     let totalXpGained = 0;
     let changed = false;
+
+    const streakMultiplier = 1 + Math.min(Math.max(0, streakRef.current) * 0.1, 1.0);
 
     const newActive = prev.active.map(q => {
       if (q.completed || q.type !== type) return q;
@@ -74,7 +120,7 @@ export function useQuests(grantXp?: (amount: number) => void) {
         const completed = newProgress >= q.target;
         if (completed) {
           newProgress = q.target;
-          totalXpGained += q.xpReward;
+          totalXpGained += Math.round(q.xpReward * streakMultiplier);
         }
         return { ...q, progress: newProgress, completed };
       }
@@ -82,7 +128,9 @@ export function useQuests(grantXp?: (amount: number) => void) {
     });
 
     if (!changed) return;
-    const newState = { ...prev, active: newActive };
+    const newState: QuestsState = { ...prev, active: newActive };
+    // Synchronously update the ref so consecutive calls in the same JS tick don't read stale state
+    questsRef.current = newState;
     setQuestsState(newState);
 
     const progress = readLocalProgress();

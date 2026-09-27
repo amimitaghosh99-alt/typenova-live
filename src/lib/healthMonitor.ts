@@ -186,9 +186,11 @@ export async function runSyntheticHealthCheck(): Promise<SystemHealthReport> {
         audioCheck = { status: 'warn', detail: 'Web Audio API not supported in this environment' };
         warnings.push('Web Audio unavailable');
       } else {
-        const tempCtx = new AudioCtx();
-        try {
-          const state = tempCtx.state;
+        // Prevent exhausting hardware audio contexts on mobile (max 4-6 contexts per origin).
+        // Inspect the existing active singleton if available, or report supported ready state.
+        const existingCtx = (window as unknown as { __typenova_audio_ctx?: AudioContext }).__typenova_audio_ctx;
+        if (existingCtx) {
+          const state = existingCtx.state;
           if (state === 'suspended') {
             audioCheck = {
               status: 'warn',
@@ -197,14 +199,14 @@ export async function runSyntheticHealthCheck(): Promise<SystemHealthReport> {
             };
             warnings.push('AudioContext suspended by autoplay policy');
           } else {
-            audioCheck = { status: 'pass', detail: `AudioContext running (${tempCtx.sampleRate} Hz)`, state };
+            audioCheck = { status: 'pass', detail: `AudioContext running (${existingCtx.sampleRate} Hz)`, state };
           }
-        } finally {
-          tempCtx.close().catch(() => {});
+        } else {
+          audioCheck = { status: 'pass', detail: 'Web Audio API supported (idle until sound played)', state: 'idle' };
         }
       }
     } catch {
-      audioCheck = { status: 'warn', detail: 'Failed to initialize AudioContext probe' };
+      audioCheck = { status: 'warn', detail: 'Failed to query AudioContext status' };
     }
   }
 

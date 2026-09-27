@@ -35,6 +35,7 @@ import { registerBatch1SecurityPersistenceTests } from './batch1SecurityPersiste
 import { registerBatch2EngineAudioTests } from './batch2EngineAudio.test.ts';
 import { registerBatch3MultiplayerTests } from './batch3Multiplayer.test.ts';
 import { registerBatch4ThemeUiTests } from './batch4ThemeUi.test.ts';
+import { registerBatch5AiHardwareTests } from './batch5AiHardware.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -110,6 +111,9 @@ async function main(): Promise<void> {
 
   // Batch 4: Dynamic Theme Compliance, UI Polish & Privacy Guards
   registerBatch4ThemeUiTests();
+
+  // Batch 5: AI Streaming, Smart Drills, Dictation & Hardware Resilience
+  registerBatch5AiHardwareTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

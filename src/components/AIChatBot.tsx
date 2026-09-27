@@ -123,7 +123,12 @@ function loadHistory(): Message[] {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed.slice(-MAX_STORED);
+      if (Array.isArray(parsed) && parsed.length) {
+        const valid = parsed
+          .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+          .slice(-MAX_STORED);
+        if (valid.length) return valid;
+      }
     }
   } catch {
     /* corrupt history is not worth crashing over */
@@ -177,14 +182,29 @@ export const AIChatBot = memo(function AIChatBot({
     const messagesRef = useRef(messages);
 
     // Persist across unmounts (the widget remounts on every screen change).
+    // Note: avoid synchronous disk writes on every streamed token while isTyping is true.
     useEffect(() => {
       messagesRef.current = messages;
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-MAX_STORED)));
-      } catch {
-        /* quota exceeded — history is disposable */
+      if (!isTyping) {
+        try {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-MAX_STORED)));
+        } catch {
+          /* quota exceeded — history is disposable */
+        }
       }
-    }, [messages]);
+    }, [messages, isTyping]);
+
+    // On unmount, flush current messages to disk and abort any in-flight stream
+    useEffect(() => {
+      return () => {
+        try {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(messagesRef.current.slice(-MAX_STORED)));
+        } catch {
+          /* ignore */
+        }
+        abortRef.current?.abort();
+      };
+    }, []);
 
     // Only follow new output when the user hasn't scrolled up to reread.
     const handleScroll = useCallback(() => {

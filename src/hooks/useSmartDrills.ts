@@ -12,6 +12,11 @@ type WindowAI = {
   languageModel?: { create?: () => Promise<{ prompt: (input: string) => Promise<string> }> };
 };
 
+function stripThinking(raw: string): string {
+  if (!raw) return '';
+  return raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+}
+
 export function useSmartDrills() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +70,10 @@ export function useSmartDrills() {
         try {
           const { text: resultText } = await chatCompletion(
             [{ role: 'user', content: prompt }],
-            { maxTokens: 50 },
+            { maxTokens: 250 },
           );
 
-          const cleanText = ensureTargets(sanitizeDrillText(resultText), allTargets);
+          const cleanText = ensureTargets(sanitizeDrillText(stripThinking(resultText)), allTargets);
           if (cleanText.length > 0) return { text: cleanText, engine: 'cloud' };
         } catch (cloudError) {
           const detail = cloudError instanceof Error ? cloudError.message : 'Unknown error';
@@ -84,7 +89,7 @@ export function useSmartDrills() {
           const session = await winAi.languageModel.create();
           const result = await session.prompt(prompt);
           if (result) {
-            const cleanText = ensureTargets(sanitizeDrillText(result), allTargets);
+            const cleanText = ensureTargets(sanitizeDrillText(stripThinking(result)), allTargets);
             if (cleanText.length > 0) return { text: cleanText, engine: 'ai' };
           }
         } catch (aiError) {
@@ -125,9 +130,9 @@ export function useSmartDrills() {
         try {
           const { text: resultText } = await chatCompletion(
             [{ role: 'user', content: prompt }],
-            { maxTokens: 90 },
+            { maxTokens: 350 },
           );
-          const cleanText = ensureWordTargets(sanitizeDrillText(resultText), targets);
+          const cleanText = ensureWordTargets(sanitizeDrillText(stripThinking(resultText)), targets);
           if (cleanText.length > 0) return { text: cleanText, engine: 'cloud' };
         } catch (cloudError) {
           const detail = cloudError instanceof Error ? cloudError.message : 'Unknown error';
@@ -143,7 +148,7 @@ export function useSmartDrills() {
           const session = await winAi.languageModel.create();
           const result = await session.prompt(prompt);
           if (result) {
-            const cleanText = ensureWordTargets(sanitizeDrillText(result), targets);
+            const cleanText = ensureWordTargets(sanitizeDrillText(stripThinking(result)), targets);
             if (cleanText.length > 0) return { text: cleanText, engine: 'ai' };
           }
         } catch (aiError) {
@@ -155,7 +160,8 @@ export function useSmartDrills() {
       const pool = NOVICE_SENTENCES.flatMap(sentence =>
         sentence.split(/\s+/).map(w => w.replace(/[^a-z0-9]/gi, '').toLowerCase())
       ).filter(w => w.length >= 3);
-      return { text: buildProceduralWordDrill(targets, pool), engine: 'procedural' };
+      const effectiveTargets = targets.length > 0 ? targets : ['structure', 'quiet', 'pattern', 'rhythm'];
+      return { text: buildProceduralWordDrill(effectiveTargets, pool), engine: 'procedural' };
 
     } catch (err) {
       console.error('Word drill generation failed:', err);
@@ -163,7 +169,8 @@ export function useSmartDrills() {
       const pool = NOVICE_SENTENCES.flatMap(sentence =>
         sentence.split(/\s+/).map(w => w.replace(/[^a-z0-9]/gi, '').toLowerCase())
       ).filter(w => w.length >= 3);
-      return { text: buildProceduralWordDrill(targets, pool), engine: 'procedural' }; // Ultimate fallback
+      const effectiveTargets = targets.length > 0 ? targets : ['structure', 'quiet', 'pattern', 'rhythm'];
+      return { text: buildProceduralWordDrill(effectiveTargets, pool), engine: 'procedural' }; // Ultimate fallback
     } finally {
       setIsGenerating(false);
     }

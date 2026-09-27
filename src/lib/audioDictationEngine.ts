@@ -60,11 +60,12 @@ export function generateSimulatedBoundaries(
   startOffsetMs: number = 0
 ): SpokenWordBoundary[] {
   if (!text) return [];
+  const safeSpeed = Number.isFinite(speedMultiplier) && speedMultiplier > 0 ? speedMultiplier : 1.0;
   const words = text.split(/\s+/).filter(Boolean);
   const boundaries: SpokenWordBoundary[] = [];
 
-  const baseMsPerWord = 430 / Math.max(0.5, Math.min(2.5, speedMultiplier));
-  let cumulativeTime = startOffsetMs;
+  const baseMsPerWord = 430 / Math.max(0.5, Math.min(2.5, safeSpeed));
+  let cumulativeTime = Number.isFinite(startOffsetMs) && startOffsetMs >= 0 ? startOffsetMs : 0;
   let charCursor = 0;
 
   for (let i = 0; i < words.length; i++) {
@@ -96,15 +97,21 @@ export class AudioDictationController {
   private onEndCallback?: () => void;
   private isRunning: boolean = false;
   private speed: number = 1.0;
+  private activeUtterance: SpeechSynthesisUtterance | null = null;
 
   private fallbackTimerIds: ReturnType<typeof setTimeout>[] = [];
 
   constructor(speed: number = 1.0) {
-    this.speed = speed;
+    this.setSpeed(speed);
   }
 
   public setSpeed(speed: number) {
-    this.speed = Math.max(0.5, Math.min(2.0, speed));
+    const safe = Number.isFinite(speed) && speed > 0 ? speed : 1.0;
+    this.speed = Math.max(0.5, Math.min(2.0, safe));
+  }
+
+  public getActiveUtterance(): SpeechSynthesisUtterance | null {
+    return this.activeUtterance;
   }
 
   public getBoundaries(fallbackText?: string): SpokenWordBoundary[] {
@@ -146,6 +153,7 @@ export class AudioDictationController {
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
+      this.activeUtterance = utterance;
       utterance.rate = this.speed;
       utterance.pitch = 1.0;
 
@@ -163,7 +171,10 @@ export class AudioDictationController {
         if (!this.isRunning) return;
         if (event.name === 'word') {
           const elapsed = Math.round(performance.now() - this.startTime);
-          const charIndex = event.charIndex;
+          const rawIndex = event.charIndex;
+          const sliceFromRaw = text.slice(rawIndex);
+          const leadingWs = sliceFromRaw.match(/^\s*/)?.[0]?.length ?? 0;
+          const charIndex = rawIndex + leadingWs;
           const remaining = text.slice(charIndex);
           const match = remaining.match(/^(\S+)/);
           const word = match ? match[1] : '';
@@ -223,6 +234,7 @@ export class AudioDictationController {
 
   public stop() {
     this.isRunning = false;
+    this.activeUtterance = null;
     this.fallbackTimerIds.forEach(tid => clearTimeout(tid));
     this.fallbackTimerIds = [];
 

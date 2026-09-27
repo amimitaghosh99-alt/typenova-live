@@ -546,13 +546,31 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
     ...(stream ? { stream: true } : {}),
   });
 
+  const timeoutMs = 30000;
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    timeoutController.abort(new Error('AI request timed out after 30 seconds'));
+  }, timeoutMs);
+
+  let effectiveSignal = timeoutController.signal;
+  let cleanupSignalListener: (() => void) | undefined;
+  if (opts.signal) {
+    if (opts.signal.aborted) {
+      clearTimeout(timeoutId);
+      throw opts.signal.reason ?? new Error('Aborted');
+    }
+    const onParentAbort = () => timeoutController.abort(opts.signal?.reason);
+    opts.signal.addEventListener('abort', onParentAbort, { once: true });
+    cleanupSignalListener = () => opts.signal?.removeEventListener('abort', onParentAbort);
+  }
+
   let response: Response;
   try {
     response = await fetch(finalUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${finalKey}` },
       body: payload,
-      signal: opts.signal,
+      signal: effectiveSignal,
     });
   } catch (err: unknown) {
     if (opts.signal?.aborted) throw err;
@@ -564,12 +582,20 @@ export async function chatCompletion(messages: ChatMessage[], opts: ChatOptions 
       message: `Failed to reach AI endpoint: ${msg}`,
     });
     throw new AIError(`Could not reach AI provider: ${msg}`);
+  } finally {
+    clearTimeout(timeoutId);
+    cleanupSignalListener?.();
   }
 
   if (!response.ok) throw await toAIError(response);
 
   if (!stream) {
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      throw new AIError('AI provider returned an unparseable or non-JSON response.');
+    }
     const text: string = data.choices?.[0]?.message?.content ?? '';
     trackUsage(data.usage, payload.length + text.length);
     if (mode === 'byok') markModelWorking(finalModel);
@@ -595,36 +621,54 @@ async function readStream(
   let finishReason: string | null = null;
   let usage: unknown;
 
+  const processFrame = (frame: string) => {
+    for (const line of frame.split('\n')) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine.startsWith('data:')) continue;
+      const data = trimmedLine.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.error) {
+          const errMsg = typeof parsed.error === 'string' ? parsed.error : parsed.error.message || 'Stream error from AI provider';
+          throw new AIError(errMsg);
+        }
+        const choice = parsed.choices?.[0];
+        const delta: string | undefined = choice?.delta?.content;
+        if (delta) {
+          text += delta;
+          onDelta(delta);
+        }
+        if (choice?.finish_reason) finishReason = choice.finish_reason;
+        if (parsed.usage) usage = parsed.usage;
+      } catch (e) {
+        if (e instanceof AIError) throw e;
+        /* a malformed frame shouldn't kill the whole reply */
+      }
+    }
+  };
+
   try {
     for (; ;) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        buffer += decoder.decode();
+        break;
+      }
       buffer += decoder.decode(value, { stream: true });
 
-      // SSE frames are separated by a blank line; keep the trailing partial frame.
-      const frames = buffer.split('\n\n');
+      // SSE frames are separated by a blank line (\n\n or \r\n\r\n); keep the trailing partial frame.
+      const normalized = buffer.replace(/\r\n/g, '\n');
+      const frames = normalized.split('\n\n');
       buffer = frames.pop() ?? '';
 
       for (const frame of frames) {
-        for (const line of frame.split('\n')) {
-          if (!line.startsWith('data:')) continue;
-          const data = line.slice(5).trim();
-          if (!data || data === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(data);
-            const choice = parsed.choices?.[0];
-            const delta: string | undefined = choice?.delta?.content;
-            if (delta) {
-              text += delta;
-              onDelta(delta);
-            }
-            if (choice?.finish_reason) finishReason = choice.finish_reason;
-            if (parsed.usage) usage = parsed.usage;
-          } catch {
-            /* a malformed frame shouldn't kill the whole reply */
-          }
-        }
+        processFrame(frame);
       }
+    }
+
+    if (buffer.trim()) {
+      processFrame(buffer.replace(/\r\n/g, '\n'));
     }
   } finally {
     reader.releaseLock();

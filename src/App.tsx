@@ -85,7 +85,7 @@ import { useSmartDrills } from '@/hooks/useSmartDrills';
 import { useWordWeakness } from '@/hooks/useWordWeakness';
 import { aggregateWords, type DrillRunMeta } from '@/lib/wordWeakness';
 import { useCosmetics } from '@/hooks/useCosmetics';
-import { AI_KEYS, getStoredAIKey } from '@/lib/aiClient';
+import { AI_KEYS, getStoredAIKey, PROVIDER_PRESETS } from '@/lib/aiClient';
 import { CosmicNavBar } from '@/components/CosmicNavBar';
 const CosmicLiquidShader = lazyWithRetry(() => import('@/components/CosmicLiquidShader'), 'CosmicLiquidShader');
 import { useShaderConfig } from '@/hooks/useShaderConfig';
@@ -261,8 +261,14 @@ function MainApp() {
       if (openTabTimeoutRef.current) clearTimeout(openTabTimeoutRef.current);
       openTabTimeoutRef.current = setTimeout(() => window.dispatchEvent(new CustomEvent('open_settings_tab', { detail: tabId })), 50);
     },
-    setProvider: (url: string) => {
-      localStorage.setItem(AI_KEYS.byokUrl, url);
+    setProvider: (providerOrUrl: string) => {
+      const preset = PROVIDER_PRESETS.find(p => p.id === providerOrUrl || p.url === providerOrUrl);
+      const targetUrl = preset?.url ?? providerOrUrl;
+      const cleanUrl = targetUrl.replace(/\/chat\/completions\/?$/, '').replace(/\/models\/?$/, '');
+      localStorage.setItem(AI_KEYS.byokUrl, cleanUrl);
+      if (preset?.model) {
+        localStorage.setItem(AI_KEYS.byokModel, preset.model);
+      }
       window.dispatchEvent(new Event('storage'));
     },
     setModel: (model: string) => {

@@ -76,7 +76,12 @@ function loadHistory(): Message[] {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed.slice(-MAX_STORED);
+      if (Array.isArray(parsed) && parsed.length) {
+        const valid = parsed
+          .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+          .slice(-MAX_STORED);
+        if (valid.length) return valid;
+      }
     }
   } catch {
     /* corrupt transcript isn't worth crashing the settings modal over */
@@ -96,6 +101,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesRef = useRef(messages);
   const stickToBottom = useRef(true);
   const ranActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,12 +111,14 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
   // Persist across the settings modal being closed and reopened.
   useEffect(() => {
     messagesRef.current = messages;
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-MAX_STORED)));
-    } catch {
-      /* quota — the transcript is disposable */
+    if (!isTyping) {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-MAX_STORED)));
+      } catch {
+        /* quota — the transcript is disposable */
+      }
     }
-  }, [messages]);
+  }, [messages, isTyping]);
 
   const handleScroll = useCallback(() => {
     const el = listRef.current;
@@ -125,9 +133,15 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
       if (ranActionTimeoutRef.current) clearTimeout(ranActionTimeoutRef.current);
       if (wakeAruTimeoutRef.current) clearTimeout(wakeAruTimeoutRef.current);
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(messagesRef.current.slice(-MAX_STORED)));
+      } catch {
+        /* ignore */
+      }
     };
   }, []);
 
@@ -253,6 +267,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
       }
 
       let i = 0;
+      if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
       const interval = setInterval(() => {
         if (i < responseText.length) {
           const chunk = responseText.slice(i, i + 4);
@@ -260,6 +275,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
           i += 4;
         } else {
           clearInterval(interval);
+          if (typingIntervalRef.current === interval) typingIntervalRef.current = null;
           setIsTyping(false);
           if (isValid && onWakeAru) {
             if (wakeAruTimeoutRef.current) clearTimeout(wakeAruTimeoutRef.current);
@@ -267,6 +283,7 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
           }
         }
       }, 25);
+      typingIntervalRef.current = interval;
       return;
     }
 
@@ -306,9 +323,11 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
     const controller = new AbortController();
     abortRef.current = controller;
     
+    if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
     const interval = setInterval(() => {
       if (controller.signal.aborted) {
         clearInterval(interval);
+        if (typingIntervalRef.current === interval) typingIntervalRef.current = null;
         return;
       }
       
@@ -318,11 +337,13 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
         i += CHUNKS;
       } else {
         clearInterval(interval);
+        if (typingIntervalRef.current === interval) typingIntervalRef.current = null;
         if (abortRef.current === controller) abortRef.current = null;
         setIsTyping(false);
         inputRef.current?.focus();
       }
     }, 15);
+    typingIntervalRef.current = interval;
   }, [isTyping]);
 
   const regenerate = useCallback(() => {
@@ -339,6 +360,10 @@ export function SupportTechnician({ ai, modifiers, capabilities, embedded, onWak
 
   const clearChat = useCallback(() => {
     abortRef.current?.abort();
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
     setIsTyping(false);
     setMessages([greetingMessage()]);
   }, []);

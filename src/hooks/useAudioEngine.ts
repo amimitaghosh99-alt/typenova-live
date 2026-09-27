@@ -8,12 +8,15 @@ export const MAX_POLYPHONY = 6;
 export const getActiveVoicesCount = (): number => activeVoices;
 export const resetActiveVoices = (): void => { activeVoices = 0; };
 
+export const getGlobalAudioContext = (): AudioContext | null => globalAudioCtx;
+
 const getAudioContext = (): { ctx: AudioContext; compressor: DynamicsCompressorNode } | null => {
   if (typeof window === 'undefined') return null;
   const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
   if (!globalAudioCtx) {
     globalAudioCtx = new AC();
+    (window as any).__typenova_audio_ctx = globalAudioCtx;
     globalMasterCompressor = globalAudioCtx.createDynamicsCompressor();
     // Studio limiter profile: prevents clipping & audio crackles during high-speed typing
     globalMasterCompressor.threshold.setValueAtTime(-12, globalAudioCtx.currentTime);

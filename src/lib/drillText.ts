@@ -54,8 +54,9 @@ export function sanitizeDrillText(raw: string): string {
  * spliced into a word without breaking the layout.
  */
 export function targetChars(weakKeys: string[]): string[] {
+    if (!Array.isArray(weakKeys)) return [];
     const chars = weakKeys
-        .filter(k => k !== 'SPACE' && k !== 'ENTER')
+        .filter(k => k && k !== 'SPACE' && k !== 'ENTER')
         .map(k => k.toLowerCase())
         .filter(k => k.length === 1 && k !== ' ' && !IS_DISALLOWED_CHAR.test(k));
     return Array.from(new Set(chars));
@@ -113,7 +114,9 @@ export function ensureTargets(text: string, targets: string[]): string {
  * multi-word entry still produces one typeable token.
  */
 export function targetWords(words: string[]): string[] {
+    if (!Array.isArray(words)) return [];
     const cleaned = words
+        .filter(Boolean)
         .map(w => w.toLowerCase().replace(/[^a-z0-9'\u2019 -]/g, '').trim())
         .map(w => w.replace(/\s+/g, '-'))
         .filter(w => w.length >= 3);
@@ -159,13 +162,17 @@ export function buildProceduralWordDrill(targets: string[], pool: string[], leng
 
     const targetSet = new Set(cleaned);
     const stems = cleaned.map(t => t.slice(0, 3));
-    const related = pool.filter(w => {
+    const validPool = Array.isArray(pool) && pool.length > 0
+        ? pool
+        : ['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy', 'dog', 'keyboard', 'stream', 'flow', 'tempo'];
+
+    const related = validPool.filter(w => {
         const word = w.toLowerCase();
         if (targetSet.has(word) || word.length < 3) return false;
         return stems.some(stem => word.includes(stem)) || cleaned.some(t => t.includes(word));
     });
 
-    const base = related.length >= 10 ? [...cleaned, ...related] : [...cleaned, ...pool];
+    const base = related.length >= 10 ? [...cleaned, ...related] : [...cleaned, ...validPool];
     const drillWords: string[] = [];
     for (let i = 0; i < length; i++) {
         drillWords.push(base[Math.floor(Math.random() * base.length)] || cleaned[i % cleaned.length]);

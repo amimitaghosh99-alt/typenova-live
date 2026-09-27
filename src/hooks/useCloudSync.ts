@@ -66,10 +66,18 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
   const hydrateRPGRef = useRef(hydrateRPG);
   useEffect(() => { hydrateRPGRef.current = hydrateRPG; }, [hydrateRPG]);
   const isPushing = useRef(false);
+  const pendingPushRef = useRef(false);
+  const pendingExtraDataRef = useRef<PublicProfileSyncData | undefined>(undefined);
 
   useEffect(() => {
     const sb = supabase;
     if (!sb || !session) {
+      if (pushTimer.current) {
+        clearTimeout(pushTimer.current);
+        pushTimer.current = null;
+      }
+      isPushing.current = false;
+      pendingPushRef.current = false;
       syncedForUser.current = null;
       setUsername(null);
       setStatus('idle');
@@ -237,7 +245,12 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
     const uid = session.user.id;
     if (pushTimer.current) clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(async () => {
-      if (isPushing.current) return;
+      if (!session || syncedForUser.current !== uid) return;
+      if (isPushing.current) {
+        pendingPushRef.current = true;
+        if (extraData) pendingExtraDataRef.current = extraData;
+        return;
+      }
       isPushing.current = true;
       try {
         const { data: remoteRow } = await sb
@@ -245,6 +258,8 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
           .select('data')
           .eq('id', uid)
           .maybeSingle();
+
+        if (!session || syncedForUser.current !== uid) return;
 
         const freshLocal = readLocalProgress();
         const merged = remoteRow?.data ? mergeProgress(freshLocal, remoteRow.data as ProgressSnapshot) : freshLocal;
@@ -264,9 +279,15 @@ export function useCloudSync({ session, hydrateRPG, onHydrated }: Params) {
         console.warn('[cloudSync] pushProgress failed:', err);
       } finally {
         isPushing.current = false;
+        if (pendingPushRef.current && session && syncedForUser.current === uid) {
+          pendingPushRef.current = false;
+          const nextExtra = pendingExtraDataRef.current;
+          pendingExtraDataRef.current = undefined;
+          pushProgress(nextExtra);
+        }
       }
 
-      if (extraData && username) {
+      if (extraData && username && session && syncedForUser.current === uid) {
         fireAndForget(
           sb.from('public_profiles')
             .upsert({

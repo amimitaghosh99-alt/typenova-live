@@ -40,6 +40,7 @@ import { registerBatch6MobilePwaTests } from './batch6MobilePwa.test.ts';
 import { runBatch7InputModesTests } from './batch7InputModes.test.ts';
 import { runBatch8QuestsProgressionTests } from './batch8QuestsProgression.test.ts';
 import { runBatch9AnalyticsChartsTests } from './batch9AnalyticsCharts.test.ts';
+import { runBatch10AuthMultiplayerTests } from './batch10AuthMultiplayer.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -130,6 +131,9 @@ async function main(): Promise<void> {
 
   // Batch 9: Analytics, Charts, Telemetry & Data Integrity
   runBatch9AnalyticsChartsTests();
+
+  // Batch 10: Auth Lifecycle, Cloud Sync Race Guards & Multiplayer Host Migration
+  runBatch10AuthMultiplayerTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

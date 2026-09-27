@@ -441,16 +441,29 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           }
         }
 
-        // SECURITY: Deterministic host — earliest joiner wins, ties broken by
-        // lexicographic ID. Ignores self-declared isHost from presence to prevent
-        // rogue clients from hijacking the room.
-        const sorted = [...mapped].sort((a, b) => {
-          const ja = a.joinedAt ?? Infinity;
-          const jb = b.joinedAt ?? Infinity;
-          if (ja !== jb) return ja - jb;
-          return a.id.localeCompare(b.id);
-        });
-        const hostId = sorted[0]?.id ?? myId;
+        // SECURITY: Deterministic host — retain current host if still present in mapped
+        // to prevent host hijacking via client clock drift / skew / late joiners.
+        // If current host has disconnected, earliest joiner wins with lexicographic tiebreaker.
+        const currentHostStillPresent = Boolean(hostIdRef.current && mapped.some(p => p.id === hostIdRef.current));
+        let hostId: string;
+        if (currentHostStillPresent) {
+          hostId = hostIdRef.current!;
+        } else {
+          // If no current host is tracked yet (e.g. late joiner), prefer an existing player who already claims host or has roomState,
+          // rather than letting clock skew allow a joiner to usurp an existing host.
+          const existingHost = mapped.find(p => p.id !== myId && (p.isHost || (p as { roomState?: unknown }).roomState));
+          if (existingHost && mode === 'join') {
+            hostId = existingHost.id;
+          } else {
+            const sorted = [...mapped].sort((a, b) => {
+              const ja = a.joinedAt ?? Infinity;
+              const jb = b.joinedAt ?? Infinity;
+              if (ja !== jb) return ja - jb;
+              return a.id.localeCompare(b.id);
+            });
+            hostId = sorted[0]?.id ?? myId;
+          }
+        }
         hostIdRef.current = hostId;
         const amHost = hostId === myId;
 
@@ -480,16 +493,32 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         }
 
         // Host migration. The room's live state only exists in the host's
-        // presence frame, so a promoted client has to adopt it â€” otherwise the
+        // presence frame, so a promoted client has to adopt it — otherwise the
         // guards above go blind for everyone who joins after the original host
         // disappears, and a stranger drops into a race in progress.
-        if (amHost && !selfStateRef.current.isHost) {
+        const wasHost = selfStateRef.current.isHost;
+        if (amHost && !wasHost) {
           selfStateRef.current.isHost = true;
           selfStateRef.current.ready = true;
           selfStateRef.current.roomState =
             statusRef.current === 'racing' || statusRef.current === 'finished' ? 'racing' : 'lobby';
           selfStateRef.current.config = selfStateRef.current.config ?? lobbyConfigRef.current;
           selfStateRef.current.roomSize = selfStateRef.current.roomSize ?? roomSizeRef.current;
+          queueTrack(true);
+
+          // If the old host disconnected during countdown, reset countdown and return to lobby
+          if (countdownWatchdogRef.current) {
+            clearTimeout(countdownWatchdogRef.current);
+            countdownWatchdogRef.current = null;
+          }
+          setCountdown(null);
+          if (statusRef.current !== 'racing' && statusRef.current !== 'finished') {
+            setStatus('lobby');
+            channel.send({ type: 'broadcast', event: 'rematch', payload: {} });
+          }
+        } else if (!amHost && wasHost) {
+          selfStateRef.current.isHost = false;
+          delete selfStateRef.current.roomState;
           queueTrack(true);
         }
         setIsHost(amHost);

@@ -176,6 +176,8 @@ export function clearLocalProgress(): void {
     localStorage.removeItem('guestMode');
     localStorage.removeItem('typenova_guest_mode');
     localStorage.removeItem('typenova_pending_guest_score');
+    localStorage.removeItem('typenova_history');
+    localStorage.removeItem('typenova_daily');
   } catch { /* storage disabled or quota — non-fatal */ }
 }
 

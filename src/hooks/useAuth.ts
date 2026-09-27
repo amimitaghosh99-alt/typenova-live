@@ -1,4 +1,4 @@
-import { createContext, createElement, useCallback, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, createElement, useCallback, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -29,6 +29,8 @@ const AuthContext = createContext<AuthState | null>(null);
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  useEffect(() => { sessionRef.current = session; }, [session]);
   const [authReady, setAuthReady] = useState(!supabase);
 
   useEffect(() => {
@@ -74,10 +76,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: sub } = sb.auth.onAuthStateChange((_event, next) => {
+    const { data: sub } = sb.auth.onAuthStateChange((event, next) => {
       if (!active) return;
       setSession(next);
       setAuthReady(true);
+      if (event === 'SIGNED_OUT' || (!next && sessionRef.current)) {
+        clearLocalProgress();
+      }
+      sessionRef.current = next;
       if (codeTimeout) {
         clearTimeout(codeTimeout);
         codeTimeout = null;

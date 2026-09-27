@@ -146,6 +146,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     });
 
     ch.on('broadcast', { event: 'seek_ping' }, ({ payload }) => {
+      if (channelRef.current !== ch) return;
       if (!payload?.id || payload.id === myId) return;
       if (roleRef.current !== 'none') return;
 
@@ -177,6 +178,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     });
 
     ch.on('broadcast', { event: 'match_offer' }, ({ payload }) => {
+      if (channelRef.current !== ch) return;
       if (payload?.opponentId !== myId) return;
       if (roleRef.current !== 'none') return;
 
@@ -203,6 +205,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     });
 
     ch.on('broadcast', { event: 'match_accept' }, ({ payload }) => {
+      if (channelRef.current !== ch) return;
       if (payload?.hostId !== myId) return;
       if (roleRef.current !== 'offering' || targetRef.current !== payload.opponentId) return;
       if (handshakeTimeoutRef.current) clearTimeout(handshakeTimeoutRef.current);
@@ -226,6 +229,7 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     });
 
     ch.on('broadcast', { event: 'match_confirm' }, ({ payload }) => {
+      if (channelRef.current !== ch) return;
       if (payload?.opponentId !== myId) return;
       if (roleRef.current !== 'accepting') return;
       const pending = pendingOfferRef.current;
@@ -245,8 +249,10 @@ export const useMatchmaking = (supabase: SupabaseClient | null, myId: string, my
     });
 
     ch.subscribe(async (status) => {
+      if (channelRef.current !== ch) return;
       if (status === 'SUBSCRIBED') {
         await ch.track({ name: myName, elo: myElo, seeking: true });
+        if (channelRef.current !== ch) return;
         ping(); // don't make the first player wait a full interval
       }
     });

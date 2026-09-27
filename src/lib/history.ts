@@ -60,7 +60,7 @@ export function loadHistory(): HistoryEntry[] {
                     wpm: Number.isFinite(wpm) ? Math.max(0, wpm) : 0,
                     acc: Number.isFinite(acc) ? Math.max(0, Math.min(100, acc)) : 100,
                     cons: Number.isFinite(cons) ? Math.max(0, Math.min(100, cons)) : 100,
-                    level: typeof e.level === 'string' ? (e.level as Level) : 'DEFAULT' as Level,
+                    level: typeof e.level === 'string' ? e.level : 'DEFAULT',
                     mode: e.mode === 'words' ? 'words' : 'time',
                     size: Number.isFinite(size) && size > 0 ? size : 25,
                 };

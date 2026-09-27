@@ -46,10 +46,25 @@ export const HISTORY_CAP = 500;
 export function loadHistory(): HistoryEntry[] {
     try {
         const raw = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        if (Array.isArray(raw)) {
-            return raw.filter((e: HistoryEntry) => e && e.level !== 'CUSTOM');
-        }
-        return [];
+        if (!Array.isArray(raw)) return [];
+
+        return raw
+            .filter((e): e is Record<string, any> => e && typeof e === 'object' && e.level !== 'CUSTOM')
+            .map((e) => {
+                const wpm = Number(e.wpm);
+                const acc = Number(e.acc ?? e.accuracy);
+                const cons = Number(e.cons);
+                const size = Number(e.size);
+                return {
+                    d: typeof e.d === 'string' && !Number.isNaN(new Date(e.d).getTime()) ? e.d : new Date().toISOString(),
+                    wpm: Number.isFinite(wpm) ? Math.max(0, wpm) : 0,
+                    acc: Number.isFinite(acc) ? Math.max(0, Math.min(100, acc)) : 100,
+                    cons: Number.isFinite(cons) ? Math.max(0, Math.min(100, cons)) : 100,
+                    level: typeof e.level === 'string' ? (e.level as Level) : 'DEFAULT' as Level,
+                    mode: e.mode === 'words' ? 'words' : 'time',
+                    size: Number.isFinite(size) && size > 0 ? size : 25,
+                };
+            });
     } catch {
         return [];
     }

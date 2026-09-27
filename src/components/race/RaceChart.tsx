@@ -231,9 +231,12 @@ export function RaceChart({
     /** Grid slot nearest the pointer, from its x offset inside the plot. */
     const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
         const rect = e.currentTarget.getBoundingClientRect();
+        if (!rect.width || rect.width <= 0) return;
+        const plotWidth = W - PAD.left - PAD.right;
+        if (plotWidth <= 0) return;
         const x = ((e.clientX - rect.left) / rect.width) * W;
-        const frac = (x - PAD.left) / (W - PAD.left - PAD.right);
-        if (frac < 0 || frac > 1) {
+        const frac = (x - PAD.left) / plotWidth;
+        if (!Number.isFinite(frac) || frac < 0 || frac > 1) {
             setHoverIndex(null);
             return;
         }

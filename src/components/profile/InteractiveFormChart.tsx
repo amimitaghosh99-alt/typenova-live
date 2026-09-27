@@ -60,10 +60,15 @@ interface Band { min: number; max: number }
 
 /** A padded band for speed; a bounded 0-100 axis for accuracy. */
 function bandFor(kind: 'wpm' | 'acc', values: number[]): Band {
-    const rawMax = Math.max(...values, 10);
-    const rawMin = Math.min(...values, 0);
+    const valid = values.filter((v) => Number.isFinite(v));
+    if (valid.length === 0) {
+        return kind === 'acc' ? { min: 90, max: 100 } : { min: 0, max: 60 };
+    }
+    const rawMax = Math.max(...valid, 10);
+    const rawMin = Math.min(...valid);
     if (kind === 'acc') {
-        return { min: Math.max(0, Math.min(rawMin - 2, 90)), max: 100 };
+        const floorAcc = Math.max(0, Math.min(Math.floor(rawMin - 2), 90));
+        return { min: floorAcc, max: 100 };
     }
     const span = Math.max(rawMax - rawMin, 10);
     return { min: Math.max(0, Math.round(rawMin - span * 0.12)), max: Math.round(rawMax + span * 0.12) };
@@ -271,15 +276,23 @@ export const InteractiveFormChart = memo(function InteractiveFormChart({
 
         if (current < needed) {
             // Add missing dots starting at interpolated start point with 0 opacity
+            const addedCircles: SVGCircleElement[] = [];
             for (let i = current; i < needed; i++) {
                 const pt = startPts[i] || targetPts[i];
                 const circle = createSVGCircle(pt.x, pt.y, DOT_R_NORMAL, rgba(acc, 0), '0');
                 circle.style.transition = 'opacity 0.25s ease-out';
                 g.appendChild(circle);
-                // Trigger fade-in
+                addedCircles.push(circle);
+            }
+            if (addedCircles.length > 0) {
                 requestAnimationFrame(() => {
-                    circle.setAttribute('opacity', '1');
-                    circle.setAttribute('fill', rgba(accentRef.current, 0.4));
+                    const fill = rgba(accentRef.current, 0.4);
+                    for (const circle of addedCircles) {
+                        if (circle.isConnected) {
+                            circle.setAttribute('opacity', '1');
+                            circle.setAttribute('fill', fill);
+                        }
+                    }
                 });
             }
         } else if (current > needed) {

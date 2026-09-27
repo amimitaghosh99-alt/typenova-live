@@ -79,7 +79,8 @@ export const appStorage = {
         return (raw === 'true') as unknown as T;
       }
 
-      return JSON.parse(raw) as T;
+      const parsed = JSON.parse(raw);
+      return (parsed === null || parsed === undefined) ? fallback : (parsed as T);
     } catch {
       return fallback;
     }

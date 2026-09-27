@@ -94,7 +94,7 @@ export function OperatorAnalytics({
         const accs = filteredEntries.map((e) => e.acc);
         const conss = filteredEntries.map((e) => e.cons).filter((c) => c != null && Number.isFinite(c));
 
-        const pb = Math.round(Math.max(...wpms));
+        const pb = wpms.length > 0 ? Math.round(wpms.reduce((max, w) => (w > max ? w : max), 0)) : 0;
         const avgWpm = Math.round(wpms.reduce((a, b) => a + b, 0) / wpms.length);
         const avgAcc = Math.round(accs.reduce((a, b) => a + b, 0) / accs.length);
         const avgCons = conss.length > 0 ? Math.round(conss.reduce((a, b) => a + b, 0) / conss.length) : 0;
@@ -335,17 +335,14 @@ export function OperatorAnalytics({
                                 <tbody className="divide-y divide-white/[0.04]">
                                     {tableEntries.slice(0, 50).map((entry, idx) => {
                                         const dateStr = (() => {
-                                            try {
-                                                const d = new Date(entry.d);
-                                                return d.toLocaleDateString(undefined, {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                });
-                                            } catch {
-                                                return entry.d;
-                                            }
+                                            const d = new Date(entry.d);
+                                            if (Number.isNaN(d.getTime())) return entry.d || '—';
+                                            return d.toLocaleDateString(undefined, {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            });
                                         })();
                                         const modeLabel = entry.mode === 'time' ? `${entry.size}s` : `${entry.size}w`;
 

@@ -237,7 +237,7 @@ export const WpmGraph = ({
           // Determine tooltip rows
           const rows: { name: string; wpm: number; color: string; isRaw?: boolean }[] = [];
 
-          const wpm = interpolateWpm(timelinePoints, t);
+          const wpm = interpolateWpm(safePts, t);
           rows.push({ name: 'YOU', wpm: Math.round(wpm), color: 'white' });
           if (safeGhostPts.length > 0) {
             const gWpm = interpolateWpm(safeGhostPts, t);

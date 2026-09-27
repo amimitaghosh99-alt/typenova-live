@@ -658,7 +658,7 @@ function MainApp() {
       wordWeakness: wordWeakness.map,
       wordWeaknessDue: wordWeakness.due,
       skillStats: {
-        maxWpm: h.length ? Math.max(...h.map((e) => e.wpm)) : 0,
+        maxWpm: h.length ? h.reduce((max, e) => (e.wpm > max ? e.wpm : max), 0) : 0,
         avgAccuracy: recent.length ? Math.round(recent.reduce((a, e) => a + e.acc, 0) / recent.length) : 0,
         dailyStreak,
         testsCompleted: rpg.testsCompleted,

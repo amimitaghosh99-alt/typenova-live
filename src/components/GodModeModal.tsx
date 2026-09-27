@@ -381,12 +381,13 @@ export const GodModeModal = React.memo(function GodModeModal({
   // Export save JSON
   const handleExportState = useCallback(() => {
     try {
+      const histRaw = localStorage.getItem('typezen_history') || localStorage.getItem('typenova_history');
       const dump = {
         timestamp: Date.now(),
         appVersion: '3.0.1',
         rpg: localStorage.getItem('typenova_rpg_v2') ? JSON.parse(localStorage.getItem('typenova_rpg_v2')!) : null,
         stats: localStorage.getItem('typenova_stats') ? JSON.parse(localStorage.getItem('typenova_stats')!) : null,
-        history: localStorage.getItem('typenova_history') ? JSON.parse(localStorage.getItem('typenova_history')!) : [],
+        history: histRaw ? JSON.parse(histRaw) : [],
         avatarId: localStorage.getItem('typenova_avatar_id') || 'default',
         bannerId: localStorage.getItem('typenova_banner_id') || 'basic_dark',
         tetrisEffect,
@@ -404,12 +405,35 @@ export const GodModeModal = React.memo(function GodModeModal({
   // Import save JSON
   const handleImportState = useCallback(() => {
     try {
-      const parsed = JSON.parse(importJsonText);
+      const rawParsed = JSON.parse(importJsonText);
+      // Recursively sanitize prototype pollution keys
+      const sanitizeObj = (obj: unknown): any => {
+        if (!obj || typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(sanitizeObj);
+        const clean: Record<string, any> = {};
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+          clean[key] = sanitizeObj(value);
+        }
+        return clean;
+      };
+
+      const parsed = sanitizeObj(rawParsed);
+
       if (parsed.rpg) localStorage.setItem('typenova_rpg_v2', JSON.stringify(parsed.rpg));
       if (parsed.stats) localStorage.setItem('typenova_stats', JSON.stringify(parsed.stats));
-      if (parsed.history) localStorage.setItem('typenova_history', JSON.stringify(parsed.history));
-      if (parsed.avatarId) localStorage.setItem('typenova_avatar_id', parsed.avatarId);
-      if (parsed.bannerId) localStorage.setItem('typenova_banner_id', parsed.bannerId);
+      if (Array.isArray(parsed.history)) {
+        const validHistory = parsed.history.filter((e: any) =>
+          e && typeof e === 'object' &&
+          Number.isFinite(Number(e.wpm)) && Number(e.wpm) >= 0 &&
+          Number.isFinite(Number(e.acc ?? e.accuracy))
+        );
+        const serialized = JSON.stringify(validHistory);
+        localStorage.setItem('typezen_history', serialized);
+        localStorage.setItem('typenova_history', serialized);
+      }
+      if (typeof parsed.avatarId === 'string') localStorage.setItem('typenova_avatar_id', parsed.avatarId);
+      if (typeof parsed.bannerId === 'string') localStorage.setItem('typenova_banner_id', parsed.bannerId);
       if (typeof parsed.tetrisEffect === 'boolean') onSetTetrisEffect(parsed.tetrisEffect);
 
       window.dispatchEvent(new Event('cosmeticsChanged'));

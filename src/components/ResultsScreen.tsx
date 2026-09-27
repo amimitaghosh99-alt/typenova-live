@@ -552,49 +552,49 @@ export function ResultsScreen({
       )}
 
       {/* Stats Grid — wide, spacious automotive & telemetry gauges */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 xl:gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="glass-panel p-6 xl:p-8 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
-          <span className="text-zinc-400 text-[10px] xl:text-xs font-black tracking-widest mb-1.5 uppercase">Grade</span>
-          <span className={`text-6xl xl:text-7xl font-black ${gradeMeta.colorClass} ${gradeMeta.glowClass} tracking-tight`}>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 xl:gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="glass-panel p-3.5 sm:p-6 xl:p-8 rounded-2xl sm:rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
+          <span className="text-zinc-400 text-[9px] sm:text-[10px] xl:text-xs font-black tracking-widest mb-1.5 uppercase">Grade</span>
+          <span className={`text-4xl sm:text-6xl xl:text-7xl font-black ${gradeMeta.colorClass} ${gradeMeta.glowClass} tracking-tight`}>
             {evaluatedGrade}
           </span>
-          <span className="text-[10px] xl:text-xs font-bold text-zinc-300 mt-1 uppercase tracking-wider text-center">
+          <span className="text-[9px] sm:text-[10px] xl:text-xs font-bold text-zinc-300 mt-1 uppercase tracking-wider text-center">
             {gradeMeta.title}
           </span>
-          <div className="mt-2.5 px-3 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] xl:text-[10px] font-mono text-zinc-400">
+          <div className="mt-2 sm:mt-2.5 px-2.5 sm:px-3 py-0.5 rounded-full bg-white/5 border border-white/10 text-[8.5px] sm:text-[9px] xl:text-[10px] font-mono text-zinc-400">
             CPI {evaluatedCpi}
           </div>
         </div>
 
-        <div className="glass-panel p-6 xl:p-8 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
-          <span className="text-zinc-400 text-[10px] xl:text-xs font-black tracking-widest mb-1.5 uppercase">Net WPM</span>
-          <span className="text-5xl xl:text-6xl font-black text-white">{wpm}</span>
+        <div className="glass-panel p-3.5 sm:p-6 xl:p-8 rounded-2xl sm:rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
+          <span className="text-zinc-400 text-[9px] sm:text-[10px] xl:text-xs font-black tracking-widest mb-1.5 uppercase">Net WPM</span>
+          <span className="text-3xl sm:text-5xl xl:text-6xl font-black text-white">{wpm}</span>
           {evaluatedBurstWpm > 0 && (
-            <span className="text-[9px] xl:text-[10px] font-mono text-zinc-400 mt-1.5 font-bold">
-              PEAK {evaluatedBurstWpm} BURST
+            <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-mono text-zinc-400 mt-1.5 font-bold">
+              PEAK {evaluatedBurstWpm}
             </span>
           )}
         </div>
 
-        <div className="glass-panel p-6 xl:p-8 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
-          <span className="text-zinc-400 text-[10px] xl:text-xs font-black tracking-widest mb-3.5 uppercase">Raw WPM</span>
-          <span className="text-5xl xl:text-6xl font-black text-white">{rawWpm}</span>
+        <div className="glass-panel p-3.5 sm:p-6 xl:p-8 rounded-2xl sm:rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
+          <span className="text-zinc-400 text-[9px] sm:text-[10px] xl:text-xs font-black tracking-widest mb-2 sm:mb-3.5 uppercase">Raw WPM</span>
+          <span className="text-3xl sm:text-5xl xl:text-6xl font-black text-white">{rawWpm}</span>
         </div>
 
-        <div className="glass-panel p-6 xl:p-8 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
-          <span className="text-zinc-400 text-[10px] xl:text-xs font-black tracking-widest mb-3.5 uppercase">Accuracy</span>
-          <span className="text-5xl xl:text-6xl font-black text-white">{accuracy}<span className="text-2xl text-zinc-500">%</span></span>
+        <div className="glass-panel p-3.5 sm:p-6 xl:p-8 rounded-2xl sm:rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
+          <span className="text-zinc-400 text-[9px] sm:text-[10px] xl:text-xs font-black tracking-widest mb-2 sm:mb-3.5 uppercase">Accuracy</span>
+          <span className="text-3xl sm:text-5xl xl:text-6xl font-black text-white">{accuracy}<span className="text-lg sm:text-2xl text-zinc-500">%</span></span>
         </div>
 
-        <div className="glass-panel p-6 xl:p-8 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
-          <span className="text-zinc-400 text-[10px] xl:text-xs font-black tracking-widest mb-3.5 uppercase">Consistency</span>
-          <span className="text-5xl xl:text-6xl font-black text-white">{consistency}<span className="text-2xl text-zinc-500">%</span></span>
+        <div className="glass-panel p-3.5 sm:p-6 xl:p-8 rounded-2xl sm:rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
+          <span className="text-zinc-400 text-[9px] sm:text-[10px] xl:text-xs font-black tracking-widest mb-2 sm:mb-3.5 uppercase">Consistency</span>
+          <span className="text-3xl sm:text-5xl xl:text-6xl font-black text-white">{consistency}<span className="text-lg sm:text-2xl text-zinc-500">%</span></span>
         </div>
 
-        <div className="glass-panel p-6 xl:p-8 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
-          <span className="text-zinc-400 text-[10px] xl:text-xs font-black tracking-widest mb-3.5 uppercase">Flawless</span>
+        <div className="glass-panel p-3.5 sm:p-6 xl:p-8 rounded-2xl sm:rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
+          <span className="text-zinc-400 text-[9px] sm:text-[10px] xl:text-xs font-black tracking-widest mb-2 sm:mb-3.5 uppercase">Flawless</span>
           <span
-            className="text-5xl xl:text-6xl font-black"
+            className="text-3xl sm:text-5xl xl:text-6xl font-black"
             style={{ color: flawlessStreak > 50 ? `rgb(${theme?.glowPrimary || '6, 182, 212'})` : '#ffffff' }}
           >
             {flawlessStreak}
@@ -998,8 +998,8 @@ export function ResultsScreen({
           </div>
 
           {/* Calculation Formula Strip */}
-          <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-zinc-400">
-            <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="p-3.5 rounded-xl bg-black/40 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs font-mono text-zinc-400 overflow-x-auto hide-scrollbar">
+            <div className="flex items-center gap-1.5 flex-nowrap sm:flex-wrap text-[11px] sm:text-xs min-w-max">
               <span className="text-zinc-500">FORMULA:</span>
               <span className="text-white font-bold">{effectiveXpBreakdown.baseXp} Base</span>
               <span>×</span>
@@ -1019,7 +1019,7 @@ export function ResultsScreen({
               <span className="text-white font-bold">{effectiveXpBreakdown.totalMultiplier.toFixed(2)}x</span>
               <span>)</span>
             </div>
-            <div className="text-white font-black">
+            <div className="text-white font-black shrink-0 text-right sm:text-left">
               = +{effectiveXpBreakdown.totalXp} XP EARNED
             </div>
           </div>
@@ -1059,7 +1059,7 @@ export function ResultsScreen({
       )}
 
       {/* Keyboard Heatmap */}
-      <div className="glass-panel rounded-3xl p-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '400ms' }}>
+      <div className="glass-panel rounded-3xl p-4 sm:p-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '400ms' }}>
         <div className="flex w-full justify-between items-end mb-4">
           <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center">
             <Activity size={12} className="mr-2" /> KEYBOARD HEATMAP
@@ -1069,42 +1069,44 @@ export function ResultsScreen({
           </span>
         </div>
 
-        <div className="flex flex-col items-center gap-2">
-          {heatmapRows.map((row, i) => (
-            <div key={i} className="flex gap-2 justify-center" style={{ marginLeft: i * 20 }}>
-              {row.map(char => {
-                const stat = testHeatmapData[char];
-                let bgColor = "bg-black/20 text-zinc-500 border-white/5";
-                let errorRate = 0;
-                let canDrill = false;
+        <div className="w-full overflow-x-auto hide-scrollbar pb-2">
+          <div className="min-w-[480px] flex flex-col items-center gap-2 mx-auto">
+            {heatmapRows.map((row, i) => (
+              <div key={i} className="flex gap-2 justify-center" style={{ marginLeft: i * 20 }}>
+                {row.map(char => {
+                  const stat = testHeatmapData[char];
+                  let bgColor = "bg-black/20 text-zinc-500 border-white/5";
+                  let errorRate = 0;
+                  let canDrill = false;
 
-                if (stat && stat.total > 0) {
-                  errorRate = stat.errors / stat.total;
-                  if (errorRate === 0) {
-                    bgColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-                  } else if (errorRate < 0.05) {
-                    bgColor = "bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-pointer hover:bg-amber-500/20";
-                    canDrill = true;
-                  } else {
-                    bgColor = "bg-red-500/20 text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)] cursor-pointer hover:bg-red-500/30 hover:scale-105 z-10";
-                    canDrill = true;
+                  if (stat && stat.total > 0) {
+                    errorRate = stat.errors / stat.total;
+                    if (errorRate === 0) {
+                      bgColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                    } else if (errorRate < 0.05) {
+                      bgColor = "bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-pointer hover:bg-amber-500/20";
+                      canDrill = true;
+                    } else {
+                      bgColor = "bg-red-500/20 text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)] cursor-pointer hover:bg-red-500/30 hover:scale-105 z-10";
+                      canDrill = true;
+                    }
                   }
-                }
 
-                return (
-                  <div
-                    key={char}
-                    onClick={() => { if (canDrill) onStartMicroDrill(char); }}
-                    className={`w-10 h-12 md:w-12 md:h-14 flex flex-col items-center justify-center rounded-xl border transition-all ${bgColor}`}
-                    title={stat && stat.total > 0 ? `${stat.errors} errors in ${stat.total} hits` : 'Not typed yet'}
-                  >
-                    <span className="font-mono font-bold text-sm">{char}</span>
-                    <span className="text-[8px] opacity-50">{stat && stat.total > 0 ? `${Math.round(errorRate * 100)}%` : '-'}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                  return (
+                    <div
+                      key={char}
+                      onClick={() => { if (canDrill) onStartMicroDrill(char); }}
+                      className={`w-10 h-12 md:w-12 md:h-14 flex flex-col items-center justify-center rounded-xl border transition-all ${bgColor}`}
+                      title={stat && stat.total > 0 ? `${stat.errors} errors in ${stat.total} hits` : 'Not typed yet'}
+                    >
+                      <span className="font-mono font-bold text-sm">{char}</span>
+                      <span className="text-[8px] opacity-50">{stat && stat.total > 0 ? `${Math.round(errorRate * 100)}%` : '-'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

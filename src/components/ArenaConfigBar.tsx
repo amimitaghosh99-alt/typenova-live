@@ -361,12 +361,12 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
 
             <span className="w-1 h-1 rounded-full bg-white/20 shrink-0 hidden sm:block" />
 
-            <span className="text-zinc-400 group-hover:text-zinc-200 truncate max-w-[150px] sm:max-w-none">
+            <span className="text-zinc-400 group-hover:text-zinc-200 truncate max-w-[100px] sm:max-w-none">
               #{todayDailySnippet.day}: {todayDailySnippet.title}
             </span>
 
             <span
-              className="text-[9.5px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0"
+              className="text-[9.5px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 hidden sm:inline-block"
               style={{
                 backgroundColor: `rgba(${theme.glowPrimary}, 0.18)`,
                 color: `rgb(${theme.glowPrimary})`,

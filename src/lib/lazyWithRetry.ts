@@ -54,7 +54,8 @@ export function lazyWithRetry<T extends ComponentType<any>>(
 
         // If not a chunk error or we exhausted all retry attempts
         if (!isChunkErr || attempts > retries) {
-          if (isChunkErr && typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+          const isOnline = typeof navigator === 'undefined' || navigator.onLine !== false;
+          if (isChunkErr && isOnline && typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
             const reloadKey = `typenova_chunk_reload_${componentName}`;
             const globalReloadKey = 'typenova_global_chunk_reload';
             const lastReload = sessionStorage.getItem(globalReloadKey);

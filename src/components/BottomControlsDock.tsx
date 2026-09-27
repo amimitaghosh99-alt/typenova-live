@@ -92,14 +92,14 @@ export const BottomControlsDock = memo(function BottomControlsDock({
           space instead of scrolling underneath. */}
       <div
         data-app-chrome="dock"
-        className="fixed bottom-6 right-6 z-[var(--z-dock)] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[var(--z-dock)] animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 touch-manipulation"
       >
 
         <div className="flex items-center gap-1.5 glass-panel rounded-full p-1.5 shadow-[0_18px_45px_-12px_rgba(0,0,0,0.85)]">
           {/* Settings Button */}
           <button
             onClick={onOpenSettings}
-            className={`p-2.5 rounded-full ${activeModal === 'settings' ? 'bg-white/10 text-white' : 'hover:bg-white/[0.08] text-zinc-400 hover:text-white'} flex justify-center items-center transition-all cursor-pointer`}
+            className={`p-2.5 rounded-full ${activeModal === 'settings' ? 'bg-white/10 text-white' : 'hover:bg-white/[0.08] text-zinc-400 hover:text-white'} flex justify-center items-center transition-all cursor-pointer touch-manipulation`}
             title="Settings"
           >
             <Settings size={15} />
@@ -115,7 +115,7 @@ export const BottomControlsDock = memo(function BottomControlsDock({
               borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
               boxShadow: `0 0 30px rgba(${theme.glowPrimary}, 0.6)`,
             } : undefined}
-            className={`relative flex items-center gap-2.5 px-5 py-2 rounded-full transition-all duration-500 group overflow-hidden cursor-pointer ${isAruOpen
+            className={`relative flex items-center gap-1.5 sm:gap-2.5 px-3 py-2 sm:px-5 sm:py-2 rounded-full transition-all duration-500 group overflow-hidden cursor-pointer touch-manipulation ${isAruOpen
               ? 'border scale-95'
               : 'bg-[#0f0e1a] border border-white/10 hover:border-transparent shadow-[0_0_20px_rgba(0,0,0,0.4)]'
               }`}
@@ -168,8 +168,11 @@ export const BottomControlsDock = memo(function BottomControlsDock({
                       />
                     </span>
                   </div>
-                  <span className="text-[11px] font-black tracking-[0.2em] uppercase text-white group-hover:text-white transition-all drop-shadow-sm">
+                  <span className="text-[11px] font-black tracking-[0.2em] uppercase text-white group-hover:text-white transition-all drop-shadow-sm hidden sm:inline">
                     Ask Aru
+                  </span>
+                  <span className="text-[11px] font-black tracking-[0.2em] uppercase text-white group-hover:text-white transition-all drop-shadow-sm sm:hidden">
+                    Aru
                   </span>
                   <Sparkles
                     size={13}
@@ -204,8 +207,7 @@ export const BottomControlsDock = memo(function BottomControlsDock({
       {/* Floating Bottom-Left Version/Changelog Badge */}
       <button
         onClick={handleVersionClick}
-        className="fixed bottom-6 left-6 z-[var(--z-dock)] flex items-center gap-2 px-3 py-1.5 rounded-full glass-pill border-white/10 hover:border-white/25 text-zinc-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] active:scale-95"
-
+        className="fixed bottom-6 left-6 z-[var(--z-dock)] hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full glass-pill border-white/10 hover:border-white/25 text-zinc-400 hover:text-white transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.08)] active:scale-95 touch-manipulation"
         title="View What's New & Updates (Alt+Click or 5x Click for God Mode)"
       >
         <Sparkles

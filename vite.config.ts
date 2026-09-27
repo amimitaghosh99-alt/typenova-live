@@ -97,7 +97,9 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff2,mp3,wav}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,webp,svg,json,woff2,mp3,wav}'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/health/],
         // The main bundle just crossed Workbox's 2 MiB default, which made
         // `vite build` exit non-zero *after* a successful compile — the app was
         // fine, the service worker simply refused to precache the chunk.

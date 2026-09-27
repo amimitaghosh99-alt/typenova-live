@@ -389,7 +389,7 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
             </div>
           )}
 
-          <AnimatedHeight expandDuration={0.45} shrinkDuration={0.65} className="w-[calc(100%+2rem)] -ml-4 px-4">
+          <AnimatedHeight expandDuration={0.45} shrinkDuration={0.65} className="w-full">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={targetText.slice(0, 30) + targetText.length}

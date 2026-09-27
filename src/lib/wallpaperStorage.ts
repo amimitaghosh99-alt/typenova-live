@@ -7,6 +7,8 @@ const DB_NAME = 'typenova_custom_wallpapers_db';
 const STORE_NAME = 'wallpapers_store';
 const DB_VERSION = 1;
 
+let cachedDB: IDBDatabase | null = null;
+
 export interface WallpaperConfig {
   id: string;
   dataUrl: string;
@@ -18,12 +20,18 @@ export interface WallpaperConfig {
 }
 
 function openDB(): Promise<IDBDatabase> {
+  if (cachedDB) return Promise.resolve(cachedDB);
+
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
       return reject(new Error('IndexedDB is not supported in this environment'));
     }
 
     const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onblocked = () => {
+      console.warn('[wallpaperStorage] IndexedDB open blocked by existing connection');
+    };
 
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -32,7 +40,16 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      cachedDB = request.result;
+      cachedDB.onclose = () => { cachedDB = null; };
+      cachedDB.onversionchange = () => {
+        cachedDB?.close();
+        cachedDB = null;
+      };
+      resolve(cachedDB);
+    };
+
     request.onerror = () => reject(request.error);
   });
 }
@@ -45,13 +62,16 @@ export async function saveWallpaperToDB(config: WallpaperConfig): Promise<void> 
       const store = tx.objectStore(STORE_NAME);
       const request = store.put(config);
 
+      tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+      tx.onerror = () => reject(tx.error);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   } catch (err) {
     console.warn('IndexedDB write failed, falling back to localStorage if small enough:', err);
     try {
-      if (config.dataUrl.length < 3 * 1024 * 1024) {
+      // Safe threshold: only store small thumbnails/assets (<150KB) in localStorage to prevent QuotaExceededError
+      if (config.dataUrl && config.dataUrl.length < 150 * 1024) {
         localStorage.setItem('typezen_wallpaper_url', config.dataUrl);
       }
     } catch {
@@ -68,6 +88,8 @@ export async function loadWallpaperFromDB(id: string = 'active'): Promise<Wallpa
       const store = tx.objectStore(STORE_NAME);
       const request = store.get(id);
 
+      tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+      tx.onerror = () => reject(tx.error);
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
@@ -97,6 +119,8 @@ export async function clearWallpaperFromDB(id: string = 'active'): Promise<void>
       const store = tx.objectStore(STORE_NAME);
       const request = store.delete(id);
 
+      tx.onabort = () => reject(tx.error || new Error('Transaction aborted'));
+      tx.onerror = () => reject(tx.error);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });

@@ -43,6 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       const isChunk = isChunkLoadError(this.state.error);
+      const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
 
       return (
         <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col items-center justify-center p-6 font-mono relative overflow-hidden">
@@ -50,7 +51,29 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="glass-panel max-w-md w-full p-8 rounded-3xl border border-white/15 shadow-2xl flex flex-col items-center text-center relative z-10">
-            {isChunk ? (
+            {isChunk && isOffline ? (
+              <>
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-5 shadow-lg shadow-amber-950/30">
+                  <AlertTriangle size={28} />
+                </div>
+
+                <h2 className="text-xl font-bold text-white tracking-tight mb-2 uppercase">
+                  Offline Mode Active
+                </h2>
+                <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
+                  You appear to be offline. This module requires an active network connection to load for the first time. Your local typing tests and saved settings remain safe.
+                </p>
+
+                <div className="w-full space-y-3">
+                  <button
+                    onClick={this.handleReset}
+                    className="w-full py-3.5 px-6 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw size={16} /> RETURN TO ARENA
+                  </button>
+                </div>
+              </>
+            ) : isChunk ? (
               <>
                 <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-5 shadow-lg shadow-cyan-950/30">
                   <RefreshCw size={28} className="animate-spin" style={{ animationDuration: '4s' }} />

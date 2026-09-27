@@ -92,6 +92,19 @@ export interface GenerateOptions {
 
 const PUNCT_ENDINGS = [',', '.', '!', '?', ';'];
 
+export function cleanCustomText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[\u00A0\u202F\u2007]/g, ' ') // Non-breaking & figure spaces
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '') // Zero-width spaces
+    .replace(/[\u201C\u201D]/g, '"') // Curly double quotes
+    .replace(/[\u2018\u2019]/g, "'") // Curly single quotes
+    .replace(/[\u2014\u2013]/g, '-') // Em/en dashes
+    .trim();
+}
+
 export const generateText = (level: Level, length: number, customText: string = '', isMirrored = false, opts: GenerateOptions = {}): string => {
   const rng = opts.rng ?? Math.random;
   let final = "";
@@ -116,7 +129,7 @@ export const generateText = (level: Level, length: number, customText: string = 
       final = track.text;
     }
   } else if (level === 'CUSTOM') {
-    final = customText.trim() || "Type your custom text above...";
+    final = cleanCustomText(customText) || "Type your custom text above...";
   } else if (level === 'MASTER') {
     const snippetCount = Math.max(1, Math.ceil(length / 10));
     const words: string[] = [];

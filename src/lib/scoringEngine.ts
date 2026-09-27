@@ -287,10 +287,11 @@ export function calculateBurstWpm(
   let peakBurst = 0;
 
   // 1. Sliding window of 5 consecutive keystrokes (4 intervals)
+  // Enforce dt >= 80ms (at least 20ms/keystroke) to avoid hardware chatter or rollover false 999 WPM spikes
   if (validHits.length >= 5) {
     for (let i = 0; i <= validHits.length - 5; i++) {
       const dt = validHits[i + 4].time - validHits[i].time;
-      if (dt > 0) {
+      if (dt >= 80) {
         const instantWpm = Math.round((4 / 5) / (dt / 60000));
         if (instantWpm > peakBurst) peakBurst = instantWpm;
       }
@@ -300,7 +301,7 @@ export function calculateBurstWpm(
   // 2. Sliding window for 2 to 4 keystrokes
   if (validHits.length < 5 && validHits.length >= 2) {
     const dt = validHits[validHits.length - 1].time - validHits[0].time;
-    if (dt > 0) {
+    if (dt >= 50) {
       const instantWpm = Math.round(((validHits.length - 1) / 5) / (dt / 60000));
       if (instantWpm > peakBurst) peakBurst = instantWpm;
     }

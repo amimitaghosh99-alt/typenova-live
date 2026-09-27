@@ -10,6 +10,22 @@ import type { useGameConfig } from '@/hooks/useGameConfig';
 import { applyCapitalsCurse, type ActiveHex } from '@/lib/sabotageEngine';
 import { toast } from 'sonner';
 
+/**
+ * Normalizes user keystrokes against target characters, matching standard ASCII inputs
+ * against typographical unicode punctuation (em/en dashes, curly quotes, non-breaking spaces).
+ */
+export function isCharacterMatch(typed: string, expected: string): boolean {
+  if (typed === expected) return true;
+  // Unicode em-dash (—) and en-dash (–) match standard hyphen (-)
+  if (typed === '-' && (expected === '—' || expected === '–')) return true;
+  // Typographic curly quotes match standard single/double quotes
+  if (typed === "'" && (expected === '’' || expected === '‘')) return true;
+  if (typed === '"' && (expected === '”' || expected === '“')) return true;
+  // Non-breaking & figure spaces match standard space
+  if (typed === ' ' && (expected === '\u00A0' || expected === '\u202F' || expected === '\u2007')) return true;
+  return false;
+}
+
 interface TypingControllerProps {
   typing: ReturnType<typeof useTypingEngine>;
   audio: ReturnType<typeof useAudioEngine>;
@@ -244,6 +260,34 @@ export function TypingController({
         // Tab + Enter / Tab + Tab quick restart ergonomics
         if (e.key === 'Tab') {
           e.preventDefault();
+          // In CODE mode with active typing, Tab should advance spaces instead of restarting
+          if (cfg.level === 'CODE' && typing.inputRef.current.length > 0) {
+            const curInput = typing.inputRef.current;
+            if (curInput.length < typing.targetText.length && typing.targetText[curInput.length] === ' ') {
+              let count = 0;
+              let idx = curInput.length;
+              while (idx < typing.targetText.length && typing.targetText[idx] === ' ' && count < 2) {
+                count++;
+                idx++;
+              }
+              if (count > 0) {
+                const spaces = ' '.repeat(count);
+                const nextInput = curInput + spaces;
+                const now = Date.now();
+                typing.setInputSync((prev: string) => prev + spaces);
+                for (let s = 0; s < count; s++) {
+                  typing.keystrokeLog.current.push({ key: ' ', expected: ' ', time: now, isError: false });
+                }
+                audio.playSound('key');
+                if (nextInput.length >= typing.targetText.length) {
+                  typing.finishTest(now, nextInput);
+                }
+                return;
+              }
+            }
+            return;
+          }
+
           const now = Date.now();
           if (now - restartArmedRef.current < 1500) {
             restartArmedRef.current = 0;
@@ -347,10 +391,43 @@ export function TypingController({
           ? applyCapitalsCurse(typing.targetText, currentInput.length, 4)
           : typing.targetText;
         const expectedChar = effectiveTarget[currentInput.length];
-        const isError = typedChar !== expectedChar;
-        const nextInput = currentInput + typedChar;
+        const isMatch = isCharacterMatch(typedChar, expectedChar);
+        const isError = !isMatch;
+        const resolvedChar = isMatch ? expectedChar : typedChar;
 
-        typing.setInputSync((prev: string) => prev + typedChar);
+        // Auto-indentation in CODE mode: When Enter is correctly typed on an indented block,
+        // automatically advance across leading spaces on the next line.
+        if (!isError && resolvedChar === '\n' && cfg.level === 'CODE') {
+          let nextIdx = currentInput.length + 1;
+          let autoIndent = '';
+          while (nextIdx < typing.targetText.length && typing.targetText[nextIdx] === ' ') {
+            autoIndent += ' ';
+            nextIdx++;
+          }
+          if (autoIndent.length > 0) {
+            const fullAdvance = '\n' + autoIndent;
+            const nextInput = currentInput + fullAdvance;
+            typing.setInputSync((prev: string) => prev + fullAdvance);
+            typing.keystrokeLog.current.push({ key: '\n', expected: '\n', time: now, isError: false });
+            for (let s = 0; s < autoIndent.length; s++) {
+              typing.keystrokeLog.current.push({ key: ' ', expected: ' ', time: now, isError: false });
+            }
+            const nextCombo = typing.comboRef.current + 1 + autoIndent.length;
+            typing.comboRef.current = nextCombo;
+            audio.setComboRef(nextCombo);
+            typing.setCombo(nextCombo);
+            typing.setMaxCombo((prev: number) => Math.max(prev, nextCombo));
+            audio.playSound('key');
+
+            if (nextInput.length >= typing.targetText.length) {
+              typing.finishTest(now, nextInput);
+            }
+            return;
+          }
+        }
+
+        const nextInput = currentInput + resolvedChar;
+        typing.setInputSync((prev: string) => prev + resolvedChar);
         typing.keystrokeLog.current.push({ key: typedChar, expected: expectedChar, time: now, isError });
 
         if (isError) {

@@ -101,17 +101,17 @@ export const CODE_LIBRARY: Record<CodeLanguage, string[]> = {
     `SELECT name, salary \nFROM employees e1\nWHERE salary > (\n    SELECT AVG(salary) \n    FROM employees e2 \n    WHERE e1.department_id = e2.department_id\n);`
   ],
   'Go': [
-    `func worker(id int, jobs <-chan int, results chan<- int) {\n\tfor j := range jobs {\n\t\tfmt.Println("worker", id, "started  job", j)\n\t\ttime.Sleep(time.Second)\n\t\tfmt.Println("worker", id, "finished job", j)\n\t\tresults <- j * 2\n\t}\n}`,
-    `func helloHandler(w http.ResponseWriter, r *http.Request) {\n\tif r.Method != http.MethodGet {\n\t\thttp.Error(w, "Method not allowed", http.StatusMethodNotAllowed)\n\t\treturn\n\t}\n\tfmt.Fprintf(w, "Hello, %s!", r.URL.Path[1:])\n}`,
-    `var wg sync.WaitGroup\nfor i := 1; i <= 5; i++ {\n\twg.Add(1)\n\tgo func(id int) {\n\t\tdefer wg.Done()\n\t\tfmt.Printf("Worker %d starting\\n", id)\n\t\ttime.Sleep(time.Second)\n\t}(i)\n}\nwg.Wait()`,
-    `type Rectangle struct {\n\tWidth  float64\n\tHeight float64\n}\n\nfunc (r Rectangle) Area() float64 {\n\treturn r.Width * r.Height\n}\n\nfunc (r *Rectangle) Scale(factor float64) {\n\tr.Width *= factor\n\tr.Height *= factor\n}`,
-    `type Shape interface {\n\tArea() float64\n\tPerimeter() float64\n}\n\nfunc printShapeInfo(s Shape) {\n\tfmt.Printf("Area: %f\\n", s.Area())\n\tfmt.Printf("Perimeter: %f\\n", s.Perimeter())\n}`,
-    `file, err := os.Open("config.json")\nif err != nil {\n\tif os.IsNotExist(err) {\n\t\treturn fmt.Errorf("config file missing: %w", err)\n\t}\n\treturn fmt.Errorf("failed to open config: %w", err)\n}\ndefer file.Close()`,
-    `type User struct {\n\tID    int    \`json:"id"\`\n\tName  string \`json:"name"\`\n\tEmail string \`json:"email,omitempty"\`\n}\n\njsonData, err := json.Marshal(user)\nif err != nil {\n\tlog.Fatal(err)\n}`,
-    `file, err := os.Open("data.txt")\nif err != nil { log.Fatal(err) }\ndefer file.Close()\n\nscanner := bufio.NewScanner(file)\nfor scanner.Scan() {\n\tfmt.Println(scanner.Text())\n}\nif err := scanner.Err(); err != nil {\n\tlog.Fatal(err)\n}`,
+    `func worker(id int, jobs <-chan int, results chan<- int) {\n  for j := range jobs {\n    fmt.Println("worker", id, "started  job", j)\n    time.Sleep(time.Second)\n    fmt.Println("worker", id, "finished job", j)\n    results <- j * 2\n  }\n}`,
+    `func helloHandler(w http.ResponseWriter, r *http.Request) {\n  if r.Method != http.MethodGet {\n    http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)\n    return\n  }\n  fmt.Fprintf(w, "Hello, %s!", r.URL.Path[1:])\n}`,
+    `var wg sync.WaitGroup\nfor i := 1; i <= 5; i++ {\n  wg.Add(1)\n  go func(id int) {\n    defer wg.Done()\n    fmt.Printf("Worker %d starting\\n", id)\n    time.Sleep(time.Second)\n  }(i)\n}\nwg.Wait()`,
+    `type Rectangle struct {\n  Width  float64\n  Height float64\n}\n\nfunc (r Rectangle) Area() float64 {\n  return r.Width * r.Height\n}\n\nfunc (r *Rectangle) Scale(factor float64) {\n  r.Width *= factor\n  r.Height *= factor\n}`,
+    `type Shape interface {\n  Area() float64\n  Perimeter() float64\n}\n\nfunc printShapeInfo(s Shape) {\n  fmt.Printf("Area: %f\\n", s.Area())\n  fmt.Printf("Perimeter: %f\\n", s.Perimeter())\n}`,
+    `file, err := os.Open("config.json")\nif err != nil {\n  if os.IsNotExist(err) {\n    return fmt.Errorf("config file missing: %w", err)\n  }\n  return fmt.Errorf("failed to open config: %w", err)\n}\ndefer file.Close()`,
+    `type User struct {\n  ID    int    \`json:"id"\`\n  Name  string \`json:"name"\`\n  Email string \`json:"email,omitempty"\`\n}\n\njsonData, err := json.Marshal(user)\nif err != nil {\n  log.Fatal(err)\n}`,
+    `file, err := os.Open("data.txt")\nif err != nil { log.Fatal(err) }\ndefer file.Close()\n\nscanner := bufio.NewScanner(file)\nfor scanner.Scan() {\n  fmt.Println(scanner.Text())\n}\nif err := scanner.Err(); err != nil {\n  log.Fatal(err)\n}`,
     `nums := []int{1, 2, 3, 4, 5}\n// Slice from index 1 to 3 (exclusive)\nsub := nums[1:3] \n\n// Append elements\nnums = append(nums, 6, 7)\n\n// Preallocate capacity\nnames := make([]string, 0, 10)`,
-    `counts := map[string]int{\n\t"apple":  5,\n\t"banana": 2,\n}\ncounts["orange"] = 3\n\nfor key, value := range counts {\n\tfmt.Printf("%s: %d\\n", key, value)\n}\n\nif val, ok := counts["grape"]; ok {\n\tfmt.Println("Found grape:", val)\n}`,
-    `func safeProcess() {\n\tdefer func() {\n\t\tif r := recover(); r != nil {\n\t\t\tfmt.Println("Recovered from panic:", r)\n\t\t}\n\t}()\n\t\n\tpanic("something went terribly wrong")\n}`,
-    `ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)\ndefer cancel()\n\nselect {\ncase <-time.After(1 * time.Second):\n\tfmt.Println("overslept")\ncase <-ctx.Done():\n\tfmt.Println(ctx.Err()) // context deadline exceeded\n}`
+    `counts := map[string]int{\n  "apple":  5,\n  "banana": 2,\n}\ncounts["orange"] = 3\n\nfor key, value := range counts {\n  fmt.Printf("%s: %d\\n", key, value)\n}\n\nif val, ok := counts["grape"]; ok {\n  fmt.Println("Found grape:", val)\n}`,
+    `func safeProcess() {\n  defer func() {\n    if r := recover(); r != nil {\n      fmt.Println("Recovered from panic:", r)\n    }\n  }()\n  \n  panic("something went terribly wrong")\n}`,
+    `ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)\ndefer cancel()\n\nselect {\ncase <-time.After(1 * time.Second):\n  fmt.Println("overslept")\ncase <-ctx.Done():\n  fmt.Println(ctx.Err()) // context deadline exceeded\n}`
   ]
 };

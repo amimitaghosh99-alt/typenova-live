@@ -526,6 +526,8 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
 // ─── Ghost Pacer Cursor ─────────────────────────────────────────────
 /** Input length at elapsed ms `t`, linearly interpolated between samples. */
 function charsAtTime(samples: PaceSample[], t: number): number {
+  if (!samples || samples.length === 0) return 0;
+  if (samples.length === 1) return samples[0].chars;
   if (t <= samples[0].t) return samples[0].chars;
   const last = samples[samples.length - 1];
   if (t >= last.t) return last.chars;
@@ -536,25 +538,32 @@ function charsAtTime(samples: PaceSample[], t: number): number {
     if (samples[mid].t <= t) lo = mid; else hi = mid;
   }
   const a = samples[lo], b = samples[hi];
-  const frac = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+  const span = b.t - a.t;
+  const frac = span <= 0 ? 0 : Math.max(0, Math.min(1, (t - a.t) / span));
   return Math.floor(a.chars + (b.chars - a.chars) * frac);
 }
 
 /** Elapsed ms at which the pace recording reached `chars` (inverse of
     charsAtTime), linearly interpolated. Used for the ahead/behind delta. */
 function timeAtChars(samples: PaceSample[], chars: number): number {
+  if (!samples || samples.length === 0) return 0;
+  if (samples.length === 1) return samples[0].t;
   if (chars <= samples[0].chars) return samples[0].t;
   const last = samples[samples.length - 1];
   if (chars >= last.chars) return last.t;
-  // chars is monotonically non-decreasing; binary search the bracketing pair
-  let lo = 0, hi = samples.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (samples[mid].chars <= chars) lo = mid; else hi = mid;
+
+  // Scan through samples to find the first interval reaching or exceeding `chars`
+  // (guards against non-monotonic char regressions caused by backspacing)
+  for (let i = 0; i < samples.length - 1; i++) {
+    const a = samples[i];
+    const b = samples[i + 1];
+    if (b.chars >= chars) {
+      const span = b.chars - a.chars;
+      const frac = span <= 0 ? 0 : Math.max(0, Math.min(1, (chars - a.chars) / span));
+      return a.t + (b.t - a.t) * frac;
+    }
   }
-  const a = samples[lo], b = samples[hi];
-  const frac = b.chars === a.chars ? 0 : (chars - a.chars) / (b.chars - a.chars);
-  return a.t + (b.t - a.t) * frac;
+  return last.t;
 }
 
 // ─── Gliding Bar ────────────────────────────────────────────────────

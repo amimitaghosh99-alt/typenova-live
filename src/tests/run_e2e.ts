@@ -37,6 +37,7 @@ import { registerBatch3MultiplayerTests } from './batch3Multiplayer.test.ts';
 import { registerBatch4ThemeUiTests } from './batch4ThemeUi.test.ts';
 import { registerBatch5AiHardwareTests } from './batch5AiHardware.test.ts';
 import { registerBatch6MobilePwaTests } from './batch6MobilePwa.test.ts';
+import { runBatch7InputModesTests } from './batch7InputModes.test.ts';
 
 async function main(): Promise<void> {
   console.log('Registering TypeNova E2E Test Suites...');
@@ -118,6 +119,9 @@ async function main(): Promise<void> {
 
   // Batch 6: Mobile Responsiveness, Viewport Overflows, PWA Offline & Storage Quotas
   registerBatch6MobilePwaTests();
+
+  // Batch 7: Game Modes, Code Mode, Custom Text & Input Pipeline
+  runBatch7InputModesTests();
 
   // Execute all registered suites
   const summary = await runAllSuites();

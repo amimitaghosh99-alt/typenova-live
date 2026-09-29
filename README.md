@@ -4,7 +4,8 @@
 
 ### *The Next-Gen Cybernetic Gamified Typing Platform*
 
-[![Version](https://img.shields.io/badge/version-3.1.1-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live)
+[![Version](https://img.shields.io/badge/version-3.1.1-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live/releases/tag/v3.1.1)
+[![CI](https://img.shields.io/github/actions/workflow/status/amimitaghosh99-alt/typenova-live/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/amimitaghosh99-alt/typenova-live/actions/workflows/ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-00f2fe?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![React 19](https://img.shields.io/badge/React-19.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -23,16 +24,34 @@
 
 Combining **sub-millisecond mechanical input processing**, **3D CyberHands RPG progression**, **real-time multiplayer racing**, and an **autonomous AI Coach (Aru)**, TypeNova transforms daily touch-typing practice into an adrenaline-fueled cybernetic sport.
 
-```
-       ┌────────────────────────────────────────────────────────┐
-       │     ___ _   _ ___ _____ _____ _   _ _____  ___         │
-       │    |_ _| \ | |_ _|_   _|_   _| \ | | ____|/ _ \        │
-       │     | ||  \| || |  | |   | | |  \| |  _| | | | |       │
-       │     | || |\  || |  | |   | | | |\  | |___| |_| |       │
-       │    |___|_| \_|___| |_|   |_| |_| \_|_____|\___/        │
-       │           NEXT-GEN GAMIFIED TYPING SUITE               │
-       └────────────────────────────────────────────────────────┘
-```
+<div align="center">
+  <img src="docs/assets/typing-demo.gif" alt="TypeNova Mechanical Typing Engine in Action" width="100%" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 242, 254, 0.15);" />
+  <p><sub>⚡ <em>Real-time mechanical typing engine with dynamic fluid cursor, gliding caret, live WPM/accuracy telemetry, and audio switch synthesis.</em></sub></p>
+</div>
+
+---
+
+## 📸 Interface Showcase
+
+| 🎮 3D Kinetic Keyboard Landing | ⚡ Minimalist Typing Arena |
+| :---: | :---: |
+| [![3D Kinetic Keyboard](docs/assets/screenshot-3d-keyboard.png)](docs/assets/screenshot-3d-keyboard.png) | [![Typing Arena](docs/assets/screenshot-typing-arena.png)](docs/assets/screenshot-typing-arena.png) |
+| *Interactive Three.js mechanical keyboard with reactive lighting & acoustics* | *Minimalist typing arena with fluid shader backdrop & live Top-5 leaderboard* |
+
+| 🏁 Multiplayer Race Arena | 📊 Operator Telemetry & Analytics |
+| :---: | :---: |
+| [![Multiplayer Races](docs/assets/screenshot-multiplayer.png)](docs/assets/screenshot-multiplayer.png) | [![Operator Analytics](docs/assets/screenshot-analytics.png)](docs/assets/screenshot-analytics.png) |
+| *Real-time WebSocket matchmaking, 6-digit OTP rooms & P2P video/voice* | *Dual-axis WPM/accuracy trajectory curves & diagnostic logs* |
+
+<details>
+<summary>🔍 <strong>View Post-Test Telemetry & AI Coach Debrief Screen</strong></summary>
+
+<br />
+
+[![Post-Test Results](docs/assets/screenshot-results.png)](docs/assets/screenshot-results.png)
+*Comprehensive Grade S diagnostic summary with burst consistency scoring and AI Coach Aru neuro-debrief.*
+
+</details>
 
 ---
 
@@ -177,7 +196,8 @@ typenova/
 │   ├── pages/              # Login, Landing, and Arena views
 │   ├── App.tsx             # Root container & HUD orchestrator
 │   └── main.tsx            # Application entry & Service Worker registration
-├── docs/                   # Product requirements, architecture & roadmap
+├── docs/                   # Product requirements, architecture, media & roadmap
+│   ├── assets/             # Visual showcase screenshots & animated typing demo GIF
 │   ├── PRD.md              # Comprehensive Product Requirements Document
 │   ├── ARCHITECTURE.md     # System Architecture & Technical Specifications
 │   ├── ROADMAP.md          # Public feature and release horizons roadmap

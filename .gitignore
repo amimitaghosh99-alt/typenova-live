@@ -43,6 +43,7 @@ graph_preview.png
 videos/
 compete_ui*.png
 *.tmp
+src/tests/screenshots/
 
 # Agent workflows, rules & skills
 .agents/

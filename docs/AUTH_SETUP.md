@@ -46,7 +46,7 @@ and run it. It is idempotent (safe to re-run). It:
 1. **Supabase → Authentication → Providers → Google** → enable, paste the
    Client ID + secret, save.
 2. **Authentication → URL Configuration**:
-   - **Site URL**: your app origin (e.g. `http://localhost:5173` for dev, or your
+   - **Site URL**: your app origin (e.g. `http://localhost:3000` for dev, or your
      deployed URL).
    - **Redirect URLs**: add every origin the app runs on (dev + prod). The app
      asks Supabase to return to `window.location.origin`, so each origin must be

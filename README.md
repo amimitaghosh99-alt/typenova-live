@@ -22,7 +22,7 @@
 
 **TypeNova** is an open-source, ultra-low latency gamified typing platform engineered for competitive speed typists, software engineers, and gamers. 
 
-Combining **sub-millisecond mechanical input processing**, **3D CyberHands RPG progression**, **real-time multiplayer racing**, and an **autonomous AI Coach (Aru)**, TypeNova transforms daily touch-typing practice into an adrenaline-fueled cybernetic sport.
+Combining **< 2ms mechanical input processing**, **3D CyberHands RPG progression**, **real-time multiplayer racing**, and an **autonomous AI Coach (Aru)**, TypeNova transforms daily touch-typing practice into an adrenaline-fueled cybernetic sport.
 
 <div align="center">
   <img src="docs/assets/typing-demo.gif" alt="TypeNova Mechanical Typing Engine in Action" width="100%" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 242, 254, 0.15);" />
@@ -58,7 +58,7 @@ Combining **sub-millisecond mechanical input processing**, **3D CyberHands RPG p
 ## 🚀 Key Features
 
 ### ⚡ 1. High-Frequency Mechanical Typing Engine
-* **$< 2\text{ms}$ Input Processing:** Zero layout thrashing and reflow-free caret tracking targeting a solid **120+ FPS**.
+* **< 2ms Input Processing:** Zero layout thrashing and reflow-free caret tracking targeting a solid **120+ FPS**.
 * **Comprehensive Game Modes:**
   * **Time Trials:** 15s, 30s, 60s, 120s high-intensity sprints.
   * **Word Sets:** 10, 25, 50, 100 benchmark batches.
@@ -87,9 +87,11 @@ Combining **sub-millisecond mechanical input processing**, **3D CyberHands RPG p
 ---
 
 ### 🏁 4. Real-Time Multiplayer Racing & Comms
-* **WebSocket Synced Drag Races:** Public matchmaking queues and private custom-code race rooms.
-* **Interactive Post-Match Telemetry:** Keystroke-by-keystroke replay visualizer with live speed curves, error heatmaps, and in-lobby chat.
-* **P2P WebRTC Video/Audio Calls:** Floating, draggable picture-in-picture video chat during matches with 0 server media relay.
+* **Serverless Multiplayer via Supabase Realtime:** Low-latency multiplayer drag races running 100% client-side on Vercel Edge without requiring persistent custom Node.js/Socket.io backend servers.
+* **Presence Channels (`RealtimeChannel.track()`):** Synchronizes live player slots, ready states, peer latency pings, and typing progress (throttled at 200ms intervals to prevent socket flooding).
+* **Broadcast Channels (`RealtimeChannel.send()`):** Ephemeral dispatch of synchronized countdown starts with host clock compensation, tactical sabotage hex attacks, in-lobby text chat, and post-match speed curves.
+* **Host Migration & Resilience:** Client-side host election ensures seamless match continuity if the room creator disconnects, backed by exponential-backoff socket reconnection.
+* **Direct Communications (`CommsModal`):** Direct player-to-player messaging and friends roster powered by Supabase Realtime Postgres Changes.
 
 ---
 
@@ -115,8 +117,8 @@ Combining **sub-millisecond mechanical input processing**, **3D CyberHands RPG p
 | **Styling & UI** | [Tailwind CSS v3.4](https://tailwindcss.com/), [Radix UI](https://www.radix-ui.com/), [Lucide Icons](https://lucide.dev/) |
 | **3D & Visuals** | [Three.js](https://threejs.org/), Custom GLSL Shaders, WebGL Fluid Simulation, [Framer Motion](https://www.framer.com/motion/) |
 | **Audio Engine** | Web Audio API Low-Latency Synthesizer |
-| **Backend & Cloud** | [Supabase](https://supabase.com/) (Auth, PostgreSQL, Row-Level Security, Realtime Subscriptions) |
-| **Realtime & Comms** | WebSockets (Socket.io) + WebRTC Peer-to-Peer |
+| **Backend & Cloud** | [Supabase](https://supabase.com/) (Auth, PostgreSQL, Row-Level Security, Edge Functions) |
+| **Realtime & Multiplayer** | [Supabase Realtime](https://supabase.com/docs/guides/realtime) (WebSockets — Presence Channels, Broadcast Events & Postgres Changes) |
 | **PWA & Offline** | `vite-plugin-pwa`, Workbox Pre-caching |
 
 ---
@@ -138,22 +140,38 @@ cd typenova-live
 npm install
 ```
 
-### 3. Configure Environment Variables
-Copy the sample environment file:
-```bash
-cp .env.example .env
-```
-Fill in your Supabase credentials:
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
+### 3. Configure Supabase & Environment Variables
+TypeNova uses Supabase for user authentication, cloud progress synchronization, and real-time multiplayer racing.
+
+1. **Create Environment File:**
+   ```bash
+   cp .env.example .env
+   ```
+2. **Add Your Supabase API Keys:**
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+3. **Apply Database Migrations:**
+   TypeNova includes 20 idempotent database migrations in [`supabase/migrations/`](supabase/migrations/) covering user profiles, leaderboards, anticheat verification, Elo ratings, and direct messaging.
+   
+   - **Via Supabase CLI (Local Development):**
+     ```bash
+     npx supabase start
+     npx supabase db reset
+     ```
+   - **Via Supabase Web Dashboard (Hosted Cloud):**
+     Open **Supabase Dashboard → SQL Editor**, and execute the migration files sequentially from [`supabase/migrations/`](supabase/migrations/) (starting with `20260721000000_auth_profiles.sql`).
+
+4. **Configure Authentication & Google OAuth:**
+   Follow our step-by-step [**Supabase Auth & Cloud Sync Guide**](docs/AUTH_SETUP.md) to enable Google OAuth, configure authorized redirect URLs (`http://localhost:3000` for development and your production domain), and enable seamless cloud progress saving.
 
 ### 4. Start Development Server
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser to launch TypeNova.
+Open [http://localhost:3000](http://localhost:3000) in your browser to launch TypeNova.  
+*(Note: `vite.config.ts` explicitly binds the dev server to port `3000`, overriding Vite's default `5173`.)*
 
 ### 5. Build for Production
 ```bash
@@ -179,30 +197,37 @@ npm run preview
 
 ```
 typenova/
-├── public/                 # PWA icons, manifest, static sound samples
+├── public/                 # PWA icons, web app manifest, static audio switch samples
 ├── src/
 │   ├── components/         # 40+ UI components, modals, and overlays
 │   │   ├── academy/        # CyberHands visualizer & virtual keyboard
 │   │   ├── graphs/         # Replay telemetry & performance charts
+│   │   ├── profile/        # Player dossier, IKI & Shadowing telemetry inspectors
 │   │   ├── ui/             # Radix UI primitives & Starfield canvas
 │   │   ├── AIChatBot.tsx   # Aru AI Assistant drawer with LaserFlow shaders
+│   │   ├── CommsModal.tsx  # Real-time player communications & messaging
 │   │   ├── KineticKeyboard.tsx # 3D Three.js reactive keyboard
 │   │   ├── SplashCursor.tsx # GPU fluid simulation
 │   │   └── TypingArea.tsx  # Low-latency typing input & gliding caret
-│   ├── contexts/           # Loader, VideoCall, and WebRTC state providers
-│   ├── data/               # Themes, switch sound profiles, quote datasets
+│   ├── data/               # Themes, switch sound profiles, quote datasets, titles
 │   ├── hooks/              # Core engines (useTypingEngine, useRace, useRPGSystem, etc.)
 │   ├── lib/                # AI client, Supabase client, audio synthesizer, technician brain
 │   ├── pages/              # Login, Landing, and Arena views
+│   ├── tests/              # 105 automated test suites & custom E2E runner (417+ tests)
+│   ├── utils/              # Helper utilities and formatting functions
 │   ├── App.tsx             # Root container & HUD orchestrator
 │   └── main.tsx            # Application entry & Service Worker registration
+├── supabase/               # Backend database migrations & Edge Functions
+│   ├── migrations/         # 20 idempotent PostgreSQL schemas, RLS policies & RPCs
+│   └── functions/          # Serverless Edge Functions
+├── scripts/                # Verification, benchmarking & media generation tools
 ├── docs/                   # Product requirements, architecture, media & roadmap
 │   ├── assets/             # Visual showcase screenshots & animated typing demo GIF
 │   ├── PRD.md              # Comprehensive Product Requirements Document
 │   ├── ARCHITECTURE.md     # System Architecture & Technical Specifications
 │   ├── ROADMAP.md          # Public feature and release horizons roadmap
 │   └── AUTH_SETUP.md       # Supabase OAuth & cloud sync setup guide
-├── vite.config.ts          # Vite configuration & VitePWA manifest
+├── vite.config.ts          # Vite configuration, port 3000 override & VitePWA manifest
 ├── CONTRIBUTING.md         # Developer contribution guidelines
 ├── CODE_OF_CONDUCT.md      # Contributor code of conduct
 ├── SECURITY.md             # Security policy & vulnerability reporting

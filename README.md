@@ -11,7 +11,7 @@
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-purple?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-22c55e?style=for-the-badge)](CONTRIBUTING.md)
 
-[**Explore Live Demo**](https://typenova-live.vercel.app) • [**Read the PRD**](PRD.md) • [**Architecture Specs**](ARCHITECTURE.md) • [**Roadmap**](ROADMAP.md)
+[**Explore Live Demo**](https://typenova-live.vercel.app) • [**Read the PRD**](docs/PRD.md) • [**Architecture Specs**](docs/ARCHITECTURE.md) • [**Roadmap**](docs/ROADMAP.md)
 
 </div>
 
@@ -177,10 +177,16 @@ typenova/
 │   ├── pages/              # Login, Landing, and Arena views
 │   ├── App.tsx             # Root container & HUD orchestrator
 │   └── main.tsx            # Application entry & Service Worker registration
+├── docs/                   # Product requirements, architecture & roadmap
+│   ├── PRD.md              # Comprehensive Product Requirements Document
+│   ├── ARCHITECTURE.md     # System Architecture & Technical Specifications
+│   ├── ROADMAP.md          # Public feature and release horizons roadmap
+│   └── AUTH_SETUP.md       # Supabase OAuth & cloud sync setup guide
 ├── vite.config.ts          # Vite configuration & VitePWA manifest
-├── PRD.md                  # Comprehensive Product Requirements Document
-├── ARCHITECTURE.md         # System Architecture & Technical Specifications
 ├── CONTRIBUTING.md         # Developer contribution guidelines
+├── CODE_OF_CONDUCT.md      # Contributor code of conduct
+├── SECURITY.md             # Security policy & vulnerability reporting
+├── CHANGELOG.md            # Release changelog & version history
 └── LICENSE                 # GNU General Public License v3.0 (GPLv3)
 ```
 

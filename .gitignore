@@ -38,4 +38,16 @@ dist-ssr
 scratch/
 supabase/.temp/
 screenshot_*.png
+graph_preview.png
+*_old/
 videos/
+compete_ui*.png
+*.tmp
+
+# Agent workflows, rules & skills
+.agents/
+.claude/
+agent/
+skills-lock.json
+GEMINI.md
+

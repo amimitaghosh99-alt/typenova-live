@@ -2,6 +2,19 @@
   "name": "typenova",
   "private": true,
   "version": "3.1.1",
+  "description": "Next-gen cybernetic gamified typing platform with sub-millisecond mechanical input, 3D CyberHands RPG, real-time multiplayer racing, and BYOK AI coach.",
+  "homepage": "https://typenova-live.vercel.app",
+  "keywords": [
+    "typing-test",
+    "typing-game",
+    "react",
+    "typescript",
+    "vite",
+    "supabase",
+    "threejs",
+    "webrtc",
+    "pwa"
+  ],
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {

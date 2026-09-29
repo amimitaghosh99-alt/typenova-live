@@ -1,5 +1,6 @@
 import { describe, it, expect } from './testHarness';
 import { appStorage } from '../lib/storage';
+import { niceCeiling, clusterErrors, interpolateSeries } from '../components/graphs/wpmGraphMath';
 
 export function runBatch9AnalyticsChartsTests() {
   describe('Batch 9: Analytics, Charts, Telemetry & Data Integrity', () => {
@@ -117,6 +118,54 @@ export function runBatch9AnalyticsChartsTests() {
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBe(2);
       expect(result[0]).toBe('default_1');
+    });
+
+    it('GRAPH-01: niceCeiling snaps awkward peaks (49, 73, 114) to clean multiples', () => {
+      // Peak 49: should never produce 29, 39, 49 -> snaps to 50 with step 10
+      const axis49 = niceCeiling(49, 5);
+      expect(axis49.max).toBe(50);
+      expect(axis49.step).toBe(10);
+      expect(axis49.ticks).toEqual([0, 10, 20, 30, 40, 50]);
+
+      // Peak 73: snaps to 80 with step 20 (or clean multiples)
+      const axis73 = niceCeiling(73, 5);
+      expect(axis73.max >= 73).toBe(true);
+      expect(axis73.ticks.every((t: number) => t % 5 === 0 || t % 10 === 0 || t % 20 === 0)).toBe(true);
+
+      // Edge case: 0 or negative WPM
+      const axis0 = niceCeiling(0, 5);
+      expect(axis0.max).toBe(10);
+      expect(axis0.ticks.length >= 2).toBe(true);
+    });
+
+    it('GRAPH-02: clusterErrors groups rapid bursts within threshold into single pips', () => {
+      // 4 errors within 280ms (burst typo) + 1 isolated error at 12000ms
+      const rawErrors = [5100, 5200, 5320, 5380, 12000];
+      const clusters = clusterErrors(rawErrors, 600);
+
+      expect(clusters.length).toBe(2);
+      expect(clusters[0].count).toBe(4);
+      expect(clusters[0].t >= 5100 && clusters[0].t <= 5380).toBe(true);
+      expect(clusters[1].count).toBe(1);
+      expect(clusters[1].t).toBe(12000);
+    });
+
+    it('GRAPH-03: interpolateSeries correctly samples series pace without NaN', () => {
+      const pts = [
+        { t: 0, wpm: 0, rawWpm: 0 },
+        { t: 10000, wpm: 60, rawWpm: 70 },
+        { t: 20000, wpm: 80, rawWpm: 90 },
+      ];
+
+      // Midpoint at 5000ms
+      const mid = interpolateSeries(pts, 5000);
+      expect(mid.wpm).toBe(30);
+      expect(mid.rawWpm).toBe(35);
+
+      // Beyond end bounds clamps safely
+      const past = interpolateSeries(pts, 25000);
+      expect(past.wpm).toBe(80);
+      expect(past.rawWpm).toBe(90);
     });
 
   });

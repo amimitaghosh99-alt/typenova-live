@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-09-25
+
+### Changed
+- **Canonical URL Synchronization**: Replaced disconnected domain references with live production origin (`https://typenova-live.vercel.app`) across `index.html`, `robots.txt`, `sitemap.xml`, and dynamic route sync in `App.tsx` to resolve Googlebot de-indexing loops.
+- **Dynamic Canonical & Social Open Graph Resolution**: Dynamic origin inference in `App.tsx` adapts canonical URLs, Twitter cards, and OpenGraph tags to any deployed host automatically.
+
+### Fixed
+- **Strict TypeScript Compliance**: Eliminated unused component declarations in `AnimatedBanners`, `CosmeticArt`, and `ProfileCustomizationMenu` for zero compiler warnings.
+- **Search Engine Indexing Schemas**: Updated `sitemap.xml` and `robots.txt` with fresh timestamps and direct sitemap pointers for search indexers.
+
+## [3.1.0] - 2026-09-24
+
+### Added
+- **Synthetic Client Health Diagnostics Engine**: High-speed (<20ms) proactive client diagnostic suite checking 5 mission-critical subsystems — Storage Quota & Read/Write Parity, Web Audio API context sample rate & autoplay suspension state, Multiplayer WebSocket relay network latency, Supabase Cloud auth session token freshness, and Zero-Knowledge BYOK inference provider endpoints.
+- **Universal Health Signal Bus & Incident Stream**: Global reactive event bus (`emitHealthSignal`, `subscribeHealthSignals`) capturing client-side anomalies (race disconnections, join timeouts, auth token expirations, AI provider rate limits, audio autoplay restrictions) with thread isolation.
+- **System Status & Live Telemetry Console**: Pinned infrastructure console in footer with dynamic theme glow, real-time subsystem status matrix with ping roundtrip latencies, interactive diagnostic re-probe trigger, and 1-click recovery actions.
+- **Zero-Knowledge Bring-Your-Own-Key (BYOK) AI Architecture**: 100% direct browser-to-provider HTTPS inference (Groq, OpenAI, Anthropic, Google Gemini, DeepSeek, OpenRouter) ensuring API keys never touch backend servers. Includes dual persistence toggle and 1-click key purge.
+- **Guest First-Win Conversion Experience**: Frictionless 30-second speed test hero CTA, post-test benchmark conversion banner (WPM, Accuracy, Grade), and seamless pending score ingestion upon Google OAuth return.
+- **Edge Health Endpoints & Staged Security Headers**: `/api/health` and `/health` JSON endpoints with uptime SLAs; hardened HTTP headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, Content Security Policy).
+
+### Fixed
+- **Adversarial Hardening Rebuild**: Resolved 9 edge cases and vulnerabilities — eliminated storage probe quota clutter via `finally` blocks, unbounded fetch hangs via 3000ms `AbortController` timeouts, AudioContext hardware exhaustion via lifecycle guards, error isolation in signal listeners, API key regex token redaction (`sk-`, `gsk_`, `AIza`), and full retry budget resets on manual reconnects.
+
+### Performance
+- **Signal Bus Deduplication & Zero-Jank Telemetry**: Debounces identical consecutive client warning signals within 1000ms to eliminate event storms, UI re-render thrashing, and console noise during network blips.
+- **Dynamic Theme Color Binding & Minimalist Controls**: Bound all diagnostics indicators, telemetry badges, and recovery buttons strictly to dynamic theme glow tokens (`rgb(${theme.glowPrimary})`) with Monkeytype-inspired single-row density.
+
 ## [3.0.0] - 2026-09-11
 
 ### Added

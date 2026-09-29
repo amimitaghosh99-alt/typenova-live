@@ -18,7 +18,7 @@ Welcome to the public **TypeNova Roadmap**! This document outlines past mileston
 ## 📦 Milestone Breakdown
 
 ### ✅ Version 2.5.0 — *Precision & Cyber Immersion (Current)*
-* **Sub-millisecond Typing Engine:** Hardware-accelerated CSS `translate3d` caret tracking targeting stable 120+ FPS.
+* **< 2ms Typing Engine:** Hardware-accelerated CSS `translate3d` caret tracking targeting $< 2\text{ms}$ latency and stable 120+ FPS.
 * **Three.js Kinetic Mechanical Keyboard:** Full 100% reactive mechanical keyboard rendered in 3D with dynamic lighting.
 * **Universal PWA Support:** Auto-updating service worker precaching, offline quotes/code drills, and desktop/mobile installability.
 * **Hybrid AI Engine (Aru):** BYOK multi-provider routing (Groq, OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter) and local Chrome Gemini Nano integration.
@@ -31,8 +31,8 @@ Welcome to the public **TypeNova Roadmap**! This document outlines past mileston
   * Placement matches, seasonal ELO resets, and seasonal cosmetic rewards (e.g. *Grandmaster Holo Hands*).
 * [ ] **16-Player Knockout Tournament Brackets:**
   * Automated double-elimination brackets with live countdowns and match progression.
-* [ ] **Live Spectator Mode & Multi-Stream WebRTC:**
-  * Spectators can watch live race telemetry, speed curves, and player video feeds with $< 100\text{ms}$ latency.
+* [ ] **Live Spectator Mode & Multi-Stream WebRTC (STUN/TURN Traversal):**
+  * Spectators can watch live race telemetry, speed curves, and optional P2P video feeds with $< 100\text{ms}$ latency.
 * [ ] **Team & Clan Battles:**
   * Form cybernetic typing clans, aggregate team WPM, and compete in weekly territory wars.
 

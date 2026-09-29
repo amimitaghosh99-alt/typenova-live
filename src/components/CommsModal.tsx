@@ -34,15 +34,6 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
     }
   }, [activeFriendId, messages, unreadCounts, markAsRead]);
 
-  if (!supabase || !userId) return null;
-
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim() || !activeFriendId) return;
-    sendMessage(activeFriendId, inputText);
-    setInputText('');
-  };
-
   const activeFriend = friends.find(f => f.id === activeFriendId);
   const activeMessages = useMemo(() => {
     if (!activeFriendId) return [];
@@ -51,6 +42,15 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
            (m.sender_id === activeFriendId && m.receiver_id === userId)
     );
   }, [messages, userId, activeFriendId]);
+
+  if (!supabase || !userId) return null;
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || !activeFriendId) return;
+    sendMessage(activeFriendId, inputText);
+    setInputText('');
+  };
 
 
 

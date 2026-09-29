@@ -1,0 +1,11 @@
+# Gitleaks ignore file
+# Format: <commit>:<file>:<rule-id>:<line> or fingerprint
+
+# Test mock fixture key for testing redaction function:
+d8311dd125d8b72b6fb92637a4d86a1eb055988f:src/tests/securityVerification.test.ts:generic-api-key:288
+
+# Historical teamwork documentation text false positive:
+b84cf8dc60ccfdd23de0bf14c8ea0200c26e236a:.agents/teamwork_preview_explorer_survey_2/handoff.md:generic-api-key:71
+
+# Historical Razorpay public Key ID in unit test:
+bd6d2b00c564c5a5b0126141142b255a2c2c1acf:src/tests/donation.test.ts:generic-api-key:290

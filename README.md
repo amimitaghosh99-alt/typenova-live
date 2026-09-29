@@ -6,7 +6,7 @@
 
 [![Version](https://img.shields.io/badge/version-3.1.1-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live/releases/tag/v3.1.1)
 [![CI](https://img.shields.io/github/actions/workflow/status/amimitaghosh99-alt/typenova-live/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/amimitaghosh99-alt/typenova-live/actions/workflows/ci.yml)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-00f2fe?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-00f2fe?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![React 19](https://img.shields.io/badge/React-19.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-purple?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
@@ -97,7 +97,7 @@ Combining **< 2ms mechanical input processing**, **3D CyberHands RPG progression
 
 ### 🎨 5. Cybernetic Aesthetics & Audio FX
 * **Kinetic 3D Mechanical Keyboard:** Full 100% mechanical keyboard rendered in Three.js on landing views, featuring reactive physical key depression and emissive bloom.
-* **WebGL Fluid Simulation (`SplashCursor`):** GPU-accelerated fluid mechanics reacting to cursor velocity.
+* **GLSL Cosmic Liquid Shader (`CosmicLiquidShader`):** GPU-accelerated procedural simplex noise and liquid wave shader responding dynamically to mouse coordinates and active theme palette.
 * **Acoustic Switch Synthesis:** Multi-sampled mechanical switch sound profiles (*Cherry MX Blue, Red, Brown, Topre, Typewriter, Cyber Laser*).
 * **15+ Themes:** Starfield, Matrix CRT, Cyberpunk, Dracula, Nord, Obsidian, Synthwave, Vaporwave, and more.
 
@@ -115,7 +115,7 @@ Combining **< 2ms mechanical input processing**, **3D CyberHands RPG progression
 | :--- | :--- |
 | **Core Frontend** | [React 19](https://react.dev/), [TypeScript 5.8](https://www.typescriptlang.org/), [Vite 7](https://vite.dev/) |
 | **Styling & UI** | [Tailwind CSS v3.4](https://tailwindcss.com/), [Radix UI](https://www.radix-ui.com/), [Lucide Icons](https://lucide.dev/) |
-| **3D & Visuals** | [Three.js](https://threejs.org/), Custom GLSL Shaders, WebGL Fluid Simulation, [Framer Motion](https://www.framer.com/motion/) |
+| **3D & Visuals** | [Three.js](https://threejs.org/), Custom GLSL Shaders (`CosmicLiquidShader`), [Framer Motion](https://www.framer.com/motion/) |
 | **Audio Engine** | Web Audio API Low-Latency Synthesizer |
 | **Backend & Cloud** | [Supabase](https://supabase.com/) (Auth, PostgreSQL, Row-Level Security, Edge Functions) |
 | **Realtime & Multiplayer** | [Supabase Realtime](https://supabase.com/docs/guides/realtime) (WebSockets — Presence Channels, Broadcast Events & Postgres Changes) |
@@ -185,11 +185,11 @@ npm run preview
 
 | Shortcut | Action |
 | :--- | :--- |
-| <kbd>Tab</kbd> + <kbd>Enter</kbd> | Restart current typing test |
-| <kbd>Esc</kbd> | Open / Close Settings modal |
-| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Quick Command Palette |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>A</kbd> | Toggle Aru AI Coach drawer |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd> | Quick Join Multiplayer Arena |
+| <kbd>Tab</kbd> or <kbd>Tab</kbd> + <kbd>Enter</kbd> | Instant Restart current typing test |
+| <kbd>Ctrl</kbd> + <kbd>Backspace</kbd> | Erase entire word backward |
+| <kbd>Esc</kbd> | Close open modal / dismiss dialogs |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | Access God Mode developer console |
+| <kbd>Alt</kbd> + <kbd>1</kbd>–<kbd>4</kbd> / <kbd>F1</kbd>–<kbd>F4</kbd> | Cast Tactical Sabotage Hex abilities (Multiplayer) |
 
 ---
 
@@ -206,8 +206,8 @@ typenova/
 │   │   ├── ui/             # Radix UI primitives & Starfield canvas
 │   │   ├── AIChatBot.tsx   # Aru AI Assistant drawer with LaserFlow shaders
 │   │   ├── CommsModal.tsx  # Real-time player communications & messaging
+│   │   ├── CosmicLiquidShader.tsx # GPU procedural simplex noise & fluid wave shader
 │   │   ├── KineticKeyboard.tsx # 3D Three.js reactive keyboard
-│   │   ├── SplashCursor.tsx # GPU fluid simulation
 │   │   └── TypingArea.tsx  # Low-latency typing input & gliding caret
 │   ├── data/               # Themes, switch sound profiles, quote datasets, titles
 │   ├── hooks/              # Core engines (useTypingEngine, useRace, useRPGSystem, etc.)
@@ -246,7 +246,7 @@ Check out our [**Contributing Guide**](CONTRIBUTING.md) to get started with pull
 
 ## 📄 License
 
-TypeNova is 100% Free and Open Source software licensed under the **[GNU General Public License v3.0 (GPLv3)](LICENSE)**.
+TypeNova is 100% Free and Open Source software licensed under the **[GNU General Public License v3.0 or later (GPL-3.0-or-later)](LICENSE)**.
 
 Anyone is free to run, study, modify, and redistribute this software. In accordance with the GPLv3 copyleft terms, any derivative works or software incorporating TypeNova code must also be licensed under the GPLv3 and have their source code made publicly available.
 

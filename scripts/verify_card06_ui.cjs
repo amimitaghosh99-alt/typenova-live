@@ -67,16 +67,18 @@ async function run() {
   await page.screenshot({ path: path.join(__dirname, '../screenshot_system_status.png'), fullPage: false });
   console.log('Saved screenshot_system_status.png');
 
-  // Copy to artifact directory
-  const artifactDir = 'C:/Users/risho/.gemini/antigravity/brain/940a72ac-4e16-4e5e-b36e-f1158cee0078';
-  try {
-    const fs = require('fs');
-    fs.copyFileSync(
-      path.join(__dirname, '../screenshot_system_status.png'),
-      path.join(artifactDir, 'screenshot_system_status.png')
-    );
-  } catch (e) {
-    console.warn('Failed to copy to artifact dir:', e.message);
+  // Copy to artifact directory if configured
+  const artifactDir = process.env.ARTIFACT_DIR;
+  if (artifactDir) {
+    try {
+      const fs = require('fs');
+      fs.copyFileSync(
+        path.join(__dirname, '../screenshot_system_status.png'),
+        path.join(artifactDir, 'screenshot_system_status.png')
+      );
+    } catch (e) {
+      console.warn('Failed to copy to artifact dir:', e.message);
+    }
   }
 
   // 5. Click "Run Diagnostics" button inside the modal

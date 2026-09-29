@@ -287,7 +287,7 @@ export function registerDonationTests(): void {
     });
 
     it('validates Razorpay live key ID format and configuration', () => {
-      const liveKey = 'rzp_live_TbVpQOmxku36j4';
+      const liveKey = 'rzp_live_mock00dummy123';
       expect(liveKey.startsWith('rzp_live_')).toBe(true);
       expect(liveKey.length).toBe(23);
     });

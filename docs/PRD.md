@@ -10,13 +10,13 @@
 
 ## 1. Executive Summary & Vision
 
-**TypeNova** is a high-performance, next-generation gamified typing platform designed for competitive speed typists, software engineers, and gamers. Combining sub-millisecond mechanical input processing, deep RPG progression systems, real-time multiplayer racing, WebRTC peer communications, and an offline-first AI coaching engine, TypeNova transforms touch typing from mundane practice into a competitive cybernetic sport.
+**TypeNova** is a high-performance, next-generation gamified typing platform designed for competitive speed typists, software engineers, and gamers. Combining < 2ms mechanical input processing, deep RPG progression systems, real-time multiplayer racing, in-app player communications, and an offline-first AI coaching engine, TypeNova transforms touch typing from mundane practice into a competitive cybernetic sport.
 
 ### 1.1 Core Value Propositions
-* **Zero-Latency Precision:** Built with custom input handlers and caret projection that eliminate DOM reflows and guarantee 120+ FPS fluid responsiveness.
+* **Zero-Latency Precision:** Built with custom input handlers and caret projection that eliminate DOM reflows and guarantee 120+ FPS fluid responsiveness with $< 2\text{ms}$ average keystroke processing.
 * **Bring-Your-Own-Key (BYOK) AI Intelligence:** Autonomous coaching via **Aru**, powered by cloud LLMs (Groq, OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter) or local zero-latency on-device models (Chrome Gemini Nano Prompt API).
 * **Cybernetic Gamification:** RPG progression featuring level scaling, unlockable 3D **CyberHands** skins, daily quests, dynamic badges, and customizable mechanical switch acoustics.
-* **Live Multiplayer & Real-Time Comms:** Global WebSocket-synchronized drag races, private lobbies, post-match telemetry replay, and integrated WebRTC P2P audio/video calls.
+* **Live Multiplayer & Real-Time Comms:** Serverless Supabase Realtime drag races, private lobbies, post-match telemetry replay, and direct player-to-player messaging.
 * **Universal Cross-Platform PWA:** Installable as a standalone desktop/mobile app with full offline support and seamless Supabase cloud synchronization.
 
 ---
@@ -46,17 +46,17 @@ graph TD
     D --> H[Supabase DB / Cloud Sync]
     
     A --> I[Multiplayer & Real-Time Sync]
-    I --> J[WebSocket Server / Realtime]
-    I --> K[WebRTC Peer-to-Peer Calls]
+    I --> J[Supabase Realtime WebSockets]
+    I --> K[Direct Player Messaging - CommsModal]
 ```
 
 ### 3.1 Technology Stack
 * **Frontend Framework:** React 19, Vite 7, TypeScript 5.8
 * **Styling & Design System:** Tailwind CSS v3.4, Radix UI Primitives, Lucide Icons, Tabler Icons
-* **Graphics & Animation:** Three.js (Kinetic Keyboard & Shaders), WebGL Fluid Simulation (`SplashCursor`), Canvas 2D, Framer Motion, `@react-spring/web`
+* **Graphics & Animation:** Three.js (Kinetic Keyboard & Shaders), GLSL Shaders (`CosmicLiquidShader`), Canvas 2D, Framer Motion, `@react-spring/web`
 * **Audio Engine:** Web Audio API with synthesized and multi-sampled mechanical switch profiles (Cherry MX Blue/Red/Brown, Topre, Typewriter, Cyber Laser)
 * **Backend & Persistence:** Supabase (Auth, Postgres, Row-Level Security, Realtime Subscriptions), LocalStorage Offline-First Engine
-* **Real-Time Communications:** WebSockets (Multiplayer Sync) + WebRTC (P2P Video/Audio calling)
+* **Real-Time Communications:** Supabase Realtime (WebSockets — Presence Channels, Broadcast Events & Postgres Changes)
 * **PWA & Build:** `vite-plugin-pwa`, Workbox service worker caching, standalone Web App Manifest
 
 ---
@@ -71,7 +71,7 @@ graph TD
   * **Code Mode:** Real-world programming snippets across JavaScript, TypeScript, Python, Rust, Go, C++, HTML/CSS, SQL, Bash.
   * **Custom / Micro-Drill Mode:** User-inputted or AI-generated targeted drill text.
 * **FR-1.2 Caret & Feedback:**
-  * Sub-millisecond smooth gliding caret with customizable styles (Line, Block, Underline, Laser Glow).
+  * Smooth hardware-accelerated gliding caret with customizable styles (Line, Block, Underline, Laser Glow) and $< 2\text{ms}$ DOM update dispatch.
   * Real-time character state: Pending, Correct, Incorrect, Corrected, Extra characters.
   * Live HUD metrics: WPM, Raw WPM, Accuracy (%), Error Count, Consistency (%), Realtime Chart.
 * **FR-1.3 Modifier & Training Modes:**
@@ -109,8 +109,8 @@ graph TD
 
 ### 4.4 Multiplayer Arena & Matchmaking
 * **FR-4.1 Real-Time Matchmaking:**
-  * Public matchmaking queues and private password-protected race rooms.
-  * Ultra-fast WebSocket state synchronization with delta compression.
+  * Public matchmaking queues and private 6-digit OTP code race rooms.
+  * Ultra-fast Supabase Realtime WebSocket state synchronization with presence and broadcast channels.
 * **FR-4.2 Live Race HUD & Ghost Avatars:**
   * Dynamic visual race tracks showing competitor progress, real-time WPM speeds, and lead transitions.
 * **FR-4.3 Post-Match Telemetry & Scrubber:**
@@ -119,11 +119,12 @@ graph TD
 
 ---
 
-### 4.5 WebRTC Real-Time Comms
-* **FR-5.1 P2P Video & Audio Calling:**
-  * Peer-to-peer WebRTC video/audio calls during multiplayer races or 1v1 practice.
-  * Movable, draggable picture-in-picture window overlay with mute, camera toggle, and fullscreen controls.
-  * Zero-backend media relay (direct peer streaming).
+### 4.5 Player Communications & CommsModal
+* **FR-5.1 Real-Time Direct Messaging:**
+  * Peer-to-player direct messaging and friend presence synchronization backed by Supabase Realtime Postgres Changes.
+  * Unread message counters, auto-scroll chat windows, and instant friend status tracking.
+* **FR-5.2 P2P Audio/Video Calling (Roadmap Specification):**
+  * Architectural design for future WebRTC peer-to-peer audio/video streaming with STUN/TURN fallback servers for firewall/NAT traversal.
 
 ---
 
@@ -134,8 +135,8 @@ graph TD
 * **FR-6.2 3D Kinetic Mechanical Keyboard:**
   * Full 100% mechanical keyboard rendered in Three.js on the landing/login view.
   * Real-time physical key depression and blinding emissive bloom lighting reacting to keystrokes.
-* **FR-6.3 WebGL Fluid Simulation (`SplashCursor`):**
-  * GPU-accelerated interactive fluid simulation reacting to mouse velocity with automatic memory cleanup on unmount.
+* **FR-6.3 GLSL Cosmic Liquid Shader (`CosmicLiquidShader`):**
+  * GPU-accelerated interactive simplex noise and liquid wave simulation responding dynamically to pointer coordinates with automatic WebGL context disposal on unmount.
 * **FR-6.4 Mechanical Sound Profiles:**
   * Web Audio API synthesized switch profiles with independent volume sliders and low-latency buffer playback.
 

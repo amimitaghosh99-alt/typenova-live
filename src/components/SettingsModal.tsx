@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { X, Settings, Skull, Ghost, Brain, Bot, Zap, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, AlertCircle, Sparkles, Sun, Sliders, UploadCloud, Trash2, Cpu, Type, Play, ArrowLeft, Crosshair, Activity, Terminal, ShieldCheck, Radio, Layers, ArrowUpRight, Gauge, Moon, Waves, HelpCircle, HandHeart, Monitor, Eye, EyeOff } from 'lucide-react';
+import { X, Settings, Skull, Ghost, Brain, Bot, Zap, FlipHorizontal, CloudFog, Magnet, Timer, LayoutGrid, Palette, Volume2, Check, Bug, ImagePlus, Loader2, RotateCcw, Info, BarChart, AlertTriangle, AlertCircle, Sparkles, Sun, Sliders, UploadCloud, Trash2, Cpu, Type, Play, ArrowLeft, Crosshair, Activity, Terminal, ShieldCheck, Radio, Layers, ArrowUpRight, Gauge, Moon, Waves, HelpCircle, HandHeart, Monitor, Eye, EyeOff, Database, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { springGlider, springSnappy, springFluid } from '@/lib/motion';
 import { supabase } from '@/lib/supabase';
-import { SettingsFAQPanel } from './settings/SettingsFAQPanel';
+import { SettingsFAQPanel } from './SettingsFAQPanel';
 import { THEMES, THEME_KEYS } from '@/data/constants';
 import type { Theme } from '@/data/constants';
 import { getDonationProgressPercent, PREMIUM_ACCENT } from '@/data/donation';
@@ -81,21 +81,34 @@ const ToggleSwitch = ({ label, description, checked, onChange, icon: Icon, dange
     style={
       checked && !danger
         ? {
-            borderColor: `rgba(${theme.glowPrimary}, 0.45)`,
-            backgroundColor: `rgba(${theme.glowPrimary}, 0.09)`,
-            boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.16)`,
+            borderColor: `rgba(${theme.glowPrimary}, 0.65)`,
+            background: `linear-gradient(135deg, rgba(${theme.glowPrimary}, 0.26) 0%, rgba(${theme.glowPrimary}, 0.08) 50%, rgba(0, 0, 0, 0.4) 100%), rgba(16, 20, 32, 0.7)`,
+            boxShadow: `0 0 24px rgba(${theme.glowPrimary}, 0.28), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(${theme.glowPrimary}, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.12)`,
           }
-        : undefined
+        : !danger ? {
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.3) 100%), rgba(12, 16, 24, 0.52)',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08)',
+          } : undefined
     }
-    className={`flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer select-none ${
+    className={`relative overflow-hidden flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer select-none backdrop-blur-xl group ${
       checked
         ? danger
           ? 'bg-red-500/10 border-red-500/30 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]'
           : ''
-        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15'
+        : 'hover:border-white/25 hover:scale-[1.01]'
     }`}
   >
-    <div className="flex items-center gap-3.5">
+    {/* Top Specular Glint Stripe */}
+    <div
+      className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none z-10"
+      style={{
+        background: checked && !danger
+          ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.8) 50%, rgba(${theme.glowPrimary}, 0.8) 75%, transparent 100%)`
+          : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%)',
+      }}
+    />
+    <div className="flex items-center gap-3.5 relative z-10">
       <motion.div
         animate={checked ? { scale: [1, 1.15, 1] } : { scale: 1 }}
         transition={{ duration: 0.3 }}
@@ -182,22 +195,251 @@ const TABS: TabItem[] = [
 interface FontSpecimen {
   name: string;
   tag: string;
+  category: 'code' | 'brutalist' | 'cyber' | 'speed' | 'vintage';
+  categoryLabel: string;
+  description: string;
+  badge: string;
   sample: string;
-  category: string;
+  glyphs: string;
 }
 
+const FONT_CATEGORIES = [
+  { id: 'all', label: 'All Typefaces' },
+  { id: 'code', label: 'Code & Ligatures' },
+  { id: 'brutalist', label: 'Brutalist & Tech' },
+  { id: 'cyber', label: 'Cyber & Sci-Fi' },
+  { id: 'speed', label: 'Speed & Ergonomic' },
+  { id: 'vintage', label: 'Typewriter & Retro' },
+] as const;
+
+const FONT_PRESET_SAMPLES = {
+  code: 'const [flow, speed] = [true, 142]; // => 99.8%',
+  prose: 'The quick brown fox jumps over the lazy dog.',
+  glyphs: '0O 1lI {} () <> == != !== => <= && ||',
+};
+
 const FONT_SPECIMENS: FontSpecimen[] = [
-  { name: 'JetBrains Mono', tag: 'MODERN CODE', sample: 'const speed = 120;', category: 'Monospace' },
-  { name: 'Fira Code', tag: 'LIGATURES', sample: 'fn => speed >= 100', category: 'Monospace' },
-  { name: 'Roboto Mono', tag: 'GEOMETRIC', sample: 'System.out.println()', category: 'Monospace' },
-  { name: 'Space Mono', tag: 'BRUTALIST', sample: 'return speed * 1.5;', category: 'Monospace' },
-  { name: 'IBM Plex Mono', tag: 'INDUSTRIAL', sample: 'export default engine;', category: 'Monospace' },
-  { name: 'Courier New', tag: 'CLASSIC', sample: 'The typewriter flows;', category: 'Classic' },
-  { name: 'Victor Mono', tag: 'CURSIVE', sample: 'function elegantCode()', category: 'Italic' },
-  { name: 'Share Tech Mono', tag: 'CYBERPUNK', sample: 'NEURAL_LINK_STABLE', category: 'Terminal' },
-  { name: 'Inconsolata', tag: 'CLEAN', sample: 'while (typing) { flow(); }', category: 'Monospace' },
-  { name: 'Pacifico', tag: 'DISPLAY', sample: 'Nova Flow State', category: 'Script' },
+  // ── Code & Ligatures ──
+  {
+    name: 'JetBrains Mono',
+    tag: 'DEVELOPER GOLD',
+    category: 'code',
+    categoryLabel: 'Code & Ligatures',
+    description: 'Enlarged lowercase x-height with unambiguous 0/O and 1/l glyphs.',
+    badge: 'LIGATURES',
+    sample: 'const [wpm, acc] = [142, 99.8];',
+    glyphs: '0O 1lI {} => !==',
+  },
+  {
+    name: 'Fira Code',
+    tag: 'LIGATURE PIONEER',
+    category: 'code',
+    categoryLabel: 'Code & Ligatures',
+    description: 'Iconic connected multi-character programming ligatures & operators.',
+    badge: 'LIGATURES',
+    sample: 'fn => speed >= 100 && flow === true',
+    glyphs: '!= == === => <=',
+  },
+  {
+    name: 'Cascadia Code',
+    tag: 'MICROSOFT STUDIO',
+    category: 'code',
+    categoryLabel: 'Code & Ligatures',
+    description: 'Modern Windows Terminal monospace with fluid ligature curves.',
+    badge: 'LIGATURES',
+    sample: 'interface Nova<T> => Promise<T>;',
+    glyphs: '0O 1lI -> => <|>',
+  },
+  {
+    name: 'Geist Mono',
+    tag: 'VERCEL DESIGN',
+    category: 'code',
+    categoryLabel: 'Code & Ligatures',
+    description: 'Ultra-modern Swiss geometric precision for developer tools.',
+    badge: 'SWISS TECH',
+    sample: 'export const engine: Flow = true;',
+    glyphs: '0O 1lI [] () =>',
+  },
+
+  // ── Brutalist & Tech ──
+  {
+    name: 'Martian Mono',
+    tag: 'NEO-BRUTALIST',
+    category: 'brutalist',
+    categoryLabel: 'Brutalist & Tech',
+    description: 'Grotesque proportions with wide stance and dense visual cadence.',
+    badge: 'BRUTALIST',
+    sample: 'OVERCLOCK // 100% CADENCE',
+    glyphs: '0O 1lI [0x4F] //',
+  },
+  {
+    name: 'Azeret Mono',
+    tag: 'GRAPHIC GROTESQUE',
+    category: 'brutalist',
+    categoryLabel: 'Brutalist & Tech',
+    description: 'Bold character forms with architectural terminals & striking numbers.',
+    badge: 'HIGH IMPACT',
+    sample: 'SYS_CORE.ACTIVE[0x4F] = 120;',
+    glyphs: '0O 1lI @#%&*{}',
+  },
+  {
+    name: 'Space Mono',
+    tag: '1960s SPACE AGE',
+    category: 'brutalist',
+    categoryLabel: 'Brutalist & Tech',
+    description: 'Retro-futuristic headline monospace blending brutalism & sci-fi rigor.',
+    badge: 'SPACE-AGE',
+    sample: 'return trajectory * Math.PI;',
+    glyphs: '0O 1lI ~^&*+=',
+  },
+  {
+    name: 'IBM Plex Mono',
+    tag: 'INDUSTRIAL HERITAGE',
+    category: 'brutalist',
+    categoryLabel: 'Brutalist & Tech',
+    description: 'Disciplined corporate-industrial engineering font with razor precision.',
+    badge: 'INDUSTRIAL',
+    sample: 'class Engine extends Subsystem {}',
+    glyphs: '0O 1lI -> {;} []',
+  },
+
+  // ── Cyber & Sci-Fi ──
+  {
+    name: 'Nova Mono',
+    tag: 'CELESTIAL MATRIX',
+    category: 'cyber',
+    categoryLabel: 'Cyber & Sci-Fi',
+    description: 'Monolinear futuristic glyphs with geometric loops matching TypeNova.',
+    badge: 'SIGNATURE',
+    sample: 'TYPENOVA.INIT_SYNAPSE(100)',
+    glyphs: '0O 1lI () <> ==',
+  },
+  {
+    name: 'Fragment Mono',
+    tag: 'SWISS 45° ANGLES',
+    category: 'cyber',
+    categoryLabel: 'Cyber & Sci-Fi',
+    description: 'High-contrast modern cuts with sharp 45-degree angled terminals.',
+    badge: 'ANGULAR',
+    sample: 'SELECT * FROM CYBERSPACE;',
+    glyphs: '0O 1lI // \\ ==',
+  },
+  {
+    name: 'Share Tech Mono',
+    tag: 'TACTICAL HUD',
+    category: 'cyber',
+    categoryLabel: 'Cyber & Sci-Fi',
+    description: 'Combat aviation HUD styling with military telemetry precision.',
+    badge: 'MIL-SPEC',
+    sample: 'NEURAL_LINK_STABLE // 120 WPM',
+    glyphs: '0O 1lI [OK] ::',
+  },
+
+  // ── Speed & Ergonomic ──
+  {
+    name: 'Spline Sans Mono',
+    tag: 'PROPORTIONAL SPEED',
+    category: 'speed',
+    categoryLabel: 'Speed & Ergonomic',
+    description: 'Purpose-built for code clarity and reading ease during rapid typing.',
+    badge: 'HIGH SPEED',
+    sample: 'while (typing) { flow(); }',
+    glyphs: '0O 1lI (flow) =>',
+  },
+  {
+    name: 'Red Hat Mono',
+    tag: 'HIGH CONTRAST',
+    category: 'speed',
+    categoryLabel: 'Speed & Ergonomic',
+    description: 'Engineered by Red Hat for maximum legibility and zero visual fatigue.',
+    badge: 'ZERO FATIGUE',
+    sample: 'stream.pipe(process.stdout);',
+    glyphs: '0O 1lI :: => .()',
+  },
+  {
+    name: 'DM Mono',
+    tag: 'GEOMETRIC MINIMAL',
+    category: 'speed',
+    categoryLabel: 'Speed & Ergonomic',
+    description: 'Colophon Foundry’s clean geometric shapes with rounded human touch.',
+    badge: 'MINIMALIST',
+    sample: 'speed.measure(accuracy);',
+    glyphs: '0O 1lI {} () .',
+  },
+  {
+    name: 'Overpass Mono',
+    tag: 'HIGHWAY GLANCE',
+    category: 'speed',
+    categoryLabel: 'Speed & Ergonomic',
+    description: 'Signage-inspired geometry engineered for instant split-second recognition.',
+    badge: 'INSTANT READ',
+    sample: 'ACCEL_LANE_OPEN_99.4%',
+    glyphs: '0O 1lI 100% []',
+  },
+  {
+    name: 'Ubuntu Mono',
+    tag: 'WARM HUMANIST',
+    category: 'speed',
+    categoryLabel: 'Speed & Ergonomic',
+    description: 'Fluid rounded curves with warm stroke endings for effortless reading.',
+    badge: 'HUMANIST',
+    sample: 'comfortable.marathon(120);',
+    glyphs: '0O 1lI (120) {}',
+  },
+
+  // ── Typewriter & Retro ──
+  {
+    name: 'Cutive Mono',
+    tag: 'MECHANICAL TYPEWRITER',
+    category: 'vintage',
+    categoryLabel: 'Typewriter & Retro',
+    description: 'Authentic mechanical typewriter typeface with crisp digital geometry.',
+    badge: 'ANALOG',
+    sample: 'The typewriter ribbon strikes true.',
+    glyphs: '0O 1lI !? "..."',
+  },
+  {
+    name: 'Special Elite',
+    tag: 'INK-BLEED REMINGTON',
+    category: 'vintage',
+    categoryLabel: 'Typewriter & Retro',
+    description: 'Tactile vintage mechanical keys with authentic subtle ink-bleed texture.',
+    badge: 'INK BLEED',
+    sample: 'Chapter IV. Midnight Keystrokes.',
+    glyphs: '0O 1lI - - --',
+  },
+  {
+    name: 'Silkscreen',
+    tag: '8-BIT RETRO ARCADE',
+    category: 'vintage',
+    categoryLabel: 'Typewriter & Retro',
+    description: 'Crisp arcade pixel monospace, incredible for speedruns and chiptune audio.',
+    badge: 'PIXEL 8-BIT',
+    sample: 'PRESS START TO TYPE 100%',
+    glyphs: '0O 1lI 1UP 2UP',
+  },
+  {
+    name: 'VT323',
+    tag: 'CRT PHOSPHOR TERMINAL',
+    category: 'vintage',
+    categoryLabel: 'Typewriter & Retro',
+    description: 'Classic 1980s green-screen CRT terminal font with vintage nostalgia.',
+    badge: 'CRT PHOSPHOR',
+    sample: 'READY. LOAD "*",8,1',
+    glyphs: '0O 1lI > RUN',
+  },
+  {
+    name: 'Victor Mono',
+    tag: 'CURSIVE CODE FLUIDITY',
+    category: 'vintage',
+    categoryLabel: 'Typewriter & Retro',
+    description: 'Monospace programming font featuring elegant semi-connected cursive italics.',
+    badge: 'CURSIVE',
+    sample: 'function elegantCode() { return flow; }',
+    glyphs: '0O 1lI { return }',
+  },
 ];
+
 
 interface SoundMeta {
   key: string;
@@ -257,7 +499,21 @@ export const SettingsModal = React.memo(function SettingsModal({
   const [activeTab, setActiveTab] = useState<'gameplay' | 'visuals' | 'shaders' | 'system' | 'ai' | 'usage' | 'faq' | 'report'>('visuals');
   const donationGoalPercent = getDonationProgressPercent();
   const [isDragging, setIsDragging] = useState(false);
+  const [wallpaperFit, setWallpaperFit] = useState<'contain' | 'cover'>('contain');
+  const [isWallpaperLightboxOpen, setIsWallpaperLightboxOpen] = useState(false);
   const wallpaperInputRef = useRef<HTMLInputElement>(null);
+
+  // Close wallpaper full-view on Escape before closing modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isWallpaperLightboxOpen) {
+        e.stopPropagation();
+        setIsWallpaperLightboxOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isWallpaperLightboxOpen]);
 
   // Pre-load font specimens asynchronously when settings opens
   useEffect(() => {
@@ -285,6 +541,16 @@ export const SettingsModal = React.memo(function SettingsModal({
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playingSwitch, setPlayingSwitch] = useState<string | null>(null);
   const playingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Typography Playground State
+  const [fontCategory, setFontCategory] = useState<string>('all');
+  const [fontTestText, setFontTestText] = useState<string>('');
+  const [fontPreset, setFontPreset] = useState<'signature' | 'code' | 'prose' | 'glyphs'>('signature');
+
+  const filteredFonts = useMemo(() => {
+    if (fontCategory === 'all') return FONT_SPECIMENS;
+    return FONT_SPECIMENS.filter(s => s.category === fontCategory);
+  }, [fontCategory]);
 
   const triggerSoundPreview = (key: string) => {
     selectSoundProfile(key);
@@ -323,6 +589,12 @@ export const SettingsModal = React.memo(function SettingsModal({
     setIsTypingSandbox(false);
     sandboxStartTimeRef.current = null;
   };
+
+  const handleGlassMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+    e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+  };
   
   useEffect(() => {
     const handler = (e: any) => {
@@ -342,7 +614,7 @@ export const SettingsModal = React.memo(function SettingsModal({
     byokKey, byokUrl, setByokUrl, byokModel,
     selectedProvider, setSelectedProvider, isAmbiguousSk,
     connectionStatus, connectionError, availableModels,
-    handleKeyChange, handleModelChange,
+    handleKeyChange, handleModelChange, handleProviderSelect,
     persona, setPersona,
     debriefPolicy, setDebriefPolicy,
     latencyMs, isAutoFetching, engineTier,
@@ -351,7 +623,7 @@ export const SettingsModal = React.memo(function SettingsModal({
   } = engineConfig;
   
   const [showApiKey, setShowApiKey] = useState(false);
-  const [_isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [pingStatus, setPingStatus] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
   const [pingReply, setPingReply] = useState<string | null>(null);
@@ -430,16 +702,59 @@ export const SettingsModal = React.memo(function SettingsModal({
     };
   }, []);
 
+  const handleExportBackup = () => {
+    try {
+      const backup: Record<string, unknown> = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('typenova_') || key.startsWith('aru_') || key.startsWith('stats_') || key.startsWith('settings_') || key.startsWith('history_') || key.startsWith('v2_'))) {
+          try {
+            backup[key] = JSON.parse(localStorage.getItem(key) || '""');
+          } catch {
+            backup[key] = localStorage.getItem(key);
+          }
+        }
+      }
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `typenova-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('System configuration backup exported');
+    } catch {
+      toast.error('Failed to export backup data');
+    }
+  };
+
+  const handleClearCache = () => {
+    if (window.confirm('Clear temporary engine cache and telemetry? Your preferences, scores, and custom wallpapers will remain intact.')) {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('cache') || key.includes('temp') || key.includes('telemetry') || key.includes('ping'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      toast.success('Temporary engine cache cleared');
+    }
+  };
+
   const currentHeader = TAB_HEADERS[activeTab] || { title: 'Settings', desc: '' };
 
   return (
-    <div className="fixed inset-0 z-[500] flex flex-col md:flex-row bg-[#08090e]/98 backdrop-blur-3xl animate-in fade-in duration-300 overflow-hidden" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-[500] w-full h-full max-w-full max-h-full flex flex-col md:flex-row bg-[#060810]/68 backdrop-blur-2xl backdrop-saturate-[190%] animate-in fade-in duration-300 overflow-hidden select-none"
+      onClick={e => e.stopPropagation()}
+    >
 
       {/* Left Sidebar */}
-      <div className="w-full md:w-72 lg:w-80 border-b md:border-b-0 md:border-r border-white/10 bg-black/45 backdrop-blur-2xl flex flex-col p-6 lg:p-8 relative shrink-0 justify-between h-full">
+      <div className="w-full md:w-64 lg:w-72 border-b md:border-b-0 md:border-r border-white/10 bg-black/40 backdrop-blur-3xl shadow-[inset_-1px_0_0_rgba(255,255,255,0.08),inset_1px_1px_0_rgba(255,255,255,0.04)] flex flex-col p-4 md:p-5 lg:p-6 relative shrink-0 justify-between h-auto md:h-full overflow-y-auto custom-scrollbar">
         <div>
           {/* Header Badge */}
-          <div className="flex items-center gap-3.5 mb-6 lg:mb-8">
+          <div className="flex items-center gap-3.5 mb-5 lg:mb-6">
             <div
               className="w-10 h-10 rounded-2xl flex items-center justify-center border shadow-xl"
               style={{
@@ -458,7 +773,7 @@ export const SettingsModal = React.memo(function SettingsModal({
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 custom-scrollbar">
+          <div className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible pb-2 md:pb-0 custom-scrollbar">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
@@ -483,9 +798,9 @@ export const SettingsModal = React.memo(function SettingsModal({
                       transition={springGlider}
                       className="absolute inset-0 rounded-2xl border"
                       style={{
-                        borderColor: `rgba(${theme.glowPrimary}, 0.55)`,
-                        backgroundColor: `rgba(${theme.glowPrimary}, 0.14)`,
-                        boxShadow: `0 0 24px rgba(${theme.glowPrimary}, 0.22), inset 0 1px 1px rgba(255,255,255,0.18)`,
+                        borderColor: `rgba(${theme.glowPrimary}, 0.65)`,
+                        backgroundColor: `rgba(${theme.glowPrimary}, 0.16)`,
+                        boxShadow: `0 0 24px rgba(${theme.glowPrimary}, 0.28), inset 0 1px 1px rgba(255,255,255,0.35)`,
                       }}
                     />
                   )}
@@ -574,14 +889,14 @@ export const SettingsModal = React.memo(function SettingsModal({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
               ONLINE
             </span>
-            <span>TYPENOVA 2.9</span>
+            <span>TYPENOVA 3.1</span>
           </div>
           <motion.button
             whileHover={{ scale: 1.02, x: -3 }}
             whileTap={{ scale: 0.97 }}
             transition={springSnappy}
             onClick={onClose}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-lg active:scale-95"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 hover:text-white text-xs font-mono font-bold transition-all cursor-pointer shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_4px_12px_rgba(0,0,0,0.3)] active:scale-95"
           >
             <ArrowLeft size={14} /> RETURN TO ARENA (ESC)
           </motion.button>
@@ -589,10 +904,20 @@ export const SettingsModal = React.memo(function SettingsModal({
       </div>
 
       {/* Right Content */}
-      <div className="flex-1 flex flex-col relative bg-transparent min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col relative bg-transparent min-w-0 h-full overflow-hidden overflow-x-hidden">
+
+        {/* Ambient Subsurface Theme Caustic Orbs */}
+        <div
+          className="absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full pointer-events-none blur-[140px] opacity-25 transition-all duration-700 pointer-events-none"
+          style={{ background: `radial-gradient(circle, rgb(${theme.glowPrimary}), transparent 70%)` }}
+        />
+        <div
+          className="absolute top-1/2 -left-40 w-[500px] h-[500px] rounded-full pointer-events-none blur-[160px] opacity-15 transition-all duration-700 pointer-events-none"
+          style={{ background: `radial-gradient(circle, rgb(${theme.glowPrimary}), transparent 70%)` }}
+        />
 
         {/* Header */}
-        <div className="px-8 lg:px-14 py-6 border-b border-white/10 flex items-center justify-between bg-black/25 backdrop-blur-md shrink-0">
+        <div className="px-6 lg:px-10 py-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.06),inset_0_-1px_0_rgba(0,0,0,0.3)] shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span
@@ -603,7 +928,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                   color: `rgb(${theme.glowPrimary})`,
                 }}
               >
-                CONFIG ENGINE // V2.8
+                CONFIG ENGINE // V3.1
               </span>
             </div>
             <h3 className="text-2xl lg:text-3xl font-black tracking-wide text-white">
@@ -619,14 +944,14 @@ export const SettingsModal = React.memo(function SettingsModal({
             whileTap={{ scale: 0.92 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
             onClick={onClose}
-            className="group w-11 h-11 rounded-2xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer border border-white/10 hover:border-white/20 active:scale-95 shadow-xl"
+            className="group w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer border border-white/10 hover:border-white/20 active:scale-95 shadow-xl"
             title="Close (ESC)"
           >
-            <X size={20} />
+            <X size={18} />
           </motion.button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-8 lg:px-14 py-8 custom-scrollbar max-w-[1600px] w-full mx-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-10 py-6 custom-scrollbar max-w-[1600px] w-full mx-auto">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={activeTab}
@@ -764,7 +1089,16 @@ export const SettingsModal = React.memo(function SettingsModal({
                         <button
                           type="button"
                           onClick={() => applyPreset('stealth')}
-                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300 hover:text-white hover:bg-cyan-500/20 transition-all cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider hover:text-white transition-all cursor-pointer"
+                          style={{
+                            color: `rgb(${theme.glowPrimary})`,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = `rgba(${theme.glowPrimary}, 0.15)`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
                           title="Blind Mode + Fog"
                         >
                           Stealth
@@ -772,7 +1106,16 @@ export const SettingsModal = React.memo(function SettingsModal({
                         <button
                           type="button"
                           onClick={() => applyPreset('rival')}
-                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider hover:text-white transition-all cursor-pointer"
+                          style={{
+                            color: `rgb(${theme.glowPrimary})`,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = `rgba(${theme.glowPrimary}, 0.15)`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
                           title="Ghost Pacer"
                         >
                           Rival
@@ -780,7 +1123,16 @@ export const SettingsModal = React.memo(function SettingsModal({
                         <button
                           type="button"
                           onClick={() => applyPreset('nightmare')}
-                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider text-amber-300 hover:text-white hover:bg-amber-500/20 transition-all cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider hover:text-white transition-all cursor-pointer"
+                          style={{
+                            color: `rgb(${theme.glowPrimary})`,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = `rgba(${theme.glowPrimary}, 0.15)`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
                           title="All Lethal Modifiers"
                         >
                           Nightmare
@@ -1030,7 +1382,12 @@ export const SettingsModal = React.memo(function SettingsModal({
                         <motion.div
                           animate={{ x: [-150, 150, -150] }}
                           transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
-                          className="absolute top-2 flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                          className="absolute top-2 flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border"
+                          style={{
+                            backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                            borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                            color: `rgb(${theme.glowPrimary})`,
+                          }}
                         >
                           <Ghost size={11} />
                           <span>PB Ghost // 88 WPM</span>
@@ -1103,7 +1460,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                   <h4 className="text-xs font-bold text-zinc-400 tracking-wider uppercase mb-3 flex items-center gap-2">
                     <Palette size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Color Theme
                   </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5">
                     {THEME_KEYS.map((key, idx) => {
                       const t = THEMES[key];
                       const isActive = idx === themeIndex;
@@ -1117,19 +1474,32 @@ export const SettingsModal = React.memo(function SettingsModal({
                           style={
                             isActive
                               ? {
-                                  borderColor: `rgba(${t.glowPrimary}, 0.55)`,
-                                  backgroundColor: `rgba(${t.glowPrimary}, 0.12)`,
-                                  boxShadow: `0 0 18px rgba(${t.glowPrimary}, 0.28)`,
+                                  borderColor: `rgba(${t.glowPrimary}, 0.75)`,
+                                  background: `linear-gradient(135deg, rgba(${t.glowPrimary}, 0.32) 0%, rgba(${t.glowPrimary}, 0.1) 50%, rgba(0, 0, 0, 0.35) 100%), rgba(16, 20, 32, 0.72)`,
+                                  boxShadow: `0 0 24px rgba(${t.glowPrimary}, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 18px rgba(${t.glowPrimary}, 0.25), inset 1px 0 0 rgba(255, 255, 255, 0.15)`,
                                 }
-                              : undefined
+                              : {
+                                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.3) 100%), rgba(12, 16, 24, 0.55)',
+                                  borderColor: 'rgba(255, 255, 255, 0.12)',
+                                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08)',
+                                }
                           }
-                          className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold tracking-wide transition-colors cursor-pointer select-none ${
+                          className={`relative overflow-hidden min-w-0 flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer select-none border backdrop-blur-xl ${
                             isActive
-                              ? 'border text-white'
-                              : 'text-zinc-400 bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] hover:border-white/15 hover:text-white'
+                              ? 'text-white'
+                              : 'text-zinc-400 hover:border-white/25 hover:text-white hover:scale-[1.02]'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Top Specular Glint Line */}
+                          <div
+                            className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                            style={{
+                              background: isActive
+                                ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, rgba(${t.glowPrimary}, 0.8) 75%, transparent 100%)`
+                                : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%)',
+                            }}
+                          />
+                          <div className="flex items-center gap-2 min-w-0 relative z-10">
                             <motion.span
                               animate={isActive ? { scale: [1, 1.25, 1] } : { scale: 1 }}
                               transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
@@ -1146,6 +1516,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                               initial={{ scale: 0, rotate: -45 }}
                               animate={{ scale: 1, rotate: 0 }}
                               transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                              className="relative z-10"
                             >
                               <Check
                                 size={13}
@@ -1172,20 +1543,37 @@ export const SettingsModal = React.memo(function SettingsModal({
                       style={
                         themeIndex === -1
                           ? {
-                              borderColor: `rgba(${wallpaperTheme?.glowPrimary || '56,189,248'}, 0.55)`,
-                              backgroundColor: `rgba(${wallpaperTheme?.glowPrimary || '56,189,248'}, 0.12)`,
-                              boxShadow: `0 0 18px rgba(${wallpaperTheme?.glowPrimary || '56,189,248'}, 0.28)`,
+                              borderColor: `rgba(${wallpaperTheme?.glowPrimary || theme.glowPrimary}, 0.75)`,
+                              background: `linear-gradient(135deg, rgba(${wallpaperTheme?.glowPrimary || theme.glowPrimary}, 0.32) 0%, rgba(${wallpaperTheme?.glowPrimary || theme.glowPrimary}, 0.1) 50%, rgba(0, 0, 0, 0.35) 100%), rgba(16, 20, 32, 0.72)`,
+                              boxShadow: `0 0 24px rgba(${wallpaperTheme?.glowPrimary || theme.glowPrimary}, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 18px rgba(${wallpaperTheme?.glowPrimary || theme.glowPrimary}, 0.25), inset 1px 0 0 rgba(255, 255, 255, 0.15)`,
                             }
-                          : undefined
+                          : {
+                              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.3) 100%), rgba(12, 16, 24, 0.55)',
+                              borderColor: 'rgba(255, 255, 255, 0.12)',
+                              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08)',
+                            }
                       }
-                      className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold tracking-wide transition-colors cursor-pointer select-none ${
+                      className={`relative overflow-hidden min-w-0 flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer select-none border backdrop-blur-xl ${
                         themeIndex === -1
-                          ? 'border text-white'
-                          : 'text-zinc-400 bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] hover:border-white/15 hover:text-white'
+                          ? 'text-white'
+                          : 'text-zinc-400 hover:border-white/25 hover:text-white hover:scale-[1.02]'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <ImagePlus size={14} className={themeIndex === -1 ? 'text-cyan-300' : 'text-zinc-400'} />
+                      {/* Top Specular Glint Line */}
+                      <div
+                        className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                        style={{
+                          background: themeIndex === -1
+                            ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, rgba(${wallpaperTheme?.glowPrimary || theme.glowPrimary}, 0.8) 75%, transparent 100%)`
+                            : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%)',
+                        }}
+                      />
+                      <div className="flex items-center gap-2 min-w-0 relative z-10">
+                        <ImagePlus
+                          size={14}
+                          className={themeIndex === -1 ? '' : 'text-zinc-400'}
+                          style={{ color: themeIndex === -1 ? `rgb(${theme.glowPrimary})` : undefined }}
+                        />
                         <span className="truncate">Custom</span>
                       </div>
                       {themeIndex === -1 && (
@@ -1193,11 +1581,12 @@ export const SettingsModal = React.memo(function SettingsModal({
                           initial={{ scale: 0, rotate: -45 }}
                           animate={{ scale: 1, rotate: 0 }}
                           transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                          className="relative z-10"
                         >
                           <Check
                             size={13}
                             className="shrink-0"
-                            style={{ color: `rgb(${wallpaperTheme?.glowPrimary || '56,189,248'})` }}
+                            style={{ color: `rgb(${wallpaperTheme?.glowPrimary || theme.glowPrimary})` }}
                           />
                         </motion.div>
                       )}
@@ -1221,79 +1610,318 @@ export const SettingsModal = React.memo(function SettingsModal({
                   
                   {/* ═══ Custom Wallpaper Command Deck ═══ */}
                   {themeIndex === -1 && (
-                    <div className="mt-5 p-5 rounded-2xl bg-zinc-950/80 border border-white/10 flex flex-col gap-5 animate-in fade-in slide-in-from-top-2 shadow-2xl backdrop-blur-xl">
-                      
-                      {/* Active Wallpaper Preview or Dropzone */}
-                      {wallpaperUrl ? (
-                        <div className="w-full relative h-40 rounded-2xl overflow-hidden border border-white/15 shadow-xl group">
-                          <div
-                            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                            style={{ backgroundImage: `url(${wallpaperUrl})` }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end justify-between p-4 backdrop-blur-[2px]">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                              <span className="text-xs font-mono font-bold text-white uppercase tracking-wider">
-                                Active Custom Wallpaper
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => wallpaperInputRef.current?.click()}
-                                className="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 border border-white/20 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-md"
-                              >
-                                <UploadCloud size={13} /> Change Image
-                              </button>
-                              <button
-                                onClick={() => { clearWallpaper(); selectTheme(0); }}
-                                className="p-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-xl transition-all cursor-pointer active:scale-95"
-                                title="Remove Wallpaper"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                          onDragLeave={() => setIsDragging(false)}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            setIsDragging(false);
-                            const file = e.dataTransfer.files?.[0];
-                            if (file) {
-                              handleFileUpload(file);
-                              selectTheme(-1);
-                            }
-                          }}
-                          onClick={() => wallpaperInputRef.current?.click()}
-                          className={`w-full h-36 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all gap-2.5 p-4 ${
-                            isDragging
-                              ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300 scale-[1.01]'
-                              : 'border-white/20 hover:border-white/40 hover:bg-white/[0.03] text-zinc-400 hover:text-zinc-200'
-                          }`}
-                        >
-                          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-cyan-400 shadow-inner">
-                            <UploadCloud size={20} />
-                          </div>
-                          <div className="flex flex-col items-center text-center">
-                            <span className="text-xs font-bold tracking-wider uppercase text-white">
-                              Drop Your Wallpaper Image Here
-                            </span>
-                            <span className="text-[10px] text-zinc-400 mt-0.5">
-                              or click to browse from device (4K & 8K supported via IndexedDB)
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                    <div
+                      onMouseMove={handleGlassMouseMove}
+                      className="mt-4 p-4 sm:p-5 rounded-2xl border flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 shadow-2xl backdrop-blur-2xl relative overflow-hidden transition-all duration-300 group"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.025) 35%, rgba(0, 0, 0, 0.35) 100%), rgba(14, 18, 28, 0.6)',
+                        borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                        boxShadow: `0 24px 60px -12px rgba(0, 0, 0, 0.7), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.6), inset 0 0 36px -6px rgba(${theme.glowPrimary}, 0.28), inset 1px 0 0 rgba(255, 255, 255, 0.14), inset -1px 0 0 rgba(255, 255, 255, 0.07)`,
+                      }}
+                    >
+                      {/* Top Specular Chromatic Dispersion Glint Stripe */}
+                      <div
+                        className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none z-20"
+                        style={{
+                          background: `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 15%, rgba(255, 255, 255, 0.95) 45%, rgba(${theme.glowPrimary}, 0.85) 65%, rgba(255, 255, 255, 0.3) 85%, transparent 100%)`,
+                        }}
+                      />
 
-                      {/* Curated High-Res Wallpaper Presets */}
-                      <div className="flex flex-col gap-2.5">
+                      {/* Dynamic Pointer Specular Refraction Glint */}
+                      <div
+                        className="absolute inset-0 pointer-events-none rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        style={{
+                          background: 'radial-gradient(circle 320px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.12), transparent 70%)',
+                        }}
+                      />
+
+                      {/* Diagonal Specular Caustic Sheen */}
+                      <div
+                        className="absolute inset-0 pointer-events-none rounded-[inherit] overflow-hidden"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 28%, transparent 55%, rgba(255, 255, 255, 0.04) 100%)',
+                        }}
+                      />
+                      
+                      {/* Top Row: Preview/Dropzone (Left) + Sliders & Neon Accent (Right) */}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch relative z-10">
+                        
+                        {/* Left Column (Preview or Dropzone): 5 cols on lg */}
+                        <div className="lg:col-span-5 flex flex-col justify-between">
+                          {wallpaperUrl ? (
+                            <div
+                              className="w-full relative aspect-video rounded-xl overflow-hidden border shadow-xl group bg-black/90"
+                              style={{
+                                borderColor: 'rgba(255, 255, 255, 0.25)',
+                                boxShadow: `0 12px 32px -8px rgba(0, 0, 0, 0.75), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.55), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.6), inset 0 0 24px rgba(${theme.glowPrimary}, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.15)`,
+                              }}
+                            >
+                              {/* Ambient blurred backdrop layer: fills letterbox edges */}
+                              <div
+                                className="absolute inset-0 bg-cover bg-center blur-xl opacity-40 scale-110 pointer-events-none transition-all duration-700"
+                                style={{ backgroundImage: `url(${wallpaperUrl})` }}
+                              />
+
+                              {/* Sharp Foreground Image Layer (16:9 Uncropped by default) */}
+                              <div
+                                className={`absolute inset-0 transition-transform duration-500 group-hover:scale-[1.01] ${
+                                  wallpaperFit === 'contain'
+                                    ? 'bg-contain bg-center bg-no-repeat'
+                                    : 'bg-cover bg-center'
+                                }`}
+                                style={{
+                                  backgroundImage: `url(${wallpaperUrl})`,
+                                  filter: `brightness(${brightness}) blur(${blur}px)`,
+                                }}
+                              />
+
+                              {/* Top Bar Overlay */}
+                              <div className="absolute top-0 inset-x-0 p-2.5 bg-gradient-to-b from-black/85 via-black/40 to-transparent flex items-center justify-between z-20">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                                  <span className="text-[11px] font-mono font-bold text-white uppercase tracking-wider">
+                                    Active View
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  {/* Fit Mode Toggle */}
+                                  <div className="flex items-center bg-black/70 border border-white/15 rounded-lg p-0.5 backdrop-blur-md shadow-sm">
+                                    <button
+                                      type="button"
+                                      onClick={() => setWallpaperFit('contain')}
+                                      className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                                        wallpaperFit === 'contain'
+                                          ? 'bg-white/20 text-white shadow-sm'
+                                          : 'text-zinc-400 hover:text-white'
+                                      }`}
+                                      style={wallpaperFit === 'contain' ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+                                      title="Full View: Shows entire wallpaper without cutting off top or bottom"
+                                    >
+                                      Fit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setWallpaperFit('cover')}
+                                      className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                                        wallpaperFit === 'cover'
+                                          ? 'bg-white/20 text-white shadow-sm'
+                                          : 'text-zinc-400 hover:text-white'
+                                      }`}
+                                      style={wallpaperFit === 'cover' ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+                                      title="Fill: Fills container edge-to-edge"
+                                    >
+                                      Fill
+                                    </button>
+                                  </div>
+
+                                  {/* Inspect Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsWallpaperLightboxOpen(true)}
+                                    className="px-2 py-1 bg-black/70 hover:bg-white/15 border border-white/15 rounded-lg text-[9px] font-mono font-bold text-zinc-300 hover:text-white transition-all flex items-center gap-1 cursor-pointer backdrop-blur-md shadow-sm"
+                                    title="Open Fullscreen Wallpaper Viewer"
+                                  >
+                                    <Eye size={11} style={{ color: `rgb(${theme.glowPrimary})` }} />
+                                    <span>Inspect</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Bottom Action Bar */}
+                              <div className="absolute bottom-0 inset-x-0 p-2.5 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-center justify-between z-20">
+                                <span className="text-[10px] font-mono text-zinc-300 drop-shadow">
+                                  {Math.round(brightness * 100)}% / {blur}px
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={() => wallpaperInputRef.current?.click()}
+                                    className="px-2.5 py-1 bg-white/15 hover:bg-white/25 border border-white/20 rounded-lg text-[10px] font-bold text-white transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-md backdrop-blur-md"
+                                    title="Upload new image"
+                                  >
+                                    <UploadCloud size={11} /> Change
+                                  </button>
+                                  <button
+                                    onClick={() => { clearWallpaper(); selectTheme(0); }}
+                                    className="p-1 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-lg transition-all cursor-pointer active:scale-95 backdrop-blur-md"
+                                    title="Remove Wallpaper"
+                                  >
+                                    <Trash2 size={11} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                              onDragLeave={() => setIsDragging(false)}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                setIsDragging(false);
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) {
+                                  handleFileUpload(file);
+                                  selectTheme(-1);
+                                }
+                              }}
+                              onClick={() => wallpaperInputRef.current?.click()}
+                              className={`w-full aspect-video border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all gap-2 p-3 text-center backdrop-blur-xl ${
+                                isDragging
+                                  ? 'scale-[1.01]'
+                                  : 'border-white/20 hover:border-white/40 hover:bg-white/[0.03] text-zinc-400 hover:text-zinc-200'
+                              }`}
+                              style={isDragging ? {
+                                borderColor: `rgb(${theme.glowPrimary})`,
+                                backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
+                                color: `rgb(${theme.glowPrimary})`,
+                              } : {
+                                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.25) 100%), rgba(10, 12, 18, 0.45)',
+                                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15)',
+                              }}
+                            >
+                              <div
+                                className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-inner"
+                                style={{ color: `rgb(${theme.glowPrimary})` }}
+                              >
+                                <UploadCloud size={16} />
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <span className="text-[11px] font-bold tracking-wider uppercase text-white">
+                                  Upload Wallpaper
+                                </span>
+                                <span className="text-[9px] text-zinc-400">
+                                  Drag & drop or browse
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right Column: Controls (Brightness, Blur, Swatches): 7 cols on lg */}
+                        <div
+                          className="lg:col-span-7 flex flex-col justify-between gap-3 p-3 sm:p-3.5 rounded-xl border backdrop-blur-xl relative overflow-hidden"
+                          style={{
+                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.3) 100%), rgba(12, 16, 24, 0.55)',
+                            borderColor: 'rgba(255, 255, 255, 0.14)',
+                            boxShadow: `0 8px 24px -6px rgba(0, 0, 0, 0.45), inset 0 1.5px 0.5px rgba(255, 255, 255, 0.38), inset 0 -1px 1px rgba(0, 0, 0, 0.4), inset 0 0 20px -4px rgba(${theme.glowPrimary}, 0.15), inset 1px 0 0 rgba(255, 255, 255, 0.1)`,
+                          }}
+                        >
+                          {/* Top Specular Stripe */}
+                          <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
+
+                          {/* Sliders */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
+                            {/* Brightness */}
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                                <span className="flex items-center gap-1.5 text-zinc-400 uppercase text-[10px] tracking-wider">
+                                  <Sun size={12} style={{ color: `rgb(${theme.glowPrimary})` }} /> Brightness
+                                </span>
+                                <span className="font-mono text-[11px]" style={{ color: `rgb(${theme.glowPrimary})` }}>
+                                  {Math.round(brightness * 100)}%
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0.2"
+                                max="1.0"
+                                step="0.05"
+                                value={brightness}
+                                onChange={(e) => setBrightness?.(parseFloat(e.target.value))}
+                                className="w-full cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                                style={{ accentColor: `rgb(${theme.glowPrimary})` }}
+                              />
+                            </div>
+
+                            {/* Blur */}
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+                                <span className="flex items-center gap-1.5 text-zinc-400 uppercase text-[10px] tracking-wider">
+                                  <Sliders size={12} style={{ color: `rgb(${theme.glowPrimary})` }} /> Ambient Blur
+                                </span>
+                                <span className="font-mono text-[11px]" style={{ color: `rgb(${theme.glowPrimary})` }}>
+                                  {blur}px
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="16"
+                                step="1"
+                                value={blur}
+                                onChange={(e) => setBlur?.(parseInt(e.target.value, 10))}
+                                className="w-full cursor-pointer h-1.5 bg-white/10 rounded-lg"
+                                style={{ accentColor: `rgb(${theme.glowPrimary})` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Accent Swatches */}
+                          <div className="flex flex-col gap-1.5 pt-2 border-t border-white/5 relative z-10">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
+                              <Palette size={11} style={{ color: `rgb(${theme.glowPrimary})` }} /> UI Neon Accent
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                              {ACCENT_SWATCHES.map((swatch) => {
+                                const isSelected = customAccent === swatch.id;
+                                const isAuto = swatch.id === 'auto';
+                                const dynamicAutoColor = wallpaperTheme?.glowPrimary
+                                  ? `rgb(${wallpaperTheme.glowPrimary})`
+                                  : `rgb(${theme.glowPrimary})`;
+                                const swatchColor = isAuto ? dynamicAutoColor : swatch.color;
+                                const swatchBorder = isAuto ? dynamicAutoColor : swatch.border;
+
+                                return (
+                                  <button
+                                    key={swatch.id}
+                                    onClick={() => setCustomAccent?.(swatch.id)}
+                                    style={
+                                      isSelected
+                                        ? {
+                                            background: `linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.05) 100%), rgba(20, 24, 36, 0.75)`,
+                                            borderColor: 'rgba(255, 255, 255, 0.45)',
+                                            boxShadow: `0 0 16px ${swatchBorder}50, inset 0 1.5px 0.5px rgba(255, 255, 255, 0.5), inset 0 -1px 1px rgba(0, 0, 0, 0.4)`,
+                                          }
+                                        : {
+                                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(0, 0, 0, 0.25) 100%), rgba(12, 16, 24, 0.5)',
+                                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                                            boxShadow: 'inset 0 1px 0.5px rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.3)',
+                                          }
+                                    }
+                                    className={`relative overflow-hidden flex items-center justify-between px-2 py-1 rounded-lg text-[10px] font-bold tracking-wide transition-all cursor-pointer border ${
+                                      isSelected
+                                        ? 'text-white'
+                                        : 'text-zinc-400 hover:text-white hover:border-white/20 hover:scale-[1.02]'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span
+                                        className="w-2 h-2 rounded-full shrink-0 shadow-sm"
+                                        style={{
+                                          backgroundColor: swatchColor,
+                                          boxShadow: isSelected ? `0 0 8px ${swatchBorder}` : 'none',
+                                        }}
+                                      />
+                                      <span className="truncate">{swatch.label}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <Check size={10} style={{ color: swatchBorder }} />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
+
+                      {/* Bottom Row: Curated Presets */}
+                      <div className="flex flex-col gap-2 pt-2 border-t border-white/5 relative z-10">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-                          <Sparkles size={11} className="text-cyan-400" /> Curated High-Res Presets
+                          <Sparkles size={11} style={{ color: `rgb(${theme.glowPrimary})` }} /> Curated Presets
                         </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {CURATED_WALLPAPERS.map((preset) => {
                             const isCuratedActive = wallpaperUrl === preset.url;
                             return (
@@ -1303,107 +1931,35 @@ export const SettingsModal = React.memo(function SettingsModal({
                                   selectCuratedWallpaper?.(preset);
                                   selectTheme(-1);
                                 }}
-                                className={`relative h-20 rounded-xl overflow-hidden border text-left transition-all group cursor-pointer ${
+                                className={`relative h-14 sm:h-16 rounded-xl overflow-hidden border text-left transition-all group cursor-pointer ${
                                   isCuratedActive
-                                    ? 'border-cyan-400 ring-2 ring-cyan-400/40 shadow-[0_0_15px_rgba(6,182,212,0.3)] scale-[1.02]'
-                                    : 'border-white/10 hover:border-white/30 opacity-75 hover:opacity-100'
+                                    ? 'scale-[1.02]'
+                                    : 'border-white/15 hover:border-white/40 opacity-80 hover:opacity-100'
                                 }`}
+                                style={
+                                  isCuratedActive
+                                    ? {
+                                        borderColor: `rgb(${theme.glowPrimary})`,
+                                        boxShadow: `0 0 24px rgba(${theme.glowPrimary}, 0.5), inset 0 1.5px 0.5px rgba(255, 255, 255, 0.65), inset 0 -1px 1px rgba(0, 0, 0, 0.5)`,
+                                      }
+                                    : {
+                                        boxShadow: 'inset 0 1.5px 0.5px rgba(255, 255, 255, 0.35), inset 0 -1px 1px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3)',
+                                      }
+                                }
                               >
                                 <div
                                   className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
                                   style={{ backgroundImage: `url(${preset.thumbnail})` }}
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
                                 <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between">
                                   <span className="text-[10px] font-bold text-white truncate drop-shadow-md">
                                     {preset.name}
                                   </span>
                                   {isCuratedActive && (
-                                    <Check size={12} className="text-cyan-400 shrink-0" />
+                                    <Check size={11} style={{ color: `rgb(${theme.glowPrimary})` }} className="shrink-0" />
                                   )}
                                 </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Visual Sliders: Brightness & Blur */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-white/5">
-                        {/* Brightness Slider */}
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
-                            <span className="flex items-center gap-1.5 text-zinc-400 uppercase text-[10px] tracking-wider">
-                              <Sun size={12} className="text-amber-400" /> Brightness
-                            </span>
-                            <span className="font-mono text-cyan-300 text-[11px]">
-                              {Math.round(brightness * 100)}%
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.2"
-                            max="1.0"
-                            step="0.05"
-                            value={brightness}
-                            onChange={(e) => setBrightness?.(parseFloat(e.target.value))}
-                            className="w-full accent-cyan-400 cursor-pointer h-1.5 bg-white/10 rounded-lg"
-                          />
-                        </div>
-
-                        {/* Blur Slider */}
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
-                            <span className="flex items-center gap-1.5 text-zinc-400 uppercase text-[10px] tracking-wider">
-                              <Sliders size={12} className="text-purple-400" /> Ambient Blur
-                            </span>
-                            <span className="font-mono text-purple-300 text-[11px]">
-                              {blur}px
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="16"
-                            step="1"
-                            value={blur}
-                            onChange={(e) => setBlur?.(parseInt(e.target.value, 10))}
-                            className="w-full accent-purple-400 cursor-pointer h-1.5 bg-white/10 rounded-lg"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Accent Palette Swatches */}
-                      <div className="flex flex-col gap-2 pt-1 border-t border-white/5">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-                          <Palette size={11} className="text-cyan-400" /> UI Neon Accent
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {ACCENT_SWATCHES.map((swatch) => {
-                            const isSelected = customAccent === swatch.id;
-                            return (
-                              <button
-                                key={swatch.id}
-                                onClick={() => setCustomAccent?.(swatch.id)}
-                                className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[11px] font-bold tracking-wide transition-all cursor-pointer border ${
-                                  isSelected
-                                    ? 'bg-white/10 border-white/40 text-white shadow-md'
-                                    : 'bg-white/[0.03] border-white/5 text-zinc-400 hover:text-white hover:bg-white/[0.06]'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm"
-                                    style={{
-                                      backgroundColor: swatch.color,
-                                      boxShadow: isSelected ? `0 0 8px ${swatch.border}` : 'none',
-                                    }}
-                                  />
-                                  <span className="truncate">{swatch.label}</span>
-                                </div>
-                                {isSelected && (
-                                  <Check size={11} style={{ color: swatch.border }} />
-                                )}
                               </button>
                             );
                           })}
@@ -1416,20 +1972,46 @@ export const SettingsModal = React.memo(function SettingsModal({
 
                 {/* ── Display Scaling & UI Zoom ── */}
                 <div
-                  className="p-5 rounded-2xl border bg-white/[0.02] backdrop-blur-xl relative overflow-hidden"
+                  onMouseMove={handleGlassMouseMove}
+                  className="p-5 rounded-2xl border backdrop-blur-2xl relative overflow-hidden transition-all duration-300 group"
                   style={{
-                    borderColor: `rgba(${theme.glowPrimary}, 0.25)`,
-                    boxShadow: `0 0 25px rgba(${theme.glowPrimary}, 0.05)`,
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.025) 35%, rgba(0, 0, 0, 0.35) 100%), rgba(14, 18, 28, 0.6)',
+                    borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                    boxShadow: `0 24px 60px -12px rgba(0, 0, 0, 0.7), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.6), inset 0 0 36px -6px rgba(${theme.glowPrimary}, 0.28), inset 1px 0 0 rgba(255, 255, 255, 0.14), inset -1px 0 0 rgba(255, 255, 255, 0.07)`,
                   }}
                 >
+                  {/* Top Specular Chromatic Dispersion Glint Stripe */}
+                  <div
+                    className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none z-20"
+                    style={{
+                      background: `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 15%, rgba(255, 255, 255, 0.95) 45%, rgba(${theme.glowPrimary}, 0.85) 65%, rgba(255, 255, 255, 0.3) 85%, transparent 100%)`,
+                    }}
+                  />
+
+                  {/* Dynamic Pointer Specular Refraction Glint */}
+                  <div
+                    className="absolute inset-0 pointer-events-none rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                      background: 'radial-gradient(circle 320px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.12), transparent 70%)',
+                    }}
+                  />
+
+                  {/* Diagonal Specular Caustic Sheen */}
+                  <div
+                    className="absolute inset-0 pointer-events-none rounded-[inherit] overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 28%, transparent 55%, rgba(255, 255, 255, 0.04) 100%)',
+                    }}
+                  />
+
                   {/* Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4 relative z-10">
                     <div className="flex items-center gap-2.5">
                       <div
-                        className="p-2 rounded-xl border"
+                        className="p-2 rounded-xl border shadow-sm"
                         style={{
                           backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
-                          borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                          borderColor: `rgba(${theme.glowPrimary}, 0.35)`,
                           color: `rgb(${theme.glowPrimary})`,
                         }}
                       >
@@ -1448,7 +2030,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                     {/* Live detected OS DPI indicator chip & Reset */}
                     <div className="flex items-center gap-2">
                       <div
-                        className="px-2.5 py-1 rounded-xl border flex items-center gap-1.5 text-[10px] font-mono"
+                        className="px-2.5 py-1 rounded-xl border flex items-center gap-1.5 text-[10px] font-mono shadow-sm"
                         style={{
                           backgroundColor: `rgba(${theme.glowPrimary}, 0.08)`,
                           borderColor: `rgba(${theme.glowPrimary}, 0.25)`,
@@ -1470,7 +2052,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={resetDisplayScale}
-                          className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                          className="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
                           title="Reset display scale to 100%"
                         >
                           <RotateCcw size={10} /> Reset
@@ -1480,7 +2062,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
 
                   {/* Quick Preset Buttons */}
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <div className="flex flex-wrap items-center gap-2 mb-4 relative z-10">
                     {DISPLAY_SCALE_PRESETS.map((preset) => {
                       const isSelected = displayScale === preset;
                       return (
@@ -1493,17 +2075,21 @@ export const SettingsModal = React.memo(function SettingsModal({
                           style={
                             isSelected
                               ? {
-                                  borderColor: `rgba(${theme.glowPrimary}, 0.55)`,
-                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.75)`,
+                                  background: `linear-gradient(135deg, rgba(${theme.glowPrimary}, 0.3) 0%, rgba(${theme.glowPrimary}, 0.1) 100%), rgba(16, 20, 32, 0.72)`,
                                   color: '#ffffff',
-                                  boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.25)`,
+                                  boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.35), inset 0 1.5px 0.5px rgba(255, 255, 255, 0.6), inset 0 -1px 1px rgba(0, 0, 0, 0.5)`,
                                 }
-                              : undefined
+                              : {
+                                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.25) 100%), rgba(12, 16, 24, 0.5)',
+                                  borderColor: 'rgba(255, 255, 255, 0.12)',
+                                  boxShadow: 'inset 0 1.5px 0.5px rgba(255, 255, 255, 0.3), inset 0 -1px 1px rgba(0, 0, 0, 0.3)',
+                                }
                           }
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer border ${
+                          className={`relative overflow-hidden px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer border ${
                             isSelected
                               ? ''
-                              : 'text-zinc-400 bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15 hover:text-white'
+                              : 'text-zinc-400 hover:border-white/25 hover:text-white'
                           }`}
                         >
                           {preset}%{preset === 100 ? ' (Default)' : ''}
@@ -1513,11 +2099,11 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
 
                   {/* Range Slider & Fine Tuner */}
-                  <div className="space-y-2 mb-4 pt-3 border-t border-white/5">
+                  <div className="space-y-2 mb-4 pt-3 border-t border-white/5 relative z-10">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-zinc-400 text-[11px] font-bold tracking-wider uppercase">Fine-Tune Scale</span>
                       <span
-                        className="font-bold px-2 py-0.5 rounded-lg border text-xs"
+                        className="font-bold px-2 py-0.5 rounded-lg border text-xs shadow-sm"
                         style={{
                           borderColor: `rgba(${theme.glowPrimary}, 0.35)`,
                           backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
@@ -1548,12 +2134,25 @@ export const SettingsModal = React.memo(function SettingsModal({
                   {/* Counteract OS DPI Scaling 1:1 Mode Toggle */}
                   <div
                     onClick={() => setCounteractDpi(!counteractDpi)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none flex items-center justify-between ${
+                    className={`relative overflow-hidden p-3.5 rounded-xl border transition-all cursor-pointer select-none flex items-center justify-between backdrop-blur-xl z-10 ${
                       counteractDpi
-                        ? 'border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'
+                        ? 'border-emerald-500/50 bg-emerald-500/15 shadow-[0_0_24px_rgba(16,185,129,0.25),inset_0_1.5px_0.5px_rgba(255,255,255,0.45),inset_0_-1px_1px_rgba(0,0,0,0.5)]'
+                        : 'border-white/12 hover:border-white/25'
                     }`}
+                    style={!counteractDpi ? {
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(0, 0, 0, 0.25) 100%), rgba(12, 16, 24, 0.52)',
+                      boxShadow: 'inset 0 1.5px 0.5px rgba(255, 255, 255, 0.3), inset 0 -1px 1px rgba(0, 0, 0, 0.4)',
+                    } : undefined}
                   >
+                    {/* Top Specular Line */}
+                    <div
+                      className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                      style={{
+                        background: counteractDpi
+                          ? 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 50%, rgba(52, 211, 153, 0.8) 75%, transparent 100%)'
+                          : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%)',
+                      }}
+                    />
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`p-2 rounded-lg border ${
@@ -1593,54 +2192,217 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
                 </div>
 
-                {/* Typography Section — Rich Specimen Cards */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-bold text-zinc-300 tracking-wider uppercase flex items-center gap-2">
-                      <Type size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Typography Typeface
-                    </h4>
-                    <span className="text-[10px] font-mono text-zinc-400">
-                      ACTIVE: {themeFont}
-                    </span>
+                {/* Typography Studio — Curated 21 High-Utility Typefaces */}
+                <div className="space-y-3.5">
+                  {/* Top Bar: Title + Active Font Pill + Reset */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-zinc-200 tracking-wider uppercase flex items-center gap-2">
+                        <Type size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Typography Studio
+                      </h4>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
+                        {filteredFonts.length} of {FONT_SPECIMENS.length} Typefaces
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono backdrop-blur-md"
+                        style={{
+                          borderColor: `rgba(${theme.glowPrimary}, 0.45)`,
+                          backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                          color: `rgb(${theme.glowPrimary})`,
+                        }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: `rgb(${theme.glowPrimary})` }} />
+                        <span className="font-bold">ACTIVE:</span>
+                        <span className="text-white font-semibold">{themeFont}</span>
+                      </div>
+
+                      {themeFont !== 'JetBrains Mono' && (
+                        <button
+                          type="button"
+                          onClick={() => setThemeFont('JetBrains Mono')}
+                          className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-white px-2 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+                          title="Reset to JetBrains Mono default"
+                        >
+                          <RotateCcw size={11} /> Reset Default
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
-                    {FONT_SPECIMENS.map((specimen, sIdx) => {
+
+                  {/* Archetype / Category Filters */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                    {FONT_CATEGORIES.map(cat => {
+                      const isSelected = fontCategory === cat.id;
+                      const count = cat.id === 'all'
+                        ? FONT_SPECIMENS.length
+                        : FONT_SPECIMENS.filter(s => s.category === cat.id).length;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setFontCategory(cat.id)}
+                          className={`text-xs px-3 py-1.5 rounded-xl font-medium transition-all duration-150 shrink-0 flex items-center gap-1.5 select-none ${
+                            isSelected
+                              ? 'border shadow-sm font-semibold'
+                              : 'border border-white/10 bg-white/[0.03] text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                          }`}
+                          style={
+                            isSelected
+                              ? {
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.16)`,
+                                  color: `rgb(${theme.glowPrimary})`,
+                                }
+                              : undefined
+                          }
+                        >
+                          <span>{cat.label}</span>
+                          <span
+                            className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
+                            style={
+                              isSelected
+                                ? { backgroundColor: `rgba(${theme.glowPrimary}, 0.25)`, color: `rgb(${theme.glowPrimary})` }
+                                : { backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#a1a1aa' }
+                            }
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Interactive Specimen Live-Test & Preset Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
+                    {/* Preset Switcher */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mr-1 hidden sm:inline-block">
+                        Preview:
+                      </span>
+                      {(['signature', 'code', 'prose', 'glyphs'] as const).map(presetKey => {
+                        const isPresetActive = fontPreset === presetKey && !fontTestText;
+                        return (
+                          <button
+                            key={presetKey}
+                            type="button"
+                            onClick={() => {
+                              setFontPreset(presetKey);
+                              setFontTestText('');
+                            }}
+                            className={`text-[11px] px-2.5 py-1 rounded-lg transition-all capitalize ${
+                              isPresetActive
+                                ? 'border font-semibold shadow-sm'
+                                : 'text-zinc-400 hover:text-zinc-200 bg-white/[0.02] border border-white/5'
+                            }`}
+                            style={
+                              isPresetActive
+                                ? {
+                                    borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                                    backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                                    color: `rgb(${theme.glowPrimary})`,
+                                  }
+                                : undefined
+                            }
+                          >
+                            {presetKey}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/10 hidden md:inline-block" />
+
+                    {/* Live Custom Keystroke Preview Input */}
+                    <div className="flex-1 min-w-[220px] relative">
+                      <Terminal size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={fontTestText}
+                        onChange={e => setFontTestText(e.target.value)}
+                        placeholder="Type here to test live across all typefaces..."
+                        className="w-full pl-7 pr-7 py-1 text-xs rounded-xl bg-white/[0.04] border border-white/10 text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-white/30 transition-all font-mono"
+                      />
+                      {fontTestText && (
+                        <button
+                          type="button"
+                          onClick={() => setFontTestText('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-0.5"
+                          title="Clear preview text"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Specimen Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5">
+                    {filteredFonts.map((specimen, sIdx) => {
                       const isActive = specimen.name === themeFont;
+                      // Determine preview text to render
+                      let activePreview = specimen.sample;
+                      if (fontTestText.trim()) {
+                        activePreview = fontTestText;
+                      } else if (fontPreset === 'code') {
+                        activePreview = FONT_PRESET_SAMPLES.code;
+                      } else if (fontPreset === 'prose') {
+                        activePreview = FONT_PRESET_SAMPLES.prose;
+                      } else if (fontPreset === 'glyphs') {
+                        activePreview = FONT_PRESET_SAMPLES.glyphs;
+                      }
+
                       return (
                         <motion.button
                           key={specimen.name}
                           initial={{ opacity: 0, y: 12 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ ...springFluid, delay: sIdx * 0.02 }}
-                          whileHover={{ scale: 1.025, y: -3 }}
+                          transition={{ ...springFluid, delay: Math.min(sIdx * 0.02, 0.25) }}
+                          whileHover={{ scale: 1.02, y: -2 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => setThemeFont(specimen.name)}
                           style={
                             isActive
                               ? {
-                                  borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
-                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
-                                  boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.28)`,
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.75)`,
+                                  background: `linear-gradient(135deg, rgba(${theme.glowPrimary}, 0.25) 0%, rgba(${theme.glowPrimary}, 0.08) 50%, rgba(0, 0, 0, 0.4) 100%), rgba(16, 20, 32, 0.75)`,
+                                  boxShadow: `0 0 28px rgba(${theme.glowPrimary}, 0.35), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(${theme.glowPrimary}, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.15)`,
                                 }
-                              : undefined
+                              : {
+                                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.35) 100%), rgba(14, 18, 28, 0.55)',
+                                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                                  boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08)',
+                                }
                           }
-                          className={`group relative p-4 rounded-2xl border text-left transition-colors duration-200 cursor-pointer flex flex-col justify-between overflow-hidden select-none ${
+                          className={`group relative p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden select-none backdrop-blur-xl ${
                             isActive
                               ? 'border'
-                              : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15'
+                              : 'hover:border-white/25 hover:scale-[1.01]'
                           }`}
                         >
-                          {/* Top Row: Font Name & Tag */}
-                          <div className="flex items-center justify-between gap-2 mb-2">
+                          {/* Top Specular Glint Line */}
+                          <div
+                            className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                            style={{
+                              background: isActive
+                                ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, rgba(${theme.glowPrimary}, 0.8) 75%, transparent 100%)`
+                                : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%)',
+                            }}
+                          />
+
+                          {/* Top Row: Font Name & Badge */}
+                          <div className="flex items-center justify-between gap-1.5 mb-1.5 relative z-10">
                             <span
                               className={`text-xs font-bold tracking-tight truncate ${
-                                isActive ? 'text-white' : 'text-zinc-300 group-hover:text-white'
+                                isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                               }`}
                             >
                               {specimen.name}
                             </span>
                             <span
-                              className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0"
+                              className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 tracking-wider"
                               style={
                                 isActive
                                   ? {
@@ -1655,16 +2417,47 @@ export const SettingsModal = React.memo(function SettingsModal({
                                     }
                               }
                             >
-                              {specimen.tag}
+                              {specimen.badge}
                             </span>
                           </div>
 
-                          {/* Specimen Code Text rendered in actual font */}
+                          {/* Middle: Short Utility Description */}
+                          <p className="text-[10px] text-zinc-400 line-clamp-1 mb-2.5 relative z-10">
+                            {specimen.description}
+                          </p>
+
+                          {/* Specimen Live Text rendered in actual font */}
                           <div
-                            className="text-[12px] text-zinc-400 py-2 px-2.5 rounded-xl bg-black/40 border border-white/5 truncate transition-colors group-hover:text-zinc-200"
-                            style={{ fontFamily: `"${specimen.name}", monospace` }}
+                            className="text-[12px] text-zinc-200 py-2.5 px-3 rounded-xl border border-white/10 truncate transition-colors group-hover:text-white relative z-10 mb-2"
+                            style={{
+                              fontFamily: `"${specimen.name}", monospace`,
+                              background: 'linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(8, 10, 16, 0.8) 100%)',
+                              boxShadow: 'inset 0 1.5px 3px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.06)',
+                            }}
                           >
-                            {specimen.sample}
+                            {activePreview}
+                          </div>
+
+                          {/* Bottom Row: Glyphs Strip & Status */}
+                          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-1 border-t border-white/5 relative z-10">
+                            <span
+                              className="truncate text-zinc-400 group-hover:text-zinc-300 font-medium"
+                              style={{ fontFamily: `"${specimen.name}", monospace` }}
+                            >
+                              {specimen.glyphs}
+                            </span>
+                            {isActive ? (
+                              <span
+                                className="flex items-center gap-1 font-bold shrink-0 ml-1.5"
+                                style={{ color: `rgb(${theme.glowPrimary})` }}
+                              >
+                                <Check size={11} /> ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-500 group-hover:text-zinc-400 shrink-0 ml-1.5">
+                                {specimen.tag}
+                              </span>
+                            )}
                           </div>
                         </motion.button>
                       );
@@ -1698,19 +2491,32 @@ export const SettingsModal = React.memo(function SettingsModal({
                           style={
                             isActive
                               ? {
-                                  borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
-                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
-                                  boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.28)`,
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.75)`,
+                                  background: `linear-gradient(135deg, rgba(${theme.glowPrimary}, 0.28) 0%, rgba(${theme.glowPrimary}, 0.09) 50%, rgba(0, 0, 0, 0.35) 100%), rgba(16, 20, 32, 0.72)`,
+                                  boxShadow: `0 0 28px rgba(${theme.glowPrimary}, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(${theme.glowPrimary}, 0.25), inset 1px 0 0 rgba(255, 255, 255, 0.15)`,
                                 }
-                              : undefined
+                              : {
+                                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.3) 100%), rgba(14, 18, 28, 0.55)',
+                                  borderColor: 'rgba(255, 255, 255, 0.12)',
+                                  boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08), inset -1px 0 0 rgba(255, 255, 255, 0.04)',
+                                }
                           }
-                          className={`group relative p-4 rounded-2xl border text-left transition-colors duration-200 cursor-pointer flex flex-col justify-between overflow-hidden select-none ${
+                          className={`group relative p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden select-none backdrop-blur-xl ${
                             isActive
                               ? 'border'
-                              : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15'
+                              : 'hover:border-white/25 hover:scale-[1.02]'
                           }`}
                         >
-                          <div>
+                          {/* Top Specular Glint Line */}
+                          <div
+                            className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                            style={{
+                              background: isActive
+                                ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, rgba(${theme.glowPrimary}, 0.8) 75%, transparent 100%)`
+                                : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%)',
+                            }}
+                          />
+                          <div className="relative z-10">
                             <div className="flex items-center justify-between gap-2 mb-1.5">
                               <span className={`text-xs font-black tracking-wide uppercase ${isActive ? 'text-white' : 'text-zinc-300 group-hover:text-white'}`}>
                                 {profile.label}
@@ -1739,7 +2545,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                             </p>
                           </div>
 
-                          <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[10px] font-mono">
+                          <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[10px] font-mono relative z-10">
                             <span
                               className="font-bold flex items-center gap-1.5 transition-colors"
                               style={{ color: isPlaying || isActive ? `rgb(${theme.glowPrimary})` : '#71717a' }}
@@ -1781,13 +2587,41 @@ export const SettingsModal = React.memo(function SettingsModal({
 
                 {/* ── LIVE INTERACTIVE TYPING SANDBOX ── */}
                 <div
-                  className="glass-panel rounded-2xl p-6 border relative overflow-hidden transition-all duration-300"
+                  onMouseMove={handleGlassMouseMove}
+                  className="p-6 rounded-2xl border backdrop-blur-2xl relative overflow-hidden transition-all duration-300 group"
                   style={{
-                    borderColor: isTypingSandbox ? `rgba(${theme.glowPrimary}, 0.6)` : `rgba(${theme.glowPrimary}, 0.35)`,
-                    boxShadow: isTypingSandbox ? `0 0 35px rgba(${theme.glowPrimary}, 0.2)` : `0 0 25px rgba(${theme.glowPrimary}, 0.08)`,
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.025) 35%, rgba(0, 0, 0, 0.35) 100%), rgba(14, 18, 28, 0.6)',
+                    borderColor: isTypingSandbox ? `rgba(${theme.glowPrimary}, 0.7)` : `rgba(${theme.glowPrimary}, 0.35)`,
+                    boxShadow: isTypingSandbox
+                      ? `0 24px 60px -12px rgba(0, 0, 0, 0.75), 0 0 35px rgba(${theme.glowPrimary}, 0.3), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.6), inset 0 0 35px -4px rgba(${theme.glowPrimary}, 0.3), inset 1px 0 0 rgba(255, 255, 255, 0.14), inset -1px 0 0 rgba(255, 255, 255, 0.07)`
+                      : `0 24px 60px -12px rgba(0, 0, 0, 0.65), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.6), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.6), inset 0 0 32px -6px rgba(${theme.glowPrimary}, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.14), inset -1px 0 0 rgba(255, 255, 255, 0.07)`,
                   }}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5">
+                  {/* Top Specular Chromatic Dispersion Glint Stripe */}
+                  <div
+                    className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none z-20"
+                    style={{
+                      background: `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 15%, rgba(255, 255, 255, 0.95) 45%, rgba(${theme.glowPrimary}, 0.85) 65%, rgba(255, 255, 255, 0.3) 85%, transparent 100%)`,
+                    }}
+                  />
+
+                  {/* Dynamic Pointer Specular Refraction Glint */}
+                  <div
+                    className="absolute inset-0 pointer-events-none rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{
+                      background: 'radial-gradient(circle 320px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.12), transparent 70%)',
+                    }}
+                  />
+
+                  {/* Diagonal Specular Caustic Sheen */}
+                  <div
+                    className="absolute inset-0 pointer-events-none rounded-[inherit] overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.02) 28%, transparent 55%, rgba(255, 255, 255, 0.04) 100%)',
+                    }}
+                  />
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5 relative z-10">
                     <div className="flex items-center gap-2.5">
                       <span
                         className="w-2.5 h-2.5 rounded-full animate-pulse shadow-sm"
@@ -1848,7 +2682,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                     </div>
                   </div>
 
-                  <div className="relative group">
+                  <div className="relative group z-10">
                     <input
                       type="text"
                       value={sandboxInput}
@@ -1857,11 +2691,13 @@ export const SettingsModal = React.memo(function SettingsModal({
                       style={{
                         fontFamily: `"${themeFont}", monospace`,
                         color: '#ffffff',
+                        background: 'linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(10, 12, 18, 0.75) 100%)',
+                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.08)',
                       }}
-                      className="w-full px-5 py-4 rounded-2xl bg-black/50 border border-white/10 focus:border-white/30 focus:outline-none text-sm placeholder:text-zinc-600 transition-all font-medium"
+                      className="w-full px-5 py-4 rounded-2xl border border-white/10 focus:border-white/35 focus:outline-none text-sm placeholder:text-zinc-500 transition-all font-medium backdrop-blur-md"
                     />
                   </div>
-                  <div className="flex items-center justify-between mt-3 text-[10px] font-mono text-zinc-400">
+                  <div className="flex items-center justify-between mt-3 text-[10px] font-mono text-zinc-400 relative z-10">
                     <span className="flex items-center gap-2">
                       <span>KEYSTROKES: {sandboxInput.length}</span>
                       {isTypingSandbox && (
@@ -1896,26 +2732,42 @@ export const SettingsModal = React.memo(function SettingsModal({
                           style={
                             isActive
                               ? {
-                                  borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
-                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
-                                  boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.28)`,
+                                  borderColor: `rgba(${theme.glowPrimary}, 0.75)`,
+                                  background: `linear-gradient(135deg, rgba(${theme.glowPrimary}, 0.28) 0%, rgba(${theme.glowPrimary}, 0.09) 50%, rgba(0, 0, 0, 0.35) 100%), rgba(16, 20, 32, 0.72)`,
+                                  boxShadow: `0 0 28px rgba(${theme.glowPrimary}, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(${theme.glowPrimary}, 0.25), inset 1px 0 0 rgba(255, 255, 255, 0.15)`,
                                 }
-                              : undefined
+                              : {
+                                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.3) 100%), rgba(14, 18, 28, 0.55)',
+                                  borderColor: 'rgba(255, 255, 255, 0.12)',
+                                  boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08), inset -1px 0 0 rgba(255, 255, 255, 0.04)',
+                                }
                           }
-                          className={`flex flex-col text-left p-4 rounded-2xl border transition-colors cursor-pointer select-none ${
+                          className={`relative overflow-hidden flex flex-col text-left p-4 rounded-2xl border transition-all duration-200 cursor-pointer select-none backdrop-blur-xl ${
                             isActive
-                              ? 'text-white'
-                              : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.07] hover:border-white/15 text-zinc-400 hover:text-zinc-200'
+                              ? 'text-white border'
+                              : 'hover:border-white/25 text-zinc-400 hover:text-zinc-200 hover:scale-[1.02]'
                           }`}
                         >
-                          <div className="flex items-center justify-between mb-1.5">
+                          {/* Top Specular Glint Line */}
+                          <div
+                            className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                            style={{
+                              background: isActive
+                                ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, rgba(${theme.glowPrimary}, 0.8) 75%, transparent 100%)`
+                                : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%)',
+                            }}
+                          />
+                          <div className="flex items-center justify-between mb-1.5 relative z-10">
                             <div className="flex items-center gap-2">
-                              <span className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                                {item.id === 'liquid' ? <Waves size={13} className="text-cyan-400" /> :
-                                 item.id === 'aurora' ? <Sparkles size={13} className="text-fuchsia-400" /> :
-                                 item.id === 'grid' ? <LayoutGrid size={13} className="text-amber-400" /> :
-                                 item.id === 'matrix' ? <Terminal size={13} className="text-emerald-400" /> :
-                                 item.id === 'nebula' ? <CloudFog size={13} className="text-sky-400" /> :
+                              <span
+                                className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0"
+                                style={isActive ? { color: `rgb(${theme.glowPrimary})`, borderColor: `rgba(${theme.glowPrimary}, 0.3)` } : undefined}
+                              >
+                                {item.id === 'liquid' ? <Waves size={13} style={isActive ? { color: `rgb(${theme.glowPrimary})` } : undefined} className={isActive ? '' : 'text-zinc-400'} /> :
+                                 item.id === 'aurora' ? <Sparkles size={13} style={isActive ? { color: `rgb(${theme.glowPrimary})` } : undefined} className={isActive ? '' : 'text-zinc-400'} /> :
+                                 item.id === 'grid' ? <LayoutGrid size={13} style={isActive ? { color: `rgb(${theme.glowPrimary})` } : undefined} className={isActive ? '' : 'text-zinc-400'} /> :
+                                 item.id === 'matrix' ? <Terminal size={13} style={isActive ? { color: `rgb(${theme.glowPrimary})` } : undefined} className={isActive ? '' : 'text-zinc-400'} /> :
+                                 item.id === 'nebula' ? <CloudFog size={13} style={isActive ? { color: `rgb(${theme.glowPrimary})` } : undefined} className={isActive ? '' : 'text-zinc-400'} /> :
                                  <Moon size={13} className="text-zinc-400" />}
                               </span>
                               <span className="text-xs font-bold tracking-wide text-white">{item.name}</span>
@@ -1934,7 +2786,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                               </motion.div>
                             )}
                           </div>
-                          <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2">
+                          <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 relative z-10">
                             {item.desc}
                           </p>
                         </motion.button>
@@ -1946,7 +2798,21 @@ export const SettingsModal = React.memo(function SettingsModal({
                 {/* Shader Speed & Interactivity Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2">
                   {/* Speed Selector */}
-                  <div className="flex flex-col p-5 rounded-2xl border border-white/5 bg-white/[0.03] justify-between gap-3">
+                  <div
+                    className="flex flex-col p-5 rounded-2xl border backdrop-blur-2xl justify-between gap-3 relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.4) 100%), rgba(14, 18, 28, 0.6)',
+                      borderColor: `rgba(${theme.glowPrimary}, 0.35)`,
+                      boxShadow: `0 20px 45px -10px rgba(0, 0, 0, 0.6), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 28px -6px rgba(${theme.glowPrimary}, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.1)`,
+                    }}
+                  >
+                    {/* Top Specular Sheen Refraction Stripe */}
+                    <div
+                      className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                      style={{
+                        background: `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 15%, rgba(255, 255, 255, 0.85) 50%, rgba(${theme.glowPrimary}, 0.75) 75%, transparent 100%)`,
+                      }}
+                    />
                     <div>
                       <span className="font-bold tracking-wide text-sm text-white block">
                         Animation Flow Speed
@@ -2060,16 +2926,18 @@ export const SettingsModal = React.memo(function SettingsModal({
             )}
 
             {activeTab === 'system' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ToggleSwitch theme={theme}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 grid-flow-dense animate-in fade-in duration-300">
+                {/* 1. Sticky Keys Toggle */}
+                <ToggleSwitch
+                  theme={theme}
                   label="Sticky Keys"
-                  description="Force you to fix mistakes before continuing."
+                  description="Force correction of keystroke errors before progressing."
                   icon={Magnet}
                   checked={stickyKeysMode}
                   onChange={setStickyKeysMode}
                 />
 
-                {/* WebHID Mechanical Keyboard Latency & Jitter Benchmark */}
+                {/* 2. WebHID Mechanical Keyboard Latency & Jitter Benchmark */}
                 <div
                   id="hardware-hid-benchmark-btn"
                   data-testid="hardware-hid-benchmark-btn"
@@ -2107,6 +2975,103 @@ export const SettingsModal = React.memo(function SettingsModal({
                       <p className="text-[10px] text-zinc-400 mt-0.5">
                         Benchmark true USB polling rate, jitter, and matrix switch chatter.
                       </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Storage & Data Vault */}
+                <div
+                  className="p-5 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl flex flex-col justify-between gap-4"
+                  style={{
+                    borderColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="p-2.5 rounded-xl border shrink-0"
+                        style={{
+                          backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                          borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                          color: `rgb(${theme.glowPrimary})`,
+                        }}
+                      >
+                        <Database size={18} />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-1.5 uppercase tracking-wide">
+                          Storage & Data Vault
+                        </div>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          Manage persistent client state, local match histories, and backup schemas.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                    <button
+                      type="button"
+                      onClick={handleExportBackup}
+                      className="flex-1 py-2 px-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-[11px] font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                    >
+                      <Download size={13} style={{ color: `rgb(${theme.glowPrimary})` }} />
+                      Export Backup JSON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearCache}
+                      className="py-2 px-3 rounded-xl border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[11px] font-mono font-bold transition-all cursor-pointer active:scale-95"
+                    >
+                      Clear Cache
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Engine Shortcuts & Safeguards */}
+                <div
+                  className="p-5 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl flex flex-col justify-between gap-3"
+                  style={{
+                    borderColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="p-2.5 rounded-xl border shrink-0"
+                      style={{
+                        backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                        borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                        color: `rgb(${theme.glowPrimary})`,
+                      }}
+                    >
+                      <Terminal size={18} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5 uppercase tracking-wide">
+                        Engine Shortcuts
+                      </div>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">
+                        High-frequency keybindings configured for instant competition flow.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5 text-[10px] font-mono">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                      <span className="text-zinc-400">Restart Test</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white font-bold border border-white/10">Tab+Enter</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                      <span className="text-zinc-400">Erase Word</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white font-bold border border-white/10">Ctrl+BS</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                      <span className="text-zinc-400">God Mode Terminal</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white font-bold border border-white/10">Ctrl+Shift+G</kbd>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                      <span className="text-zinc-400">Pause Engine</span>
+                      <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white font-bold border border-white/10">Esc</kbd>
                     </div>
                   </div>
                 </div>
@@ -2149,7 +3114,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                               color: `rgb(${theme.glowPrimary})`,
                             }}
                           >
-                            V2.9 CORE
+                            V3.1 CORE
                           </span>
                         </div>
                         <p className="text-xs text-zinc-400 mt-0.5">
@@ -2665,24 +3630,20 @@ export const SettingsModal = React.memo(function SettingsModal({
 
                       <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
                         <button
-                          onClick={() => setIsDropdownOpen(!_isDropdownOpen)}
+                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                           className="px-3.5 py-2 bg-white/10 hover:bg-white/15 text-xs font-bold text-zinc-200 rounded-xl border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
                         >
                           {PROVIDER_PRESETS.find(p => p.id === selectedProvider)?.label || 'Custom'}
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${_isDropdownOpen ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
                         </button>
 
-                        {_isDropdownOpen && (
+                        {isDropdownOpen && (
                           <div className="absolute right-0 top-full mt-2 w-52 bg-zinc-950/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl z-50 overflow-hidden">
                             {PROVIDER_PRESETS.map((preset) => (
                               <button
                                 key={preset.id}
                                 onClick={() => {
-                                  setSelectedProvider(preset.id);
-                                  if (preset.url) {
-                                    setByokUrl(preset.url);
-                                    localStorage.setItem(AI_KEYS.byokUrl, preset.url);
-                                  }
+                                  handleProviderSelect(preset.id);
                                   setIsDropdownOpen(false);
                                 }}
                                 className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-colors border-b border-white/5 last:border-0 hover:bg-white/10 ${selectedProvider === preset.id ? 'text-white bg-white/15' : 'text-zinc-400'}`}
@@ -2899,12 +3860,12 @@ export const SettingsModal = React.memo(function SettingsModal({
                   {/* Metric 5: Inference Latency */}
                   <div className="bg-black/40 border border-white/10 backdrop-blur-xl rounded-2xl p-4 flex flex-col justify-between group hover:border-white/20 transition-all shadow-lg relative overflow-hidden">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-mono font-bold tracking-wider text-cyan-400 uppercase">Latency</span>
-                      <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                      <span className="text-[10px] font-mono font-bold tracking-wider uppercase" style={{ color: `rgb(${theme.glowPrimary})` }}>Latency</span>
+                      <div className="p-1.5 rounded-lg" style={{ backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`, color: `rgb(${theme.glowPrimary})` }}>
                         <Timer size={14} />
                       </div>
                     </div>
-                    <div className="text-2xl font-mono font-black text-cyan-300 tracking-tight">
+                    <div className="text-2xl font-mono font-black tracking-tight" style={{ color: `rgb(${theme.glowPrimary})` }}>
                       {pingLatency ? `${pingLatency}ms` : latencyMs ? `${latencyMs}ms` : '< 200ms'}
                     </div>
                     <span className="text-[9px] text-zinc-500 font-mono mt-1">Roundtrip response</span>
@@ -2913,12 +3874,12 @@ export const SettingsModal = React.memo(function SettingsModal({
                   {/* Metric 6: Quota Health */}
                   <div className="bg-black/40 border border-white/10 backdrop-blur-xl rounded-2xl p-4 flex flex-col justify-between group hover:border-white/20 transition-all shadow-lg relative overflow-hidden">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-mono font-bold tracking-wider text-purple-400 uppercase">Health</span>
-                      <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+                      <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-emerald-400">Health</span>
+                      <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
                         <ShieldCheck size={14} />
                       </div>
                     </div>
-                    <div className="text-2xl font-mono font-black text-purple-300 tracking-tight">
+                    <div className="text-2xl font-mono font-black text-emerald-300 tracking-tight">
                       100%
                     </div>
                     <span className="text-[9px] text-zinc-500 font-mono mt-1">Zero throttle errors</span>
@@ -3054,7 +4015,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                                 ∞ UNLIMITED
                               </span>
                             ) : (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono ml-1.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono ml-1.5" style={{ backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`, color: `rgb(${theme.glowPrimary})` }}>
                                 {Math.min(100, Math.round((dailyTokens / activeLimits.tpd) * 100))}%
                               </span>
                             )}
@@ -3066,8 +4027,8 @@ export const SettingsModal = React.memo(function SettingsModal({
                             className="h-full rounded-full transition-all duration-500"
                             style={{
                               width: `${activeLimits.tpd === Infinity ? 0 : Math.max(2, Math.min(100, (dailyTokens / activeLimits.tpd) * 100))}%`,
-                              backgroundColor: '#f59e0b',
-                              boxShadow: '0 0 12px rgba(245, 158, 11, 0.5)',
+                              backgroundColor: `rgb(${theme.glowPrimary})`,
+                              boxShadow: `0 0 12px rgba(${theme.glowPrimary}, 0.5)`,
                             }}
                           />
                         </div>
@@ -3083,7 +4044,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                           <div className="flex items-center gap-1.5 font-bold">
                             <span className="text-white text-sm">{dailyRequests.toLocaleString()}</span>
                             <span className="text-zinc-500">/ {activeLimits.rpd === Infinity ? '∞' : activeLimits.rpd.toLocaleString()}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono ml-1.5">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-mono ml-1.5" style={{ backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`, color: `rgb(${theme.glowPrimary})` }}>
                               {activeLimits.rpd === Infinity ? '0%' : `${Math.min(100, Math.round((dailyRequests / activeLimits.rpd) * 100))}%`}
                             </span>
                           </div>
@@ -3094,8 +4055,8 @@ export const SettingsModal = React.memo(function SettingsModal({
                             className="h-full rounded-full transition-all duration-500"
                             style={{
                               width: `${activeLimits.rpd === Infinity ? 0 : Math.max(2, Math.min(100, (dailyRequests / activeLimits.rpd) * 100))}%`,
-                              backgroundColor: '#f59e0b',
-                              boxShadow: '0 0 12px rgba(245, 158, 11, 0.5)',
+                              backgroundColor: `rgb(${theme.glowPrimary})`,
+                              boxShadow: `0 0 12px rgba(${theme.glowPrimary}, 0.5)`,
                             }}
                           />
                         </div>
@@ -3155,13 +4116,13 @@ export const SettingsModal = React.memo(function SettingsModal({
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">
-                              <Zap size={11} className="text-amber-400 shrink-0" /> Real-time Typing Coaching
+                              <Zap size={11} style={{ color: `rgb(${theme.glowPrimary})` }} className="shrink-0" /> Real-time Typing Coaching
                             </span>
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">
-                              <Crosshair size={11} className="text-cyan-400 shrink-0" /> Weak-Key Clustering
+                              <Crosshair size={11} style={{ color: `rgb(${theme.glowPrimary})` }} className="shrink-0" /> Weak-Key Clustering
                             </span>
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">
-                              <BarChart size={11} className="text-fuchsia-400 shrink-0" /> Post-Match Neuro-Debriefs
+                              <BarChart size={11} style={{ color: `rgb(${theme.glowPrimary})` }} className="shrink-0" /> Post-Match Neuro-Debriefs
                             </span>
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">
                               <ShieldCheck size={11} className="text-emerald-400 shrink-0" /> Zero-Cost Cloud BYOK
@@ -3348,7 +4309,11 @@ export const SettingsModal = React.memo(function SettingsModal({
                 <button
                   disabled={!reportMsg.trim() || reportStatus === 'submitting' || reportStatus === 'success' || isValidatingFile}
                   onClick={async () => {
-                    if (!reportMsg.trim() || !supabase) return;
+                    if (!reportMsg.trim()) return;
+                    if (!supabase) {
+                      toast.error('Cloud database service is currently unavailable. Please check your connection or report on GitHub.');
+                      return;
+                    }
                     setReportStatus('submitting');
                     setReportErrorMsg(null);
                     try {
@@ -3419,6 +4384,65 @@ export const SettingsModal = React.memo(function SettingsModal({
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Fullscreen Wallpaper Lightbox / Inspect View */}
+      <AnimatePresence>
+        {isWallpaperLightboxOpen && wallpaperUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-2xl flex flex-col p-4 sm:p-8 select-none"
+            onClick={() => setIsWallpaperLightboxOpen(false)}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between z-10 mb-4" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center border"
+                  style={{
+                    borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                    backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                    color: `rgb(${theme.glowPrimary})`,
+                  }}
+                >
+                  <Eye size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white tracking-wide">Wallpaper Full View</h3>
+                  <span className="text-[10px] font-mono text-zinc-400">100% UNCONSTRAINED UNRATED VIEW // ESC TO CLOSE</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsWallpaperLightboxOpen(false)}
+                className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-white flex items-center justify-center transition-all cursor-pointer"
+                title="Close (ESC)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Main Image Stage */}
+            <div className="flex-1 relative flex items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-2 sm:p-4" onClick={e => e.stopPropagation()}>
+              <div
+                className="absolute inset-0 bg-cover bg-center blur-3xl opacity-30 pointer-events-none"
+                style={{ backgroundImage: `url(${wallpaperUrl})` }}
+              />
+              <img
+                src={wallpaperUrl}
+                alt="Wallpaper Full View"
+                className="max-w-full max-h-full object-contain relative z-10 shadow-2xl rounded-xl"
+                style={{
+                  filter: `brightness(${brightness}) blur(${blur}px)`,
+                }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

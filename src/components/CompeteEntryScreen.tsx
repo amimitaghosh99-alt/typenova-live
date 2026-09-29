@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { OTPInput, REGEXP_ONLY_DIGITS_AND_CHARS, type SlotProps } from 'input-otp';
 import {
     Radio, Users, Play, LogIn, ClipboardPaste, ArrowLeft, Swords, Trophy, WifiOff,
-    Loader2, Check, AlertTriangle, History
+    Loader2, Check, AlertTriangle, History, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -94,31 +94,32 @@ const CodeSlot: React.FC<SlotProps & { invalid: boolean; accentRgb: string }> = 
     char, isActive, invalid, accentRgb,
 }) => (
     <div
-        className={`relative flex-1 min-w-0 h-14 rounded-xl border-2 bg-black/50 flex items-center justify-center font-mono text-xl font-black text-white transition-colors ${invalid
-            ? 'border-rose-500/70'
+        className={`relative flex-1 min-w-0 h-13 sm:h-14 rounded-xl border flex items-center justify-center font-mono text-lg sm:text-xl font-black transition-all duration-150 ${invalid
+            ? 'border-rose-500/70 bg-rose-950/20 text-rose-200'
             : isActive
-                ? 'border-white/50'
+                ? 'bg-black/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)] text-white'
                 : char
-                    ? 'border-white/25'
-                    : 'border-white/10'
+                    ? 'border-white/25 bg-white/[0.04] text-white shadow-sm'
+                    : 'border-white/10 bg-black/35 text-zinc-600'
             }`}
-        /* The real input is a transparent overlay with its outline stripped, so
-           the browser draws no focus ring of its own. The active slot's border and
-           ring are the focus indicator — which is why they must not look the same
-           as a merely-filled slot. */
         style={isActive && !invalid
             ? {
                 borderColor: `rgb(${accentRgb})`,
-                boxShadow: `0 0 0 3px rgba(${accentRgb}, 0.25)`,
+                boxShadow: `0 0 16px rgba(${accentRgb}, 0.25), inset 0 2px 4px rgba(0,0,0,0.5)`,
             }
             : undefined}
     >
-        {char}
-        {/* The caret only renders in the box being filled, so the field never
-            shows two focus cues at once. Neutralised under
-            `prefers-reduced-motion` in index.css. */}
+        {char ? (
+            <span className="tracking-widest">{char}</span>
+        ) : !isActive ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-white/15" />
+        ) : null}
         {isActive && !char && (
-            <span className="absolute h-6 w-[2px] bg-white/70 animate-caret-blink" aria-hidden="true" />
+            <span
+                className="absolute h-5 w-[2px] animate-caret-blink rounded-full"
+                style={{ backgroundColor: `rgb(${accentRgb})` }}
+                aria-hidden="true"
+            />
         )}
     </div>
 );
@@ -397,7 +398,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                             only renders when it can actually be changed. */}
                         <motion.div
                             {...reveal(reduce, shellIn)}
-                            className="glass-panel !bg-[rgba(10,12,18,0.8)] hover:!bg-[rgba(14,16,24,0.85)] rounded-3xl p-5 sm:p-6 border border-white/20 hover:border-white/35 transition-all duration-200 flex flex-col gap-4"
+                            className="glass-panel !bg-[rgba(10,12,18,0.82)] hover:!bg-[rgba(14,16,24,0.88)] rounded-3xl p-5 sm:p-6 border border-white/15 hover:border-white/25 transition-all duration-200 flex flex-col gap-4 shadow-xl shadow-black/30"
                         >
                             <div className="flex items-center gap-3">
                                 <motion.div
@@ -416,7 +417,12 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                 segmented control, not a toggle button whose
                                 pressed state had to be inferred from colour. */}
                             <div className="flex flex-col gap-2">
-                                <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-400">// Race mode</span>
+                                <div className="flex items-center justify-between">
+                                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-400">// Race mode</span>
+                                    <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">
+                                        {isRanked ? '1v1 Duel' : 'Casual Lobby'}
+                                    </span>
+                                </div>
                                 <SegmentedControl
                                     options={MODE_OPTIONS}
                                     value={isRanked ? 'ranked' : 'casual'}
@@ -426,14 +432,11 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                     size="md"
                                     fullWidth
                                 />
-                                {/* Fixed min-height: the two strings differ in
-                                    length, and letting the card reflow on every
-                                    mode change shifted the button below it. */}
-                                <p className="font-mono text-[10px] leading-relaxed text-zinc-400 min-h-[3.25em]">
+                                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 font-mono text-[10px] leading-relaxed text-zinc-400 min-h-[3.25em] flex items-center">
                                     {isRanked
                                         ? '1v1 only. Elo on the line — both racers must be signed in.'
-                                        : 'Up to four racers. Nothing at stake.'}
-                                </p>
+                                        : 'Up to four racers. Nothing at stake — pure practice.'}
+                                </div>
                             </div>
 
                             {/* Capacity. In a ranked duel the value is fixed at 2,
@@ -493,7 +496,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                             to `theme.glowPrimary`, per `GEMINI.md`. */}
                         <motion.div
                             {...reveal(reduce, shellIn)}
-                            className="glass-panel !bg-[rgba(10,12,18,0.8)] hover:!bg-[rgba(14,16,24,0.85)] rounded-3xl p-5 sm:p-6 border transition-all duration-200 flex flex-col gap-4"
+                            className="glass-panel !bg-[rgba(10,12,18,0.82)] hover:!bg-[rgba(14,16,24,0.88)] rounded-3xl p-5 sm:p-6 border transition-all duration-200 flex flex-col gap-4 shadow-xl shadow-black/30"
                             style={{ borderColor: `rgba(${accentRgb}, 0.35)` }}
                         >
                             <div className="flex items-center gap-3">
@@ -607,12 +610,18 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                         disabled={disabled}
                                         aria-label="Paste room code from clipboard"
                                         title="Paste from clipboard"
-                                        whileHover={reduce ? undefined : { scale: 1.05, transition: springSnappy }}
-                                        whileTap={tapPress(reduce, 0.92)}
-                                        className="shrink-0 h-14 w-11 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-300 hover:text-white transition-colors flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                        whileHover={reduce ? undefined : { scale: 1.04, transition: springSnappy }}
+                                        whileTap={tapPress(reduce, 0.94)}
+                                        className="shrink-0 h-13 sm:h-14 w-12 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/15 hover:border-white/30 text-zinc-300 hover:text-white transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm group"
                                     >
-                                        <ClipboardPaste size={16} aria-hidden="true" />
+                                        <ClipboardPaste size={15} style={{ color: `rgb(${accentRgb})` }} className="transition-transform group-hover:scale-110" aria-hidden="true" />
+                                        <span className="font-mono text-[8px] font-bold uppercase tracking-wider text-zinc-400 group-hover:text-zinc-200">Paste</span>
                                     </motion.button>
+                                </div>
+
+                                <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 font-mono text-[10px] leading-relaxed text-zinc-400 min-h-[3.25em] flex items-center gap-2">
+                                    <Zap size={13} className="shrink-0" style={{ color: `rgb(${accentRgb})` }} aria-hidden="true" />
+                                    <span>Instant Connect: auto-joins on 6th char. Pasted invite URLs automatically resolve.</span>
                                 </div>
 
                                 {/* Recent rooms. The screen had no memory at all:
@@ -702,12 +711,16 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                     aria-busy={joining}
                                     whileHover={disabled || !codeComplete ? undefined : (reduce ? undefined : { scale: 1.02, transition: springSnappy })}
                                     whileTap={disabled || !codeComplete ? undefined : tapPress(reduce)}
-                                    className={`mt-auto w-full min-h-[52px] py-3.5 rounded-2xl font-mono font-black text-sm uppercase tracking-[0.25em] text-black transition-colors flex items-center justify-center gap-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed btn-shimmer ${accentClasses}`}
+                                    className={`mt-auto w-full min-h-[52px] py-3.5 rounded-2xl font-mono font-black text-sm uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3 ${
+                                        codeComplete && !disabled
+                                            ? `btn-shimmer text-black ${accentClasses}`
+                                            : 'bg-white/[0.04] text-zinc-500 border border-white/10 cursor-not-allowed'
+                                    }`}
                                 >
                                     {joining
                                         ? <Loader2 size={17} className="animate-spin" aria-hidden="true" />
                                         : <LogIn size={17} aria-hidden="true" />}
-                                    <span>{joining ? 'Connecting…' : 'Join room'}</span>
+                                    <span>{joining ? 'Connecting…' : codeComplete ? 'Join room' : 'Enter 6-digit code'}</span>
                                 </motion.button>
                             </form>
                         </motion.div>

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Activity, Zap, AlertTriangle, Play, Sparkles, Loader2, FastForward } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { IKIMetrics, DigraphStat } from '@/lib/ikiEngine';
@@ -36,34 +35,33 @@ export function IkiInspector({
   const glowSecondary = theme?.glowSecondary || '34, 211, 238';
 
   // Rhythm classification label
-  const rhythmStatus = useMemo(() => {
-    if (fluidityScore >= 92) return { label: 'SYNCHRONIZED FLOW', color: 'text-emerald-300', bg: 'bg-emerald-500/10 border-emerald-500/30' };
-    if (fluidityScore >= 80) return { label: 'STEADY CADENCE', color: 'text-sky-300', bg: 'bg-sky-500/10 border-sky-500/30' };
-    if (fluidityScore >= 65) return { label: 'MILD JITTER', color: 'text-amber-300', bg: 'bg-amber-500/10 border-amber-500/30' };
-    return { label: 'RHYTHM BOTTLENECK', color: 'text-rose-300', bg: 'bg-rose-500/10 border-rose-500/30' };
-  }, [fluidityScore]);
+  const rhythmStatus =
+    fluidityScore >= 92
+      ? { label: 'SYNCHRONIZED FLOW', color: 'text-emerald-300', bg: 'bg-emerald-500/10 border-emerald-500/30' }
+      : fluidityScore >= 80
+      ? { label: 'STEADY CADENCE', color: 'text-sky-300', bg: 'bg-sky-500/10 border-sky-500/30' }
+      : fluidityScore >= 65
+      ? { label: 'MILD JITTER', color: 'text-amber-300', bg: 'bg-amber-500/10 border-amber-500/30' }
+      : { label: 'RHYTHM BOTTLENECK', color: 'text-rose-300', bg: 'bg-rose-500/10 border-rose-500/30' };
 
   // Combined bottleneck list (stumbled first, then slowest)
-  const combinedBottlenecks = useMemo(() => {
-    const list: DigraphStat[] = [];
-    const seen = new Set<string>();
+  const combinedBottlenecksList: DigraphStat[] = [];
+  const seen = new Set<string>();
 
-    for (const s of stumbledTransitions) {
-      if (!seen.has(s.digraph)) {
-        seen.add(s.digraph);
-        list.push(s);
-      }
+  for (const s of stumbledTransitions) {
+    if (!seen.has(s.digraph)) {
+      seen.add(s.digraph);
+      combinedBottlenecksList.push(s);
     }
+  }
 
-    for (const s of slowestTransitions) {
-      if (!seen.has(s.digraph)) {
-        seen.add(s.digraph);
-        list.push(s);
-      }
+  for (const s of slowestTransitions) {
+    if (!seen.has(s.digraph)) {
+      seen.add(s.digraph);
+      combinedBottlenecksList.push(s);
     }
-
-    return list.slice(0, 6);
-  }, [stumbledTransitions, slowestTransitions]);
+  }
+  const combinedBottlenecks = combinedBottlenecksList.slice(0, 6);
 
   const handleLaunchAll = () => {
     if (!onStartNeuroDrill) return;

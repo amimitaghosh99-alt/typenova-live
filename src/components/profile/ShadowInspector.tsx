@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Headphones, Radio, Zap, Activity, FastForward, Waves } from 'lucide-react';
 import type { Theme } from '@/data/constants';
 import type { ShadowMetrics } from '@/lib/shadowEngine';
@@ -33,12 +32,14 @@ export function ShadowInspector({
   const glowSecondary = theme?.glowSecondary || '99, 102, 241';
 
   // Cadence status badge
-  const cadenceStatus = useMemo(() => {
-    if (auditoryFluidity >= 85) return { label: 'TIGHT SYNCHRONIZATION', color: 'text-emerald-300', bg: 'bg-emerald-500/10 border-emerald-500/30' };
-    if (auditoryFluidity >= 70) return { label: 'STEADY EAR-TO-FINGER', color: 'text-sky-300', bg: 'bg-sky-500/10 border-sky-500/30' };
-    if (auditoryFluidity >= 50) return { label: 'AUDITORY BUFFER DRIFT', color: 'text-amber-300', bg: 'bg-amber-500/10 border-amber-500/30' };
-    return { label: 'HEAVY STREAM LAG', color: 'text-rose-300', bg: 'bg-rose-500/10 border-rose-500/30' };
-  }, [auditoryFluidity]);
+  const cadenceStatus =
+    auditoryFluidity >= 85
+      ? { label: 'TIGHT SYNCHRONIZATION', color: 'text-emerald-300', bg: 'bg-emerald-500/10 border-emerald-500/30' }
+      : auditoryFluidity >= 70
+      ? { label: 'STEADY EAR-TO-FINGER', color: 'text-sky-300', bg: 'bg-sky-500/10 border-sky-500/30' }
+      : auditoryFluidity >= 50
+      ? { label: 'AUDITORY BUFFER DRIFT', color: 'text-amber-300', bg: 'bg-amber-500/10 border-amber-500/30' }
+      : { label: 'HEAVY STREAM LAG', color: 'text-rose-300', bg: 'bg-rose-500/10 border-rose-500/30' };
 
   const syncPercent = Math.round((synchronizedWords / Math.max(1, totalWordsShadowed)) * 100);
 

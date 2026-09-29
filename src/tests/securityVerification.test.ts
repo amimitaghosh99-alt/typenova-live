@@ -285,9 +285,9 @@ export function registerSecurityVerificationTests(): void {
     it('redactApiKey thoroughly redacts sensitive keys and avoids secret leakage', () => {
       expect(redactApiKey('')).toBe('');
       expect(redactApiKey('short')).toBe('••••••••');
-      const standardKey = 'sk-proj-1234567890abcdefghijklmn';
+      const standardKey = 'sk-mock-1234567890abcdefghijklmn';
       const redacted = redactApiKey(standardKey);
-      expect(redacted.startsWith('sk-p')).toBe(true);
+      expect(redacted.startsWith('sk-m')).toBe(true);
       expect(redacted.endsWith('klmn')).toBe(true);
       expect(redacted.includes('1234567890abcdef')).toBe(false);
     });

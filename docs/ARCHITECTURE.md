@@ -9,7 +9,7 @@
 ## 1. Architectural Philosophy
 
 TypeNova is engineered around three non-negotiable principles:
-1. **Sub-Millisecond Input Latency:** Zero forced synchronous layout reflows on typing keystrokes.
+1. **< 2ms Input Processing Latency:** Zero forced synchronous layout reflows on typing keystrokes, targeting $< 2\text{ms}$ average keystroke dispatch.
 2. **120+ FPS Visual Immersion:** Strict memoization boundaries, GPU shader resource recycling, and pausable render loops.
 3. **Offline-First Resilience with BYOK Privacy:** Complete core functionality without internet access, with sensitive user API keys kept strictly on the client.
 
@@ -20,16 +20,15 @@ flowchart TB
         TypingView[TypingArea.tsx & GlidingBar]
         CyberHands[CyberHands.tsx 3D SVG Overlay]
         AruChat[AIChatBot.tsx & LaserFlow Shader]
-        MultiplayerHUD[RaceModal.tsx & ReplayScrubber]
-        VideoOverlay[VideoCallOverlay.tsx WebRTC PiP]
+        MultiplayerHUD[CompeteEntryScreen & RaceTrack]
+        LiquidShader[CosmicLiquidShader.tsx WebGL Canvas]
     end
 
     subgraph State_Engine [Core State & Logic Engines]
         useTypingEngine[useTypingEngine Hook]
         useRPGSystem[useRPGSystem Hook]
         useSmartEngine[useSmartEngineConfig & aiClient]
-        useRace[useRace & WebSocket Syncer]
-        useWebRTC[useWebRTC P2P Signaler]
+        useRace[useRace & Realtime Syncer]
         useAudioEngine[Web Audio Synthesizer]
     end
 
@@ -37,7 +36,7 @@ flowchart TB
         LocalStorage[Client LocalStorage Engine]
         WorkboxSW[Workbox Service Worker Precache]
         SupabaseAuth[Supabase Auth & RLS Postgres]
-        SocketIO[Realtime WebSocket Relay]
+        SupabaseRealtime[Supabase Realtime WebSockets]
         LLMProviders[Cloud LLMs & Chrome Gemini Nano]
     end
 
@@ -45,18 +44,17 @@ flowchart TB
     MainApp --> useRPGSystem
     MainApp --> useSmartEngine
     MainApp --> useRace
-    MainApp --> useWebRTC
     MainApp --> useAudioEngine
 
     useTypingEngine --> TypingView
     useRPGSystem --> CyberHands
     useSmartEngine --> AruChat
     useRace --> MultiplayerHUD
-    useWebRTC --> VideoOverlay
+    MainApp --> LiquidShader
 
     useTypingEngine --> LocalStorage
     useRPGSystem --> SupabaseAuth
-    useRace --> SocketIO
+    useRace --> SupabaseRealtime
     useSmartEngine --> LLMProviders
     WorkboxSW --> UI_Layer
 ```
@@ -69,7 +67,7 @@ flowchart TB
 Standard typing applications often calculate the caret's bounding box using `element.getBoundingClientRect()` or deep `offsetParent` loops on every keystroke. In TypeNova, this is eliminated:
 * **Pre-computed Character Metrics:** Line wrapping and character offset positions are precalculated during test initialization.
 * **Hardware-Accelerated Caret Translation:** The `GlidingBar` uses pure CSS `transform: translate3d(x, y, 0)` with hardware compositing (`will-change: transform`), completely bypassing the browser's layout recalculation phase.
-* **Result:** Processing time per keypress is $< 1.5\text{ms}$.
+* **Result:** Processing time per keypress is $< 2\text{ms}$ on average.
 
 ```mermaid
 sequenceDiagram
@@ -99,9 +97,9 @@ sequenceDiagram
 * **Emissive Reactive Lighting:** An in-memory `Map<string, KeyData[]>` maps physical `event.code` keys to 3D meshes. When a user presses a key, the mesh Y-axis depresses by `0.5` units and its material `emissiveIntensity` spikes to `3.0` (pure white bloom) before smoothly interpolating back via exponential decay.
 * **Edge Masking:** Uses CSS `maskImage: linear-gradient` to blend canvas boundaries into the `#080809` background without clipping.
 
-### 3.2 SplashCursor (GPU Fluid Simulation)
-* **Double-Buffered FBOs:** Computes fluid velocity, pressure, and vorticity using floating-point framebuffer textures in custom GLSL fragment shaders.
-* **Lifecycle Cleanup:** On component unmount, all WebGL buffers, textures, framebuffers, shaders, and programs are explicitly disposed via `gl.deleteTexture`, `gl.deleteProgram`, and `gl.getExtension('WEBGL_lose_context')?.loseContext()`, preventing VRAM leaks across route changes.
+### 3.2 CosmicLiquidShader (GPU Procedural Liquid Shader)
+* **Custom GLSL Canvas:** Located at `src/components/CosmicLiquidShader.tsx`, this component generates high-framerate procedural simplex noise and fluid wave distortions reacting in real time to mouse coordinates and theme palette variables (`u_colorA`, `u_colorB`, `u_colorC`).
+* **Lifecycle Cleanup:** Explicitly cancels `requestAnimationFrame` loops, unbinds WebGL contexts, and deletes vertex/fragment shader programs upon unmount, preventing VRAM leaks across route transitions.
 
 ### 3.3 LaserFlow (Volumetric Laser Shader in AIChatBot)
 * **Pausable Render Loop:** When the AI Coach drawer is closed, `<LaserFlow paused={!isOpen} />` skips `renderer.render()`, freeing 100% of GPU compute during active typing gameplay.
@@ -139,33 +137,28 @@ flowchart LR
 
 ---
 
-## 5. Real-Time Multiplayer Protocol
+## 5. Real-Time Multiplayer Architecture (Supabase Realtime)
 
-Multiplayer races utilize an event-driven WebSocket architecture:
+TypeNova operates without persistent custom Node.js/Socket.io backend servers. Multiplayer racing is powered 100% serverlessly through **Supabase Realtime WebSockets**:
 
-### 5.1 Protocol Sequence
-1. **Lobby Join:** Client dispatches `join_room` with `roomId`, `playerId`, `username`, and equipped `handSkin`.
-2. **Race Countdown:** Server syncs a high-precision UTC start timestamp (`start_timestamp`).
-3. **Throttled Telemetry:** During the race, clients emit `player_progress` throttled to **20Hz (50ms intervals)**:
-   ```json
-   {
-     "roomId": "CYBER-99",
-     "playerId": "usr_8f12a",
-     "progress": 0.68,
-     "currentWpm": 134.2,
-     "errors": 1
-   }
-   ```
-4. **Race Completion:** The server validates character counts, logs the match to Supabase PostgreSQL, and broadcasts the final podium placements.
+### 5.1 Realtime Protocol Sequence
+1. **Lobby Join & Presence Tracking:** Clients join a 6-character room channel (`race:<roomCode>`) and register via `channel.track()` to sync participant names, titles, ready states, and ping round-trip times.
+2. **Synchronized Countdown:** The room host broadcasts `race_start` with high-precision timestamping. Clients apply local clock offset compensation (`clockOffsetRef = hostClock - localClock`) to align the countdown across distributed networks.
+3. **Throttled Telemetry:** During the race, progress updates (`progress`, `wpm`, `errors`) are tracked over presence channels throttled to **200ms intervals**, eliminating WebSocket connection drops from rate limiting.
+4. **Broadcast Events:** Ephemeral interactions (in-lobby chat messages, tactical sabotage hex attacks, and post-match speed curves) are dispatched via `channel.send({ type: 'broadcast', ... })`.
+5. **Host Migration & Recovery:** If a room host disconnects, the client-side election algorithm automatically promotes the earliest remaining player to host without resetting racer progress.
 
 ---
 
-## 6. WebRTC Peer Comms Architecture
+## 6. Real-Time Communications & Roadmap Horizons
 
-To enable video calling during races with zero media server hosting costs:
-* **Signaling Channel:** Uses lightweight WebSocket messages (`signal_offer`, `signal_answer`, `signal_ice_candidate`).
-* **Media Streams:** Direct peer-to-peer WebRTC `RTCPeerConnection` with STUN servers (`stun:stun.l.google.com:19302`).
-* **Floating Window:** Renders in a hardware-accelerated picture-in-picture draggable portal with smooth pointer tracking.
+### 6.1 Direct Messaging & In-Lobby Comms
+* **Direct Player Messaging (`CommsModal`):** Instant messaging and friends roster synchronization backed by Supabase Realtime Postgres Changes on the `direct_messages` table.
+* **In-Race Text Comms:** Ephemeral lobby chat broadcast via Supabase Realtime Channels.
+
+### 6.2 WebRTC Peer-to-Peer Calling (Roadmap Horizon)
+* **Design Specification:** Future peer-to-peer audio/video streaming will utilize direct WebRTC `RTCPeerConnection` connections with public STUN servers (`stun:stun.l.google.com:19302`).
+* **Relay Traversal Note:** Symmetric NAT firewalls require TURN relay fallback to guarantee connection traversal; direct P2P connections without TURN can experience failure rates up to 15–20% on strict corporate/mobile cellular networks.
 
 ---
 

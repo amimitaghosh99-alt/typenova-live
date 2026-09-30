@@ -6,9 +6,9 @@ We actively provide security patches and dependency updates for the following ve
 
 | Version | Supported | Notes |
 | :--- | :--- | :--- |
-| **2.5.x (Current)** | :white_check_mark: Yes | Mainline production release with BYOK client isolation |
-| **2.4.x** | :white_check_mark: Yes | Critical security hotfixes only |
-| **< 2.4.0** | :x: No | Unsupported; upgrade immediately |
+| **3.1.x (Current)** | :white_check_mark: Yes | Mainline production release with BYOK client isolation & real-time engine |
+| **3.0.x** | :white_check_mark: Yes | Critical security hotfixes only |
+| **< 3.0.0** | :x: No | Unsupported; upgrade immediately |
 
 ---
 
@@ -118,8 +118,7 @@ TypeNova uses multiple complementary automated security systems:
 If you discover a security vulnerability within TypeNova, please report it responsibly:
 
 1. **Do not disclose the issue publicly** on GitHub issues, Discord, or social media.
-2. Open a **Private Security Advisory** on GitHub under the **Security** tab of the repository, or email the maintainers directly:
-   * **Security Contact:** `security@typenova.dev`
+2. Open a **[GitHub Private Security Advisory](https://github.com/amimitaghosh99-alt/typenova-live/security/advisories/new)** under the **Security** tab of the repository. This enables private coordination and validation with maintainers prior to disclosure.
 3. **Include in your report:**
    * A clear summary of the vulnerability.
    * Step-by-step instructions or minimal proof-of-concept to reproduce.

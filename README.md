@@ -26,7 +26,7 @@ Combining **< 2ms mechanical input processing**, **3D CyberHands RPG progression
 
 <div align="center">
   <img src="docs/assets/typing-demo.gif" alt="TypeNova Mechanical Typing Engine in Action" width="100%" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 242, 254, 0.15);" />
-  <p><sub>⚡ <em>Real-time mechanical typing engine with dynamic fluid cursor, gliding caret, live WPM/accuracy telemetry, and audio switch synthesis.</em></sub></p>
+  <p><sub>⚡ <em>Real-time mechanical typing engine with smooth gliding caret, live WPM/accuracy telemetry, and mechanical audio switch synthesis.</em></sub></p>
 </div>
 
 ---
@@ -41,7 +41,7 @@ Combining **< 2ms mechanical input processing**, **3D CyberHands RPG progression
 | 🏁 Multiplayer Race Arena | 📊 Operator Telemetry & Analytics |
 | :---: | :---: |
 | [![Multiplayer Races](docs/assets/screenshot-multiplayer.png)](docs/assets/screenshot-multiplayer.png) | [![Operator Analytics](docs/assets/screenshot-analytics.png)](docs/assets/screenshot-analytics.png) |
-| *Real-time WebSocket matchmaking, 6-digit OTP rooms & P2P video/voice* | *Dual-axis WPM/accuracy trajectory curves & diagnostic logs* |
+| *Real-time WebSocket matchmaking, 6-digit OTP rooms & live lobby comms* | *Dual-axis WPM/accuracy trajectory curves & diagnostic logs* |
 
 <details>
 <summary>🔍 <strong>View Post-Test Telemetry & AI Coach Debrief Screen</strong></summary>
@@ -98,7 +98,7 @@ Combining **< 2ms mechanical input processing**, **3D CyberHands RPG progression
 ### 🎨 5. Cybernetic Aesthetics & Audio FX
 * **Kinetic 3D Mechanical Keyboard:** Full 100% mechanical keyboard rendered in Three.js on landing views, featuring reactive physical key depression and emissive bloom.
 * **GLSL Cosmic Liquid Shader (`CosmicLiquidShader`):** GPU-accelerated procedural simplex noise and liquid wave shader responding dynamically to mouse coordinates and active theme palette.
-* **Acoustic Switch Synthesis:** Multi-sampled mechanical switch sound profiles (*Cherry MX Blue, Red, Brown, Topre, Typewriter, Cyber Laser*).
+* **Acoustic Switch Synthesis:** Web Audio API procedural sound profiles (*Thocky Holy Panda, Linear Cherry Red, Tactile Clicky, Buckling Spring Model M, Alpaca Linear, Arcade 8-bit, Raindrops*).
 * **15+ Themes:** Starfield, Matrix CRT, Cyberpunk, Dracula, Nord, Obsidian, Synthwave, Vaporwave, and more.
 
 ---

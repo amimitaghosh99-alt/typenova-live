@@ -81,6 +81,8 @@ export function TypingController({
   const shakeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMilestoneRef = useRef(0);
   const restartArmedRef = useRef(0);
+  const cheatBufferRef = useRef('');
+  const cheatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use a ref to store the latest props so the keydown listener doesn't need to re-bind
   // and trigger GC thrashing on every keystroke.
@@ -102,6 +104,9 @@ export function TypingController({
     return () => {
       if (shakeTimeoutRef.current) {
         clearTimeout(shakeTimeoutRef.current);
+      }
+      if (cheatTimerRef.current) {
+        clearTimeout(cheatTimerRef.current);
       }
     };
   }, []);
@@ -157,6 +162,18 @@ export function TypingController({
       if (e.getModifierState && e.getModifierState('CapsLock')) typing.setCapsLock(true);
       else typing.setCapsLock(false);
 
+      // Direct God Mode hotkeys: Ctrl+Shift+G / Cmd+Shift+G or ` / ~ outside active typing
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'G' || e.key === 'g')) {
+        e.preventDefault();
+        onUnlockGodMode();
+        return;
+      }
+      if ((currentPhase === 'CONFIGURING' || currentPhase === 'READY') && (e.key === '`' || e.key === '~')) {
+        e.preventDefault();
+        onUnlockGodMode();
+        return;
+      }
+
       // ─── CONFIGURING ───
       if (currentPhase === 'CONFIGURING') {
         if (e.key === 'Tab') {
@@ -189,25 +206,38 @@ export function TypingController({
         }
 
         if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
-          const currentInput = typing.inputRef.current;
-          const nextInput = (currentInput + e.key).toLowerCase();
+          // Rolling buffer for godmode easter egg
+          if (cheatTimerRef.current) clearTimeout(cheatTimerRef.current);
+          cheatTimerRef.current = setTimeout(() => {
+            cheatBufferRef.current = '';
+          }, 3000);
 
-          if (import.meta.env.DEV && 'godmode'.startsWith(nextInput)) {
-            typing.setInputSync(nextInput);
-            if (nextInput === 'godmode') {
-              onUnlockGodMode();
-              typing.setInputSync('');
-            }
+          const nextCheat = (cheatBufferRef.current + e.key.toLowerCase()).slice(-10);
+          cheatBufferRef.current = nextCheat;
+
+          if (nextCheat.endsWith('godmode')) {
+            cheatBufferRef.current = '';
+            onUnlockGodMode();
             return;
-          } else if (currentInput.length > 0) {
-            typing.setInputSync('');
           }
 
-          // Transition seamlessly from CONFIGURING to active TYPING on first keystroke
+          // If user is currently typing "godmode", do not start the typing test
+          if ('godmode'.startsWith(nextCheat)) {
+            return;
+          }
+
+          // Otherwise, clear cheat buffer and transition seamlessly from CONFIGURING to active TYPING
+          cheatBufferRef.current = '';
+          if (typing.inputRef.current.length > 0) {
+            typing.setInputSync('');
+          }
           typing.setPhase('TYPING');
           typing.setStartTime(Date.now());
           lastMilestoneRef.current = 0;
           currentPhase = 'TYPING';
+        } else if (e.key === 'Backspace' && cheatBufferRef.current.length > 0) {
+          cheatBufferRef.current = cheatBufferRef.current.slice(0, -1);
+          return;
         } else {
           return;
         }

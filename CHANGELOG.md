@@ -9,12 +9,15 @@ All notable changes to this project will be documented in this file.
 - **Gliding Multiplayer Opponent Caret Tracking**: Sleek, non-intrusive 3px glowing gliding underline and micro floating racer name chip matching Ghost Pacer polish (`GlidingOpponentBeacon`), eliminating text occlusion and line-bleed.
 - **Multiplayer Telemetry Throughput (40Hz Sync)**: Configured Supabase Realtime channel parameters to 40 events/sec for fluid 40Hz multiplayer packet streaming and lane beacon tracking.
 - **Settings Modal Typography Showcase**: Overhauled font selection gallery in Settings with ultra-dense specimen cards, live monospace preview line, specular glints, and dynamic theme tokens.
+- **God Mode Instant Shortcuts & Dedicated Cheat Buffer**: Decoupled `godmode` easter egg sequence into an isolated rolling buffer with backspace support, preventing practice arena speed test false-starts; added instant hotkeys (`Ctrl+Shift+G`, `Cmd+Shift+G`, `` ` `` / `~`).
 
 ### Changed
 - **Universal Dynamic Theme Compliance**: Replaced hardcoded accent colors (`text-amber-400`, `text-cyan-400`, `text-orange-500`, `text-purple-400`) in `CosmicNavBar`, `DailyQuestsPanel`, `CommsModal`, `GhostPacerModal`, `CompeteEntryScreen`, and `PostMatchChat` with dynamic `theme.glowPrimary` tokens.
 - **Tactical Cyber Sabotage Dock**: Streamlined `CyberSabotageDock` with a compact tactical layout, reduced padding, and tighter gaps.
 
 ### Fixed
+- **Multiplayer Ready State & Reconnection Reliability**: Sub-30ms `player_ready` state propagation, 0ms optimistic toggle, and packet throttling to prevent lobby disconnects and state desync.
+- **God Mode Dev Mode Lockout**: Removed `import.meta.env.DEV` check, allowing God Mode debugging across all deployment environments.
 - **Practice Arena Match Isolation**: Suppressed practice stats HUD during active multiplayer races to keep visual focus on the track and passage.
 - **Strict Anti-Regression & Type Compliance**: Resolved `framer-motion` imports in `AppModalManager` and cleaned unused imports in `CompeteCountdownOverlay`.
 

@@ -29,14 +29,17 @@ export const CHANGELOG: ChangelogEntry[] = [
       { type: 'feature', description: 'Gliding Multiplayer Opponent Caret Tracking: Upgraded in-passage opponent tracking to a sleek, non-intrusive 3px glowing gliding underline and micro floating racer name chip matching Ghost Pacer polish.' },
       { type: 'feature', description: 'Multiplayer Telemetry Throughput (40Hz Sync): Configured Supabase Realtime channel parameters to 40 events/sec for fluid 40Hz multiplayer packet streaming and lane beacon tracking.' },
       { type: 'feature', description: 'Settings Modal Typography Showcase: Overhauled font selection gallery in Settings with ultra-dense specimen cards, live monospace preview line, specular glints, and dynamic theme tokens.' },
+      { type: 'feature', description: 'God Mode Dedicated Cheat Buffer & Instant Shortcuts: Decoupled godmode sequence into an isolated rolling buffer with backspace support, preventing practice arena speed test false-starts; added Ctrl+Shift+G, Cmd+Shift+G, and backtick/tilde shortcuts.' },
+      { type: 'fix', description: 'Multiplayer Ready State & Reconnection Reliability: Sub-30ms player_ready state propagation, 0ms optimistic toggle, and packet throttling to eliminate lobby disconnects and state desync.' },
+      { type: 'fix', description: 'God Mode Universal Accessibility: Removed DEV-only restriction so God Mode is accessible across all deployment environments.' },
       { type: 'fix', description: 'Universal Dynamic Theme Compliance: Replaced hardcoded accent colors across CosmicNavBar, DailyQuestsPanel, CommsModal, GhostPacerModal, CompeteEntryScreen, and PostMatchChat with dynamic theme.glowPrimary tokens.' },
       { type: 'tweak', description: 'Tactical Cyber Sabotage Dock & Practice Focus: Streamlined CyberSabotageDock with compact layout and suppressed Practice HUD during live multiplayer races.' }
     ],
     impact: {
-      fixes: 8,
+      fixes: 11,
       tweaks: 5,
-      linesChanged: 1040,
-      perfGain: '40Hz Fluid Multiplayer Telemetry, Zero Text Occlusion & Instant F1 Launch Audio'
+      linesChanged: 1120,
+      perfGain: '40Hz Fluid Multiplayer Telemetry, Sub-30ms Ready State, & Seamless God Mode Triggering'
     }
   },
   {

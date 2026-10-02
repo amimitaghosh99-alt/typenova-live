@@ -35,23 +35,41 @@ export function DailyQuestsPanel({ questsState, dailyStreak, onClose, theme }: D
       onClick={onClose}
     >
       <div
-        className="glass-panel relative w-full max-w-md my-auto flex flex-col rounded-2xl bg-slate-950/70 border border-white/15 shadow-2xl shadow-cyan-950/30 overflow-hidden p-5 sm:p-6 font-mono min-h-0 lucid-scale"
+        className="glass-panel relative w-full max-w-md my-auto flex flex-col rounded-2xl bg-slate-950/70 border border-white/15 shadow-2xl overflow-hidden p-5 sm:p-6 font-mono min-h-0 lucid-scale"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Subtle Ambient Glow */}
-        <div className="absolute -top-28 -left-28 w-72 h-72 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div
+          className="absolute -top-28 -left-28 w-72 h-72 rounded-full blur-3xl pointer-events-none"
+          style={{ backgroundColor: `rgba(${glowPrimary}, 0.15)` }}
+        />
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10 shrink-0 relative z-10">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{
+                background: `linear-gradient(135deg, rgba(${glowPrimary}, 0.2), rgba(${theme?.glowSecondary || glowPrimary}, 0.2))`,
+                border: `1px solid rgba(${glowPrimary}, 0.4)`,
+                color: `rgb(${glowPrimary})`,
+                boxShadow: `0 0 12px rgba(${glowPrimary}, 0.2)`,
+              }}
+            >
               <Flame size={18} className="animate-pulse" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 Daily Quests
-                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 font-mono">
-                  <Flame size={10} className="text-orange-400 shrink-0" /> {dailyStreak} Day Streak
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-mono"
+                  style={{
+                    backgroundColor: `rgba(${glowPrimary}, 0.15)`,
+                    border: `1px solid rgba(${glowPrimary}, 0.3)`,
+                    color: `rgb(${glowPrimary})`,
+                  }}
+                >
+                  <Flame size={10} className="shrink-0" style={{ color: `rgb(${glowPrimary})` }} /> {dailyStreak} Day Streak
                 </span>
               </h2>
               <p className="text-[10px] text-zinc-400">Resets daily at 00:00 UTC</p>
@@ -60,7 +78,7 @@ export function DailyQuestsPanel({ questsState, dailyStreak, onClose, theme }: D
 
           <button
             onClick={onClose}
-            className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white rounded-full transition-all hover:rotate-90"
+            className="p-1.5 bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white rounded-full transition-all hover:rotate-90 cursor-pointer"
             aria-label="Close modal"
           >
             <X size={18} />
@@ -100,7 +118,14 @@ export function DailyQuestsPanel({ questsState, dailyStreak, onClose, theme }: D
                       </span>
                     </div>
 
-                    <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                    <span
+                      className="shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
+                      style={{
+                        backgroundColor: `rgba(${glowPrimary}, 0.15)`,
+                        border: `1px solid rgba(${glowPrimary}, 0.3)`,
+                        color: `rgb(${glowPrimary})`,
+                      }}
+                    >
                       <Zap size={10} /> +{quest.xpReward} XP
                     </span>
                   </div>
@@ -138,7 +163,7 @@ export function DailyQuestsPanel({ questsState, dailyStreak, onClose, theme }: D
         {/* Footer streak bonus info */}
         <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-zinc-400 relative z-10">
           <span>Completed: {completedCount} / 3</span>
-          <span className="text-orange-300 font-bold">
+          <span className="font-bold" style={{ color: `rgb(${glowPrimary})` }}>
             Multiplier: {(1 + Math.min(dailyStreak * 0.1, 1.0)).toFixed(1)}x XP
           </span>
         </div>

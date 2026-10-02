@@ -52,6 +52,7 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
   currentUsername,
 }) => {
   if (!isOpen) return null;
+  const glowSecondary = theme.glowSecondary || '245, 158, 11';
 
   return (
     <AnimatePresence>
@@ -111,7 +112,7 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -142,7 +143,7 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
                     }
                   : undefined
               }
-              className={`w-14 h-8 rounded-full p-1 transition-colors relative flex items-center ${
+              className={`w-14 h-8 rounded-full p-1 transition-colors relative flex items-center cursor-pointer ${
                 ghostPacer ? '' : 'bg-zinc-800'
               }`}
             >
@@ -167,7 +168,7 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
                     }
                   : undefined
               }
-              className={`p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 relative overflow-hidden ${
+              className={`p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 relative overflow-hidden cursor-pointer ${
                 ghostMode === 'pb'
                   ? ''
                   : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] text-zinc-400'
@@ -195,15 +196,30 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
 
             <button
               onClick={() => setGhostMode('rival')}
-              className={`p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 relative overflow-hidden ${
+              style={
                 ghostMode === 'rival'
-                  ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+                  ? {
+                      backgroundColor: `rgba(${glowSecondary}, 0.1)`,
+                      borderColor: `rgba(${glowSecondary}, 0.4)`,
+                      boxShadow: `0 0 20px rgba(${glowSecondary}, 0.15)`,
+                    }
+                  : undefined
+              }
+              className={`p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 relative overflow-hidden cursor-pointer ${
+                ghostMode === 'rival'
+                  ? ''
                   : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] text-zinc-400'
               }`}
             >
               <div className="flex items-center justify-between">
-                <Users size={16} className={ghostMode === 'rival' ? 'text-amber-400' : 'text-zinc-500'} />
-                {ghostMode === 'rival' && <Check size={14} className="text-amber-400" />}
+                <Users
+                  size={16}
+                  className={ghostMode === 'rival' ? '' : 'text-zinc-500'}
+                  style={ghostMode === 'rival' ? { color: `rgb(${glowSecondary})` } : undefined}
+                />
+                {ghostMode === 'rival' && (
+                  <Check size={14} style={{ color: `rgb(${glowSecondary})` }} />
+                )}
               </div>
               <div>
                 <span className={`text-[11px] font-black tracking-wide block leading-tight ${ghostMode === 'rival' ? 'text-white' : 'text-zinc-300'}`}>
@@ -217,15 +233,30 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
 
             <button
               onClick={() => setGhostMode('target')}
-              className={`p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 relative overflow-hidden ${
+              style={
                 ghostMode === 'target'
-                  ? 'bg-purple-500/10 border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]'
+                  ? {
+                      backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
+                      borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
+                      boxShadow: `0 0 20px rgba(${theme.glowPrimary}, 0.15)`,
+                    }
+                  : undefined
+              }
+              className={`p-3 rounded-2xl border transition-all text-left flex flex-col gap-2 relative overflow-hidden cursor-pointer ${
+                ghostMode === 'target'
+                  ? ''
                   : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] text-zinc-400'
               }`}
             >
               <div className="flex items-center justify-between">
-                <Bot size={16} className={ghostMode === 'target' ? 'text-purple-400' : 'text-zinc-500'} />
-                {ghostMode === 'target' && <Check size={14} className="text-purple-400" />}
+                <Bot
+                  size={16}
+                  className={ghostMode === 'target' ? '' : 'text-zinc-500'}
+                  style={ghostMode === 'target' ? { color: `rgb(${theme.glowPrimary})` } : undefined}
+                />
+                {ghostMode === 'target' && (
+                  <Check size={14} style={{ color: `rgb(${theme.glowPrimary})` }} />
+                )}
               </div>
               <div>
                 <span className={`text-[11px] font-black tracking-wide block leading-tight ${ghostMode === 'target' ? 'text-white' : 'text-zinc-300'}`}>
@@ -248,9 +279,12 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-zinc-400 tracking-wider uppercase flex items-center gap-1.5">
-                  <Users size={14} className="text-amber-400" /> Board
+                  <Users size={14} style={{ color: `rgb(${glowSecondary})` }} /> Board
                 </span>
-                <span className="text-[11px] font-black text-amber-300 font-mono tracking-wider">
+                <span
+                  className="text-[11px] font-black font-mono tracking-wider"
+                  style={{ color: `rgb(${glowSecondary})` }}
+                >
                   {modeKey ? formatModeLabel(modeKey) : 'UNRANKED'}
                 </span>
               </div>
@@ -296,9 +330,17 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
                         key={row.user_id}
                         onClick={() => onSelectRival(row)}
                         disabled={isPending}
+                        style={
+                          isSelected
+                            ? {
+                                backgroundColor: `rgba(${glowSecondary}, 0.1)`,
+                                borderColor: `rgba(${glowSecondary}, 0.4)`,
+                              }
+                            : undefined
+                        }
                         className={`w-full p-3 rounded-xl border transition-all flex items-center gap-3 text-left ${
                           isSelected
-                            ? 'bg-amber-500/10 border-amber-500/40'
+                            ? ''
                             : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
                         } ${isPending ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
                       >
@@ -320,9 +362,9 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
                         <span className="font-black text-lg text-white shrink-0 tabular-nums">{row.wpm}</span>
                         <span className="w-4 shrink-0 flex items-center justify-center">
                           {isPending
-                            ? <Loader2 size={14} className="animate-spin text-amber-400" />
+                            ? <Loader2 size={14} className="animate-spin" style={{ color: `rgb(${glowSecondary})` }} />
                             : isSelected
-                            ? <Check size={14} className="text-amber-400" />
+                            ? <Check size={14} style={{ color: `rgb(${glowSecondary})` }} />
                             : null}
                         </span>
                       </button>
@@ -343,9 +385,12 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-zinc-400 tracking-wider uppercase flex items-center gap-1.5">
-                  <Gauge size={14} className="text-purple-400" /> Target Speed Presets
+                  <Gauge size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Target Speed Presets
                 </span>
-                <span className="text-base font-black text-purple-300 font-mono">
+                <span
+                  className="text-base font-black font-mono"
+                  style={{ color: `rgb(${theme.glowPrimary})` }}
+                >
                   {ghostTargetWpm} WPM
                 </span>
               </div>
@@ -356,9 +401,19 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
                   <button
                     key={speed}
                     onClick={() => setGhostTargetWpm(speed)}
-                    className={`py-2 rounded-xl text-xs font-black transition-all border ${
+                    style={
                       ghostTargetWpm === speed
-                        ? 'bg-purple-500 text-white border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                        ? {
+                            backgroundColor: `rgb(${theme.glowPrimary})`,
+                            color: '#ffffff',
+                            borderColor: `rgba(${theme.glowPrimary}, 0.8)`,
+                            boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.4)`,
+                          }
+                        : undefined
+                    }
+                    className={`py-2 rounded-xl text-xs font-black transition-all border cursor-pointer ${
+                      ghostTargetWpm === speed
+                        ? ''
                         : 'bg-white/5 border-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
                     }`}
                   >
@@ -377,7 +432,8 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
                   value={ghostTargetWpm}
                   onChange={(e) => setGhostTargetWpm(parseInt(e.target.value, 10))}
                   aria-label="Ghost pacer target WPM"
-                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                  style={{ accentColor: `rgb(${theme.glowPrimary})` }}
                 />
                 <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
                   <span>40 WPM</span>
@@ -391,7 +447,7 @@ export const GhostPacerModal: React.FC<GhostPacerModalProps> = memo(({
           {/* Action Close / Done */}
           <button
             onClick={onClose}
-            className="w-full py-3.5 rounded-2xl bg-white text-zinc-950 font-black text-sm tracking-widest uppercase hover:bg-zinc-200 transition-colors shadow-lg"
+            className="w-full py-3.5 rounded-2xl bg-white text-zinc-950 font-black text-sm tracking-widest uppercase hover:bg-zinc-200 transition-colors shadow-lg cursor-pointer"
           >
             CONFIRM &amp; RACE
           </button>

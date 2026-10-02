@@ -13,6 +13,7 @@ import { isPatronTitle } from '@/data/donation';
 import { TITLE_BADGES } from '@/data/titles';
 import { TITLE_MARK } from '@/lib/titleIcons';
 import { toast } from 'sonner';
+import { CompeteCountdownOverlay } from '@/components/CompeteCountdownOverlay';
 
 interface LobbyScreenProps {
   activeTitle?: string;
@@ -407,10 +408,14 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
     <div className="w-full max-w-[1600px] mx-auto relative select-none pb-2 animate-in fade-in duration-300 flex flex-col gap-4">
 
       {countdown !== null && (
-        <div className="absolute inset-0 z-[55] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md rounded-3xl">
-          <div className={`font-display font-black text-8xl ${themeTextClass} animate-pulse`}>{countdown}</div>
-          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.3em] text-zinc-400">Race starting — get ready</p>
-        </div>
+        <CompeteCountdownOverlay
+          countdown={countdown}
+          roomCode={code}
+          lobbyConfig={lobbyConfig}
+          players={players}
+          selfId={selfId}
+          theme={theme}
+        />
       )}
 
       {error && (

@@ -1,7 +1,7 @@
 {
   "name": "typenova",
   "private": true,
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "Next-gen cybernetic gamified typing platform with < 2ms mechanical input, 3D CyberHands RPG, real-time multiplayer racing, and BYOK AI coach.",
   "homepage": "https://typenova-live.vercel.app",
   "keywords": [

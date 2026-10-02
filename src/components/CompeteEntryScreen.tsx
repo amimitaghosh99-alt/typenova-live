@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+﻿import React, { memo, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { OTPInput, REGEXP_ONLY_DIGITS_AND_CHARS, type SlotProps } from 'input-otp';
 import {
@@ -22,7 +22,7 @@ interface CompeteEntryScreenProps {
     isBusy?: boolean;
     /** Last realtime failure, e.g. a bad code or a full room. */
     error?: string | null;
-    /** False when Supabase credentials are missing — nothing can connect. */
+    /** False when Supabase credentials are missing â€” nothing can connect. */
     multiplayerAvailable?: boolean;
     /** Code that turned out to have no live room behind it, so we can offer to
         host it rather than leaving the user guessing at a typo. */
@@ -31,7 +31,7 @@ interface CompeteEntryScreenProps {
     /** Quick-match strip, composed by App so this screen stays presentational.
         Sits at the top of the primary column, directly above host/join. */
     quickMatchSlot?: React.ReactNode;
-    /** Right-rail panels — open-room browser, ranked record. Kept out of the
+    /** Right-rail panels â€” open-room browser, ranked record. Kept out of the
         primary column so browsing and history can never push the only two
         controls that start a race below the fold. */
     sidebarSlot?: React.ReactNode;
@@ -53,14 +53,14 @@ const extractRoomCode = (raw: string): string => {
             if (param) return param.trim().toUpperCase().slice(0, 6);
         }
     } catch {
-        // Not a URL — fall through to the raw scan.
+        // Not a URL â€” fall through to the raw scan.
     }
     const match = text.match(/[A-Z0-9]{6}/);
     if (match) return match[0];
     return text.replace(/[^A-Z0-9]/g, '').slice(0, 6);
 };
 
-/* ── SegmentedControl option sets ──
+/* â”€â”€ SegmentedControl option sets â”€â”€
    Module-level so the arrays keep referential identity across renders:
    `SegmentedControl` memoises on its props and re-runs a GSAP layout effect
    whenever `options` changes, so an inline literal would restart the pill
@@ -82,7 +82,7 @@ const MODE_OPTIONS: { label: string; value: RaceMode }[] = [
  * One box of the room-code field.
  *
  * Replaces a single wide input that faked optical centring with
- * `px-[68px] sm:px-[104px]` — asymmetric padding whose only purpose was to leave
+ * `px-[68px] sm:px-[104px]` â€” asymmetric padding whose only purpose was to leave
  * room for the absolutely-positioned Paste button. Six boxes state the required
  * length structurally instead of via a `0 / 6` counter, and give per-character
  * position feedback while typing.
@@ -133,14 +133,14 @@ const CodeSlot: React.FC<SlotProps & { invalid: boolean; accentRgb: string }> = 
  * visible way to join anyone.
  *
  * Layout note: this screen used to cap itself at a hardcoded 1100px inside a
- * stage that is 1600px wide, then stack every panel — queue, room browser,
- * ranked history, host, join — in that one column. The two controls that
+ * stage that is 1600px wide, then stack every panel â€” queue, room browser,
+ * ranked history, host, join â€” in that one column. The two controls that
  * actually start a race ended up roughly 1200px down the page while 500px of
  * the stage sat empty. It's now a two-column cockpit at `xl`: actions left,
  * browse/history right.
  *
  * Scroll note: the columns used to be `xl:overflow-y-auto` inside a scrolling
- * page, which gave the screen four nested scroll regions — page, primary column,
+ * page, which gave the screen four nested scroll regions â€” page, primary column,
  * rail, and the room list's own `max-h`. Which one a wheel event moved depended
  * on where the cursor happened to be. The actions are `xl:sticky` instead, so
  * they stay on screen while a long rail scrolls past in the page's single
@@ -148,7 +148,7 @@ const CodeSlot: React.FC<SlotProps & { invalid: boolean; accentRgb: string }> = 
  * buttons that start a race.
  *
  * Surface note: five blurred `.glass-panel` layers used to nest inside one
- * another here, which `index.css:451-466` explicitly warns against — each costs a
+ * another here, which `index.css:451-466` explicitly warns against â€” each costs a
  * full-surface filter pass and the inner ones sample an already-blurred backdrop.
  * Blur is now reserved for the three action cards, which float over the wallpaper
  * and are the surfaces it actually reads on; the rail panels use `.glass-card`,
@@ -157,13 +157,13 @@ const CodeSlot: React.FC<SlotProps & { invalid: boolean; accentRgb: string }> = 
  * Every panel and floating chip still sets an explicit dark fill. That is not
  * belt-and-braces: the wallpaper is user-supplied via Auto-Fetch, `.glass-panel`
  * and `.glass-card` are both near-transparent by design, and all the text here is
- * near-white — so against a cream or pastel image an unfilled surface renders
+ * near-white â€” so against a cream or pastel image an unfilled surface renders
  * white-on-white. The fill is the legibility floor, independent of the blur.
  */
 const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
     username,
     theme,
-    themeTextClass = 'text-cyan-400',
+    themeTextClass = theme?.text || 'text-white',
     defaultRoomSize = 4,
     isBusy = false,
     error = null,
@@ -192,7 +192,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
     const accentClasses = `${theme?.solid || 'bg-cyan-500'} ${theme?.glow || ''}`;
     /** Theme accent as an RGB triplet, for the places a Tailwind class can't
         reach (the OTP slot border and ring). `GEMINI.md` requires theme binding
-        over hardcoded accents — the join card used to be purple while the host
+        over hardcoded accents â€” the join card used to be purple while the host
         card beside it followed the theme, so the pair drifted apart the moment
         Auto-Fetch picked a non-purple wallpaper. */
     const accentRgb = theme?.glowPrimary || '34, 211, 238';
@@ -252,9 +252,9 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
     return (
         <div className="w-full flex-1 min-h-0 flex flex-col gap-4 animate-in fade-in duration-300 pb-16">
 
-            {/* ── Header ──
+            {/* â”€â”€ Header â”€â”€
                 Was three stacked rows: a pill row, a `text-4xl` title, and a
-                subtitle wrapped in its own blurred capsule — roughly 140px of
+                subtitle wrapped in its own blurred capsule â€” roughly 140px of
                 chrome above a screen whose job is two buttons. The subtitle said
                 "Host a room and share the code, or drop in with a code a friend
                 sent you", which is the two card headings restated, and both cards
@@ -277,7 +277,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                 </motion.h1>
 
                 <motion.div variants={reduce ? undefined : listChild} className="flex flex-wrap items-center gap-2">
-                    {/* Connection state. Colour is never the only signal — the
+                    {/* Connection state. Colour is never the only signal â€” the
                         icon swaps and the label spells the state out.
 
                         These chips float directly over the wallpaper rather than
@@ -311,7 +311,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                 </motion.div>
             </motion.header>
 
-            {/* ── Blockers ── */}
+            {/* â”€â”€ Blockers â”€â”€ */}
             <AnimatePresence>
                 {!multiplayerAvailable && (
                     <motion.div
@@ -334,7 +334,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                 )}
             </AnimatePresence>
 
-            {/* Realtime failures — a bad code, a full room, a dropped channel.
+            {/* Realtime failures â€” a bad code, a full room, a dropped channel.
                 Was uppercase with `tracking-widest`, which is fine for a
                 two-word label and actively hard to read for a sentence, and it
                 led with an emoji that screen readers announce inconsistently. */}
@@ -368,15 +368,15 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                 )}
             </AnimatePresence>
 
-            {/* ── Cockpit ──
+            {/* â”€â”€ Cockpit â”€â”€
                 `items-start` matters: it lets the sticky primary column work.
                 A stretched grid item is as tall as the row, so `position: sticky`
                 inside it has nowhere to travel. */}
             <div className="w-full grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
 
-                {/* ═══ Primary column: queue → host → join ═══
-                    Sticky rather than independently scrollable. The goal — never
-                    push Create/Join below the fold — is the same one the internal
+                {/* â•â•â• Primary column: queue â†’ host â†’ join â•â•â•
+                    Sticky rather than independently scrollable. The goal â€” never
+                    push Create/Join below the fold â€” is the same one the internal
                     scroller was protecting; this achieves it without giving the
                     screen a second scroll region. */}
                 <section
@@ -388,7 +388,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
 
                     <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
 
-                        {/* ═══ HOST A ROOM ═══
+                        {/* â•â•â• HOST A ROOM â•â•â•
                             Was: a capacity SegmentedControl that dimmed itself to
                             `opacity-40` whenever ranked mode was on, plus a
                             separate ranked toggle underneath it. Dimming a
@@ -434,14 +434,14 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                 />
                                 <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 font-mono text-[10px] leading-relaxed text-zinc-400 min-h-[3.25em] flex items-center">
                                     {isRanked
-                                        ? '1v1 only. Elo on the line — both racers must be signed in.'
-                                        : 'Up to four racers. Nothing at stake — pure practice.'}
+                                        ? '1v1 only. Elo on the line â€” both racers must be signed in.'
+                                        : 'Up to four racers. Nothing at stake â€” pure practice.'}
                                 </div>
                             </div>
 
                             {/* Capacity. In a ranked duel the value is fixed at 2,
                                 so the control is replaced by a plain readout
-                                rather than dimmed to `opacity-40` — a disabled
+                                rather than dimmed to `opacity-40` â€” a disabled
                                 widget was the only place the "2 MAX" fact was
                                 stated. The row keeps its height either way so
                                 switching modes never moves the button below. */}
@@ -455,7 +455,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                 {isRanked ? (
                                     <div className="min-h-[45px] flex items-center justify-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/30 px-4 font-mono text-[11px] font-black uppercase tracking-widest text-amber-200">
                                         <Trophy size={13} className="shrink-0 text-amber-300" aria-hidden="true" />
-                                        Ranked duel · 2 P
+                                        Ranked duel Â· 2 P
                                     </div>
                                 ) : (
                                     <SegmentedControl
@@ -482,13 +482,13 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                 {creating
                                     ? <Loader2 size={17} className="animate-spin" aria-hidden="true" />
                                     : <Play size={17} className="fill-current" aria-hidden="true" />}
-                                <span>{creating ? 'Opening room…' : isRanked ? 'Open ranked duel' : 'Create room'}</span>
+                                <span>{creating ? 'Opening roomâ€¦' : isRanked ? 'Open ranked duel' : 'Create room'}</span>
                             </motion.button>
                         </motion.div>
 
-                        {/* ═══ JOIN WITH A CODE ═══
-                            Every accent here used to be hardcoded purple —
-                            border, icon chip, input focus ring, submit gradient —
+                        {/* â•â•â• JOIN WITH A CODE â•â•â•
+                            Every accent here used to be hardcoded purple â€”
+                            border, icon chip, input focus ring, submit gradient â€”
                             while the host card beside it followed `theme`. Under
                             Auto-Fetch the two cards drifted apart, and
                             purple/indigo is the most recognisable
@@ -546,8 +546,8 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                     absolutely-positioned Paste button, and needed a
                                     `0 / 6` counter to state the required length.
                                     Both are structural now. `input-otp` owns the
-                                    keyboard model — arrows, backspace across boxes,
-                                    select-all, native paste — which is the part
+                                    keyboard model â€” arrows, backspace across boxes,
+                                    select-all, native paste â€” which is the part
                                     that is tedious to get right by hand. */}
                                 <div className="flex items-center gap-2">
                                     <OTPInput
@@ -558,7 +558,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                             setJoinCode(extractRoomCode(next));
                                             setJoinError('');
                                         }}
-                                        /* A complete code submits itself — six
+                                        /* A complete code submits itself â€” six
                                            characters is the entire input, so making
                                            the user then reach for a button is a step
                                            with no decision left in it. This fires on
@@ -628,7 +628,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                     leaving a room and coming back meant retyping
                                     the code from wherever you had stashed it.
                                     Local-only, and a chip is only a shortcut to
-                                    typing six characters — a dead code still fails
+                                    typing six characters â€” a dead code still fails
                                     exactly as it would if typed by hand. */}
                                 {recent.length > 0 && (
                                     <motion.div
@@ -649,7 +649,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                                    a chip clicked while the field is
                                                    empty joins immediately, but one
                                                    clicked while a failed code is still
-                                                   in the boxes just replaces it —
+                                                   in the boxes just replaces it â€”
                                                    calling `submitJoin` here as well
                                                    would double-fire the handshake in
                                                    the first case. The explicit Join
@@ -720,14 +720,14 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                     {joining
                                         ? <Loader2 size={17} className="animate-spin" aria-hidden="true" />
                                         : <LogIn size={17} aria-hidden="true" />}
-                                    <span>{joining ? 'Connecting…' : codeComplete ? 'Join room' : 'Enter 6-digit code'}</span>
+                                    <span>{joining ? 'Connectingâ€¦' : codeComplete ? 'Join room' : 'Enter 6-digit code'}</span>
                                 </motion.button>
                             </form>
                         </motion.div>
                     </div>
                 </section>
 
-                {/* ═══ Right rail: browse + history ═══
+                {/* â•â•â• Right rail: browse + history â•â•â•
                     No `overflow-y-auto` here either. The rail is allowed to be as
                     tall as its content and the page scrolls it, which is why the
                     actions opposite are sticky. */}
@@ -741,7 +741,7 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                 )}
             </div>
 
-            {/* ── Footer ── */}
+            {/* â”€â”€ Footer â”€â”€ */}
             <motion.div
                 initial={reduce ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

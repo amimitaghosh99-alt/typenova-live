@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, memo, useMemo, useCallback } from 'react';
+﻿import React, { useRef, useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { Ghost } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedHeight } from '@/components/ui/AnimatedHeight';
@@ -8,13 +8,14 @@ import type { Theme } from '@/data/constants';
 import type { Phase } from '@/data/constants';
 import type { RacerState } from '@/hooks/useRace';
 import { type ActiveHex, applyCapitalsCurse } from '@/lib/sabotageEngine';
+import { LANE_COLORS } from '@/components/RaceTrack';
 
 // Stable empty array so particle-less chars keep the same prop identity
-// across renders — otherwise `|| []` would defeat Char's memoization.
+// across renders â€” otherwise `|| []` would defeat Char's memoization.
 // Exported (with Char) for reuse by the replay modal.
 export const EMPTY_PARTICLES: Particle[] = [];
 
-// ─── SYNTAX HIGHLIGHTER ─────────────────────────────────────────────
+// â”€â”€â”€ SYNTAX HIGHLIGHTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const REGEX_KEYWORDS = /\b(import|export|from|const|let|var|function|return|if|else|for|while|class|try|catch|async|await|def|impl|fn|mut|pub|WITH|SELECT|FROM|WHERE|JOIN|ON|OVER|ORDER|BY|func|chan|range|type|interface|throw|new|yield|break|continue)\b/g;
 const REGEX_STRINGS = /(['"`])(?:(?=(\\?))\2.)*?\1/g;
 const REGEX_NUMBERS = /\b\d+(\.\d+)?\b/g;
@@ -100,7 +101,7 @@ export const Char = memo(({ char, index, colorClass, isActive, particles }: Char
       </span>
     ))}
     <span className={`${colorClass} transition-colors duration-150`}>
-      {char === '\n' ? <span className="opacity-30">↵{'\n'}</span> : char}
+      {char === '\n' ? <span className="opacity-30">â†µ{'\n'}</span> : char}
     </span>
   </span>
 ));
@@ -142,7 +143,7 @@ export interface TypingAreaProps {
   ghostTargetWpm?: number;
   combo: number;
   zenMode?: boolean;
-  /** Personal-best pace for the current config — when present the ghost
+  /** Personal-best pace for the current config â€” when present the ghost
       races YOUR best run instead of the fixed 60 WPM pace. */
   pbGhost?: { wpm: number; samples: PaceSample[] } | null;
   /** A stored run pulled off this mode's leaderboard (Ghost Net). Raced
@@ -342,9 +343,23 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                 </div>
 
                 {/* Ghost Status */}
-                <div className="flex items-center gap-1.5 text-purple-400/90 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400/80" />
-                  <span>{ghost.label} <span className="text-purple-400/50 font-mono">({Math.round(ghost.ghostProgress)}%)</span></span>
+                <div
+                  className="flex items-center gap-1.5 font-semibold"
+                  style={{ color: `rgba(${theme.glowSecondary || '168, 85, 247'}, 0.9)` }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: `rgba(${theme.glowSecondary || '168, 85, 247'}, 0.8)` }}
+                  />
+                  <span>
+                    {ghost.label}{' '}
+                    <span
+                      className="font-mono"
+                      style={{ color: `rgba(${theme.glowSecondary || '168, 85, 247'}, 0.5)` }}
+                    >
+                      ({Math.round(ghost.ghostProgress)}%)
+                    </span>
+                  </span>
                 </div>
               </div>
 
@@ -352,8 +367,11 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
               <div className="relative w-full h-1 rounded-full bg-white/5 overflow-visible">
                 {/* Ghost Bar */}
                 <div
-                  className="absolute top-0 left-0 h-full rounded-full bg-purple-500/40 transition-all duration-100 ease-linear"
-                  style={{ width: `${ghost.ghostProgress}%` }}
+                  className="absolute top-0 left-0 h-full rounded-full transition-all duration-100 ease-linear"
+                  style={{
+                    width: `${ghost.ghostProgress}%`,
+                    backgroundColor: `rgba(${theme.glowSecondary || '168, 85, 247'}, 0.4)`,
+                  }}
                 />
                 {/* Player Bar */}
                 <div
@@ -467,7 +485,7 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
                 })
               )}
 
-            {/* Smooth-glide caret — one bar that slides between characters */}
+            {/* Smooth-glide caret â€” one bar that slides between characters */}
             {phase === 'TYPING' && input.length < effectiveTargetText.length && (
               <GlidingBar
                 index={input.length}
@@ -492,25 +510,21 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
               />
             )}
 
-            {/* Multiplayer opponents (inline glow) */}
+            {/* Multiplayer opponents: Sleek, non-distracting ghost-style gliding underlines */}
             {racePlayers && racePlayers.map((player, i) => {
-              const playerIndex = Math.min(Math.floor((player.progress / 100) * targetText.length), targetText.length - 1);
-              const opponentColors = ['rgb(245, 158, 11)', 'rgb(56, 189, 248)', 'rgb(244, 114, 182)', 'rgb(167, 139, 250)']; // Amber, Sky, Pink, Violet
+              const playerIndex = Math.min(
+                Math.floor(((player.progress ?? 0) / 100) * targetText.length),
+                targetText.length - 1
+              );
+              const playerColor = player.laneColor || LANE_COLORS[(i + 1) % LANE_COLORS.length];
               return (
-                <GlidingBar
+                <GlidingOpponentBeacon
                   key={player.id}
                   index={playerIndex}
                   containerRef={containerRef}
                   targetText={targetText}
-                  barClass=""
-                  barStyle={{
-                    background: opponentColors[i % opponentColors.length],
-                    opacity: 0.6,
-                    height: '100%',
-                    top: 0,
-                    mixBlendMode: 'screen',
-                    transition: 'transform 200ms linear, width 100ms ease-out',
-                  }}
+                  name={player.name}
+                  color={playerColor}
                 />
               );
             })}
@@ -523,7 +537,7 @@ export const TypingArea = memo<TypingAreaProps>(function TypingArea({
   );
 });
 
-// ─── Ghost Pacer Cursor ─────────────────────────────────────────────
+// â”€â”€â”€ Ghost Pacer Cursor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Input length at elapsed ms `t`, linearly interpolated between samples. */
 function charsAtTime(samples: PaceSample[], t: number): number {
   if (!samples || samples.length === 0) return 0;
@@ -566,9 +580,9 @@ function timeAtChars(samples: PaceSample[], chars: number): number {
   return last.t;
 }
 
-// ─── Gliding Bar ────────────────────────────────────────────────────
+// â”€â”€â”€ Gliding Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // A single underline bar positioned by measuring the char span at `index`
-// and translated there with a CSS transition — the caret GLIDES between
+// and translated there with a CSS transition â€” the caret GLIDES between
 // characters instead of teleporting. Rendered inside the scroll container
 // (which is position:relative), so it scrolls with the text.
 const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, barClass, barStyle }: {
@@ -676,7 +690,7 @@ const GlidingBar = memo(function GlidingBar({ index, containerRef, targetText, b
   );
 });
 
-// ─── Gliding Ghost Beacon ───────────────────────────────────────────
+// â”€â”€â”€ Gliding Ghost Beacon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Sleek, minimal ghost pacer bar that smoothly tracks the rival without obscuring text.
 const GlidingGhostBeacon = memo(function GlidingGhostBeacon({
   index,
@@ -737,6 +751,95 @@ const GlidingGhostBeacon = memo(function GlidingGhostBeacon({
   );
 });
 
+// â”€â”€â”€ Gliding Opponent Beacon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Sleek, non-intrusive multiplayer opponent caret matching the Ghost pacer's polish:
+// a clean 3px glowing underline underneath the opponent's current character + micro name chip,
+// with zero text obstruction, line bleed, or character covering.
+interface GlidingOpponentBeaconProps {
+  index: number;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  targetText: string;
+  name: string;
+  color: string;
+}
+
+const GlidingOpponentBeacon = memo(function GlidingOpponentBeacon({
+  index,
+  containerRef,
+  targetText,
+  name,
+  color,
+}: GlidingOpponentBeaconProps) {
+  const [pos, setPos] = useState<{ x: number; y: number; w: number } | null>(null);
+
+  const measure = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const idx = Math.min(index, Math.max(0, targetText.length - 1));
+    const el = container.querySelector<HTMLElement>(`[data-char-index="${idx}"]`);
+    if (!el) {
+      setPos(null);
+      return;
+    }
+
+    const x = el.offsetLeft;
+    const y = el.offsetTop + el.offsetHeight - 2;
+    const w = Math.max(8, el.offsetWidth);
+
+    setPos(prev => {
+      if (!prev || prev.x !== x || prev.y !== y || prev.w !== w) {
+        return { x, y, w };
+      }
+      return prev;
+    });
+  }, [index, targetText.length, containerRef]);
+
+  useEffect(() => {
+    measure();
+  }, [measure]);
+
+  if (!pos) return null;
+
+  return (
+    <span
+      className="absolute left-0 top-0 pointer-events-none z-30 will-change-transform"
+      style={{
+        transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+        transition: 'transform 120ms ease-out',
+      }}
+    >
+      {/* 1. Subtle glowing underline below the character (identical to Ghost pacer) */}
+      <span
+        className="absolute top-0 left-0 block h-[3px] rounded-full transition-all duration-150"
+        style={{
+          width: pos.w,
+          backgroundColor: color,
+          boxShadow: `0 0 10px ${color}99`,
+        }}
+      />
+      {/* 2. Micro 2px vertical caret tick at the left leading edge */}
+      <span
+        className="absolute bottom-[2px] left-0 block w-[2px] h-[16px] rounded-full opacity-80"
+        style={{
+          backgroundColor: color,
+          boxShadow: `0 0 6px ${color}80`,
+        }}
+      />
+      {/* 3. Sleek floating racer name chip tucked neatly above the character */}
+      <span
+        className="absolute -top-[24px] left-0 px-1.5 py-0.2 rounded text-[8.5px] font-mono font-bold leading-tight select-none pointer-events-none whitespace-nowrap bg-zinc-950/85 border border-white/10 shadow-sm transition-opacity duration-200"
+        style={{
+          color: color,
+          borderColor: `${color}40`,
+        }}
+      >
+        {name}
+      </span>
+    </span>
+  );
+});
+
 export interface GhostRaceState {
   index: number;
   deltaS: number;
@@ -748,7 +851,7 @@ export interface GhostRaceState {
   overtakeTrigger: number;
 }
 
-// ─── Ghost race state ───────────────────────────────────────────────
+// â”€â”€â”€ Ghost race state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Computes live position, progress, split delta, and overtake triggers.
 function useGhostRace(
   active: boolean,

@@ -103,8 +103,8 @@ export const PracticeArena = memo(function PracticeArena({
         />
       </motion.div>
 
-      {/* Stats HUD — hidden in zen mode */}
-      {!game.zenMode && (
+      {/* Stats HUD — hidden in zen mode and during live multiplayer races */}
+      {!game.zenMode && !raceActive && (
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}

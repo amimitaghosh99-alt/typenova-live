@@ -40,6 +40,9 @@ supabase/.temp/
 screenshot_*.png
 graph_preview.png
 *_old/
+*.old.*
+*_bak/
+screenshots/
 videos/
 compete_ui*.png
 *.tmp

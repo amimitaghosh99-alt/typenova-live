@@ -17,6 +17,7 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const glowPrimary = theme?.glowPrimary || '34, 211, 238';
 
   const { messages, unreadCounts, sendMessage, markAsRead } = useMessages({ supabase, userId });
 
@@ -63,14 +64,17 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
         <div className="hud-panel w-full h-full flex overflow-hidden">
           
           {/* Left Panel - Friends Roster */}
-          <div className="w-[320px] shrink-0 border-r border-cyan-500/20 bg-cyan-950/20 flex flex-col relative z-10 shadow-[20px_0_30px_-10px_rgba(0,0,0,0.5)]">
+          <div
+            className="w-[320px] shrink-0 border-r bg-black/20 flex flex-col relative z-10 shadow-[20px_0_30px_-10px_rgba(0,0,0,0.5)]"
+            style={{ borderColor: `rgba(${glowPrimary}, 0.2)` }}
+          >
             <div className="px-6 py-5 border-b border-white/10 flex items-center gap-3">
-              <MessageSquare size={16} style={theme ? { color: `rgb(${theme.glowPrimary})` } : undefined} className={theme ? '' : 'text-cyan-400'} />
+              <MessageSquare size={16} style={{ color: `rgb(${glowPrimary})` }} />
               <h2
                 className="font-black tracking-widest uppercase text-sm"
                 style={{
-                  color: theme ? `rgb(${theme.glowPrimary})` : 'rgb(236,254,255)',
-                  textShadow: theme ? `0 0 8px rgba(${theme.glowPrimary}, 0.5)` : '0 0 8px rgba(34,211,238,0.5)',
+                  color: `rgb(${glowPrimary})`,
+                  textShadow: `0 0 8px rgba(${glowPrimary}, 0.5)`,
                 }}
               >
                 Communications
@@ -79,7 +83,10 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
             
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-3">
               {friends.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-cyan-600/50 text-xs font-bold tracking-wider uppercase gap-3">
+                <div
+                  className="h-full flex flex-col items-center justify-center text-xs font-bold tracking-wider uppercase gap-3"
+                  style={{ color: `rgba(${glowPrimary}, 0.5)` }}
+                >
                   <Sparkles size={20} className="opacity-40" />
                   <span>No Comms Links</span>
                 </div>
@@ -98,31 +105,58 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
                       <div className="flex items-center gap-4 overflow-hidden">
                         
                         {/* Avatar */}
-                        <div className={`relative w-11 h-11 rounded-full flex flex-shrink-0 items-center justify-center font-black text-lg uppercase transition-all ${
-                          isActive 
-                            ? 'bg-transparent border-2 border-cyan-400 text-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.4)]' 
-                            : 'bg-black/60 border border-cyan-900 text-cyan-100/50'
-                        }`}>
+                        <div
+                          className="relative w-11 h-11 rounded-full flex flex-shrink-0 items-center justify-center font-black text-lg uppercase transition-all"
+                          style={
+                            isActive
+                              ? {
+                                  backgroundColor: 'transparent',
+                                  border: `2px solid rgb(${glowPrimary})`,
+                                  color: `rgb(${glowPrimary})`,
+                                  boxShadow: `0 0 15px rgba(${glowPrimary}, 0.4)`,
+                                }
+                              : {
+                                  backgroundColor: 'rgba(0,0,0,0.6)',
+                                  border: `1px solid rgba(${glowPrimary}, 0.2)`,
+                                  color: `rgba(${glowPrimary}, 0.5)`,
+                                }
+                          }
+                        >
                           {friend.username.charAt(0)}
                           
                           {/* Inner glowing ring for active state */}
-                          {isActive && <div className="absolute inset-1 rounded-full border border-cyan-400/50 shadow-[inset_0_0_10px_rgba(34,211,238,0.5)]" />}
+                          {isActive && (
+                            <div
+                              className="absolute inset-1 rounded-full"
+                              style={{
+                                border: `1px solid rgba(${glowPrimary}, 0.5)`,
+                                boxShadow: `inset 0 0 10px rgba(${glowPrimary}, 0.5)`,
+                              }}
+                            />
+                          )}
                           
                           {/* Status Dot */}
                           <div className={`absolute top-0 right-0 w-2.5 h-2.5 rounded-full border border-black transition-colors ${
-                            friend.isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,1)]' : 'bg-cyan-800'
+                            friend.isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,1)]' : 'bg-zinc-700'
                           }`} />
                         </div>
                         
                         <div className="flex flex-col min-w-0">
                           <span className={`font-black text-sm tracking-widest uppercase truncate transition-colors ${
-                            isActive ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'text-cyan-100/60'
+                            isActive ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'text-zinc-400'
                           }`}>{friend.username}</span>
                         </div>
                       </div>
                       
                       {unreadCounts[friend.id] > 0 && (
-                        <span className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)] text-cyan-950 text-[10px] font-black rounded-full ml-2">
+                        <span
+                          className="flex-shrink-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black rounded-full ml-2"
+                          style={{
+                            backgroundColor: `rgb(${glowPrimary})`,
+                            boxShadow: `0 0 10px rgba(${glowPrimary}, 0.8)`,
+                            color: '#0a0a0a',
+                          }}
+                        >
                           {unreadCounts[friend.id]}
                         </span>
                       )}
@@ -140,22 +174,58 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
             <div className="absolute top-4 right-4 z-50">
               <button
                 onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center bg-cyan-950/60 border border-cyan-500/30 rounded-full text-cyan-400 hover:bg-cyan-400 hover:text-cyan-950 hover:shadow-[0_0_15px_rgba(34,211,238,0.6)] transition-all"
+                className="w-8 h-8 flex items-center justify-center rounded-full transition-all"
+                style={{
+                  backgroundColor: `rgba(${glowPrimary}, 0.08)`,
+                  border: `1px solid rgba(${glowPrimary}, 0.3)`,
+                  color: `rgb(${glowPrimary})`,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = `rgb(${glowPrimary})`;
+                  e.currentTarget.style.color = '#0a0a0a';
+                  e.currentTarget.style.boxShadow = `0 0 15px rgba(${glowPrimary}, 0.6)`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = `rgba(${glowPrimary}, 0.08)`;
+                  e.currentTarget.style.color = `rgb(${glowPrimary})`;
+                  e.currentTarget.style.boxShadow = '';
+                }}
               >
                 <X size={16} strokeWidth={3} />
               </button>
             </div>
   
             {!activeFriendId ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-cyan-600/30 gap-4">
+              <div
+                className="flex-1 flex flex-col items-center justify-center gap-4"
+                style={{ color: `rgba(${glowPrimary}, 0.3)` }}
+              >
                 <MessageSquare size={64} className="opacity-20" />
-                <span className="text-xs text-cyan-500/40 font-black tracking-widest uppercase shadow-sm">Select a comms link to begin</span>
+                <span
+                  className="text-xs font-black tracking-widest uppercase shadow-sm"
+                  style={{ color: `rgba(${glowPrimary}, 0.4)` }}
+                >
+                  Select a comms link to begin
+                </span>
               </div>
             ) : (
               <>
                 {/* Chat Header */}
-                <div className="px-8 py-5 flex items-center gap-3 border-b border-cyan-500/20 bg-cyan-950/40">
-                  <div className={`w-2 h-2 rounded-full ${activeFriend?.isOnline ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,1)]' : 'bg-cyan-800'}`} />
+                <div
+                  className="px-8 py-5 flex items-center gap-3 border-b"
+                  style={{
+                    borderColor: `rgba(${glowPrimary}, 0.2)`,
+                    backgroundColor: `rgba(${glowPrimary}, 0.04)`,
+                  }}
+                >
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={
+                      activeFriend?.isOnline
+                        ? { backgroundColor: `rgb(${glowPrimary})`, boxShadow: `0 0 10px rgba(${glowPrimary}, 1)` }
+                        : { backgroundColor: 'rgb(63, 63, 70)' }
+                    }
+                  />
                   <h3 className="text-xl font-black tracking-widest uppercase text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">
                     {activeFriend?.username}
                   </h3>
@@ -166,7 +236,10 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
                   
                   {/* Faint background text */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                    <span className="text-[10px] text-cyan-500/10 font-black tracking-[0.2em] uppercase">
+                    <span
+                      className="text-[10px] font-black tracking-[0.2em] uppercase"
+                      style={{ color: `rgba(${glowPrimary}, 0.1)` }}
+                    >
                       Establish Comms Link With {activeFriend?.username}
                     </span>
                   </div>
@@ -182,21 +255,32 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
                             
                             {/* Avatar for received messages */}
                             {!isSelf && (
-                              <div className="flex-shrink-0 w-8 h-8 rounded-full border border-cyan-500/50 flex items-center justify-center font-black text-xs text-cyan-200 bg-cyan-950 shadow-[0_0_10px_rgba(34,211,238,0.2)] mt-1">
+                              <div
+                                className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs mt-1"
+                                style={{
+                                  border: `1px solid rgba(${glowPrimary}, 0.5)`,
+                                  color: `rgba(${glowPrimary}, 0.8)`,
+                                  backgroundColor: `rgba(${glowPrimary}, 0.05)`,
+                                  boxShadow: `0 0 10px rgba(${glowPrimary}, 0.2)`,
+                                }}
+                              >
                                 {activeFriend?.username.charAt(0)}
                               </div>
                             )}
 
                             <div className={`flex flex-col max-w-[70%] ${isSelf ? 'items-end' : 'items-start'}`}>
                               <div className={`px-5 py-3 text-[13px] font-medium leading-relaxed break-words shadow-lg ${
-                                isSelf ? 'hud-bubble-self text-cyan-50' : 'hud-bubble-other text-cyan-100/90'
+                                isSelf ? 'hud-bubble-self text-zinc-50' : 'hud-bubble-other text-zinc-100/90'
                               }`}>
                                 {isSelf && <div className="hud-bubble-self-border" />}
                                 {!isSelf && <div className="hud-bubble-other-border" />}
                                 <span className="relative z-10">{msg.content}</span>
                               </div>
                               
-                              <span className="text-[9px] font-black tracking-widest mt-1.5 text-cyan-500/60 uppercase">
+                              <span
+                                className="text-[9px] font-black tracking-widest mt-1.5 uppercase"
+                                style={{ color: `rgba(${glowPrimary}, 0.6)` }}
+                              >
                                 {timeString} {isSelf && (msg.read ? '✔✔' : '✔')}
                               </span>
                             </div>
@@ -209,7 +293,13 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
                 </div>
   
                 {/* Input Area */}
-                <div className="p-6 pb-8 border-t border-cyan-500/20 bg-cyan-950/20 z-20 flex justify-center">
+                <div
+                  className="p-6 pb-8 border-t z-20 flex justify-center"
+                  style={{
+                    borderColor: `rgba(${glowPrimary}, 0.2)`,
+                    backgroundColor: `rgba(${glowPrimary}, 0.04)`,
+                  }}
+                >
                   
                   <div className="relative w-full max-w-3xl flex items-center gap-3">
                     <form onSubmit={handleSend} className="flex-1 hud-input-wrapper flex items-center">
@@ -219,7 +309,7 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         placeholder="Transmit message..."
-                        className="w-full bg-transparent text-cyan-100 placeholder:text-cyan-700 font-medium text-sm px-6 py-4 focus:outline-none relative z-10"
+                        className="w-full bg-transparent text-zinc-100 placeholder:text-zinc-600 font-medium text-sm px-6 py-4 focus:outline-none relative z-10"
                       />
                     </form>
                     
@@ -227,12 +317,12 @@ export const CommsModal = React.memo(function CommsModal({ supabase, userId, fri
                       type="submit"
                       disabled={!inputText.trim()}
                       onClick={handleSend}
-                      style={theme ? {
-                        borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
-                        color: `rgb(${theme.glowPrimary})`,
-                        boxShadow: `0 0 12px rgba(${theme.glowPrimary}, 0.35)`,
-                      } : undefined}
-                      className="flex-shrink-0 w-12 h-12 rounded-full border border-cyan-400 bg-black/50 text-cyan-400 flex items-center justify-center hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed group cursor-pointer"
+                      style={{
+                        borderColor: `rgba(${glowPrimary}, 0.6)`,
+                        color: `rgb(${glowPrimary})`,
+                        boxShadow: `0 0 12px rgba(${glowPrimary}, 0.35)`,
+                      }}
+                      className="flex-shrink-0 w-12 h-12 rounded-full border bg-black/50 flex items-center justify-center hover:bg-white/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed group cursor-pointer"
                     >
                       <Send size={18} className="transform translate-x-[1px] -translate-y-[1px] group-hover:scale-110 transition-transform" />
                     </button>

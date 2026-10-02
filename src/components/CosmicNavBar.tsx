@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from 'react';
+﻿import React, { memo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, GraduationCap, Swords, Users, MessageSquare, Lock, Menu, X, HandHeart } from 'lucide-react';
 import { toast } from 'sonner';
@@ -103,14 +103,14 @@ export const CosmicNavBar = memo(function CosmicNavBar({
   return (
     <>
       {/* data-app-chrome is how useAppChrome finds this element to measure.
-          The header's height is NOT constant — the identity capsule on the
+          The header's height is NOT constant â€” the identity capsule on the
           right is `hidden lg:flex`, so it is genuinely shorter below lg. Every
           stage reads the measured --nav-h rather than guessing a pixel value.
 
           `!fixed`, not `fixed`: `.glass-panel` declares `position: relative` in
           plain CSS (src/index.css), which sits after Tailwind's utilities layer
           and therefore won every cascade against it. The navbar was silently
-          `relative` — it took 80px of document flow while every stage ALSO
+          `relative` â€” it took 80px of document flow while every stage ALSO
           reserved `--nav-h` of top padding to clear it, so the header's height
           was paid for twice and each stage lost 80px of usable height. */}
       <header
@@ -135,9 +135,20 @@ export const CosmicNavBar = memo(function CosmicNavBar({
           {activePage !== 'academy' && (
             <button
               onClick={onOpenAcademy}
-              className="hidden sm:flex items-center gap-2 nav-pill px-4 py-1.5 border-amber-400/30 text-amber-300 hover:border-amber-400/70 transition-all shadow-[0_0_15px_rgba(245,158,11,0.15)] group cursor-pointer"
+              className="hidden sm:flex items-center gap-2 nav-pill px-4 py-1.5 transition-all group cursor-pointer"
+              style={{
+                borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                color: `rgb(${theme.glowPrimary})`,
+                boxShadow: `0 0 15px rgba(${theme.glowPrimary}, 0.15)`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = `rgba(${theme.glowPrimary}, 0.7)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = `rgba(${theme.glowPrimary}, 0.3)`;
+              }}
             >
-              {/* An icon, not the 🎓 emoji this used to be: an emoji renders in
+              {/* An icon, not the ðŸŽ“ emoji this used to be: an emoji renders in
                   the platform's own font and colour, so it could not take the
                   amber the rest of this pill is set in. */}
               <GraduationCap
@@ -201,13 +212,13 @@ export const CosmicNavBar = memo(function CosmicNavBar({
           })}
         </div>
 
-        {/* Right Section — three groups: identity, streak, tools. */}
+        {/* Right Section â€” three groups: identity, streak, tools. */}
         <div className="hidden lg:flex items-center gap-2.5">
           {/* Identity Capsule */}
           <button
             onClick={() => onOpenProfile(username || 'Guest')}
             // Now that the dossier is a route, the capsule is a nav destination
-            // like the links to its left — so it gets the same active treatment.
+            // like the links to its left â€” so it gets the same active treatment.
             aria-current={activePage === 'dossier' ? 'page' : undefined}
             className={`group relative overflow-hidden flex items-center px-3.5 py-1.5 rounded-full transition-all cursor-pointer text-left gap-3 active:scale-[0.98] border backdrop-blur-xl ${selectedBanner.accentBorder || 'border-white/20'} ${activePage === 'dossier' ? 'border-white/50 shadow-lg' : 'hover:border-white/40'}`}
             style={{
@@ -277,7 +288,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
           {/* Action Tray */}
           <div className="flex items-center gap-2">
-            {/* Community Support Capsule — premium gold treatment */}
+            {/* Community Support Capsule â€” premium gold treatment */}
             <button
               onClick={onOpenDonate}
               className={`nav-pill h-9 px-2.5 sm:px-3 flex items-center gap-2 text-left transition-all cursor-pointer group ${
@@ -298,7 +309,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
                       background: 'rgba(212, 175, 55, 0.07)',
                     }
               }
-              title={`Support TypeNova — ${donationGoalPercent}% of community goal funded`}
+              title={`Support TypeNova â€” ${donationGoalPercent}% of community goal funded`}
             >
               <HandHeart
                 size={13}
@@ -319,7 +330,20 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
             <button
               onClick={onOpenDailyQuests}
-              className="nav-pill h-9 px-3 flex items-center gap-1.5 text-amber-300 hover:text-amber-200 border-amber-400/30 hover:border-amber-400/60 bg-amber-400/10 hover:bg-amber-400/20 text-xs font-mono font-bold transition-all cursor-pointer"
+              style={{
+                color: `rgb(${theme.glowPrimary})`,
+                borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = `rgba(${theme.glowPrimary}, 0.6)`;
+                e.currentTarget.style.backgroundColor = `rgba(${theme.glowPrimary}, 0.2)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = `rgba(${theme.glowPrimary}, 0.3)`;
+                e.currentTarget.style.backgroundColor = `rgba(${theme.glowPrimary}, 0.1)`;
+              }}
+              className="nav-pill h-9 px-3 flex items-center gap-1.5 text-xs font-mono font-bold transition-all cursor-pointer"
               title="Daily Quests & Streaks"
             >
               <Flame size={15} className="animate-pulse" />
@@ -328,9 +352,9 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
             {/* No surface at all: the tools sit directly on the bar and only
                 grow a background on hover. They each used to carry a
-                `glass-pill` — a fill darker than the navbar itself, plus a 30px
+                `glass-pill` â€” a fill darker than the navbar itself, plus a 30px
                 black drop shadow and a backdrop blur nested inside the bar's
-                own — which rendered as five black coins in a row. */}
+                own â€” which rendered as five black coins in a row. */}
             <div className="flex items-center gap-0.5">
               <ActionButton icon={Users} onClick={onOpenSocial} isLoggedIn={isLoggedIn} title="Community" theme={theme} />
               <ActionButton icon={MessageSquare} onClick={onOpenComms} isLoggedIn={isLoggedIn} title="Comms" theme={theme} />
@@ -350,7 +374,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         // The trigger for this drawer is `lg:hidden`, but the drawer itself
-        // was `md:hidden` — so between 768px and 1023px the hamburger was
+        // was `md:hidden` â€” so between 768px and 1023px the hamburger was
         // visible, opened nothing, and Trophies / Stats / Community / Comms
         // (all `hidden lg:flex`) were unreachable at that width.
         <div className="fixed inset-0 z-[var(--z-modal)] flex justify-end lg:hidden">
@@ -460,7 +484,12 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 
               <button
                 onClick={() => { onOpenDailyQuests(); setMobileMenuOpen(false); }}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 text-xs font-mono font-bold transition-all"
+                style={{
+                  color: `rgb(${theme.glowPrimary})`,
+                  borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
+                  backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
+                }}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer"
                 title="Daily Quests & Streaks"
               >
                 <Flame size={14} className="animate-pulse" />
@@ -483,7 +512,7 @@ export const CosmicNavBar = memo(function CosmicNavBar({
 /**
  * A single icon action in the navbar tool row.
  *
- * Draws nothing at rest — no fill, no border, no shadow — and only grows a
+ * Draws nothing at rest â€” no fill, no border, no shadow â€” and only grows a
  * faint white wash on hover. Each of these used to be a `glass-pill`, whose
  * fill is darker than the navbar it sits on, so the row read as five black
  * coins. The `active` state (any unlocked achievement, so Trophies almost

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Activity, TrendingUp, RotateCcw, Brain, Share2, Play, Ghost, ArrowLeft,
   Sparkles, ShieldCheck, Crosshair, Waves, Lock, Zap, Award, Bot, X, Loader2, Terminal,
@@ -277,7 +277,7 @@ export function ResultsScreen({
     timeoutRef.current = setTimeout(() => setShareStatus(''), 3000);
   };
 
-  // ─── Guest Conversion State & Handlers ───────────────────────────
+  // â”€â”€â”€ Guest Conversion State & Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [showFeaturesModal, setShowFeaturesModal] = useState(false);
   const [guestCalloutDismissed, setGuestCalloutDismissed] = useState(false);
   const [isSavingGuestScore, setIsSavingGuestScore] = useState(false);
@@ -390,7 +390,7 @@ export function ResultsScreen({
                 )}
                 {ghostDeltaCons !== undefined && (
                   <>
-                    <span className="text-white/20">·</span>
+                    <span className="text-white/20">Â·</span>
                     <span className={ghostDeltaCons >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
                       {ghostDeltaCons >= 0 ? `+${ghostDeltaCons.toFixed(1)}%` : `${ghostDeltaCons.toFixed(1)}%`} CONS
                     </span>
@@ -398,7 +398,7 @@ export function ResultsScreen({
                 )}
                 {ghostDeltaStreak !== undefined && (
                   <>
-                    <span className="text-white/20">·</span>
+                    <span className="text-white/20">Â·</span>
                     <span className={ghostDeltaStreak >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
                       {ghostDeltaStreak >= 0 ? `+${ghostDeltaStreak}` : `${ghostDeltaStreak}`} STREAK
                     </span>
@@ -428,7 +428,7 @@ export function ResultsScreen({
         )}
       </div>
 
-      {/* ── ARU NEURO-DEBRIEF CARD ── */}
+      {/* â”€â”€ ARU NEURO-DEBRIEF CARD â”€â”€ */}
       {!debriefDismissed && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -551,7 +551,7 @@ export function ResultsScreen({
         </motion.div>
       )}
 
-      {/* Stats Grid — wide, spacious automotive & telemetry gauges */}
+      {/* Stats Grid â€” wide, spacious automotive & telemetry gauges */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-4 xl:gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="glass-panel p-3.5 sm:p-6 xl:p-8 rounded-2xl sm:rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group transition-transform duration-300 hover:scale-[1.02]">
           <span className="text-zinc-400 text-[9px] sm:text-[10px] xl:text-xs font-black tracking-widest mb-1.5 uppercase">Grade</span>
@@ -602,7 +602,7 @@ export function ResultsScreen({
         </div>
       </div>
 
-      {/* ── GUEST FIRST-WIN CONVERSION CALLOUT ── */}
+      {/* â”€â”€ GUEST FIRST-WIN CONVERSION CALLOUT â”€â”€ */}
       {!isLoggedIn && !guestCalloutDismissed && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -631,9 +631,9 @@ export function ResultsScreen({
                 />
                 <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider font-bold">
                   <span className="text-white">Guest Benchmark Logged</span>
-                  <span className="text-white/20">•</span>
+                  <span className="text-white/20">â€¢</span>
                   <span style={{ color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` }}>
-                    {wpm} WPM · Grade {evaluatedGrade} · {accuracy}% ACC
+                    {wpm} WPM Â· Grade {evaluatedGrade} Â· {accuracy}% ACC
                   </span>
                 </div>
               </div>
@@ -765,7 +765,7 @@ export function ResultsScreen({
         </motion.div>
       )}
 
-      {/* ── ACCOLADE BADGES SECTION ──────────────────────── */}
+      {/* â”€â”€ ACCOLADE BADGES SECTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="w-full mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '200ms' }}>
         <div className="flex items-center justify-between mb-4">
           <span className="text-zinc-400 text-[10px] font-black tracking-widest flex items-center gap-2 uppercase">
@@ -861,7 +861,7 @@ export function ResultsScreen({
         </div>
       </div>
 
-      {/* ── XP PROGRESSION & MULTIPLIER BREAKDOWN ─────────── */}
+      {/* â”€â”€ XP PROGRESSION & MULTIPLIER BREAKDOWN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {effectiveXpBreakdown && effectiveXpBreakdown.totalXp > 0 && (
         <div
           className="glass-panel rounded-[2rem] p-6 md:p-8 xl:p-10 mb-10 border border-white/10 relative overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700"
@@ -924,7 +924,7 @@ export function ResultsScreen({
                 <span className="text-[10px] xl:text-xs font-mono text-zinc-500">1.00x</span>
               </div>
               <div className="text-3xl xl:text-4xl font-black text-white font-mono">{effectiveXpBreakdown.baseXp} <span className="text-xs text-zinc-500">XP</span></div>
-              <span className="text-[11px] xl:text-xs text-zinc-400 mt-2">Speed × Length baseline</span>
+              <span className="text-[11px] xl:text-xs text-zinc-400 mt-2">Speed Ã— Length baseline</span>
             </div>
 
             {/* Flawless Bonus */}
@@ -974,17 +974,35 @@ export function ResultsScreen({
             </div>
 
             {/* Rhythm Consistency Bonus */}
-            <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
-              effectiveXpBreakdown.consistencyBonusPct > 0
-                ? 'bg-cyan-500/10 border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
-                : 'bg-white/[0.02] border-white/5 opacity-60'
-            }`}>
+            <div
+              style={
+                effectiveXpBreakdown.consistencyBonusPct > 0
+                  ? {
+                      backgroundColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.1)`,
+                      borderColor: `rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.4)`,
+                      boxShadow: `0 0 20px rgba(${theme?.glowPrimary || '6, 182, 212'}, 0.15)`,
+                    }
+                  : undefined
+              }
+              className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                effectiveXpBreakdown.consistencyBonusPct > 0
+                  ? ''
+                  : 'bg-white/[0.02] border-white/5 opacity-60'
+              }`}
+            >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-black tracking-widest text-zinc-400 uppercase flex items-center gap-1.5">
-                  <Waves size={12} className={effectiveXpBreakdown.consistencyBonusPct > 0 ? 'text-cyan-400' : 'text-zinc-500'} />
+                  <Waves
+                    size={12}
+                    className={effectiveXpBreakdown.consistencyBonusPct > 0 ? '' : 'text-zinc-500'}
+                    style={effectiveXpBreakdown.consistencyBonusPct > 0 ? { color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` } : undefined}
+                  />
                   Metronome Flow
                 </span>
-                <span className={`text-xs font-black font-mono ${effectiveXpBreakdown.consistencyBonusPct > 0 ? 'text-cyan-400' : 'text-zinc-600'}`}>
+                <span
+                  className={`text-xs font-black font-mono ${effectiveXpBreakdown.consistencyBonusPct > 0 ? '' : 'text-zinc-600'}`}
+                  style={effectiveXpBreakdown.consistencyBonusPct > 0 ? { color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` } : undefined}
+                >
                   +{effectiveXpBreakdown.consistencyBonusPct}%
                 </span>
               </div>
@@ -992,7 +1010,7 @@ export function ResultsScreen({
                 {effectiveXpBreakdown.consistencyBonusPct > 0 ? `+${effectiveXpBreakdown.consistencyBonusPct}% XP` : '+0%'}
               </div>
               <span className="text-[11px] text-zinc-400 mt-2">
-                {consistency >= 92 ? '≥92% Master Cadence' : consistency >= 85 ? '≥85% Steady Cadence' : `${consistency}% (≥85% needed)`}
+                {consistency >= 92 ? 'â‰¥92% Master Cadence' : consistency >= 85 ? 'â‰¥85% Steady Cadence' : `${consistency}% (â‰¥85% needed)`}
               </span>
             </div>
           </div>
@@ -1002,7 +1020,7 @@ export function ResultsScreen({
             <div className="flex items-center gap-1.5 flex-nowrap sm:flex-wrap text-[11px] sm:text-xs min-w-max">
               <span className="text-zinc-500">FORMULA:</span>
               <span className="text-white font-bold">{effectiveXpBreakdown.baseXp} Base</span>
-              <span>×</span>
+              <span>Ã—</span>
               <span>(1.0 +</span>
               <span className={effectiveXpBreakdown.flawlessBonusPct > 0 ? 'text-amber-300 font-bold' : 'text-zinc-600'}>
                 0.{effectiveXpBreakdown.flawlessBonusPct.toString().padStart(2, '0')} Flawless
@@ -1012,7 +1030,10 @@ export function ResultsScreen({
                 0.{effectiveXpBreakdown.comboBonusPct.toString().padStart(2, '0')} Combo
               </span>
               <span>+</span>
-              <span className={effectiveXpBreakdown.consistencyBonusPct > 0 ? 'text-cyan-300 font-bold' : 'text-zinc-600'}>
+              <span
+                className={effectiveXpBreakdown.consistencyBonusPct > 0 ? 'font-bold' : 'text-zinc-600'}
+                style={effectiveXpBreakdown.consistencyBonusPct > 0 ? { color: `rgb(${theme?.glowPrimary || '6, 182, 212'})` } : undefined}
+              >
                 0.{effectiveXpBreakdown.consistencyBonusPct.toString().padStart(2, '0')} Flow
               </span>
               <span>=</span>
@@ -1038,7 +1059,7 @@ export function ResultsScreen({
         />
       </div>
 
-      {/* ── AUDITORY TRANSCRIPTION SHADOWING ───────────── */}
+      {/* â”€â”€ AUDITORY TRANSCRIPTION SHADOWING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {shadowMetrics && shadowMetrics.totalWordsShadowed >= 2 && (
         <ShadowInspector
           shadowMetrics={shadowMetrics}
@@ -1047,7 +1068,7 @@ export function ResultsScreen({
         />
       )}
 
-      {/* ── MOTOR FLUIDITY & IKI TRANSITIONS ─────────────── */}
+      {/* â”€â”€ MOTOR FLUIDITY & IKI TRANSITIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {effectiveIkiMetrics && effectiveIkiMetrics.totalTransitions >= 3 && (
         <IkiInspector
           ikiMetrics={effectiveIkiMetrics}
@@ -1110,7 +1131,7 @@ export function ResultsScreen({
         </div>
       </div>
 
-      {/* Action Buttons — suppressed when the embedding screen owns navigation */}
+      {/* Action Buttons â€” suppressed when the embedding screen owns navigation */}
       {!hideActions && (
         <div className="flex flex-wrap justify-center gap-4 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: '500ms' }}>
           <button
@@ -1166,7 +1187,7 @@ export function ResultsScreen({
         </div>
       )}
 
-      {/* ── GUEST FEATURE SHOWCASE MODAL ── */}
+      {/* â”€â”€ GUEST FEATURE SHOWCASE MODAL â”€â”€ */}
       <AnimatePresence>
         {showFeaturesModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">

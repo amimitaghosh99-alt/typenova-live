@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, MessageSquare } from 'lucide-react';
 import type { RacerState, ChatMessage } from '../hooks/useRace';
+import type { Theme } from '@/data/constants';
 
 interface PostMatchChatProps {
   lobbyId: string;
@@ -9,6 +10,7 @@ interface PostMatchChatProps {
   players?: RacerState[];
   chatMessages: ChatMessage[];
   onSendMessage: (text: string) => void;
+  theme?: Theme;
 }
 
 const PRESET_MESSAGES = ['GG', 'Rematch?', 'Run it back!', 'So close!', 'Clean run!', 'Well played'] as const;
@@ -27,9 +29,11 @@ export function PostMatchChat({
   players = [],
   chatMessages,
   onSendMessage,
+  theme,
 }: PostMatchChatProps) {
   const [inputText, setInputText] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const glowPrimary = theme?.glowPrimary || '34, 211, 238';
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -76,17 +80,36 @@ export function PostMatchChat({
   return (
     <div className="glass-panel relative w-full max-w-3xl mx-auto rounded-2xl bg-zinc-900/50 backdrop-blur-md border border-white/10 p-4 md:p-5 font-mono shadow-2xl overflow-hidden">
       {/* Subtle Glow Header Accent */}
-      <div className="absolute -top-16 -right-16 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+      <div
+        className="absolute -top-16 -right-16 w-36 h-36 rounded-full blur-2xl pointer-events-none"
+        style={{ backgroundColor: `rgba(${glowPrimary}, 0.1)` }}
+      />
 
       {/* Title Header */}
       <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{
+              backgroundColor: `rgba(${glowPrimary}, 0.1)`,
+              borderWidth: 1,
+              borderColor: `rgba(${glowPrimary}, 0.3)`,
+              color: `rgb(${glowPrimary})`,
+            }}
+          >
             <MessageSquare size={14} />
           </div>
           <h3 className="text-xs font-bold text-white tracking-wider uppercase flex items-center gap-2">
             Comms Terminal
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold">
+            <span
+              className="text-[9px] px-2 py-0.5 rounded-full font-bold"
+              style={{
+                backgroundColor: `rgba(${glowPrimary}, 0.15)`,
+                color: `rgb(${glowPrimary})`,
+                borderWidth: 1,
+                borderColor: `rgba(${glowPrimary}, 0.3)`,
+              }}
+            >
               SOCKET LIVE
             </span>
           </h3>
@@ -148,7 +171,20 @@ export function PostMatchChat({
             key={preset}
             onClick={() => sendMessage(preset)}
             disabled={!lobbyId}
-            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/5 hover:bg-cyan-500/20 text-zinc-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/40 transition-all shrink-0 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/5 text-zinc-300 border border-white/10 transition-all shrink-0 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              // Hover states handled via CSS class, but theme-bound active accent
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = `rgba(${glowPrimary}, 0.2)`;
+              e.currentTarget.style.color = `rgb(${glowPrimary})`;
+              e.currentTarget.style.borderColor = `rgba(${glowPrimary}, 0.4)`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '';
+              e.currentTarget.style.color = '';
+              e.currentTarget.style.borderColor = '';
+            }}
           >
             {preset}
           </button>
@@ -163,13 +199,25 @@ export function PostMatchChat({
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Send a message to lobby..."
           disabled={!lobbyId}
-          className="flex-1 bg-slate-950/80 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          maxLength={150}
+          className="flex-1 bg-slate-950/80 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            // focus border handled inline since CSS can't bind to theme var
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = `rgba(${glowPrimary}, 0.5)`;
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '';
+          }}
         />
         <button
           type="submit"
           disabled={!inputText.trim() || !lobbyId}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-400 text-slate-950 font-black text-xs tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 disabled:hover:scale-100 hover:scale-105 active:scale-100 shadow-[0_0_12px_rgba(6,182,212,0.3)]"
+          className="px-4 py-2.5 rounded-xl text-slate-950 font-black text-xs tracking-wider flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 disabled:hover:scale-100 hover:scale-105 active:scale-100"
+          style={{
+            background: `linear-gradient(to right, rgb(${glowPrimary}), rgb(${theme?.glowSecondary || glowPrimary}))`,
+            boxShadow: `0 0 12px rgba(${glowPrimary}, 0.3)`,
+          }}
         >
           <Send size={13} />
           <span className="hidden sm:inline">SEND</span>

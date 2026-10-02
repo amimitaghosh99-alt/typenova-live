@@ -74,10 +74,20 @@ interface ToggleSwitchProps {
 
 const ToggleSwitch = ({ label, description, checked, onChange, icon: Icon, danger = false, theme }: ToggleSwitchProps) => (
   <motion.div
+    role="switch"
+    tabIndex={0}
+    aria-checked={checked}
+    aria-label={`${label}: ${checked ? 'on' : 'off'}. ${description}`}
     whileHover={{ scale: 1.015, y: -2 }}
     whileTap={{ scale: 0.985 }}
     transition={springSnappy}
     onClick={() => onChange(!checked)}
+    onKeyDown={(event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onChange(!checked);
+      }
+    }}
     style={
       checked && !danger
         ? {
@@ -91,7 +101,7 @@ const ToggleSwitch = ({ label, description, checked, onChange, icon: Icon, dange
             boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08)',
           } : undefined
     }
-    className={`relative overflow-hidden flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer select-none backdrop-blur-xl group ${
+    className={`relative w-full overflow-hidden flex items-center justify-between p-5 rounded-2xl border text-left transition-all cursor-pointer select-none backdrop-blur-xl group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a12] ${
       checked
         ? danger
           ? 'bg-red-500/10 border-red-500/30 shadow-[inset_0_0_20px_rgba(239,68,68,0.1)]'
@@ -215,7 +225,8 @@ const FONT_CATEGORIES = [
 const FONT_PRESET_SAMPLES = {
   code: 'const [flow, speed] = [true, 142]; // => 99.8%',
   prose: 'The quick brown fox jumps over the lazy dog.',
-  glyphs: '0O 1lI {} () <> == != !== => <= && ||',
+  ligatures: 'fn => a === b && x !== y ? alpha >= 10 : <|>',
+  glyphs: '0O 1lI {} () <> == != !== => <= && || 0123456789',
 };
 
 const FONT_SPECIMENS: FontSpecimen[] = [
@@ -545,12 +556,17 @@ export const SettingsModal = React.memo(function SettingsModal({
   // Typography Playground State
   const [fontCategory, setFontCategory] = useState<string>('all');
   const [fontTestText, setFontTestText] = useState<string>('');
-  const [fontPreset, setFontPreset] = useState<'signature' | 'code' | 'prose' | 'glyphs'>('signature');
+  const [fontPreset, setFontPreset] = useState<'signature' | 'code' | 'prose' | 'ligatures' | 'glyphs'>('signature');
+  const [fontSizePreset, setFontSizePreset] = useState<number>(18);
 
   const filteredFonts = useMemo(() => {
     if (fontCategory === 'all') return FONT_SPECIMENS;
     return FONT_SPECIMENS.filter(s => s.category === fontCategory);
   }, [fontCategory]);
+
+  const activeSpecimen = useMemo(() => {
+    return FONT_SPECIMENS.find(s => s.name === themeFont) || FONT_SPECIMENS[0];
+  }, [themeFont]);
 
   const triggerSoundPreview = (key: string) => {
     selectSoundProfile(key);
@@ -743,18 +759,23 @@ export const SettingsModal = React.memo(function SettingsModal({
   };
 
   const currentHeader = TAB_HEADERS[activeTab] || { title: 'Settings', desc: '' };
+  const currentTab = TABS.find((tab) => tab.id === activeTab) ?? TABS[0];
+  const CurrentTabIcon = currentTab.icon;
 
   return (
     <div
-      className="fixed inset-0 z-[500] w-full h-full max-w-full max-h-full flex flex-col md:flex-row bg-[#060810]/68 backdrop-blur-2xl backdrop-saturate-[190%] animate-in fade-in duration-300 overflow-hidden select-none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settings-title"
+      className="fixed inset-0 z-[500] flex h-[100dvh] w-full min-h-0 max-w-full flex-col overflow-hidden bg-[#060810]/68 backdrop-blur-2xl backdrop-saturate-[190%] animate-in fade-in duration-300 md:flex-row"
       onClick={e => e.stopPropagation()}
     >
 
       {/* Left Sidebar */}
-      <div className="w-full md:w-64 lg:w-72 border-b md:border-b-0 md:border-r border-white/10 bg-black/40 backdrop-blur-3xl shadow-[inset_-1px_0_0_rgba(255,255,255,0.08),inset_1px_1px_0_rgba(255,255,255,0.04)] flex flex-col p-4 md:p-5 lg:p-6 relative shrink-0 justify-between h-auto md:h-full overflow-y-auto custom-scrollbar">
+      <aside aria-label="Settings navigation" className="relative flex w-full shrink-0 flex-col border-b border-white/10 bg-black/40 p-3.5 shadow-[inset_-1px_0_0_rgba(255,255,255,0.08),inset_1px_1px_0_rgba(255,255,255,0.04)] backdrop-blur-3xl sm:p-4 md:h-full md:w-64 md:justify-between md:overflow-y-auto md:border-b-0 md:border-r md:p-5 lg:w-72 lg:p-6 custom-scrollbar">
         <div>
           {/* Header Badge */}
-          <div className="flex items-center gap-3.5 mb-5 lg:mb-6">
+          <div className="mb-3.5 flex items-center gap-3 sm:mb-4 md:mb-5 lg:mb-6">
             <div
               className="w-10 h-10 rounded-2xl flex items-center justify-center border shadow-xl"
               style={{
@@ -773,15 +794,18 @@ export const SettingsModal = React.memo(function SettingsModal({
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-visible pb-2 md:pb-0 custom-scrollbar">
+          <nav aria-label="Settings sections" className="-mx-3.5 flex gap-1.5 overflow-x-auto px-3.5 pb-1.5 custom-scrollbar sm:-mx-4 sm:px-4 md:mx-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
               return (
                 <button
+                  type="button"
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`group relative flex items-center justify-between px-4 py-3 rounded-2xl font-bold text-xs tracking-wide transition-all duration-200 shrink-0 cursor-pointer ${
+                  aria-current={isActive ? 'page' : undefined}
+                  title={tab.label}
+                  className={`group relative flex shrink-0 items-center justify-between rounded-xl px-3 py-2.5 text-xs font-bold tracking-wide transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a12] md:rounded-2xl md:px-4 md:py-3 ${
                     isActive
                       ? tab.danger
                         ? 'text-red-400'
@@ -840,7 +864,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                 </button>
               );
             })}
-          </div>
+          </nav>
         </div>
 
         {/* Sidebar Footer & Return to Arena button */}
@@ -901,10 +925,10 @@ export const SettingsModal = React.memo(function SettingsModal({
             <ArrowLeft size={14} /> RETURN TO ARENA (ESC)
           </motion.button>
         </div>
-      </div>
+      </aside>
 
       {/* Right Content */}
-      <div className="flex-1 flex flex-col relative bg-transparent min-w-0 h-full overflow-hidden overflow-x-hidden">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden overflow-x-hidden bg-transparent md:h-full">
 
         {/* Ambient Subsurface Theme Caustic Orbs */}
         <div
@@ -917,41 +941,45 @@ export const SettingsModal = React.memo(function SettingsModal({
         />
 
         {/* Header */}
-        <div className="px-6 lg:px-10 py-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.06),inset_0_-1px_0_rgba(0,0,0,0.3)] shrink-0">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
+        <header className="relative z-10 flex shrink-0 items-start justify-between border-b border-white/10 bg-white/[0.02] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),inset_0_-1px_0_rgba(0,0,0,0.3)] backdrop-blur-xl sm:items-center sm:px-6 sm:py-5 lg:px-10">
+          <div className="min-w-0 pr-3">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
               <span
-                className="px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-widest border"
+                className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest"
                 style={{
                   borderColor: `rgba(${theme.glowPrimary}, 0.3)`,
                   backgroundColor: `rgba(${theme.glowPrimary}, 0.1)`,
                   color: `rgb(${theme.glowPrimary})`,
                 }}
               >
-                CONFIG ENGINE // V3.1
+                <CurrentTabIcon size={11} aria-hidden="true" />
+                {currentTab.label}
               </span>
+              <span className="hidden text-[10px] font-medium text-zinc-500 sm:inline">Changes apply instantly</span>
             </div>
-            <h3 className="text-2xl lg:text-3xl font-black tracking-wide text-white">
+            <h3 id="settings-title" className="text-xl font-black tracking-wide text-white sm:text-2xl lg:text-3xl">
               {currentHeader.title}
             </h3>
-            <p className="text-xs lg:text-sm text-zinc-400 mt-1">
+            <p className="mt-1 max-w-2xl text-xs text-pretty text-zinc-400 lg:text-sm">
               {currentHeader.desc}
             </p>
           </div>
 
           <motion.button
+            type="button"
+            aria-label="Close settings"
             whileHover={{ scale: 1.08, rotate: 90 }}
             whileTap={{ scale: 0.92 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
             onClick={onClose}
-            className="group w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer border border-white/10 hover:border-white/20 active:scale-95 shadow-xl"
+            className="group flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-400 shadow-xl transition-colors cursor-pointer hover:border-white/20 hover:bg-white/10 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a12]"
             title="Close (ESC)"
           >
             <X size={18} />
           </motion.button>
-        </div>
+        </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-10 py-6 custom-scrollbar max-w-[1600px] w-full mx-auto">
+        <div className="min-h-0 w-full max-w-[1600px] flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 pb-12 custom-scrollbar sm:px-6 sm:py-6 sm:pb-14 lg:px-10">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={activeTab}
@@ -1823,6 +1851,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                               </div>
                               <input
                                 type="range"
+                                aria-label="Wallpaper brightness"
                                 min="0.2"
                                 max="1.0"
                                 step="0.05"
@@ -1845,6 +1874,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                               </div>
                               <input
                                 type="range"
+                                aria-label="Wallpaper blur"
                                 min="0"
                                 max="16"
                                 step="1"
@@ -2117,6 +2147,7 @@ export const SettingsModal = React.memo(function SettingsModal({
                       <span className="text-[10px] font-mono text-zinc-500">{MIN_DISPLAY_SCALE}%</span>
                       <input
                         type="range"
+                        aria-label="In-app display scale"
                         min={MIN_DISPLAY_SCALE}
                         max={MAX_DISPLAY_SCALE}
                         step={5}
@@ -2133,8 +2164,18 @@ export const SettingsModal = React.memo(function SettingsModal({
 
                   {/* Counteract OS DPI Scaling 1:1 Mode Toggle */}
                   <div
+                    role="switch"
+                    tabIndex={0}
+                    aria-checked={counteractDpi}
+                    aria-label="Counteract OS DPI scaling"
                     onClick={() => setCounteractDpi(!counteractDpi)}
-                    className={`relative overflow-hidden p-3.5 rounded-xl border transition-all cursor-pointer select-none flex items-center justify-between backdrop-blur-xl z-10 ${
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setCounteractDpi(!counteractDpi);
+                      }
+                    }}
+                    className={`relative z-10 flex w-full items-center justify-between overflow-hidden rounded-xl border p-3.5 text-left transition-all cursor-pointer select-none backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#080a12] ${
                       counteractDpi
                         ? 'border-emerald-500/50 bg-emerald-500/15 shadow-[0_0_24px_rgba(16,185,129,0.25),inset_0_1.5px_0.5px_rgba(255,255,255,0.45),inset_0_-1px_1px_rgba(0,0,0,0.5)]'
                         : 'border-white/12 hover:border-white/25'
@@ -2192,272 +2233,354 @@ export const SettingsModal = React.memo(function SettingsModal({
                   </div>
                 </div>
 
-                {/* Typography Studio — Curated 21 High-Utility Typefaces */}
-                <div className="space-y-3.5">
-                  {/* Top Bar: Title + Active Font Pill + Reset */}
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs font-bold text-zinc-200 tracking-wider uppercase flex items-center gap-2">
-                        <Type size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Typography Studio
-                      </h4>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
-                        {filteredFonts.length} of {FONT_SPECIMENS.length} Typefaces
-                      </span>
-                    </div>
+                {/* Typography Studio — Master Stage & Minimalist Font Picker */}
+                <div className="space-y-4">
+                  {/* Top Bar: Section Title */}
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-zinc-200 tracking-wider uppercase flex items-center gap-2">
+                      <Type size={14} style={{ color: `rgb(${theme.glowPrimary})` }} /> Typography Studio
+                    </h4>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
+                      {filteredFonts.length} of {FONT_SPECIMENS.length} Typefaces
+                    </span>
+                  </div>
 
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono backdrop-blur-md"
-                        style={{
-                          borderColor: `rgba(${theme.glowPrimary}, 0.45)`,
-                          backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
-                          color: `rgb(${theme.glowPrimary})`,
-                        }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: `rgb(${theme.glowPrimary})` }} />
-                        <span className="font-bold">ACTIVE:</span>
-                        <span className="text-white font-semibold">{themeFont}</span>
+                  {/* Master Showcase Stage (Typeface Playground) */}
+                  <div
+                    className="relative overflow-hidden rounded-3xl border bg-black/50 p-5 sm:p-6 backdrop-blur-2xl shadow-2xl transition-all"
+                    style={{
+                      borderColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                      boxShadow: `0 12px 40px -10px rgba(0, 0, 0, 0.7), 0 0 30px rgba(${theme.glowPrimary}, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15)`,
+                    }}
+                  >
+                    {/* Top Specular Glint Line */}
+                    <div
+                      className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                      style={{
+                        background: `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 40%, rgba(${theme.glowPrimary}, 0.8) 70%, transparent 100%)`,
+                      }}
+                    />
+
+                    {/* Stage Header: Font Identity + Badges + Actions */}
+                    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <h4
+                            className="text-xl sm:text-2xl font-black text-white tracking-tight"
+                            style={{ fontFamily: `"${activeSpecimen.name}", monospace` }}
+                          >
+                            {activeSpecimen.name}
+                          </h4>
+                          <span
+                            className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 tracking-wider"
+                            style={{
+                              borderColor: `rgba(${theme.glowPrimary}, 0.45)`,
+                              backgroundColor: `rgba(${theme.glowPrimary}, 0.18)`,
+                              color: `rgb(${theme.glowPrimary})`,
+                            }}
+                          >
+                            {activeSpecimen.badge}
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider hidden sm:inline-block">
+                            {activeSpecimen.tag}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-400 mt-1.5 max-w-xl leading-relaxed">
+                          {activeSpecimen.description}
+                        </p>
                       </div>
 
-                      {themeFont !== 'JetBrains Mono' && (
-                        <button
-                          type="button"
-                          onClick={() => setThemeFont('JetBrains Mono')}
-                          className="flex items-center gap-1 text-[11px] font-mono text-zinc-400 hover:text-white px-2 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
-                          title="Reset to JetBrains Mono default"
+                      <div className="flex items-center gap-2 shrink-0">
+                        {themeFont !== 'JetBrains Mono' && (
+                          <button
+                            type="button"
+                            onClick={() => setThemeFont('JetBrains Mono')}
+                            className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400 hover:text-white px-2.5 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
+                            title="Reset to JetBrains Mono default"
+                          >
+                            <RotateCcw size={11} /> Reset Default
+                          </button>
+                        )}
+                        <div
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-mono backdrop-blur-md"
+                          style={{
+                            borderColor: `rgba(${theme.glowPrimary}, 0.45)`,
+                            backgroundColor: `rgba(${theme.glowPrimary}, 0.12)`,
+                            color: `rgb(${theme.glowPrimary})`,
+                          }}
                         >
-                          <RotateCcw size={11} /> Reset Default
-                        </button>
-                      )}
+                          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: `rgb(${theme.glowPrimary})` }} />
+                          <span className="font-bold">ACTIVE TYPEFACE</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Minimalist Monkeytype Control Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md mb-4">
+                      {/* Presets */}
+                      <div className="flex items-center gap-1">
+                        {(['signature', 'code', 'prose', 'ligatures', 'glyphs'] as const).map(presetKey => {
+                          const isPresetActive = fontPreset === presetKey && !fontTestText;
+                          return (
+                            <button
+                              key={presetKey}
+                              type="button"
+                              onClick={() => {
+                                setFontPreset(presetKey);
+                                setFontTestText('');
+                              }}
+                              className={`text-[11px] px-2.5 py-1 rounded-lg transition-all capitalize cursor-pointer ${
+                                isPresetActive
+                                  ? 'border font-semibold shadow-sm'
+                                  : 'text-zinc-400 hover:text-zinc-200 bg-white/[0.02] border border-white/5'
+                              }`}
+                              style={
+                                isPresetActive
+                                  ? {
+                                      borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                                      backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                                      color: `rgb(${theme.glowPrimary})`,
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {presetKey}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/10 hidden md:inline-block" />
+
+                      {/* Font Size Selector */}
+                      <div className="flex items-center gap-1">
+                        {([14, 18, 22] as const).map(size => {
+                          const isSizeActive = fontSizePreset === size;
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => setFontSizePreset(size)}
+                              className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                                isSizeActive
+                                  ? 'border font-bold'
+                                  : 'text-zinc-400 hover:text-zinc-200 bg-white/[0.02] border border-white/5'
+                              }`}
+                              style={
+                                isSizeActive
+                                  ? {
+                                      borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
+                                      backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                                      color: `rgb(${theme.glowPrimary})`,
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {size}px
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/10 hidden md:inline-block" />
+
+                      {/* Live Custom Keystroke Preview Input */}
+                      <div className="flex-1 min-w-[200px] relative">
+                        <Terminal size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={fontTestText}
+                          onChange={e => setFontTestText(e.target.value)}
+                          placeholder="Type custom test phrase..."
+                          className="w-full pl-7 pr-7 py-1 text-xs rounded-xl bg-white/[0.04] border border-white/10 text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-white/30 transition-all font-mono"
+                        />
+                        {fontTestText && (
+                          <button
+                            type="button"
+                            onClick={() => setFontTestText('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-0.5 cursor-pointer"
+                            title="Clear preview text"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Master Typing Canvas Stage */}
+                    <div
+                      className="p-5 sm:p-6 rounded-2xl border border-white/10 relative overflow-hidden backdrop-blur-xl"
+                      style={{
+                        background: 'linear-gradient(180deg, rgba(4, 6, 12, 0.85) 0%, rgba(8, 11, 20, 0.95) 100%)',
+                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.8), inset 0 -1px 0 rgba(255, 255, 255, 0.05)',
+                      }}
+                    >
+                      <div
+                        className="text-white font-medium break-all sm:break-normal transition-all"
+                        style={{
+                          fontFamily: `"${activeSpecimen.name}", monospace`,
+                          fontSize: `${fontSizePreset}px`,
+                          lineHeight: 1.6,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        {(() => {
+                          if (fontTestText.trim()) return fontTestText;
+                          if (fontPreset === 'code') return FONT_PRESET_SAMPLES.code;
+                          if (fontPreset === 'prose') return FONT_PRESET_SAMPLES.prose;
+                          if (fontPreset === 'ligatures') return FONT_PRESET_SAMPLES.ligatures;
+                          if (fontPreset === 'glyphs') return FONT_PRESET_SAMPLES.glyphs;
+                          return activeSpecimen.sample;
+                        })()}
+                        <span
+                          className="inline-block w-2 h-4 sm:h-5 ml-1 align-middle animate-pulse rounded-sm"
+                          style={{ backgroundColor: `rgb(${theme.glowPrimary})` }}
+                        />
+                      </div>
+
+                      {/* Sub-strip: Glyphs & Ligature Inspection */}
+                      <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 font-mono">
+                        <div
+                          className="flex items-center gap-3 text-zinc-400"
+                          style={{ fontFamily: `"${activeSpecimen.name}", monospace` }}
+                        >
+                          <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-sans">Glyph Map:</span>
+                          <span>{activeSpecimen.glyphs}</span>
+                        </div>
+                        <div
+                          className="flex items-center gap-2 text-zinc-400"
+                          style={{ fontFamily: `"${activeSpecimen.name}", monospace` }}
+                        >
+                          <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-sans">Numerals:</span>
+                          <span>0123456789</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Archetype / Category Filters */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                    {FONT_CATEGORIES.map(cat => {
-                      const isSelected = fontCategory === cat.id;
-                      const count = cat.id === 'all'
-                        ? FONT_SPECIMENS.length
-                        : FONT_SPECIMENS.filter(s => s.category === cat.id).length;
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setFontCategory(cat.id)}
-                          className={`text-xs px-3 py-1.5 rounded-xl font-medium transition-all duration-150 shrink-0 flex items-center gap-1.5 select-none ${
-                            isSelected
-                              ? 'border shadow-sm font-semibold'
-                              : 'border border-white/10 bg-white/[0.03] text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
-                          }`}
-                          style={
-                            isSelected
-                              ? {
-                                  borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
-                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.16)`,
-                                  color: `rgb(${theme.glowPrimary})`,
-                                }
-                              : undefined
-                          }
-                        >
-                          <span>{cat.label}</span>
-                          <span
-                            className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
-                            style={
-                              isSelected
-                                ? { backgroundColor: `rgba(${theme.glowPrimary}, 0.25)`, color: `rgb(${theme.glowPrimary})` }
-                                : { backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#a1a1aa' }
-                            }
-                          >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Interactive Specimen Live-Test & Preset Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
-                    {/* Preset Switcher */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mr-1 hidden sm:inline-block">
-                        Preview:
-                      </span>
-                      {(['signature', 'code', 'prose', 'glyphs'] as const).map(presetKey => {
-                        const isPresetActive = fontPreset === presetKey && !fontTestText;
+                  {/* Category Filter Pills & Counter */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                      {FONT_CATEGORIES.map(cat => {
+                        const isSelected = fontCategory === cat.id;
+                        const count = cat.id === 'all'
+                          ? FONT_SPECIMENS.length
+                          : FONT_SPECIMENS.filter(s => s.category === cat.id).length;
                         return (
                           <button
-                            key={presetKey}
+                            key={cat.id}
                             type="button"
-                            onClick={() => {
-                              setFontPreset(presetKey);
-                              setFontTestText('');
-                            }}
-                            className={`text-[11px] px-2.5 py-1 rounded-lg transition-all capitalize ${
-                              isPresetActive
-                                ? 'border font-semibold shadow-sm'
-                                : 'text-zinc-400 hover:text-zinc-200 bg-white/[0.02] border border-white/5'
+                            onClick={() => setFontCategory(cat.id)}
+                            className={`text-xs px-3 py-1.5 rounded-xl font-medium transition-all duration-150 shrink-0 flex items-center gap-1.5 select-none cursor-pointer ${
+                              isSelected
+                                ? 'border shadow-sm font-semibold'
+                                : 'border border-white/10 bg-white/[0.03] text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
                             }`}
                             style={
-                              isPresetActive
+                              isSelected
                                 ? {
-                                    borderColor: `rgba(${theme.glowPrimary}, 0.5)`,
-                                    backgroundColor: `rgba(${theme.glowPrimary}, 0.15)`,
+                                    borderColor: `rgba(${theme.glowPrimary}, 0.6)`,
+                                    backgroundColor: `rgba(${theme.glowPrimary}, 0.16)`,
                                     color: `rgb(${theme.glowPrimary})`,
                                   }
                                 : undefined
                             }
                           >
-                            {presetKey}
+                            <span>{cat.label}</span>
+                            <span
+                              className="text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold"
+                              style={
+                                isSelected
+                                  ? { backgroundColor: `rgba(${theme.glowPrimary}, 0.25)`, color: `rgb(${theme.glowPrimary})` }
+                                  : { backgroundColor: 'rgba(255, 255, 255, 0.08)', color: '#a1a1aa' }
+                              }
+                            >
+                              {count}
+                            </span>
                           </button>
                         );
                       })}
                     </div>
 
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/10 hidden md:inline-block" />
-
-                    {/* Live Custom Keystroke Preview Input */}
-                    <div className="flex-1 min-w-[220px] relative">
-                      <Terminal size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={fontTestText}
-                        onChange={e => setFontTestText(e.target.value)}
-                        placeholder="Type here to test live across all typefaces..."
-                        className="w-full pl-7 pr-7 py-1 text-xs rounded-xl bg-white/[0.04] border border-white/10 text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-white/30 transition-all font-mono"
-                      />
-                      {fontTestText && (
-                        <button
-                          type="button"
-                          onClick={() => setFontTestText('')}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-0.5"
-                          title="Clear preview text"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
-                    </div>
+                    <span className="text-[10px] font-mono text-zinc-500 hidden sm:inline-block">
+                      {filteredFonts.length} of {FONT_SPECIMENS.length} Typefaces
+                    </span>
                   </div>
 
-                  {/* Specimen Cards Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5">
+                  {/* Streamlined Minimalist Font Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
                     {filteredFonts.map((specimen, sIdx) => {
                       const isActive = specimen.name === themeFont;
-                      // Determine preview text to render
-                      let activePreview = specimen.sample;
-                      if (fontTestText.trim()) {
-                        activePreview = fontTestText;
-                      } else if (fontPreset === 'code') {
-                        activePreview = FONT_PRESET_SAMPLES.code;
-                      } else if (fontPreset === 'prose') {
-                        activePreview = FONT_PRESET_SAMPLES.prose;
-                      } else if (fontPreset === 'glyphs') {
-                        activePreview = FONT_PRESET_SAMPLES.glyphs;
-                      }
-
                       return (
                         <motion.button
                           key={specimen.name}
-                          initial={{ opacity: 0, y: 12 }}
+                          initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ ...springFluid, delay: Math.min(sIdx * 0.02, 0.25) }}
-                          whileHover={{ scale: 1.02, y: -2 }}
-                          whileTap={{ scale: 0.98 }}
+                          transition={{ ...springFluid, delay: Math.min(sIdx * 0.015, 0.2) }}
+                          whileHover={{ scale: 1.015, y: -1 }}
+                          whileTap={{ scale: 0.985 }}
                           onClick={() => setThemeFont(specimen.name)}
                           style={
                             isActive
                               ? {
                                   borderColor: `rgba(${theme.glowPrimary}, 0.75)`,
-                                  background: `linear-gradient(135deg, rgba(${theme.glowPrimary}, 0.25) 0%, rgba(${theme.glowPrimary}, 0.08) 50%, rgba(0, 0, 0, 0.4) 100%), rgba(16, 20, 32, 0.75)`,
-                                  boxShadow: `0 0 28px rgba(${theme.glowPrimary}, 0.35), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(${theme.glowPrimary}, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.15)`,
+                                  background: `linear-gradient(135deg, rgba(${theme.glowPrimary}, 0.2) 0%, rgba(${theme.glowPrimary}, 0.06) 60%, rgba(0, 0, 0, 0.4) 100%), rgba(14, 18, 30, 0.8)`,
+                                  boxShadow: `0 0 24px rgba(${theme.glowPrimary}, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 0 16px rgba(${theme.glowPrimary}, 0.15)`,
                                 }
                               : {
-                                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(0, 0, 0, 0.35) 100%), rgba(14, 18, 28, 0.55)',
-                                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                                  boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1.5px 0.5px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4), inset 1px 0 0 rgba(255, 255, 255, 0.08)',
+                                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%), rgba(12, 16, 24, 0.6)',
+                                  borderColor: 'rgba(255, 255, 255, 0.08)',
+                                  boxShadow: '0 4px 14px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
                                 }
                           }
-                          className={`group relative p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden select-none backdrop-blur-xl ${
-                            isActive
-                              ? 'border'
-                              : 'hover:border-white/25 hover:scale-[1.01]'
+                          className={`group relative p-3 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden select-none backdrop-blur-xl ${
+                            isActive ? 'border' : 'hover:border-white/20 hover:bg-white/[0.04]'
                           }`}
                         >
-                          {/* Top Specular Glint Line */}
+                          {/* Top Specular Glint */}
                           <div
-                            className="absolute top-0 inset-x-0 h-[1.5px] pointer-events-none"
+                            className="absolute top-0 inset-x-0 h-[1px] pointer-events-none"
                             style={{
                               background: isActive
-                                ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, rgba(${theme.glowPrimary}, 0.8) 75%, transparent 100%)`
-                                : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%)',
+                                ? `linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.8) 50%, rgba(${theme.glowPrimary}, 0.8) 75%, transparent 100%)`
+                                : 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.25) 50%, transparent 100%)',
                             }}
                           />
 
-                          {/* Top Row: Font Name & Badge */}
+                          {/* Card Top: Font Name + Badge / Check */}
                           <div className="flex items-center justify-between gap-1.5 mb-1.5 relative z-10">
                             <span
                               className={`text-xs font-bold tracking-tight truncate ${
                                 isActive ? 'text-white' : 'text-zinc-200 group-hover:text-white'
                               }`}
+                              style={{ fontFamily: `"${specimen.name}", monospace` }}
                             >
                               {specimen.name}
                             </span>
-                            <span
-                              className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border shrink-0 tracking-wider"
-                              style={
-                                isActive
-                                  ? {
-                                      borderColor: `rgba(${theme.glowPrimary}, 0.4)`,
-                                      backgroundColor: `rgba(${theme.glowPrimary}, 0.2)`,
-                                      color: `rgb(${theme.glowPrimary})`,
-                                    }
-                                  : {
-                                      borderColor: 'rgba(255, 255, 255, 0.08)',
-                                      backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                                      color: '#a1a1aa',
-                                    }
-                              }
-                            >
-                              {specimen.badge}
-                            </span>
-                          </div>
-
-                          {/* Middle: Short Utility Description */}
-                          <p className="text-[10px] text-zinc-400 line-clamp-1 mb-2.5 relative z-10">
-                            {specimen.description}
-                          </p>
-
-                          {/* Specimen Live Text rendered in actual font */}
-                          <div
-                            className="text-[12px] text-zinc-200 py-2.5 px-3 rounded-xl border border-white/10 truncate transition-colors group-hover:text-white relative z-10 mb-2"
-                            style={{
-                              fontFamily: `"${specimen.name}", monospace`,
-                              background: 'linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(8, 10, 16, 0.8) 100%)',
-                              boxShadow: 'inset 0 1.5px 3px rgba(0, 0, 0, 0.7), inset 0 -1px 0 rgba(255, 255, 255, 0.06)',
-                            }}
-                          >
-                            {activePreview}
-                          </div>
-
-                          {/* Bottom Row: Glyphs Strip & Status */}
-                          <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 pt-1 border-t border-white/5 relative z-10">
-                            <span
-                              className="truncate text-zinc-400 group-hover:text-zinc-300 font-medium"
-                              style={{ fontFamily: `"${specimen.name}", monospace` }}
-                            >
-                              {specimen.glyphs}
-                            </span>
                             {isActive ? (
                               <span
-                                className="flex items-center gap-1 font-bold shrink-0 ml-1.5"
-                                style={{ color: `rgb(${theme.glowPrimary})` }}
+                                className="flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                                style={{
+                                  backgroundColor: `rgba(${theme.glowPrimary}, 0.25)`,
+                                  color: `rgb(${theme.glowPrimary})`,
+                                  border: `1px solid rgba(${theme.glowPrimary}, 0.5)`,
+                                }}
                               >
-                                <Check size={11} /> ACTIVE
+                                <Check size={10} /> ACTIVE
                               </span>
                             ) : (
-                              <span className="text-[9px] uppercase tracking-wider text-zinc-500 group-hover:text-zinc-400 shrink-0 ml-1.5">
-                                {specimen.tag}
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md border border-white/8 bg-white/4 text-zinc-400 shrink-0">
+                                {specimen.badge}
                               </span>
                             )}
+                          </div>
+
+                          {/* Card Middle: Micro-specimen single line in this font */}
+                          <div
+                            className="text-[11px] text-zinc-400 group-hover:text-zinc-200 truncate py-1 relative z-10"
+                            style={{ fontFamily: `"${specimen.name}", monospace` }}
+                          >
+                            {specimen.sample}
                           </div>
                         </motion.button>
                       );

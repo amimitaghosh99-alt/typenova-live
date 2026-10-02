@@ -97,6 +97,7 @@ const RankedHistoryPanel = lazyWithRetry(() => import('@/components/RankedHistor
 const RankedTeaserCard = lazyWithRetry(() => import('@/components/RankedTeaserCard').then(m => ({ default: m.RankedTeaserCard })), 'RankedTeaserCard');
 
 const RaceTrack = lazyWithRetry(() => import('@/components/RaceTrack').then(m => ({ default: m.RaceTrack })), 'RaceTrack');
+import { LANE_COLORS } from '@/components/RaceTrack';
 
 
 // ─── STAGE PAGE TRANSITION VARIANTS ────────────────────────────────────
@@ -1913,9 +1914,15 @@ function MainApp() {
     appStorage.set(StorageKeys.FONT, font);
   }, []);
 
-  const otherRacePlayers = useMemo(() => (
-    raceActive ? race.players.filter(p => p.id !== race.selfId) : undefined
-  ), [raceActive, race.players, race.selfId]);
+  const otherRacePlayers = useMemo(() => {
+    if (!raceActive) return undefined;
+    return race.players
+      .map((p, index) => ({
+        ...p,
+        laneColor: LANE_COLORS[index % LANE_COLORS.length],
+      }))
+      .filter(p => p.id !== race.selfId);
+  }, [raceActive, race.players, race.selfId]);
 
   const techModifiersMemo = useMemo(() => ({
     sudden_death: game.suddenDeath,

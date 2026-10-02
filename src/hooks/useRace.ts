@@ -23,7 +23,7 @@ export type RaceStatus = 'idle' | 'joining' | 'lobby' | 'racing' | 'finished';
 
 /**
  * Socket health, tracked separately from `status`. A dropped channel used to
- * destroy the room outright â€” the only way it could be made visible â€” so a
+ * destroy the room outright Ã¢â‚¬â€ the only way it could be made visible Ã¢â‚¬â€ so a
  * single Wi-Fi blip cost the whole race.
  */
 export type RaceConnection = 'offline' | 'connecting' | 'live' | 'reconnecting';
@@ -77,7 +77,7 @@ export interface RacerState {
   backspaceCount?: number;
   /** Wall-clock join time. Drives stable slot ordering + host election. */
   joinedAt?: number;
-  /** Opted in to the next race. The host is implicitly ready â€” it owns start. */
+  /** Opted in to the next race. The host is implicitly ready Ã¢â‚¬â€ it owns start. */
   ready?: boolean;
   /** Measured round-trip time in ms. Undefined until the first pong lands. */
   ping?: number;
@@ -85,6 +85,7 @@ export interface RacerState {
   timeline?: TimelinePointLite[];
   errorTimes?: number[];
   sabotageStats?: SabotageStats;
+  laneColor?: string;
 }
 
 export interface RaceConfig {
@@ -441,7 +442,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           }
         }
 
-        // SECURITY: Deterministic host — retain current host if still present in mapped
+        // SECURITY: Deterministic host â€” retain current host if still present in mapped
         // to prevent host hijacking via client clock drift / skew / late joiners.
         // If current host has disconnected, earliest joiner wins with lexicographic tiebreaker.
         const currentHostStillPresent = Boolean(hostIdRef.current && mapped.some(p => p.id === hostIdRef.current));
@@ -493,7 +494,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         }
 
         // Host migration. The room's live state only exists in the host's
-        // presence frame, so a promoted client has to adopt it — otherwise the
+        // presence frame, so a promoted client has to adopt it â€” otherwise the
         // guards above go blind for everyone who joins after the original host
         // disappears, and a stranger drops into a race in progress.
         const wasHost = selfStateRef.current.isHost;
@@ -627,8 +628,8 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
        * Someone is missing our detail payload and is asking for it again.
        *
        * `finish_details` is a plain broadcast: Realtime does not acknowledge or
-       * replay it, so a dropped frame â€” or a client that subscribed after it
-       * went out â€” meant that racer's curve was permanently absent from the
+       * replay it, so a dropped frame Ã¢â‚¬â€ or a client that subscribed after it
+       * went out Ã¢â‚¬â€ meant that racer's curve was permanently absent from the
        * results graph and their stats panel was blank. Only the owner of a
        * payload can answer, which keeps the reply authoritative and means the
        * traffic is bounded by the number of racers, not the number of askers.
@@ -659,7 +660,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         if (!payload || !myId || payload.fromId === myId) return;
         if (payload.targetId && payload.targetId !== myId && payload.targetId !== 'all') return;
 
-        // SECURITY: Per-sender rate limit — max 3 hexes per 10 seconds
+        // SECURITY: Per-sender rate limit â€” max 3 hexes per 10 seconds
         const now = Date.now();
         const senderHistory = (hexRateRef.current.get(payload.fromId) || []).filter(t => now - t < 10000);
         if (senderHistory.length >= 3) return; // silently drop excessive hexes
@@ -834,7 +835,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
 
   // Reads host/config/code through refs so the callback identity never
   // changes. With `[isHost, lobbyConfig, code]` in the dep array, every lobby
-  // tweak rebuilt this function â€” and with it the whole object returned below.
+  // tweak rebuilt this function Ã¢â‚¬â€ and with it the whole object returned below.
   const startRace = useCallback((textOverride?: string) => {
     if (!channelRef.current || !isHostRef.current) return;
 
@@ -927,7 +928,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     };
     queueTrack(true);
 
-    // Heatmaps and timelines are far too large for a presence frame — an
+    // Heatmaps and timelines are far too large for a presence frame â€” an
     // oversized payload gets dropped and the finish never lands at all.
     const detail: RacerDetails = {
       heatmapData: payload.heatmap,

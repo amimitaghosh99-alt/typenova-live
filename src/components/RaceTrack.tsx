@@ -18,7 +18,7 @@ interface RaceTrackProps {
     countdown: number;
 }
 
-const LANE_COLORS = ['#22d3ee', '#f0abfc', '#fde047', '#34d399', '#fb923c', '#a78bfa'];
+export const LANE_COLORS = ['#22d3ee', '#f0abfc', '#fde047', '#34d399', '#fb923c', '#a78bfa'];
 
 const ordinal = (n: number) => {
     if (n === 1) return '1st';
@@ -49,7 +49,7 @@ export function RaceTrack({
             const isSelf = p.id === selfId;
             return {
                 ...p,
-                color: LANE_COLORS[i % LANE_COLORS.length],
+                color: p.laneColor || LANE_COLORS[i % LANE_COLORS.length],
                 isSelf,
                 liveProgress: p.finished ? 100 : isSelf ? myProgress : (p.progress ?? 0),
                 liveWpm: p.finished ? (p.finishWpm ?? p.wpm ?? 0) : isSelf ? myWpm : (p.wpm ?? 0),
@@ -80,7 +80,7 @@ export function RaceTrack({
     const charsFor = (pct: number) => Math.round((pct / 100) * targetLength);
 
     return (
-        <div className="relative z-20 w-full max-w-4xl mx-auto mb-4 rounded-2xl glass-panel border border-white/10 bg-zinc-950/60 backdrop-blur-md px-4 py-3 font-mono">
+        <div className="relative z-20 w-full max-w-4xl mx-auto mb-3 sm:mb-3.5 rounded-2xl glass-panel border border-white/10 bg-zinc-950/60 backdrop-blur-md px-4 py-3 font-mono">
             <div className="flex items-center justify-between mb-2.5">
                 <div className="flex items-center gap-2">
                     <span className={`text-[10px] font-black tracking-widest uppercase ${theme.text}`}>Live Race</span>

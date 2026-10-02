@@ -89,30 +89,30 @@ export const CyberSabotageDock = memo(function CyberSabotageDock({
   );
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-4 flex flex-col gap-2 relative z-20 font-mono">
+    <div className="w-full max-w-4xl mx-auto mb-3 flex flex-col gap-1.5 relative z-20 font-mono">
       {/* Tactical Combat Header & Energy Gauge */}
       <div
-        className="glass-panel rounded-2xl border p-3.5 flex flex-wrap items-center justify-between gap-3 bg-zinc-950/70 backdrop-blur-md"
+        className="glass-panel rounded-xl border p-2.5 px-3.5 flex flex-wrap items-center justify-between gap-2.5 bg-zinc-950/75 backdrop-blur-md"
         style={{
           borderColor: `rgba(${glowPrimary}, 0.25)`,
-          boxShadow: `0 0 20px rgba(${glowPrimary}, 0.08)`,
+          boxShadow: `0 0 16px rgba(${glowPrimary}, 0.08)`,
         }}
       >
         {/* Left: Energy Meter */}
-        <div className="flex items-center gap-3 min-w-[200px] flex-1">
+        <div className="flex items-center gap-2.5 min-w-[180px] flex-1">
           <div
-            className="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0"
+            className="w-7 h-7 rounded-lg border flex items-center justify-center shrink-0"
             style={{
               backgroundColor: `rgba(${glowPrimary}, 0.12)`,
               borderColor: `rgba(${glowPrimary}, 0.35)`,
               color: `rgb(${glowPrimary})`,
             }}
           >
-            <Zap size={16} className={hexEnergy >= 35 ? 'animate-pulse' : ''} />
+            <Zap size={14} className={hexEnergy >= 35 ? 'animate-pulse' : ''} />
           </div>
 
-          <div className="flex-1 min-w-[120px]">
-            <div className="flex items-center justify-between text-[10px] font-black tracking-widest uppercase mb-1">
+          <div className="flex-1 min-w-[110px]">
+            <div className="flex items-center justify-between text-[9px] font-black tracking-widest uppercase mb-0.5">
               <span className="text-zinc-400 flex items-center gap-1">
                 HEX ENERGY
               </span>
@@ -125,13 +125,13 @@ export const CyberSabotageDock = memo(function CyberSabotageDock({
             </div>
 
             {/* Gauge progress track */}
-            <div className="h-2 w-full bg-zinc-900 rounded-full overflow-hidden p-0.5 border border-white/5 relative">
+            <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden border border-white/5 relative">
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{
                   width: `${Math.min(100, Math.max(0, hexEnergy))}%`,
                   backgroundColor: `rgb(${glowPrimary})`,
-                  boxShadow: `0 0 10px rgba(${glowPrimary}, 0.8)`,
+                  boxShadow: `0 0 8px rgba(${glowPrimary}, 0.8)`,
                 }}
               />
             </div>
@@ -139,7 +139,7 @@ export const CyberSabotageDock = memo(function CyberSabotageDock({
         </div>
 
         {/* Center/Right: 4 Cyber Sabotage Ability Cards */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {HEX_ABILITY_LIST.map((ability) => {
             const isReady = hexEnergy >= ability.cost && !disabled;
             const Icon = HEX_ICONS[ability.id] || Radio;
@@ -151,9 +151,9 @@ export const CyberSabotageDock = memo(function CyberSabotageDock({
                 onClick={() => handleCardClick(ability.id)}
                 disabled={!isReady}
                 title={`${ability.name} (${ability.description}) - Hotkey: ${ability.hotkeyLabel}`}
-                className={`group relative px-3 py-1.5 rounded-xl border transition-all flex items-center gap-2 text-left ${
+                className={`group relative px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 text-left ${
                   isReady
-                    ? 'cursor-pointer hover:scale-105 active:scale-95 shadow-md'
+                    ? 'cursor-pointer hover:scale-105 active:scale-95 shadow-sm'
                     : 'opacity-40 cursor-not-allowed border-white/5 bg-white/[0.02]'
                 }`}
                 style={
@@ -161,27 +161,27 @@ export const CyberSabotageDock = memo(function CyberSabotageDock({
                     ? {
                         backgroundColor: `rgba(${ability.accentColor}, 0.12)`,
                         borderColor: `rgba(${ability.accentColor}, 0.45)`,
-                        boxShadow: `0 0 12px rgba(${ability.accentColor}, 0.20)`,
+                        boxShadow: `0 0 10px rgba(${ability.accentColor}, 0.18)`,
                       }
                     : undefined
                 }
               >
                 <div
-                  className="p-1 rounded-lg shrink-0"
+                  className="p-0.5 rounded shrink-0"
                   style={{
                     color: isReady ? `rgb(${ability.accentColor})` : '#71717a',
                   }}
                 >
-                  <Icon size={14} />
+                  <Icon size={12} />
                 </div>
 
                 <div className="flex flex-col">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-black tracking-wider uppercase text-white truncate">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-black tracking-wider uppercase text-white truncate">
                       {ability.name}
                     </span>
                     <span
-                      className="text-[8px] font-mono px-1 py-0.2 rounded border bg-black/40"
+                      className="text-[7.5px] font-mono px-1 py-0.2 rounded border bg-black/40"
                       style={{
                         borderColor: isReady
                           ? `rgba(${ability.accentColor}, 0.4)`
@@ -193,8 +193,8 @@ export const CyberSabotageDock = memo(function CyberSabotageDock({
                     </span>
                   </div>
 
-                  <span className="inline-flex items-center gap-0.5 text-[9px] text-zinc-400 font-bold font-mono">
-                    <Zap size={10} className="text-amber-400 shrink-0" /> {ability.cost}%
+                  <span className="inline-flex items-center gap-0.5 text-[8px] text-zinc-400 font-bold font-mono">
+                    <Zap size={8} className="text-amber-400 shrink-0" /> {ability.cost}%
                   </span>
                 </div>
               </button>

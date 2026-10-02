@@ -4,7 +4,7 @@
 
 ### *The Next-Gen Cybernetic Gamified Typing Platform*
 
-[![Version](https://img.shields.io/badge/version-3.1.1-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live/releases/tag/v3.1.1)
+[![Version](https://img.shields.io/badge/version-3.2.0-cyan?style=for-the-badge&logo=rocket)](https://github.com/amimitaghosh99-alt/typenova-live/releases/tag/v3.2.0)
 [![CI](https://img.shields.io/github/actions/workflow/status/amimitaghosh99-alt/typenova-live/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/amimitaghosh99-alt/typenova-live/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-00f2fe?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![React 19](https://img.shields.io/badge/React-19.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)

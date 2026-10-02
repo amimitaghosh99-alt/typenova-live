@@ -14,6 +14,11 @@ try {
       detectSessionInUrl: true,
       flowType: 'pkce',
     },
+    realtime: {
+      params: {
+        eventsPerSecond: 40,
+      },
+    },
   });
 } catch (e) {
   console.error('Supabase init failed', e);
@@ -24,8 +29,8 @@ export const supabase = client;
 /**
  * Attach a rejection handler to a request whose result nobody waits for.
  *
- * Query builders are thenables with no `.catch`, so a bare `.then()` — or no
- * handler at all — leaves a dropped connection or an RLS denial to surface as
+ * Query builders are thenables with no `.catch`, so a bare `.then()` â€” or no
+ * handler at all â€” leaves a dropped connection or an RLS denial to surface as
  * an unhandled rejection at window scope. None of these writes is worth
  * interrupting the user over (the next one retries), so a failure is logged
  * and dropped.

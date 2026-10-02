@@ -1,4 +1,5 @@
 import { memo, Suspense, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Trophy, Lock, Swords, Check
 } from 'lucide-react';
@@ -290,8 +291,26 @@ export const AppModalManager = memo(function AppModalManager({
       {/* Countdown — suppressed during multiplayer races (lobby already ran
           its own visible countdown; the RaceTrack bar still shows "STARTING IN…"). */}
       {typing.phase === 'COUNTDOWN' && !raceActive && (
-        <div key="countdown-modal" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300 pointer-events-none">
-          <span className={`text-[12rem] font-black ${theme.text} caret-lucid drop-shadow-2xl`}>{typing.countdownTimer}</span>
+        <div key="countdown-modal" className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200 pointer-events-none select-none">
+          <AnimatePresence mode="popLayout">
+            <motion.span
+              key={typing.countdownTimer}
+              initial={{ scale: 1.5, opacity: 0, filter: 'blur(12px)', y: -10 }}
+              animate={{ scale: 1, opacity: 1, filter: 'blur(0px)', y: 0 }}
+              exit={{ scale: 0.7, opacity: 0, filter: 'blur(10px)', y: 15 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+              className="font-display font-black text-[12rem] md:text-[14rem] tabular-nums tracking-tighter leading-none"
+              style={{
+                color: '#ffffff',
+                textShadow: `0 0 50px rgba(${theme.glowPrimary}, 0.8), 0 0 100px rgba(${theme.glowPrimary}, 0.35)`,
+              }}
+            >
+              {typing.countdownTimer}
+            </motion.span>
+          </AnimatePresence>
+          <span className="font-mono text-xs uppercase tracking-[0.3em] text-zinc-400 font-bold -mt-4">
+            GET READY
+          </span>
         </div>
       )}
 

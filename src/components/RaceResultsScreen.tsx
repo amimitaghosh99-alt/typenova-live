@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+﻿import { useMemo, useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Trophy, LogOut, ArrowLeft, Crown, Clock, Zap, Shield, Sparkles,
@@ -120,7 +120,7 @@ export function RaceResultsScreen({
   ...resultsProps
 }: RaceResultsScreenProps) {
   // Presence deletes a racer the moment their tab closes, which used to wipe
-  // their card — and their result — off this screen mid-celebration. Keep an
+  // their card â€” and their result â€” off this screen mid-celebration. Keep an
   // additive snapshot of everyone who was ever in the race instead.
   const rosterRef = useRef<Map<string, RacerState>>(new Map());
   const roster = useMemo(() => {
@@ -240,7 +240,7 @@ export function RaceResultsScreen({
 
   // Presence drops a disconnected racer out of `players` entirely, so keep the
   // last snapshot we saw. Without it, an opponent who rage-quits mid-race makes
-  // the whole ranked result silently no-op — a free escape from losing Elo.
+  // the whole ranked result silently no-op â€” a free escape from losing Elo.
   const opponentRef = useRef<RacerState | null>(null);
   const participantsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -268,19 +268,19 @@ export function RaceResultsScreen({
     if (!op) {
       if (me?.finished) {
         rpcCalled.current = true;
-        setEloNote('ELO NOT RATED — SOLO MATCH');
+        setEloNote('ELO NOT RATED â€” SOLO MATCH');
       }
       return;
     }
     if (!me?.finished) return;
-    // Never claim a win just because the opponent hasn't finished *yet* — that
+    // Never claim a win just because the opponent hasn't finished *yet* â€” that
     // let both clients resolve the same duel whenever a finish broadcast was
     // dropped, writing two mirrored rows and showing "+X ELO" to both players.
     if (!op.finished && !waitExpired) return;
 
     if (participantsRef.current.size > 2) {
       rpcCalled.current = true;
-      setEloNote('ELO NOT APPLIED — MORE THAN 2 RACERS');
+      setEloNote('ELO NOT APPLIED â€” MORE THAN 2 RACERS');
       return;
     }
 
@@ -288,7 +288,7 @@ export function RaceResultsScreen({
     const myStartElo = me.elo ?? 1000;
 
     if (!supabase || !myUserId) {
-      // Do NOT set rpcCalled here — supabase/userId may arrive on a later
+      // Do NOT set rpcCalled here â€” supabase/userId may arrive on a later
       // render cycle. Locking the flag now would permanently block Elo (C3).
       return;
     }
@@ -296,14 +296,14 @@ export function RaceResultsScreen({
     const wpmMe = me.finishWpm ?? 0, wpmOp = op.finishWpm ?? 0;
     const msMe = me.finishMs ?? Infinity, msOp = op.finishMs ?? Infinity;
     const iWonNow = !op.finished
-      ? true // opponent never finished — forfeit
+      ? true // opponent never finished â€” forfeit
       : wpmMe !== wpmOp ? wpmMe > wpmOp
         : msMe !== msOp ? msMe < msOp
           : selfId.localeCompare(op.id) < 0; // deterministic tiebreak, same on both clients
 
     // Read the authoritative rating back instead of guessing a delta: the
     // server's dynamic K-factor and margin multiplier put the real number
-    // anywhere between 1 and ~96, so the old hardcoded ±25 was almost always wrong.
+    // anywhere between 1 and ~96, so the old hardcoded Â±25 was almost always wrong.
     const syncElo = async (attempts: number) => {
       for (let i = 0; i < attempts; i++) {
         if (!isMounted) return false;
@@ -320,7 +320,7 @@ export function RaceResultsScreen({
             return true;
           }
         } catch (err) {
-          // A dropped poll is not the end of the loop — the rating is being
+          // A dropped poll is not the end of the loop â€” the rating is being
           // written by the other client and the next attempt may well see it.
           // Left unguarded this rejected out of the loop entirely, and since
           // nobody handles the returned promise it surfaced as an unhandled
@@ -345,7 +345,7 @@ export function RaceResultsScreen({
 
     if (iWonNow) {
       if (!op.userId) {
-        setEloNote('ELO NOT APPLIED — OPPONENT NOT SIGNED IN');
+        setEloNote('ELO NOT APPLIED â€” OPPONENT NOT SIGNED IN');
         return;
       }
       const baseArgs = {
@@ -357,7 +357,7 @@ export function RaceResultsScreen({
 
       (async () => {
         try {
-          // match_key is mandatory — use raceId or generate a fallback UUID
+          // match_key is mandatory â€” use raceId or generate a fallback UUID
           const matchKey = raceId || crypto.randomUUID();
           const { error, data } = await supabase.rpc('resolve_ranked_duel', { ...baseArgs, p_match_key: matchKey });
 
@@ -369,9 +369,9 @@ export function RaceResultsScreen({
             return;
           }
           // Duplicate submission, or a rejected anti-cheat check. Never invent a
-          // delta here — take whatever the server actually recorded.
+          // delta here â€” take whatever the server actually recorded.
           if (error) console.error('Ranked duel RPC failed:', error.message);
-          if (!(await syncElo(4)) && isMounted) setEloNote('ELO UNCHANGED — MATCH NOT COUNTED');
+          if (!(await syncElo(4)) && isMounted) setEloNote('ELO UNCHANGED â€” MATCH NOT COUNTED');
         } catch (err) {
           // The RPC itself can reject (connection dropped between finishing and
           // resolving). Poll for the rating instead of leaving the screen with
@@ -393,7 +393,7 @@ export function RaceResultsScreen({
     };
   }, [isRanked, players, selfId, supabase, waitExpired, raceId, resultsProps.keystrokeLog, resultsProps.durationMs, onUpdateElo]);
 
-  // ── AWARDS LOGIC ──
+  // â”€â”€ AWARDS LOGIC â”€â”€
   const awards = useMemo(() => {
     if (!allFinished || maxRaceDurationMs === 0) return {} as Record<string, CalculatedTitle>;
 
@@ -464,7 +464,7 @@ export function RaceResultsScreen({
   const selectedSync = detailSync.get(selectedPlayerId);
 
   // Derive custom props if viewing a competitor. Everything here now comes from
-  // that racer's own broadcast payload — the panel used to show their headline
+  // that racer's own broadcast payload â€” the panel used to show their headline
   // numbers on top of MY graph, MY keystroke log and a zero-filled error array.
   const displayProps = useMemo(() => {
     if (isSelfSelected || !selectedPlayer) return resultsProps;
@@ -500,7 +500,7 @@ export function RaceResultsScreen({
    *
    * Self's curve comes from props while everyone else's comes off the wire, but
    * both are normalised to the same shape here so the chart has no notion of
-   * "self vs competitors" — the split is exactly what made the old graph return
+   * "self vs competitors" â€” the split is exactly what made the old graph return
    * `null` for the whole race whenever our own timeline was short.
    */
   const chartSeries = useMemo<RaceSeries[]>(() => {
@@ -678,7 +678,7 @@ export function RaceResultsScreen({
                 <span className="text-amber-400/90 font-bold">{player.finishAcc ? `${player.finishAcc}% ACC` : 'FINISHED'}</span>
               )}
               {player.finishMs && (
-                <span className="text-zinc-500">• {((player.finishMs) / 1000).toFixed(1)}s</span>
+                <span className="text-zinc-500">â€¢ {((player.finishMs) / 1000).toFixed(1)}s</span>
               )}
             </div>
           </div>
@@ -748,10 +748,10 @@ export function RaceResultsScreen({
 
       <div className="relative z-10 w-full max-w-[var(--w-ultra)] mx-auto px-6 sm:px-10 lg:px-14 xl:px-16 2xl:px-20 py-8 md:py-12">
 
-        {/* 🏆 WINNER BANNER 🏆 */}
+        {/* ðŸ† WINNER BANNER ðŸ† */}
         <div className="text-center mb-10 animate-in fade-in zoom-in-50 duration-700 relative">
 
-          {/* ⚡ Dynamic Ranked Division ELO Progression Card ⚡ */}
+          {/* âš¡ Dynamic Ranked Division ELO Progression Card âš¡ */}
           {isRanked && (
             <motion.div
               initial={{ opacity: 0, y: 16, scale: 0.95 }}
@@ -858,7 +858,7 @@ export function RaceResultsScreen({
           )}
         </div>
 
-        {/* ── RACE CHART ──────────────────────── */}
+        {/* â”€â”€ RACE CHART â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="mb-12 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: '300ms' }}>
           <div className="glass-panel rounded-3xl p-4 md:p-5">
             {/* Header: legend + metric toggle */}
@@ -916,8 +916,8 @@ export function RaceResultsScreen({
                   <span key={s.id}>
                     {i > 0 && ', '}
                     <span className="text-white/50">{s.isSelf ? 'you' : s.name}</span>
-                    {detailSync.get(s.id) === 'syncing' && <span className="text-sky-300/70"> · syncing</span>}
-                    {detailSync.get(s.id) === 'missing' && <span className="text-white/25"> · unavailable</span>}
+                    {detailSync.get(s.id) === 'syncing' && <span className="text-sky-300/70"> Â· syncing</span>}
+                    {detailSync.get(s.id) === 'missing' && <span className="text-white/25"> Â· unavailable</span>}
                   </span>
                 ))}
               </p>
@@ -925,7 +925,7 @@ export function RaceResultsScreen({
           </div>
         </div>
 
-        {/* ════ 🏆 OLYMPIC 3D VICTORY PODIUM 🏆 ════ */}
+        {/* â•â•â•â• ðŸ† OLYMPIC 3D VICTORY PODIUM ðŸ† â•â•â•â• */}
         <div className="mb-14 animate-in fade-in slide-in-from-bottom-6 duration-700">
           <div className="text-center mb-6">
             <span
@@ -1016,7 +1016,7 @@ export function RaceResultsScreen({
                       {isDnf ? 'DNF' : `${player.finishWpm ?? 0} WPM`}
                     </span>
                     {award?.title && (
-                      <span className="text-[9px] text-amber-300/80 hidden sm:inline">• {award.title}</span>
+                      <span className="text-[9px] text-amber-300/80 hidden sm:inline">â€¢ {award.title}</span>
                     )}
                   </button>
                 );
@@ -1025,7 +1025,7 @@ export function RaceResultsScreen({
           )}
         </div>
 
-        {/* ── SELECTED PLAYER DETAILED STATS ─────────────────────────── */}
+        {/* â”€â”€ SELECTED PLAYER DETAILED STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="border-t border-zinc-800/50 pt-10 pb-8 animate-in fade-in slide-in-from-bottom-8">
           <h2 className="text-center text-zinc-500 text-[11px] font-black tracking-[0.4em] uppercase mb-8">
             {isSelfSelected ? 'YOUR DETAILED STATS' : `${selectedPlayer?.name || 'PLAYER'}'S DETAILED STATS`}
@@ -1043,7 +1043,7 @@ export function RaceResultsScreen({
                 </span>
               ) : (
                 <span className="text-zinc-500">
-                  This racer&apos;s details never arrived — headline numbers only
+                  This racer&apos;s details never arrived â€” headline numbers only
                 </span>
               )}
             </p>
@@ -1060,7 +1060,7 @@ export function RaceResultsScreen({
 
         </div>
 
-        {/* ── CYBER SABOTAGE COMBAT BREAKDOWN ────────────── */}
+        {/* â”€â”€ CYBER SABOTAGE COMBAT BREAKDOWN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {players.some(p => p.sabotageStats && (p.sabotageStats.hexesCast > 0 || p.sabotageStats.hexesDeflected > 0 || p.sabotageStats.hexesAfflicted > 0)) && (
           <div
             className="mb-8 p-6 rounded-3xl border glass-panel bg-zinc-950/60 backdrop-blur-xl relative overflow-hidden"
@@ -1147,7 +1147,7 @@ export function RaceResultsScreen({
           </div>
         )}
 
-        {/* ── POST-MATCH CHAT ────────────────────────────── */}
+        {/* â”€â”€ POST-MATCH CHAT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="border-t border-zinc-800/50 pt-8 pb-4 animate-in fade-in slide-in-from-bottom-8">
           <PostMatchChat
             lobbyId={raceId || fallbackLobbyId}
@@ -1156,10 +1156,11 @@ export function RaceResultsScreen({
             players={players}
             chatMessages={chatMessages}
             onSendMessage={onSendMessage}
+            theme={theme}
           />
         </div>
 
-        {/* ── RACE ACTIONS ────────────────────────────────── */}
+        {/* â”€â”€ RACE ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex flex-wrap items-center justify-center gap-4 mt-6 pb-12 font-mono">
           {isHost ? (
             <motion.button
@@ -1191,7 +1192,7 @@ export function RaceResultsScreen({
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   setHasVotedRematch(true);
-                  onSendMessage('⚡ Voted for REMATCH! Ready to run it back!');
+                  onSendMessage('âš¡ Voted for REMATCH! Ready to run it back!');
                 }}
                 disabled={hasVotedRematch}
                 className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black tracking-wider text-sm transition-all border cursor-pointer ${

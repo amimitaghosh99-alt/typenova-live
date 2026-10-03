@@ -151,50 +151,45 @@ export const CyberSabotageDock = memo(function CyberSabotageDock({
                 onClick={() => handleCardClick(ability.id)}
                 disabled={!isReady}
                 title={`${ability.name} (${ability.description}) - Hotkey: ${ability.hotkeyLabel}`}
-                className={`group relative px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 text-left ${
+                className={`group relative px-2.5 py-1.5 rounded-lg border transition-all duration-200 flex items-center gap-2 text-left ${
                   isReady
-                    ? 'cursor-pointer hover:scale-105 active:scale-95 shadow-sm'
-                    : 'opacity-40 cursor-not-allowed border-white/5 bg-white/[0.02]'
+                    ? 'cursor-pointer hover:bg-white/[0.08] active:scale-95 bg-white/[0.03] text-zinc-200 hover:text-white'
+                    : 'opacity-30 cursor-not-allowed border-white/5 bg-transparent text-zinc-500'
                 }`}
                 style={
                   isReady
                     ? {
-                        backgroundColor: `rgba(${ability.accentColor}, 0.12)`,
-                        borderColor: `rgba(${ability.accentColor}, 0.45)`,
-                        boxShadow: `0 0 10px rgba(${ability.accentColor}, 0.18)`,
+                        borderColor: `rgba(${glowPrimary}, 0.35)`,
+                        boxShadow: `0 0 12px rgba(${glowPrimary}, 0.12)`,
                       }
                     : undefined
                 }
               >
                 <div
-                  className="p-0.5 rounded shrink-0"
+                  className="p-1 rounded shrink-0 transition-colors"
                   style={{
-                    color: isReady ? `rgb(${ability.accentColor})` : '#71717a',
+                    backgroundColor: isReady ? `rgba(${glowPrimary}, 0.15)` : 'rgba(255, 255, 255, 0.03)',
+                    color: isReady ? `rgb(${glowPrimary})` : '#71717a',
                   }}
                 >
                   <Icon size={12} />
                 </div>
 
                 <div className="flex flex-col">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] font-black tracking-wider uppercase text-white truncate">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9.5px] font-bold tracking-wide uppercase truncate text-zinc-300 group-hover:text-white transition-colors">
                       {ability.name}
                     </span>
                     <span
-                      className="text-[7.5px] font-mono px-1 py-0.2 rounded border bg-black/40"
-                      style={{
-                        borderColor: isReady
-                          ? `rgba(${ability.accentColor}, 0.4)`
-                          : 'rgba(255,255,255,0.1)',
-                        color: isReady ? `rgb(${ability.accentColor})` : '#a1a1aa',
-                      }}
+                      className="text-[8px] font-mono px-1 py-0.2 rounded border bg-black/40 text-zinc-400 border-white/10"
                     >
                       {ability.hotkeyLabel}
                     </span>
                   </div>
 
-                  <span className="inline-flex items-center gap-0.5 text-[8px] text-zinc-400 font-bold font-mono">
-                    <Zap size={8} className="text-amber-400 shrink-0" /> {ability.cost}%
+                  <span className="inline-flex items-center gap-1 text-[8.5px] text-zinc-400 font-mono">
+                    <Zap size={8} className="text-zinc-500 shrink-0" />
+                    <span>{ability.cost}%</span>
                   </span>
                 </div>
               </button>

@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useEffect, memo, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { Ghost } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedHeight } from '@/components/ui/AnimatedHeight';
@@ -759,7 +759,7 @@ interface GlidingOpponentBeaconProps {
   index: number;
   containerRef: React.RefObject<HTMLDivElement | null>;
   targetText: string;
-  name: string;
+  name?: string;
   color: string;
 }
 
@@ -767,7 +767,6 @@ const GlidingOpponentBeacon = memo(function GlidingOpponentBeacon({
   index,
   containerRef,
   targetText,
-  name,
   color,
 }: GlidingOpponentBeaconProps) {
   const [pos, setPos] = useState<{ x: number; y: number; w: number } | null>(null);
@@ -809,7 +808,7 @@ const GlidingOpponentBeacon = memo(function GlidingOpponentBeacon({
         transition: 'transform 120ms ease-out',
       }}
     >
-      {/* 1. Subtle glowing underline below the character (identical to Ghost pacer) */}
+      {/* 1. Subtle glowing underline below the character */}
       <span
         className="absolute top-0 left-0 block h-[3px] rounded-full transition-all duration-150"
         style={{
@@ -818,24 +817,14 @@ const GlidingOpponentBeacon = memo(function GlidingOpponentBeacon({
           boxShadow: `0 0 10px ${color}99`,
         }}
       />
-      {/* 2. Micro 2px vertical caret tick at the left leading edge */}
+      {/* 2. Thin vertical caret cursor — the only opponent position indicator */}
       <span
-        className="absolute bottom-[2px] left-0 block w-[2px] h-[16px] rounded-full opacity-80"
+        className="absolute bottom-[1px] left-0 block w-[2px] h-[20px] rounded-full opacity-75"
         style={{
           backgroundColor: color,
-          boxShadow: `0 0 6px ${color}80`,
+          boxShadow: `0 0 6px ${color}`,
         }}
       />
-      {/* 3. Sleek floating racer name chip tucked neatly above the character */}
-      <span
-        className="absolute -top-[24px] left-0 px-1.5 py-0.2 rounded text-[8.5px] font-mono font-bold leading-tight select-none pointer-events-none whitespace-nowrap bg-zinc-950/85 border border-white/10 shadow-sm transition-opacity duration-200"
-        style={{
-          color: color,
-          borderColor: `${color}40`,
-        }}
-      >
-        {name}
-      </span>
     </span>
   );
 });

@@ -1,7 +1,7 @@
 import React, { memo, useState, useRef, useEffect } from 'react';
 import {
   Copy, Link, Check, UserPlus, Play, LogOut, Crown,
-  Radio, MessageSquare, Send, Sparkles, WifiOff, Rocket, Zap, Flame, Trophy, Skull, Crosshair, AlertTriangle, Users
+  Radio, MessageSquare, Send, Sparkles, WifiOff, Rocket, Zap, Flame, Trophy, Skull, Crosshair, AlertTriangle, Users, Swords
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RacerState, RaceConfig, ChatMessage, RaceConnection } from '@/hooks/useRace';
@@ -22,6 +22,7 @@ interface LobbyScreenProps {
   roomSize: number;
   selfId: string;
   isHost: boolean;
+  isRanked?: boolean;
   lobbyConfig?: RaceConfig;
   updateLobbyConfig?: (config: Partial<RaceConfig>) => void;
   updateRoomSize?: (size: number) => void;
@@ -286,6 +287,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
   roomSize,
   selfId,
   isHost,
+  isRanked = false,
   lobbyConfig,
   updateLobbyConfig,
   updateRoomSize,
@@ -313,6 +315,13 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
 
   const glow = theme?.glowPrimary || '6, 182, 212';
   const rgba = (rgbStr: string, a: number) => `rgba(${rgbStr}, ${a})`;
+  const getContrastTextColor = (rgbStr?: string) => {
+    if (!rgbStr) return '#000000';
+    const parts = rgbStr.split(',').map(s => parseInt(s.trim(), 10));
+    if (parts.length < 3 || parts.some(isNaN)) return '#000000';
+    const lum = 0.299 * parts[0] + 0.587 * parts[1] + 0.114 * parts[2];
+    return lum > 140 ? '#000000' : '#ffffff';
+  };
 
   interface FloatingParticle {
     id: string;
@@ -348,12 +357,19 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
   const me = players.find(p => p.id === selfId);
   const myName = me?.name || 'Racer';
 
-  // Readiness is real now: every pod used to render a hardcoded READY pill, so
-  // the host had no idea whether anyone was actually at their keyboard.
-  const guests = players.filter(p => !p.isHost);
+  // Authoritative host determination:
+  // Evaluates isHost prop, me's host/creator status, or fallback to first player in the room if no other host exists.
+  const effectiveIsHost = Boolean(
+    isHost ||
+    me?.isHost ||
+    me?.isCreator ||
+    (players.length > 0 && players[0]?.id === selfId && !players.some(p => (p.isHost || p.isCreator) && p.id !== selfId))
+  );
+
+  const guests = players.filter(p => !p.isHost && !p.isCreator);
   const readyGuests = guests.filter(p => p.ready).length;
   const allReady = guests.length > 0 && readyGuests === guests.length;
-  const iAmReady = isHost || !!me?.ready;
+  const iAmReady = effectiveIsHost || !!me?.ready;
 
   // Auto-scroll chat to bottom on new message
   useEffect(() => {
@@ -466,13 +482,13 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
             </>
           )}
           <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-          <span className="text-zinc-400 font-bold">{players.length} / {roomSize} RACERS</span>
+          <span className="text-zinc-200 font-bold">{players.length} / {roomSize} RACERS</span>
         </div>
 
         {/* Room Code Capsule */}
-        <div className="glass-panel px-6 py-1.5 rounded-full border border-white/20 flex items-center gap-4 sm:gap-5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] bg-black/50 flex-wrap sm:flex-nowrap justify-center">
+        <div className="glass-panel px-6 py-1.5 rounded-full border border-white/20 flex items-center gap-4 sm:gap-5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] bg-zinc-950/80 flex-wrap sm:flex-nowrap justify-center">
           <div className="flex items-center gap-2.5">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold">ROOM CODE:</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-300 font-bold">ROOM CODE:</span>
             <span
               className="font-mono text-2xl font-black tracking-[0.2em] text-white select-all"
               style={{
@@ -488,7 +504,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
           <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
             <button
               onClick={copyCode}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-200 hover:text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-mono font-bold"
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-zinc-100 hover:text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-mono font-bold"
               title="Copy Room Code"
             >
               {copiedCode ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
@@ -496,12 +512,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
             </button>
             <button
               onClick={copyLink}
-              className="px-3 py-1.5 rounded-xl border transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-mono font-bold"
-              style={{
-                backgroundColor: rgba(glow, 0.15),
-                borderColor: rgba(glow, 0.35),
-                color: `rgb(${glow})`,
-              }}
+              className="px-3 py-1.5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-mono font-bold"
               title="Copy Direct Invite Link"
             >
               {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Link size={14} />}
@@ -511,9 +522,9 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
         </div>
 
         {/* Match Preset Chip */}
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-white/15 text-xs font-mono font-bold text-zinc-300 bg-black/40">
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-white/20 text-xs font-mono font-bold text-zinc-200 bg-zinc-950/80 shadow-sm">
           <Sparkles size={13} style={{ color: `rgb(${glow})` }} />
-          <span className="text-zinc-400">MODE:</span>
+          <span className="text-zinc-300">MODE:</span>
           <span className="text-white font-black">{lobbyConfig?.mode || 'ADEPT'} ({lobbyConfig?.words || 25}W)</span>
         </div>
       </motion.div>
@@ -653,7 +664,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
             </div>
 
             {/* Intel Welcome Card */}
-            <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-center flex flex-col gap-1 mb-1 relative z-10">
+            <div className="p-2.5 rounded-xl bg-zinc-950/80 border border-white/20 text-center flex flex-col gap-1 mb-1 relative z-10 shadow-sm">
               <div
                 className="flex items-center justify-center gap-1.5 text-[9px] font-mono font-black uppercase tracking-widest"
                 style={{ color: `rgb(${glow})` }}
@@ -661,20 +672,20 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                 <Radio size={11} className="animate-pulse" />
                 <span>TELEMETRY LINK SYNCHRONIZED</span>
               </div>
-              <p className="text-[10px] text-zinc-400 font-medium">
+              <p className="text-[10px] text-zinc-200 font-medium">
                 Room <span className="text-white font-bold">{code}</span> configured for <span className="text-white font-bold">{lobbyConfig?.mode || 'ADEPT'} ({lobbyConfig?.words || 25} Words)</span>.
               </p>
             </div>
 
             {chatMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center my-auto text-center gap-1.5 opacity-70 relative z-10">
-                <div className="w-9 h-9 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400">
+              <div className="flex flex-col items-center justify-center my-auto text-center gap-1.5 opacity-85 relative z-10">
+                <div className="w-9 h-9 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-zinc-300">
                   <MessageSquare size={16} />
                 </div>
-                <p className="text-zinc-300 font-bold uppercase tracking-wider text-[10px]">
+                <p className="text-zinc-200 font-black uppercase tracking-wider text-[10px]">
                   COMMUNICATION LINK READY
                 </p>
-                <p className="text-zinc-500 text-[9px]">
+                <p className="text-zinc-300 text-[9.5px] font-medium">
                   Send a quick callout or reaction while racers ready up!
                 </p>
               </div>
@@ -682,25 +693,25 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
               chatMessages.map(msg => {
                 const isSenderMe = msg.senderId ? msg.senderId === selfId : msg.sender === myName;
                 const senderPlayer = players.find(p => (msg.senderId ? p.id === msg.senderId : p.name === msg.sender));
-                const isPlayerHost = !!senderPlayer?.isHost;
+                const isPlayerHost = !!senderPlayer?.isHost || !!senderPlayer?.isCreator;
                 const reaction = REACTION_CONFIG[msg.text];
 
                 return (
                   <div key={msg.id} className={`flex flex-col ${isSenderMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200 relative z-10`}>
-                    <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 mb-0.5 px-1">
+                    <div className="flex items-center gap-1.5 text-[9px] text-zinc-300 mb-0.5 px-1">
                       {isPlayerHost && (
                         <Crown size={9} className="text-amber-400 inline" />
                       )}
                       <span
                         className="font-black"
-                        style={{ color: isSenderMe ? `rgb(${glow})` : 'rgb(228, 228, 231)' }}
+                        style={{ color: isSenderMe ? `rgb(${glow})` : 'rgb(244, 244, 245)' }}
                       >
                         {msg.sender}
                       </span>
                       {senderPlayer?.elo && (
-                        <span className="text-zinc-500 text-[8px]">({senderPlayer.elo})</span>
+                        <span className="text-zinc-400 text-[8px]">({senderPlayer.elo})</span>
                       )}
-                      <span className="text-zinc-500 text-[8px]">• {msg.timestamp}</span>
+                      <span className="text-zinc-400 text-[8px]">• {msg.timestamp}</span>
                     </div>
 
                     {reaction ? (
@@ -776,19 +787,19 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
           {/* Quick Reaction & Macro Station */}
           <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
             {/* Tactical Command Ribbon (Eliminates OS Tooltip) */}
-            <div className="flex items-center justify-between px-2.5 py-1 rounded-xl bg-white/[0.03] border border-white/10 text-[9px] font-mono tracking-wider transition-all">
-              <div className="flex items-center gap-1.5 font-black truncate">
+            <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-950/80 border border-white/20 text-[9.5px] font-mono tracking-wider shadow-sm transition-all">
+              <div className="flex items-center gap-1.5 font-bold truncate">
                 <span
-                  className="w-1.5 h-1.5 rounded-full shrink-0 animate-ping"
+                  className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
                   style={{
                     background: activeHover?.color || `rgb(${glow})`,
                   }}
                 />
-                <span style={{ color: activeHover?.color || `rgb(${glow})` }}>
+                <span className="text-zinc-100 font-bold" style={activeHover?.color ? { color: activeHover.color } : undefined}>
                   {activeHover ? activeHover.tag : 'TACTICAL FREQ // 142.85 MHz'}
                 </span>
               </div>
-              <span className="text-zinc-500 font-bold uppercase text-[8px] tracking-widest shrink-0 ml-2">
+              <span className="text-zinc-300 font-bold uppercase text-[8.5px] tracking-widest shrink-0 ml-2">
                 {activeHover ? activeHover.hint : 'TAP MACRO TO BROADCAST'}
               </span>
             </div>
@@ -908,9 +919,8 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                 {/* Active Racer Podium Pods */}
                 {players.map((p, idx) => {
                   const isMe = p.id === selfId;
-                  // Trust the elected host flag rather than slot order, which
-                  // disagrees with it the moment the original host leaves.
-                  const isPlayerHost = p.isHost;
+                  // Trust the elected host flag or authoritative creator flag
+                  const isPlayerHost = p.isHost || p.isCreator;
                   const playerTitle = (isMe && activeTitle) ? activeTitle : p.title;
                   const isSupporter = playerTitle ? isPatronTitle(playerTitle) : false;
                   const badge = playerTitle ? TITLE_BADGES.find(b => b.id === playerTitle) : undefined;
@@ -949,7 +959,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                       )}
 
                       {/* Header Pod Bar: Grid slot & Ping */}
-                      <div className="w-full flex items-center justify-between text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">
+                      <div className="w-full flex items-center justify-between text-[9px] font-mono text-zinc-300 font-black uppercase tracking-wider">
                         <span>SLOT #{idx + 1}</span>
                         {/* Measured round trip. This was a hardcoded "24MS" on
                             every pod — decoration dressed up as telemetry. */}
@@ -1019,13 +1029,13 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                           <div className={`mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 ${
                             isSupporter ? 'holographic-title-badge' : 'bg-white/5 border border-white/10 text-zinc-300'
                           }`}>
-                            {SupporterIcon && <SupporterIcon size={10} className={isSupporter ? 'text-amber-300 shrink-0' : 'text-zinc-400 shrink-0'} />}
+                            {SupporterIcon && <SupporterIcon size={10} className={isSupporter ? 'text-amber-300 shrink-0' : 'text-zinc-300 shrink-0'} />}
                             <span className={`truncate max-w-[95px] ${isSupporter ? 'holographic-title-text' : ''}`}>
                               {badge?.name || playerTitle}
                             </span>
                           </div>
                         )}
-                        <span className="font-mono text-[10px] text-zinc-400 font-bold tracking-wider mt-0.5">
+                        <span className="font-mono text-[10px] text-zinc-300 font-bold tracking-wider mt-0.5">
                           RATING: <span className="text-white font-black">{p.elo || 1000} ELO</span>
                         </span>
                       </div>
@@ -1033,7 +1043,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                       {/* Ready Status Pill — real state, and clickable for you */}
                       <div className="w-full flex items-center justify-center pt-2 border-t border-white/10">
                         {isPlayerHost ? (
-                          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 font-mono text-[9px] font-black uppercase tracking-widest">
+                          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 font-mono text-[9px] font-black uppercase tracking-widest shadow-sm">
                             <Crown size={9} strokeWidth={3} />
                             <span>HOST</span>
                           </div>
@@ -1043,22 +1053,22 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                             onClick={() => onToggleReady?.(!p.ready)}
                             aria-pressed={!!p.ready}
                             className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full border font-mono text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer active:scale-95 ${p.ready
-                              ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
-                              : 'bg-white/5 border-white/20 text-zinc-300 hover:border-white/40 hover:text-white'
+                              ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                              : 'bg-black/60 border-white/20 text-zinc-200 hover:border-white/40 hover:text-white'
                               }`}
                             title={p.ready ? 'Click to un-ready' : 'Click when you are ready to race'}
                           >
                             {p.ready
                               ? <Check size={9} strokeWidth={4} />
-                              : <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />}
+                              : <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />}
                             <span>{p.ready ? 'READY' : 'READY UP'}</span>
                           </button>
                         ) : (
                           <div className={`flex items-center gap-1.5 px-3 py-0.5 rounded-full border font-mono text-[9px] font-black uppercase tracking-widest ${p.ready
-                            ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
-                            : 'bg-zinc-500/10 border-zinc-500/30 text-zinc-400'
+                            ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
+                            : 'bg-black/60 border-white/20 text-zinc-300'
                             }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${p.ready ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${p.ready ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-400'}`} />
                             <span>{p.ready ? 'READY' : 'NOT READY'}</span>
                           </div>
                         )}
@@ -1138,25 +1148,41 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
               initial={{ opacity: 0, y: 16, scale: 0.985 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="glass-panel rounded-2xl px-5 py-3.5 border border-white/10 flex flex-col gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.3)] bg-black/40"
+              className="glass-panel rounded-2xl px-5 py-3.5 border border-white/20 flex flex-col gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-zinc-950/85"
             >
-              <div className={`flex flex-wrap items-center justify-center gap-3 w-full ${!isHost ? 'opacity-70 pointer-events-none' : ''}`}>
+              <div className={`flex flex-wrap items-center justify-center gap-3 w-full ${!effectiveIsHost ? 'opacity-70 pointer-events-none' : ''}`}>
                 {/* Max Racers */}
                 <div className="flex items-center gap-2">
-                  <Users size={13} className="text-zinc-400 shrink-0" />
-                  <SegmentedControl
-                    options={[
-                      { label: '2P', value: 2 },
-                      { label: '3P', value: 3 },
-                      { label: '4P', value: 4 },
-                    ]}
-                    value={roomSize}
-                    onChange={(v) => updateRoomSize?.(Number(v))}
-                    theme={theme}
-                    themeTextClass={themeTextClass}
-                    size="sm"
-                    className="flex-nowrap whitespace-nowrap"
-                  />
+                  <Users size={13} className="text-zinc-300 shrink-0" />
+                  {isRanked ? (
+                    <div
+                      className="px-2.5 py-1 rounded-lg border font-mono text-[11px] font-bold tracking-wider uppercase flex items-center gap-1.5 bg-black/70 text-white"
+                      style={{
+                        borderColor: theme?.glowPrimary ? `rgba(${theme.glowPrimary}, 0.5)` : 'rgba(255, 255, 255, 0.25)',
+                        boxShadow: theme?.glowPrimary ? `0 0 14px rgba(${theme.glowPrimary}, 0.25)` : undefined,
+                      }}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full animate-pulse"
+                        style={{ backgroundColor: theme?.glowPrimary ? `rgb(${theme.glowPrimary})` : '#38bdf8' }}
+                      />
+                      1v1 DUEL (2P LOCKED)
+                    </div>
+                  ) : (
+                    <SegmentedControl
+                      options={[
+                        { label: '2P', value: 2 },
+                        { label: '3P', value: 3 },
+                        { label: '4P', value: 4 },
+                      ]}
+                      value={roomSize}
+                      onChange={(v) => updateRoomSize?.(Number(v))}
+                      theme={theme}
+                      themeTextClass={themeTextClass}
+                      size="sm"
+                      className="flex-nowrap whitespace-nowrap !bg-zinc-950/90 !border-white/20 shadow-lg text-zinc-100"
+                    />
+                  )}
                 </div>
 
                 <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
@@ -1170,7 +1196,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                     theme={theme}
                     themeTextClass={themeTextClass}
                     size="sm"
-                    className="flex-nowrap whitespace-nowrap"
+                    className="flex-nowrap whitespace-nowrap !bg-zinc-950/90 !border-white/20 shadow-lg text-zinc-100"
                   />
                 </div>
 
@@ -1192,7 +1218,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                         theme={theme}
                         themeTextClass={themeTextClass}
                         size="sm"
-                        className="flex-nowrap whitespace-nowrap"
+                        className="flex-nowrap whitespace-nowrap !bg-zinc-950/90 !border-white/20 shadow-lg text-zinc-100"
                       />
                     </div>
                   </>
@@ -1214,7 +1240,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                         theme={theme}
                         themeTextClass={themeTextClass}
                         size="sm"
-                        className="flex-nowrap whitespace-nowrap"
+                        className="flex-nowrap whitespace-nowrap !bg-zinc-950/90 !border-white/20 shadow-lg text-zinc-100"
                       />
                     </div>
                   </>
@@ -1222,14 +1248,33 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
 
                 <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
 
+                {/* Game Mode: Normal vs Sabotage */}
+                <div className="flex items-center gap-2">
+                  <Swords size={13} className="text-zinc-300 shrink-0" />
+                  <SegmentedControl
+                    options={[
+                      { label: 'NORMAL', value: 'normal' },
+                      { label: 'SABOTAGE', value: 'sabotage' },
+                    ]}
+                    value={lobbyConfig.sabotageEnabled === false ? 'normal' : 'sabotage'}
+                    onChange={(v) => updateLobbyConfig({ sabotageEnabled: v === 'sabotage' })}
+                    theme={theme}
+                    themeTextClass={themeTextClass}
+                    size="sm"
+                    className="flex-nowrap whitespace-nowrap !bg-zinc-950/90 !border-white/20 shadow-lg text-zinc-100"
+                  />
+                </div>
+
+                <span className="w-1.5 h-1.5 rounded-full bg-white/10 shrink-0" />
+
                 {/* Host indicator */}
-                {isHost ? (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-mono text-[9px] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                {effectiveIsHost ? (
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-mono text-[9.5px] font-black tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     HOST
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 font-mono text-[9px] font-bold tracking-wider uppercase">
+                  <span className="px-2.5 py-1 rounded-full bg-black/60 border border-white/20 text-zinc-200 font-mono text-[9.5px] font-bold tracking-wider uppercase">
                     GUEST
                   </span>
                 )}
@@ -1245,7 +1290,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
             className="w-full flex items-center justify-between gap-4 pt-0.5"
           >
             <div className="flex-1">
-              {isHost ? (
+              {effectiveIsHost ? (
                 players.length >= 2 ? (
                   <button
                     onClick={onStart}
@@ -1253,17 +1298,16 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                     style={allReady ? {
                       backgroundColor: theme ? `rgb(${theme.glowPrimary})` : '#ffffff',
                       boxShadow: theme ? `0 0 35px rgba(${theme.glowPrimary}, 0.55)` : '0 0 35px rgba(255,255,255,0.4)',
-                      color: '#080809',
+                      color: getContrastTextColor(theme?.glowPrimary),
                     } : {
-                      backgroundColor: 'rgba(245,158,11,0.16)',
-                      border: '1px solid rgba(245,158,11,0.45)',
-                      color: '#fcd34d',
+                      backgroundColor: '#f59e0b',
+                      border: '1px solid #fbbf24',
+                      color: '#000000',
+                      boxShadow: '0 0 30px rgba(245, 158, 11, 0.45)',
                     }}
                     title={allReady ? 'Everyone has readied up' : 'Some racers have not readied up yet'}
                   >
                     <Play size={18} className="fill-current" />
-                    {/* The old label counted connections as readiness, so it
-                        always read "n/n READY" no matter who was at the keyboard. */}
                     <span>
                       {allReady
                         ? `START RACE (${players.length}/${players.length} READY)`
@@ -1271,27 +1315,27 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                     </span>
                   </button>
                 ) : (
-                  /* Solo host — allow practice / solo start while waiting */
+                  /* Solo host — allow practice / solo start while waiting. High-contrast solid white button */
                   <button
                     onClick={onStart}
-                    className="w-full font-mono text-sm uppercase tracking-[0.25em] py-3.5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 font-black cursor-pointer shadow-2xl hover:scale-[1.015] active:scale-[0.98]"
+                    className="w-full font-mono text-sm uppercase tracking-[0.25em] py-3.5 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 font-black cursor-pointer shadow-2xl hover:scale-[1.015] active:scale-[0.98] bg-white text-zinc-950 hover:bg-zinc-100"
                     style={{
-                      backgroundColor: 'rgba(139,92,246,0.18)',
-                      border: '1px solid rgba(139,92,246,0.45)',
-                      color: '#c4b5fd',
-                      boxShadow: '0 0 25px rgba(139,92,246,0.25)',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid rgba(255, 255, 255, 0.9)',
+                      color: '#080809',
+                      boxShadow: '0 0 35px rgba(255, 255, 255, 0.45)',
                     }}
                     title="Start a solo practice race — others can still join the room"
                   >
-                    <Play size={18} className="fill-current" />
-                    <span>SOLO START (1/{roomSize} CONNECTED)</span>
+                    <Play size={18} className="fill-current text-zinc-950" />
+                    <span className="text-zinc-950 font-black">SOLO START (1/{roomSize} CONNECTED)</span>
                   </button>
                 )
               ) : (
                 iAmReady ? (
-                  <div className="w-full glass-panel py-3 px-5 rounded-2xl border-2 border-white/20 text-zinc-200 font-mono tracking-widest font-bold text-xs flex items-center justify-center gap-3 animate-pulse shadow-xl bg-black/60">
+                  <div className="w-full glass-panel py-3 px-5 rounded-2xl border-2 border-white/30 text-white font-mono tracking-widest font-black text-xs flex items-center justify-center gap-3 animate-pulse shadow-xl bg-black/80">
                     <span
-                      className="w-2 h-2 rounded-full animate-ping"
+                      className="w-2.5 h-2.5 rounded-full animate-ping"
                       style={{ backgroundColor: `rgb(${glow})` }}
                     />
                     WAITING FOR HOST TO LAUNCH RACE...
@@ -1299,10 +1343,10 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
                 ) : (
                   <button
                     onClick={() => onToggleReady?.(true)}
-                    className="w-full py-3.5 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/45 text-emerald-200 font-mono font-black text-sm uppercase tracking-[0.25em] flex items-center justify-center gap-3 transition-all cursor-pointer active:scale-[0.98] shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+                    className="w-full py-3.5 rounded-2xl bg-emerald-400 hover:bg-emerald-300 border border-emerald-300 text-zinc-950 font-mono font-black text-sm uppercase tracking-[0.25em] flex items-center justify-center gap-3 transition-all cursor-pointer active:scale-[0.98] shadow-[0_0_30px_rgba(52,211,153,0.45)]"
                   >
-                    <Check size={18} strokeWidth={3} />
-                    <span>I'M READY</span>
+                    <Check size={18} strokeWidth={3} className="text-zinc-950" />
+                    <span className="text-zinc-950 font-black">I'M READY</span>
                   </button>
                 )
               )}
@@ -1310,7 +1354,7 @@ const LobbyScreenImpl: React.FC<LobbyScreenProps> = ({
 
             <button
               onClick={onLeave}
-              className="text-zinc-400 hover:text-rose-400 font-mono text-xs tracking-widest font-bold flex items-center gap-2 transition-all bg-black/30 hover:bg-rose-500/15 px-5 py-3 rounded-2xl border border-white/10 hover:border-rose-500/30 cursor-pointer shrink-0 shadow-md active:scale-95"
+              className="text-zinc-200 hover:text-white font-mono text-xs tracking-widest font-black flex items-center gap-2 transition-all bg-zinc-950/80 hover:bg-rose-500/25 px-5 py-3 rounded-2xl border border-white/20 hover:border-rose-500/50 cursor-pointer shrink-0 shadow-md active:scale-95"
             >
               <LogOut size={14} /> LEAVE
             </button>

@@ -114,7 +114,7 @@ export function PostMatchChat({
             </span>
           </h3>
         </div>
-        <span className="text-[10px] text-zinc-500 font-bold">Lobby: {lobbyId}</span>
+        <span className="text-[10px] text-zinc-500 font-bold">Lobby: {lobbyId ? lobbyId.split(':')[0] : ''}</span>
       </div>
 
       {/* Messages Scroll Area */}

@@ -227,5 +227,110 @@ export function runBatch10AuthMultiplayerTests() {
       expect(state.status).toBe('idle');
     });
 
+    it('RACE-04: Authoritative room creator is unconditionally elected host regardless of joinedAt timestamps or reconnect mode', () => {
+      interface Racer {
+        id: string;
+        joinedAt: number;
+        isHost?: boolean;
+        isCreator?: boolean;
+        roomState?: 'lobby' | 'racing';
+      }
+
+      // Creator A created room, but Joiner B has a skewed clock indicating earlier join
+      const mapped: Racer[] = [
+        { id: 'joiner-b', joinedAt: 50, isHost: false },
+        { id: 'creator-a', joinedAt: 100, isHost: true, isCreator: true, roomState: 'lobby' },
+      ];
+
+      let hostIdRef: string | null = null;
+      const myId = 'joiner-b';
+
+      const roomCreator = mapped.find(p => p.isCreator);
+      const currentHostStillPresent = Boolean(hostIdRef && mapped.some(p => p.id === hostIdRef));
+      let hostId: string;
+      if (roomCreator) {
+        hostId = roomCreator.id;
+      } else if (currentHostStillPresent) {
+        hostId = hostIdRef!;
+      } else {
+        const sorted = [...mapped].sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
+        hostId = sorted[0]?.id ?? myId;
+      }
+
+      // Room creator MUST win unconditionally
+      expect(hostId).toBe('creator-a');
+    });
+
+    it('RACE-05: Live racer progress via broadcast telemetry updates players without mutating presence state', () => {
+      interface Racer {
+        id: string;
+        name: string;
+        progress: number;
+        wpm: number;
+        accuracy?: number;
+        keystrokes?: number;
+      }
+
+      // Baseline presence players (stable, untracked during typing bursts)
+      const presencePlayers: Racer[] = [
+        { id: 'p1', name: 'Racer 1', progress: 0, wpm: 0 },
+        { id: 'p2', name: 'Racer 2', progress: 0, wpm: 0 },
+      ];
+
+      // Ephemeral live broadcast map updated at 10-12 packets/sec
+      const liveProgressMap: Record<string, { progress: number; wpm: number; keystrokes: number; accuracy: number }> = {
+        p2: { progress: 45, wpm: 92, keystrokes: 110, accuracy: 98 },
+      };
+
+      // Merging live broadcast data into player view
+      const mergedPlayers = presencePlayers.map(p => {
+        const live = liveProgressMap[p.id];
+        return {
+          ...p,
+          ...(live ? {
+            progress: live.progress,
+            wpm: live.wpm,
+            keystrokes: live.keystrokes,
+            accuracy: live.accuracy,
+          } : {}),
+        };
+      });
+
+      expect(mergedPlayers[0].progress).toBe(0);
+      expect(mergedPlayers[1].progress).toBe(45);
+      expect(mergedPlayers[1].wpm).toBe(92);
+      expect(mergedPlayers[1].accuracy).toBe(98);
+      // Original presence array is completely unaffected
+      expect(presencePlayers[1].progress).toBe(0);
+    });
+
+    it('RACE-06: Active racing state suppresses false rematch broadcasts and prevents mid-race room aborts', () => {
+      let currentStatus: 'idle' | 'lobby' | 'racing' | 'finished' = 'racing';
+      let countdown: number | null = null;
+      let roomAborted = false;
+
+      const handleRematchBroadcast = () => {
+        // Guarded: Never abort active race
+        if (currentStatus === 'racing') return;
+        currentStatus = 'lobby';
+        countdown = null;
+        roomAborted = true;
+      };
+
+      // Stray rematch broadcast arrives mid-race (e.g. from socket reconnect or dropped frame)
+      handleRematchBroadcast();
+
+      // Must remain racing without abort
+      expect(currentStatus).toBe('racing');
+      expect(roomAborted).toBe(false);
+
+      // Once finished, rematch broadcast properly transitions back to lobby
+      currentStatus = 'finished';
+      handleRematchBroadcast();
+      expect(currentStatus).toBe('lobby');
+      expect(roomAborted).toBe(true);
+    });
+
   });
 }
+

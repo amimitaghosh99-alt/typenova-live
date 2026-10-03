@@ -40,6 +40,14 @@ const playCountdownTone = (count: number) => {
     osc.connect(gain);
     gain.connect(ctx.destination);
 
+    osc.onended = () => {
+      try {
+        ctx.close();
+      } catch {
+        // Ignored
+      }
+    };
+
     osc.start();
     osc.stop(ctx.currentTime + (isLaunch ? 0.22 : 0.12));
   } catch {

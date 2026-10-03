@@ -365,11 +365,6 @@ export function TypingController({
 
       // Backspace
       if (e.key === 'Backspace') {
-        if (raceActive) {
-          e.preventDefault();
-          return;
-        }
-
         const currentInput = typing.inputRef.current;
         if (currentInput.length === 0) {
           e.preventDefault();

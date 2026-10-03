@@ -96,7 +96,6 @@ const RoomBrowser = lazyWithRetry(() => import('@/components/RoomBrowser').then(
 const RankedHistoryPanel = lazyWithRetry(() => import('@/components/RankedHistoryPanel').then(m => ({ default: m.RankedHistoryPanel })), 'RankedHistoryPanel');
 const RankedTeaserCard = lazyWithRetry(() => import('@/components/RankedTeaserCard').then(m => ({ default: m.RankedTeaserCard })), 'RankedTeaserCard');
 
-const RaceTrack = lazyWithRetry(() => import('@/components/RaceTrack').then(m => ({ default: m.RaceTrack })), 'RaceTrack');
 import { LANE_COLORS } from '@/components/RaceTrack';
 
 
@@ -2437,7 +2436,7 @@ function MainApp() {
               selfId={race.selfId ?? ''}
               timelines={race.timelines}
 
-              isRanked={isRankedMatch}
+              isRanked={isRankedMatch || race.isRanked}
               supabase={supabase}
               raceId={race.raceId}
               isHost={race.isHost}
@@ -2749,26 +2748,10 @@ function MainApp() {
                   inert={!practiceActive}
                 >
                   <div
-                    className={`w-full px-2 md:px-6 2xl:px-10 pt-4 pb-[calc(var(--dock-h)+2rem)] flex flex-col min-h-full transition-[max-width] duration-200 ease-out ${
-                      shouldHideClutter ? 'max-w-[95vw] mx-auto' : 'max-w-[var(--w-wide)] mx-auto'
+                    className={`w-full px-2 md:px-6 2xl:px-10 pb-[calc(var(--dock-h)+2rem)] flex flex-col min-h-full transition-[max-width] duration-200 ease-out ${
+                      shouldHideClutter ? 'max-w-[95vw] mx-auto justify-center pt-0' : 'max-w-[var(--w-wide)] mx-auto pt-4'
                     }`}
                   >
-                    {raceActive && (
-                      <Suspense fallback={null}>
-                        <RaceTrack
-                          players={race.players}
-                          selfId={race.selfId ?? ''}
-                          theme={theme}
-                          roomCode={race.code}
-                          targetLength={typing.targetText.length}
-                          myProgress={progressPercent}
-                          myWpm={typing.wpm}
-                          myAccuracy={typing.accuracy}
-                          phase={typing.phase}
-                          countdown={typing.countdownTimer}
-                        />
-                      </Suspense>
-                    )}
                     <main className={`relative z-[var(--z-content)] w-full grid grid-cols-1 items-start gap-6 lg:gap-8 xl:gap-10 2xl:gap-12 transition-[margin,padding] duration-500 ease-fluid ${shouldHideClutter ? 'justify-items-center mt-0' : 'lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px] 3xl:grid-cols-[minmax(0,1fr)_460px] mt-2 sm:mt-4 pb-16'}`}>
                       <PracticeArena
                         game={game}
@@ -2797,6 +2780,7 @@ function MainApp() {
                         activeHexes={testHexes.length > 0 ? testHexes : race.activeHexes}
                         onCastHex={handleArenaCastHex}
                         playSfx={handleArenaPlaySfx}
+                        sabotageEnabled={race.lobbyConfig?.sabotageEnabled ?? true}
                       />
 
                       <Suspense fallback={null}>
@@ -2937,6 +2921,7 @@ function MainApp() {
                           roomSize={race.roomSize}
                           selfId={race.selfId ?? ''}
                           isHost={race.isHost}
+                          isRanked={isRankedMatch || race.isRanked}
                           lobbyConfig={race.lobbyConfig}
                           updateLobbyConfig={race.updateLobbyConfig}
                           updateRoomSize={race.updateRoomSize}
@@ -3030,7 +3015,7 @@ function MainApp() {
           rivalGhost={rivalGhost}
           rivalPendingId={rivalPendingId}
           onSelectRival={handleSelectRival}
-          isRankedMatch={isRankedMatch}
+          isRankedMatch={isRankedMatch || race.isRanked}
           tetrisEffect={tetrisEffect}
           isAruOpen={isAruOpen}
           shouldHideClutter={shouldHideClutter}
@@ -3092,7 +3077,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isGuest = appStorage.getBoolean(StorageKeys.GUEST_MODE, false);
+  const hasRoomParam = typeof window !== 'undefined' && (
+    window.location.search.includes('room=') ||
+    window.location.search.includes('race=')
+  );
+
+  const isGuest = appStorage.getBoolean(StorageKeys.GUEST_MODE, false) || hasRoomParam;
 
   if (!session && !isGuest) {
     return <Navigate to="/login" replace />;

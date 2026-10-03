@@ -56,7 +56,13 @@ export const QuickMatchPanel: React.FC<QuickMatchPanelProps> = ({
     const searching = state.status === 'searching';
     const found = state.status === 'found';
     const accentRgb = theme?.glowPrimary || '6, 182, 212';
-    const accentClasses = `${theme?.solid || 'bg-cyan-400'} ${theme?.glow || 'shadow-[0_0_20px_rgba(6,182,212,0.4)]'}`;
+    const solidButtonStyle: React.CSSProperties = {
+        backgroundColor: `rgb(${accentRgb})`,
+        boxShadow: `0 0 20px rgba(${accentRgb}, 0.45)`,
+        ...(theme?.glowSecondary ? {
+            backgroundImage: `linear-gradient(135deg, rgb(${accentRgb}) 0%, rgb(${theme.glowSecondary}) 100%)`,
+        } : {}),
+    };
 
     /**
      * Repaint ticker for the elapsed readout. The hook only re-renders every 2s
@@ -265,7 +271,8 @@ export const QuickMatchPanel: React.FC<QuickMatchPanelProps> = ({
                             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
                             whileHover={!available || found ? undefined : (reduce ? undefined : { scale: 1.03, transition: springSnappy })}
                             whileTap={!available || found ? undefined : tapPress(reduce, 0.95)}
-                            className={`shrink-0 min-h-[46px] px-6 py-2.5 rounded-2xl font-mono text-xs font-black uppercase tracking-[0.2em] text-black flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer btn-shimmer ${accentClasses}`}
+                            style={solidButtonStyle}
+                            className="shrink-0 min-h-[46px] px-6 py-2.5 rounded-2xl font-mono text-xs font-black uppercase tracking-[0.2em] text-black flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer btn-shimmer"
                         >
                             <Zap size={14} className="fill-current" aria-hidden="true" />
                             <span>{found ? 'Match found' : 'Find opponent'}</span>

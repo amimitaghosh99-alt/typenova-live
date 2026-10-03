@@ -41,6 +41,7 @@ interface PracticeArenaProps {
   activeHexes?: ActiveHex[];
   onCastHex?: (hex: HexType) => boolean;
   playSfx?: (sfx: 'hex_cast' | 'cleanse') => void;
+  sabotageEnabled?: boolean;
 }
 
 export const PracticeArena = memo(function PracticeArena({
@@ -70,6 +71,7 @@ export const PracticeArena = memo(function PracticeArena({
   activeHexes = [],
   onCastHex,
   playSfx,
+  sabotageEnabled = true,
 }: PracticeArenaProps) {
   // The parent is a CSS grid now, so the grid column owns this panel's width.
   // The root used to declare `lg:w-[70%]` while the leaderboard declared
@@ -253,7 +255,7 @@ export const PracticeArena = memo(function PracticeArena({
           </div>
         )}
 
-        {raceActive && onCastHex && (
+        {raceActive && sabotageEnabled !== false && onCastHex && (
           <CyberSabotageDock
             hexEnergy={hexEnergy}
             activeHexes={activeHexes}

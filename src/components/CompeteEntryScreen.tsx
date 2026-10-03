@@ -1,4 +1,4 @@
-﻿import React, { memo, useState } from 'react';
+import React, { memo, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { OTPInput, REGEXP_ONLY_DIGITS_AND_CHARS, type SlotProps } from 'input-otp';
 import {
@@ -45,19 +45,24 @@ interface CompeteEntryScreenProps {
  * Mirrors the parser in LobbyScreen so both entry points behave the same.
  */
 const extractRoomCode = (raw: string): string => {
-    const text = raw.trim().toUpperCase();
+    const trimmed = raw.trim();
     try {
-        if (text.includes('?')) {
-            const url = new URL(text.startsWith('HTTP') ? text : `https://dummy.com/${text}`);
-            const param = url.searchParams.get('room') || url.searchParams.get('race');
+        if (trimmed.includes('?')) {
+            const url = new URL(trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://dummy.com/${trimmed}`);
+            const param = url.searchParams.get('room') || url.searchParams.get('race') || url.searchParams.get('ROOM') || url.searchParams.get('RACE');
             if (param) return param.trim().toUpperCase().slice(0, 6);
         }
     } catch {
-        // Not a URL â€” fall through to the raw scan.
+        // Not a standard URL — fall through
     }
-    const match = text.match(/[A-Z0-9]{6}/);
-    if (match) return match[0];
-    return text.replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    const queryMatch = trimmed.match(/(?:room|race)[=/]([A-Za-z0-9]{6})/i);
+    if (queryMatch) return queryMatch[1].toUpperCase();
+
+    const upper = trimmed.toUpperCase();
+    const tokenMatch = upper.match(/\b[A-Z0-9]{6}\b/);
+    if (tokenMatch) return tokenMatch[0];
+
+    return upper.replace(/[^A-Z0-9]/g, '').slice(0, 6);
 };
 
 /* â”€â”€ SegmentedControl option sets â”€â”€
@@ -189,13 +194,19 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
     const { recent, remember } = useRecentRooms();
 
     const disabled = isBusy || !multiplayerAvailable;
-    const accentClasses = `${theme?.solid || 'bg-cyan-500'} ${theme?.glow || ''}`;
-    /** Theme accent as an RGB triplet, for the places a Tailwind class can't
-        reach (the OTP slot border and ring). `GEMINI.md` requires theme binding
-        over hardcoded accents â€” the join card used to be purple while the host
-        card beside it followed the theme, so the pair drifted apart the moment
-        Auto-Fetch picked a non-purple wallpaper. */
+    /** Theme accent as an RGB triplet. Per GEMINI.md, dynamic theme binding
+        with rgb() / rgba() is used for theme-sensitive elements so Auto-Fetch
+        and wallpaper accents always render reliably without relying on uncompiled
+        Tailwind class interpolations. */
     const accentRgb = theme?.glowPrimary || '34, 211, 238';
+
+    const solidButtonStyle: React.CSSProperties = {
+        backgroundColor: `rgb(${accentRgb})`,
+        boxShadow: `0 0 25px rgba(${accentRgb}, 0.45)`,
+        ...(theme?.glowSecondary ? {
+            backgroundImage: `linear-gradient(135deg, rgb(${accentRgb}) 0%, rgb(${theme.glowSecondary}) 100%)`,
+        } : {}),
+    };
 
     const codeComplete = joinCode.length === 6;
     const creating = isBusy && lastAction === 'create';
@@ -477,7 +488,8 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                 aria-busy={creating}
                                 whileHover={disabled ? undefined : (reduce ? undefined : { scale: 1.02, transition: springSnappy })}
                                 whileTap={disabled ? undefined : tapPress(reduce)}
-                                className={`mt-auto w-full min-h-[52px] font-mono text-sm uppercase tracking-[0.25em] py-3.5 rounded-2xl flex items-center justify-center gap-3 font-black text-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer btn-shimmer ${accentClasses}`}
+                                style={solidButtonStyle}
+                                className="mt-auto w-full min-h-[52px] font-mono text-sm uppercase tracking-[0.25em] py-3.5 rounded-2xl flex items-center justify-center gap-3 font-black text-black transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer btn-shimmer"
                             >
                                 {creating
                                     ? <Loader2 size={17} className="animate-spin" aria-hidden="true" />
@@ -711,9 +723,10 @@ const CompeteEntryScreenImpl: React.FC<CompeteEntryScreenProps> = ({
                                     aria-busy={joining}
                                     whileHover={disabled || !codeComplete ? undefined : (reduce ? undefined : { scale: 1.02, transition: springSnappy })}
                                     whileTap={disabled || !codeComplete ? undefined : tapPress(reduce)}
+                                    style={codeComplete && !disabled ? solidButtonStyle : undefined}
                                     className={`mt-auto w-full min-h-[52px] py-3.5 rounded-2xl font-mono font-black text-sm uppercase tracking-[0.25em] transition-all flex items-center justify-center gap-3 ${
                                         codeComplete && !disabled
-                                            ? `btn-shimmer text-black ${accentClasses}`
+                                            ? 'btn-shimmer text-black'
                                             : 'bg-white/[0.04] text-zinc-500 border border-white/10 cursor-not-allowed'
                                     }`}
                                 >

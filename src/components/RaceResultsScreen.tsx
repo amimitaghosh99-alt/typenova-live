@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Trophy, LogOut, ArrowLeft, Crown, Clock, Zap, Shield, Sparkles,
@@ -142,6 +142,8 @@ export function RaceResultsScreen({
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>(selfId);
   const fallbackLobbyId = useMemo(() => crypto.randomUUID(), []);
+  const me = useMemo(() => players.find(p => p.id === selfId), [players, selfId]);
+  const effectiveIsHost = Boolean(isHost || me?.isHost || me?.isCreator);
 
   /**
    * Stable colour + marker shape per racer, shared by the chart, the cards and
@@ -1150,7 +1152,7 @@ export function RaceResultsScreen({
         {/* â”€â”€ POST-MATCH CHAT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="border-t border-zinc-800/50 pt-8 pb-4 animate-in fade-in slide-in-from-bottom-8">
           <PostMatchChat
-            lobbyId={raceId || fallbackLobbyId}
+            lobbyId={(raceId || fallbackLobbyId)?.split(':')[0] || 'LOBBY'}
             username={players.find(p => p.id === selfId)?.name || 'Typist'}
             selfId={selfId}
             players={players}
@@ -1162,7 +1164,7 @@ export function RaceResultsScreen({
 
         {/* â”€â”€ RACE ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex flex-wrap items-center justify-center gap-4 mt-6 pb-12 font-mono">
-          {isHost ? (
+          {effectiveIsHost ? (
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.97 }}

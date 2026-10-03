@@ -1787,21 +1787,6 @@
   box-shadow: inset 0 0 20px rgba(34, 211, 238, 0.2);
 }
 
-/* Corner glowing accents */
-.hud-panel-border::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    linear-gradient(90deg, #22d3ee 0px, #22d3ee 40px, transparent 40px) top left / 100% 2px no-repeat,
-    linear-gradient(180deg, #22d3ee 0px, #22d3ee 40px, transparent 40px) top left / 2px 100% no-repeat,
-    linear-gradient(-90deg, #22d3ee 0px, #22d3ee 40px, transparent 40px) bottom right / 100% 2px no-repeat,
-    linear-gradient(-180deg, #22d3ee 0px, #22d3ee 40px, transparent 40px) bottom right / 2px 100% no-repeat;
-  pointer-events: none;
-}
 
 .hud-tab-active {
   background: rgba(34, 211, 238, 0.1);

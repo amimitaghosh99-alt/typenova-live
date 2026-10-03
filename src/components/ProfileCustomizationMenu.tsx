@@ -27,7 +27,7 @@ import { AvatarArt, materialFor } from './profile/AvatarKeycap';
 import { ArtisanStudioTab } from './profile/ArtisanStudioTab';
 import { loadArtisanConfig, hexToRgbTriplet, type ArtisanConfig } from '@/data/artisanCustomizer';
 import {
-  ConicHalo, CyberCorners, DataStream, DrawCheck, EquipBurst, GlitchText,
+  ConicHalo, DataStream, DrawCheck, EquipBurst, GlitchText,
   Scanlines, ScanSweep, SegmentBar,
 } from './profile/ProfileFx';
 import {
@@ -400,7 +400,6 @@ const BannerTile = React.memo(function BannerTile({
           backgroundSize: '12px 12px',
         }}
       />
-      <CyberCorners color={glow} alpha={staged ? 0.65 : isHovered ? 0.4 : 0.18} size={11} inset={6} />
 
       {/* ── 4. Flank Neon Power Rail ── */}
       <div
@@ -878,7 +877,6 @@ export const ProfileCustomizationMenu = React.memo(function ProfileCustomization
             }}
           >
             <ScanSweep color={accent} />
-            <CyberCorners color={accent} alpha={0.55} size={18} inset={10} />
 
             {/* ─── Chrome ─── */}
             <div

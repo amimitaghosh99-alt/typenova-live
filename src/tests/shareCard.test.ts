@@ -1,5 +1,5 @@
 import { describe, it, expect } from './testHarness';
-import { normalizeRgb, type ShareCardData } from '../utils/shareCard';
+import { normalizeRgb, getGradeColorRgb, type ShareCardData } from '../utils/shareCard';
 
 export function registerShareCardTests(): void {
   describe('Milestone 4 - Share Card Canvas & Normalization', () => {
@@ -27,7 +27,17 @@ export function registerShareCardTests(): void {
       expect(normalizeRgb('invalid-color', '245, 158, 11')).toBe('245, 158, 11');
     });
 
-    it('validates ShareCardData schema with S+ grade and CPI score', () => {
+    it('maps performance grades to correct prestige RGB tokens', () => {
+      expect(getGradeColorRgb('S+')).toBe('251, 191, 36');
+      expect(getGradeColorRgb('S')).toBe('251, 191, 36');
+      expect(getGradeColorRgb('A')).toBe('52, 211, 153');
+      expect(getGradeColorRgb('B')).toBe('56, 189, 248');
+      expect(getGradeColorRgb('C')).toBe('251, 146, 60');
+      expect(getGradeColorRgb('D')).toBe('148, 163, 184');
+      expect(getGradeColorRgb('unknown')).toBe('148, 163, 184');
+    });
+
+    it('validates ShareCardData schema with S+ grade, CPI score and timeline points', () => {
       const data: ShareCardData = {
         wpm: 140,
         rawWpm: 145,
@@ -40,11 +50,16 @@ export function registerShareCardTests(): void {
         themeName: 'Cyberpunk',
         glowPrimary: '6, 182, 212',
         glowSecondary: '34, 211, 238',
+        timelinePoints: [
+          { t: 0, wpm: 60, rawWpm: 65 },
+          { t: 5000, wpm: 140, rawWpm: 145 },
+        ],
       };
       expect(data.grade).toBe('S+');
       expect(data.cpi).toBe(138);
       expect(data.accolades?.length).toBe(3);
       expect(data.gradeTitle).toBe('Cyber Vanguard');
+      expect(data.timelinePoints?.length).toBe(2);
     });
   });
 }

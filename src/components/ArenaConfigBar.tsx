@@ -99,7 +99,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                 className={`p-1.5 rounded-full transition-all cursor-pointer ${
                   game.testMode === 'words'
                     ? 'font-bold'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
                 }`}
                 title="Words mode"
                 aria-label="Words mode"
@@ -122,7 +122,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                 className={`p-1.5 rounded-full transition-all cursor-pointer ${
                   game.testMode === 'time'
                     ? 'font-bold'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
                 }`}
                 title="Time mode"
                 aria-label="Time mode"
@@ -158,7 +158,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                         className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] tracking-wider transition-all cursor-pointer ${
                           isSelected
                             ? 'font-black'
-                            : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                            : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
                         }`}
                       >
                         {opt.label}
@@ -199,7 +199,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                       className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] tracking-wider transition-all cursor-pointer ${
                         isSelected
                           ? 'font-black'
-                          : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                          : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
                       }`}
                     >
                       {opt.label}s
@@ -232,7 +232,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                 className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-mono tracking-wider transition-all cursor-pointer ${
                   game.withNumbers
                     ? 'font-black'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
                 }`}
                 title="Toggle Numbers (123)"
                 aria-pressed={game.withNumbers}
@@ -254,7 +254,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
                 className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-mono tracking-wider transition-all cursor-pointer ${
                   game.withPunctuation
                     ? 'font-black'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
                 }`}
                 title="Toggle Punctuation (!?)"
                 aria-pressed={game.withPunctuation}
@@ -281,7 +281,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
               className={`px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-mono tracking-wider transition-all cursor-pointer ${
                 !game.zenMode
                   ? 'font-black'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                  : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
               }`}
               title="Normal Mode — Live speedometers, accuracy & gauges"
             >
@@ -302,7 +302,7 @@ export const ArenaConfigBar = memo(function ArenaConfigBar({
               className={`px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-mono tracking-wider transition-all cursor-pointer flex items-center gap-1 ${
                 game.zenMode
                   ? 'font-black'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                  : 'text-zinc-200 hover:text-white hover:bg-white/10 font-bold'
               }`}
               title="Zen Mode — Distraction-free pure flow typing"
             >

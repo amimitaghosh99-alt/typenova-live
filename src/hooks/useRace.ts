@@ -45,7 +45,7 @@ const PING_INTERVAL_MS = 4000;
 /** A joiner sitting alone in a channel means the code has no live room behind
     it. Realtime happily creates channels on demand, so this is the only signal
     that a code was mistyped. */
-const EMPTY_ROOM_GRACE_MS = 2500;
+const EMPTY_ROOM_GRACE_MS = 6000;
 
 const JOIN_TIMEOUT_MS = 15_000;
 
@@ -60,6 +60,7 @@ export interface RacerState {
   name: string;
   title?: string;
   isHost: boolean;
+  isCreator?: boolean;
   progress: number; // 0-100
   wpm: number;
   accuracy?: number;
@@ -70,6 +71,7 @@ export interface RacerState {
   finishMs?: number;
   rank?: number;
   elo?: number;
+  isRanked?: boolean;
   rawWpm?: number;
   consistency?: number;
   heatmapData?: Record<string, { total: number; errors: number }>;
@@ -92,6 +94,8 @@ export interface RaceConfig {
   mode: Level;
   words: number;
   language?: CodeLanguage;
+  /** When false the CyberSabotage dock is hidden — "normal" versus mode. Default true. */
+  sabotageEnabled?: boolean;
 }
 
 export interface RaceFinishPayload {
@@ -157,6 +161,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
    * installed once per channel and must not be re-bound whenever state changes.
    */
   const myDetailRef = useRef<RacerDetails | null>(null);
+  const announcedFinishersRef = useRef<Set<string>>(new Set());
 
   /**
    * Wipe every finish payload, ours included.
@@ -179,16 +184,24 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [lobbyConfig, setLobbyConfig] = useState<RaceConfig>({ mode: 'NOVICE', words: 25 });
   const [selfId, setSelfId] = useState<string | null>(null);
+  const [liveProgressMap, setLiveProgressMap] = useState<Record<string, { progress: number; wpm: number; keystrokes: number; accuracy: number }>>({});
   const [hexEnergy, setHexEnergy] = useState<number>(0);
   const [activeHexes, setActiveHexes] = useState<ActiveHex[]>([]);
   const [sabotageStats, setSabotageStats] = useState<SabotageStats>(INITIAL_SABOTAGE_STATS);
+  const [isRanked, setIsRanked] = useState(false);
+  const isRankedRef = useRef(false);
 
   /** SECURITY: Per-sender hex rate tracking to prevent sabotage spam */
   const hexRateRef = useRef<Map<string, number[]>>(new Map());
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const onStartRef = useRef(onStart);
-  const selfStateRef = useRef<Partial<RacerState> & { roomState?: 'lobby' | 'racing'; config?: RaceConfig; roomSize?: number }>({});
+  const selfStateRef = useRef<Partial<RacerState> & { roomState?: 'lobby' | 'racing'; config?: RaceConfig; roomSize?: number; isRanked?: boolean }>({});
+  const presencePlayersRef = useRef<RacerState[]>([]);
+  const sessionIdRef = useRef<string>(Math.random().toString(36).substring(2, 9));
+  const lastProgressBroadcastRef = useRef<number>(0);
+  const progressBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectionRef = useRef<RaceConnection>('offline');
   const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -228,6 +241,8 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   useEffect(() => { lobbyConfigRef.current = lobbyConfig; }, [lobbyConfig]);
   useEffect(() => { roomSizeRef.current = roomSize; }, [roomSize]);
   useEffect(() => { codeRef.current = code; }, [code]);
+  useEffect(() => { presencePlayersRef.current = presencePlayers; }, [presencePlayers]);
+  useEffect(() => { connectionRef.current = connection; }, [connection]);
 
   useEffect(() => {
     if (activeHexes.length === 0) return;
@@ -252,6 +267,11 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     if (emptyRoomTimerRef.current) clearTimeout(emptyRoomTimerRef.current);
     if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+    if (progressBroadcastTimerRef.current) {
+      clearTimeout(progressBroadcastTimerRef.current);
+      progressBroadcastTimerRef.current = null;
+    }
+    setLiveProgressMap({});
     joinTimeoutRef.current = null;
     countdownIntervalRef.current = null;
     countdownWatchdogRef.current = null;
@@ -261,6 +281,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     pingIntervalRef.current = null;
     setCountdown(null);
     setConnection('offline');
+    connectionRef.current = 'offline';
     setHexEnergy(0);
     setActiveHexes([]);
     setSabotageStats(INITIAL_SABOTAGE_STATS);
@@ -271,6 +292,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     teardown();
     setStatus('idle');
     setPresencePlayers([]);
+    setLiveProgressMap({});
     clearDetails();
     setChatMessages([]);
     setCode('');
@@ -291,7 +313,9 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   /** Push local presence, coalescing bursts into one frame per interval. */
   const flushTrack = useCallback(() => {
     lastTrackRef.current = Date.now();
-    channelRef.current?.track(selfStateRef.current);
+    if (channelRef.current && connectionRef.current === 'live') {
+      channelRef.current.track(selfStateRef.current).catch(() => {});
+    }
   }, []);
 
   const queueTrack = useCallback((immediate = false) => {
@@ -335,10 +359,11 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
 
     const isReconnect = mode === 'reconnect';
     setConnection(isReconnect ? 'reconnecting' : 'connecting');
+    connectionRef.current = isReconnect ? 'reconnecting' : 'connecting';
 
     const channel = client.channel(`race_${roomCode}`, {
       config: {
-        presence: { key: myId },
+        presence: { key: `${myId}_${sessionIdRef.current}` },
       },
     });
 
@@ -386,6 +411,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
 
       reconnectAttemptRef.current = attempt + 1;
       setConnection('reconnecting');
+      connectionRef.current = 'reconnecting';
       channelRef.current = null;
       client.removeChannel(channel);
 
@@ -412,7 +438,14 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         const mapped: RacerState[] = [];
         for (const key in state) {
           const presences = state[key] as unknown[];
-          if (presences.length > 0) mapped.push(presences[0] as RacerState);
+          for (const p of presences) {
+            if (p && typeof p === 'object' && (p as RacerState).id) {
+              const racer = p as RacerState;
+              if (!mapped.some(m => m.id === racer.id)) {
+                mapped.push({ ...racer });
+              }
+            }
+          }
         }
 
         // Stable ordering: presenceState() is an unordered object, so without
@@ -433,6 +466,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
                 fail(`No live room with code ${roomCode}.`);
               }, EMPTY_ROOM_GRACE_MS);
             }
+            presencePlayersRef.current = mapped;
             setPresencePlayers(mapped);
             return;
           }
@@ -442,18 +476,19 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           }
         }
 
-        // SECURITY: Deterministic host â€” retain current host if still present in mapped
-        // to prevent host hijacking via client clock drift / skew / late joiners.
-        // If current host has disconnected, earliest joiner wins with lexicographic tiebreaker.
+        // SECURITY: Authoritative & deterministic host election:
+        // 1. Room Creator check: if any racer in mapped is marked as isCreator, they are unconditionally the host.
+        const roomCreator = mapped.find(p => p.isCreator);
         const currentHostStillPresent = Boolean(hostIdRef.current && mapped.some(p => p.id === hostIdRef.current));
         let hostId: string;
-        if (currentHostStillPresent) {
+        if (roomCreator) {
+          hostId = roomCreator.id;
+        } else if (currentHostStillPresent) {
           hostId = hostIdRef.current!;
         } else {
-          // If no current host is tracked yet (e.g. late joiner), prefer an existing player who already claims host or has roomState,
-          // rather than letting clock skew allow a joiner to usurp an existing host.
+          // If no current host is tracked yet (e.g. late joiner / reconnect), prefer an existing player who already claims host or has roomState
           const existingHost = mapped.find(p => p.id !== myId && (p.isHost || (p as { roomState?: unknown }).roomState));
-          if (existingHost && mode === 'join') {
+          if (existingHost) {
             hostId = existingHost.id;
           } else {
             const sorted = [...mapped].sort((a, b) => {
@@ -493,10 +528,7 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           }
         }
 
-        // Host migration. The room's live state only exists in the host's
-        // presence frame, so a promoted client has to adopt it â€” otherwise the
-        // guards above go blind for everyone who joins after the original host
-        // disappears, and a stranger drops into a race in progress.
+        // Host migration.
         const wasHost = selfStateRef.current.isHost;
         if (amHost && !wasHost) {
           selfStateRef.current.isHost = true;
@@ -515,9 +547,10 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           setCountdown(null);
           if (statusRef.current !== 'racing' && statusRef.current !== 'finished') {
             setStatus('lobby');
+            statusRef.current = 'lobby';
             channel.send({ type: 'broadcast', event: 'rematch', payload: {} });
           }
-        } else if (!amHost && wasHost) {
+        } else if (!amHost && wasHost && !selfStateRef.current.isCreator) {
           selfStateRef.current.isHost = false;
           delete selfStateRef.current.roomState;
           queueTrack(true);
@@ -529,34 +562,61 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         if (!amHost && hostPlayer) {
           if (hostPlayer.config) setLobbyConfig(prev => ({ ...prev, ...hostPlayer.config }));
           if (hostPlayer.roomSize) setRoomSize(hostPlayer.roomSize);
+          if (hostPlayer.isRanked !== undefined) {
+            setIsRanked(!!hostPlayer.isRanked);
+            isRankedRef.current = !!hostPlayer.isRanked;
+            selfStateRef.current.isRanked = !!hostPlayer.isRanked;
+          }
         }
 
-        setStatus(prev => (prev === 'joining' ? 'lobby' : prev));
+        if (statusRef.current !== 'racing' && statusRef.current !== 'finished') {
+          setStatus(prev => (prev === 'joining' ? 'lobby' : prev));
+        }
 
         const ranked = [...mapped].sort(compareRacers);
         mapped.forEach(p => {
           if (p.finished) p.rank = ranked.findIndex(r => r.id === p.id) + 1;
         });
 
+        if (statusRef.current === 'racing') {
+          for (const p of mapped) {
+            if (p.finished && p.id !== myIdRef.current && !announcedFinishersRef.current.has(p.id)) {
+              announcedFinishersRef.current.add(p.id);
+              const rankStr = p.rank === 1 ? '1st' : p.rank === 2 ? '2nd' : p.rank === 3 ? '3rd' : `${p.rank}th`;
+              toast(`${p.name} finished ${rankStr} — ${Math.round(p.finishWpm ?? p.wpm ?? 0)} WPM`);
+            }
+          }
+        }
+
         if (mapped.length > 0 && mapped.every(p => p.finished)) {
           setStatus(prev => (prev === 'racing' ? 'finished' : prev));
         }
 
+        presencePlayersRef.current = mapped;
         setPresencePlayers(mapped);
       })
       .on('broadcast', { event: 'start_race' }, ({ payload }) => {
-        // SECURITY: Only accept start_race from the determined host
-        if (payload.from && hostIdRef.current && payload.from !== hostIdRef.current) return;
+        // SECURITY: Only accept start_race from the determined host or room creator
+        const sender = presencePlayersRef.current.find(p => p.id === payload.from);
+        const isLegitHost = payload.from && (
+          payload.from === hostIdRef.current ||
+          sender?.isHost ||
+          sender?.isCreator
+        );
+        if (payload.from && hostIdRef.current && !isLegitHost) return;
         if (countdownWatchdogRef.current) {
           clearTimeout(countdownWatchdogRef.current);
           countdownWatchdogRef.current = null;
         }
         const { text, startTime, matchKey } = payload;
         setStatus('racing');
+        statusRef.current = 'racing';
         setCountdown(null);
+        setLiveProgressMap({});
         if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
         if (matchKey) setRaceId(matchKey);
         clearDetails();
+        announcedFinishersRef.current.clear();
 
         selfStateRef.current = {
           ...selfStateRef.current,
@@ -586,13 +646,17 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         }, 7000);
       })
       .on('broadcast', { event: 'rematch' }, () => {
+        if (statusRef.current === 'racing' && !selfStateRef.current.finished) return; // Do not abort active race if self hasn't finished
         if (countdownWatchdogRef.current) {
           clearTimeout(countdownWatchdogRef.current);
           countdownWatchdogRef.current = null;
         }
         setStatus('lobby');
+        statusRef.current = 'lobby';
         setCountdown(null);
+        setLiveProgressMap({});
         clearDetails();
+        announcedFinishersRef.current.clear();
         selfStateRef.current = {
           ...selfStateRef.current,
           finished: false,
@@ -602,9 +666,34 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
           finishAcc: undefined,
           finishMs: undefined,
           rank: undefined,
-          ready: false,
+          ready: isHostRef.current,
+          ...(isHostRef.current ? { roomState: 'lobby' as const } : {}),
         };
         queueTrack(true);
+      })
+      .on('broadcast', { event: 'racer_progress' }, ({ payload }) => {
+        if (!payload?.id || payload.id === myIdRef.current) return;
+        setLiveProgressMap(prev => {
+          const cur = prev[payload.id];
+          if (
+            cur &&
+            cur.progress === payload.progress &&
+            cur.wpm === payload.wpm &&
+            cur.keystrokes === payload.keystrokes &&
+            cur.accuracy === payload.accuracy
+          ) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [payload.id]: {
+              progress: payload.progress,
+              wpm: payload.wpm,
+              keystrokes: payload.keystrokes,
+              accuracy: payload.accuracy,
+            },
+          };
+        });
       })
       .on('broadcast', { event: 'update_room_size' }, ({ payload }) => {
         if (payload?.roomSize) setRoomSize(payload.roomSize);
@@ -791,11 +880,17 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     clockOffsetRef.current = 0;
     reconnectAttemptRef.current = 0;
 
+    const rankedFlag = !!playerInit.isRanked;
+    setIsRanked(rankedFlag);
+    isRankedRef.current = rankedFlag;
+
     const joinedAt = Date.now();
     selfStateRef.current = {
       id: myId,
       ...playerInit,
       isHost: isCreating,
+      isCreator: isCreating,
+      isRanked: rankedFlag,
       progress: 0,
       wpm: 0,
       accuracy: 100,
@@ -815,27 +910,31 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   }, [teardown, openChannel, clearDetails]);
 
 
-  const createRoom = useCallback((name: string, size?: number, _config?: unknown, elo?: number, roomCode?: string, userId?: string, _isRanked?: boolean, title?: string) => {
+  const createRoom = useCallback((name: string, size?: number, _config?: unknown, elo?: number, roomCode?: string, userId?: string, isRanked?: boolean, title?: string) => {
     const nextCode = roomCode || makeRoomCode();
-    setRoomSize(size || 4);
-    roomSizeRef.current = size || 4;
-    setupChannel(nextCode, true, { name: name || 'Racer', userId, elo, title });
-    selfStateRef.current.roomSize = size || 4;
+    const rankedFlag = !!isRanked;
+    const finalSize = rankedFlag ? 2 : (size || 4);
+    setRoomSize(finalSize);
+    roomSizeRef.current = finalSize;
+    setupChannel(nextCode, true, { name: name || 'Racer', userId, elo, title, isRanked: rankedFlag });
+    selfStateRef.current.roomSize = finalSize;
     selfStateRef.current.config = lobbyConfigRef.current;
+    selfStateRef.current.isRanked = rankedFlag;
   }, [setupChannel]);
 
-  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string, _isRanked?: boolean, title?: string) => {
+  const joinRoom = useCallback((roomCode: string, name: string, elo?: number, userId?: string, isRanked?: boolean, title?: string) => {
     const formattedCode = roomCode.trim().toUpperCase();
     if (!formattedCode) {
       setError('Please enter a room code.');
       return;
     }
-    setupChannel(formattedCode, false, { name: name || 'Racer', userId, elo, title });
+    const rankedFlag = !!isRanked;
+    setupChannel(formattedCode, false, { name: name || 'Racer', userId, elo, title, ...(rankedFlag ? { isRanked: true } : {}) });
   }, [setupChannel]);
 
   // Reads host/config/code through refs so the callback identity never
   // changes. With `[isHost, lobbyConfig, code]` in the dep array, every lobby
-  // tweak rebuilt this function Ã¢â‚¬â€ and with it the whole object returned below.
+  // tweak rebuilt this function Ã¢â‚¬â€  and with it the whole object returned below.
   const startRace = useCallback((textOverride?: string) => {
     if (!channelRef.current || !isHostRef.current) return;
 
@@ -873,7 +972,9 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
         });
 
         setStatus('racing');
+        statusRef.current = 'racing';
         setCountdown(null);
+        setLiveProgressMap({});
         setRaceId(matchKey);
         clearDetails();
         selfStateRef.current = {
@@ -897,15 +998,50 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
 
   const sendProgress = useCallback((progress: number, wpm: number, keystrokes = 0, accuracy = 100) => {
     if (!channelRef.current || selfStateRef.current.finished) return;
-    selfStateRef.current = {
-      ...selfStateRef.current,
-      progress: Math.round(progress),
-      wpm: Math.round(wpm),
-      keystrokes: Math.round(keystrokes),
-      accuracy: Math.round(accuracy),
+    const roundedProgress = Math.round(progress);
+    const roundedWpm = Math.round(wpm);
+    const roundedKeystrokes = Math.round(keystrokes);
+    const roundedAccuracy = Math.round(accuracy);
+
+    // Keep internal state updated silently so presence tracks have latest state when needed
+    selfStateRef.current.progress = roundedProgress;
+    selfStateRef.current.wpm = roundedWpm;
+    selfStateRef.current.keystrokes = roundedKeystrokes;
+    selfStateRef.current.accuracy = roundedAccuracy;
+
+    // Use lightweight broadcast for live race progress instead of expensive presence track
+    const now = Date.now();
+    const elapsed = now - lastProgressBroadcastRef.current;
+    const BROADCAST_THROTTLE_MS = 100;
+
+    const doBroadcast = () => {
+      lastProgressBroadcastRef.current = Date.now();
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'racer_progress',
+        payload: {
+          id: myIdRef.current,
+          progress: roundedProgress,
+          wpm: roundedWpm,
+          keystrokes: roundedKeystrokes,
+          accuracy: roundedAccuracy,
+        },
+      });
     };
-    queueTrack();
-  }, [queueTrack]);
+
+    if (elapsed >= BROADCAST_THROTTLE_MS) {
+      if (progressBroadcastTimerRef.current) {
+        clearTimeout(progressBroadcastTimerRef.current);
+        progressBroadcastTimerRef.current = null;
+      }
+      doBroadcast();
+    } else if (!progressBroadcastTimerRef.current) {
+      progressBroadcastTimerRef.current = setTimeout(() => {
+        progressBroadcastTimerRef.current = null;
+        doBroadcast();
+      }, BROADCAST_THROTTLE_MS - elapsed);
+    }
+  }, []);
 
   const sendFinish = useCallback((payload: RaceFinishPayload) => {
     if (!channelRef.current || selfStateRef.current.finished) return;
@@ -928,7 +1064,20 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     };
     queueTrack(true);
 
-    // Heatmaps and timelines are far too large for a presence frame â€” an
+    // Also send instant broadcast so opponents immediately see 100% finished
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'racer_progress',
+      payload: {
+        id: myId,
+        progress: 100,
+        wpm: Math.round(payload.wpm),
+        keystrokes: payload.keystrokes,
+        accuracy: Math.round(payload.accuracy),
+      },
+    });
+
+    // Heatmaps and timelines are far too large for a presence frame — an
     // oversized payload gets dropped and the finish never lands at all.
     const detail: RacerDetails = {
       heatmapData: payload.heatmap,
@@ -1004,8 +1153,11 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
       channelRef.current.send({ type: 'broadcast', event: 'rematch' });
     }
     setStatus('lobby');
+    statusRef.current = 'lobby';
     setCountdown(null);
+    setLiveProgressMap({});
     clearDetails();
+    announcedFinishersRef.current.clear();
     selfStateRef.current = {
       ...selfStateRef.current,
       finished: false,
@@ -1045,7 +1197,11 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
   }, []);
 
   const chargeHexEnergy = useCallback(({ combo, isError, isMilestone }: { combo: number; isError?: boolean; isMilestone?: boolean }) => {
-    setHexEnergy(prev => calculateHexEnergy({ currentEnergy: prev, combo, isError, isMilestone }));
+    setHexEnergy(prev => {
+      const next = calculateHexEnergy({ currentEnergy: prev, combo, isError, isMilestone });
+      if (Math.abs(next - prev) < 0.05) return prev;
+      return next;
+    });
   }, []);
 
   const castHex = useCallback((hexType: HexType) => {
@@ -1128,10 +1284,23 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     return () => teardown();
   }, [teardown]);
 
-  /** Presence rows enriched with the broadcast-only payloads. */
+  /** Presence rows enriched with live broadcast telemetry and finish details. */
   const players = useMemo(
-    () => presencePlayers.map(p => (details[p.id] ? { ...p, ...details[p.id] } : p)),
-    [presencePlayers, details]
+    () => presencePlayers.map(p => {
+      const live = liveProgressMap[p.id];
+      const detail = details[p.id];
+      return {
+        ...p,
+        ...(live ? {
+          progress: p.finished ? 100 : live.progress,
+          wpm: p.finished ? (p.finishWpm ?? p.wpm) : live.wpm,
+          keystrokes: live.keystrokes ?? p.keystrokes,
+          accuracy: live.accuracy ?? p.accuracy,
+        } : {}),
+        ...(detail ? detail : {}),
+      };
+    }),
+    [presencePlayers, liveProgressMap, details]
   );
 
   const timelines = useMemo(() => {
@@ -1193,10 +1362,11 @@ export const useRace = ({ onStart }: UseRaceOptions) => {
     hexEnergy,
     activeHexes,
     sabotageStats,
+    isRanked,
     ...actions,
   }), [
     status, connection, code, raceId, isHost, players, chatMessages, error,
     emptyRoomCode, countdown, roomSize, lobbyConfig, selfId, timelines,
-    hexEnergy, activeHexes, sabotageStats, actions,
+    hexEnergy, activeHexes, sabotageStats, isRanked, actions,
   ]);
 };

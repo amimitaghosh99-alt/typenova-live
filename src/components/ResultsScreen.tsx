@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Activity, TrendingUp, RotateCcw, Brain, Share2, Play, Ghost, ArrowLeft,
   Sparkles, ShieldCheck, Crosshair, Waves, Lock, Zap, Award, Bot, X, Loader2, Terminal,
@@ -268,6 +268,7 @@ export function ResultsScreen({
         themeName: theme?.name || 'CYBERPUNK',
         glowPrimary: theme?.glowPrimary || '6, 182, 212',
         glowSecondary: theme?.glowSecondary || '34, 211, 238',
+        timelinePoints,
       });
       setShareStatus(result === 'copied' ? 'COPIED TO CLIPBOARD!' : 'PNG DOWNLOADED!');
     } catch {
